@@ -155,18 +155,29 @@ Lo que cada pantalla necesita y la API de `develop` todavía no tiene. No se mod
 
 ### US-34 Consultar propiedades a alquilar — `GET /inmuebles/disponibles` (existe)
 
-- No recibe filtros, orden ni paginación. Mientras tanto, el front filtra, ordena y pagina en el
-  cliente, con las mismas reglas (`apps/web/src/lib/search/busqueda.ts`).
-- No devuelve la publicación (título, precio, fecha): el front pide `GET /inmuebles/:id` por cada
-  inmueble (N+1).
-  **Novedad (24/09):** `develop` sumó `GET /publicaciones/activas`, que devuelve cada publicación
-  activa con su inmueble en un solo pedido (`PublicacionDisponibleDTO`). Resuelve la N+1: cambiar la
-  rama real de `propiedades.service#listarPropiedadesPublicadas`/`#buscarPropiedades` a esa ruta
-  queda para el sprint 2 (hay que sumar un adaptador `PublicacionDisponibleDTO → PropiedadResumen`).
-- Faltan: provincia, barrio, expensas, índice de ajuste, fecha de disponibilidad, fotos, lista de
-  características (hoy `tags` es un solo id) y el estado "alquilada/publicada".
+**Novedad (26/09):** `develop` sumó filtros, orden y paginación reales a `/disponibles`
+(commit "Fix endpoints de consulta propiedades disponibles con nuevo modelo bdd"), y cada item ya
+trae embebida la publicación completa (`precio`, `expensas`, `tipo`, `tags` e `indice_ajuste` como
+objeto `{id, descripcion}`, `foto_principal`, `fecha_disponible`, `provincia`, `barrio`). Con esto:
+
+- Ya no hace falta el N+1 contra `GET /inmuebles/:id` por cada inmueble para tener título y precio:
+  el pedido a `/disponibles` alcanza solo. Sigue pendiente actualizar la rama real de
+  `propiedades.service#listarPropiedadesPublicadas`/`#buscarPropiedades` (hoy en
+  `apps/web/src/services/propiedades.service.ts`) para dejar de pedir el detalle aparte.
+- Los nombres de query que acepta el back **no coinciden** con los que arma el front
+  (`lib/search/busquedaParams.ts`): back usa `barrio, precioMin, precioMax, tipo, dormitorios,
+  ambientes, superficieMin, superficieMax, tags` (csv de ids), `indiceAjuste, page, limit, orden
+  (precio|dormitorios|m2), direccion (asc|desc)`; el front manda `provincia, ciudad, barrio[],
+  tipo[], dorm[], amb[], m2Min, m2Max, tag[], indice, pagina, tamanioPagina`. Hay que mapear un
+  nombre a otro en el service, o alinear ambos lados.
+- El back todavía no filtra por `provincia` ni `ciudad` (solo por `barrio`), y la respuesta cambió
+  de forma: hoy es `{ items, total, page, limit, totalPages }`, no `{ items, page, pageSize, total }`
+  como esperaba el TODO anterior.
+- Sigue habiendo `GET /publicaciones/activas` (24/09) como alternativa que no se está usando; con el
+  `/disponibles` nuevo probablemente ya no haga falta migrar a esa ruta.
 - La ciudad se guarda como "Córdoba"; el front usa "Córdoba Capital" (`normalizarCiudad`).
-- No hay catálogo de ubicaciones (`GET /catalogos/ubicaciones`, propuesto).
+- No hay catálogo de ubicaciones (`GET /catalogos/ubicaciones`, propuesto): sigue armándose en el
+  front a partir de las propiedades disponibles (`propiedades.service#listarUbicaciones`).
 
 ### US-02 Consultar mis propiedades — `GET /mis-alquileres` (existe)
 
@@ -293,8 +304,9 @@ Encontradas al integrar. No se tocó `apps/api`: quedan para el equipo.
    la "sesión" era `x-user-id` con default `'1'`: eso quedó desactualizado por este cambio. El
    `x-user-id` que sigue mandando `apiClient.ts` del front no lo lee nada en el back — ver la nota de
    US-39 en la sección 5.
-3. **Rutas duplicadas**: en `inmuebles.routes.ts`, `GET /disponibles` y `GET /:id` todavía se
-   registran dos veces. (`publicaciones.routes.ts` ya se corrigió: `GET /activas` quedó una sola vez.)
+3. **Rutas duplicadas: corregido (26/09).** En `inmuebles.routes.ts`, `GET /disponibles` y
+   `GET /:id` ya quedaron registradas una sola vez (`publicaciones.routes.ts` ya se había corregido
+   antes: `GET /activas` también quedó una sola vez).
 4. **Mensajes de error**: el manejador de errores responde 400 por defecto con el texto interno del
    `Error` (ej. "Regla de negocio no cumplida: …"). El front lo muestra tal cual, así que tiene que ser
    un texto para el usuario, en español y diciendo qué hacer.
