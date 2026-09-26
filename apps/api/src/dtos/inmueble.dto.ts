@@ -14,24 +14,55 @@ export type InmuebleXTagDTO = SharedInmuebleXTag;
 
 export interface InmuebleDetalleDTO {
   id: number;
-  tipo_inmueble: string;
+
+  tipo: {
+    id: number;
+    descripcion: string;
+  };
+
   direccion: string;
   numero: number;
   piso?: string | null;
   ciudad: string;
-  barrio?: string;
-  provincia?: string;
+  barrio: string;
+  provincia: string;
+
   ambientes: number;
   dormitorios: number;
   banos: number;
-  m2?: number;
-  m2_totales?: number;
-  m2_cubiertos?: number;
+
+  m2_totales: number;
+  m2_cubiertos: number;
+
   descripcion?: string | null;
-  tag?: string | null;
-  tags?: string[];
-  servicio?: string | null;
-  id_locador: number;
+
+  precio: number;
+  expensas: number;
+
+  indice_ajuste: {
+    id: number;
+    descripcion: string;
+  } | null;
+
+  fecha_disponible?: string | null;
+
+  tags: {
+    id: number;
+    descripcion: string;
+  }[];
+
+  servicio: {
+    id: number;
+    nombre: string;
+    descripcion?: string | null;
+  } | null;
+
+  fotos: {
+    id: number;
+    url: string;
+    es_principal: boolean;
+    orden: number;
+  }[];
 }
 
 export interface CreateInmuebleDTO {

@@ -160,10 +160,13 @@ Lo que cada pantalla necesita y la API de `develop` todavía no tiene. No se mod
 trae embebida la publicación completa (`precio`, `expensas`, `tipo`, `tags` e `indice_ajuste` como
 objeto `{id, descripcion}`, `foto_principal`, `fecha_disponible`, `provincia`, `barrio`). Con esto:
 
-- Ya no hace falta el N+1 contra `GET /inmuebles/:id` por cada inmueble para tener título y precio:
-  el pedido a `/disponibles` alcanza solo. Sigue pendiente actualizar la rama real de
+- Ya no hace falta el N+1 contra el detalle de cada inmueble para tener título y precio: el pedido a
+  `/disponibles` alcanza solo. Sigue pendiente actualizar la rama real de
   `propiedades.service#listarPropiedadesPublicadas`/`#buscarPropiedades` (hoy en
   `apps/web/src/services/propiedades.service.ts`) para dejar de pedir el detalle aparte.
+- **Renombrada (26/09):** `GET /inmuebles/:id` pasó a ser `GET /inmuebles/disponibles/:id` (trae el
+  detalle de una propiedad disponible según su id). Ya está actualizada en
+  `propiedades.service.ts` y en `backend-dtos.ts#InmuebleDetalleResponse`.
 - Los nombres de query que acepta el back **no coinciden** con los que arma el front
   (`lib/search/busquedaParams.ts`): back usa `barrio, precioMin, precioMax, tipo, dormitorios,
   ambientes, superficieMin, superficieMax, tags` (csv de ids), `indiceAjuste, page, limit, orden

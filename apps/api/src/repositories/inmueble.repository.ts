@@ -13,6 +13,7 @@ import { getSupabaseAdmin } from '../config/supabase';
 export interface IInmuebleRepository {
   findAll(): Promise<InmuebleDTO[]>;
   findById(id: number): Promise<InmuebleDTO | null>;
+  findDisponibleById(id: number): Promise<any | null>;
   findByLocadorId(locadorId: number): Promise<InmuebleDTO[]>;
   buscarDisponibles(filtros: FiltrosInmueblesDisponiblesDTO): Promise<InmueblesDisponiblesResultadoDTO>;
   create(data: Omit<InmuebleDTO, 'id'>): Promise<InmuebleDTO>;
@@ -35,6 +36,55 @@ export class InmuebleRepository implements IInmuebleRepository {
     const { data, error } = await getSupabaseAdmin().from('inmueble').select('*').eq('id', id).maybeSingle();
     if (error) throw error;
     return data as InmuebleDTO | null;
+  }
+
+  async findDisponibleById(id: number): Promise<any | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('inmueble')
+      .select(`
+        *,
+        tipo_inmueble (
+          id,
+          descripcion
+        ),
+        servicio (
+          id,
+          nombre,
+          descripcion
+        ),
+        contrato!inner (
+          id,
+          monto_alquiler,
+          expensas,
+          indice_aumento,
+          frecuencia_ajuste,
+          tipo_indice (
+            id,
+            descripcion
+          )
+        ),
+        foto_inmueble (
+          id,
+          url,
+          es_principal,
+          orden
+        ),
+        inmueble_x_tag (
+          id_tag,
+          tags_inmueble (
+            id,
+            descripcion,
+            estado
+          )
+        )
+      `)
+      .eq('id', id)
+      .in('estado_alquiler', ['publicado', 'alquilado_disponible'])
+      .maybeSingle();
+  
+    if (error) throw error;
+  
+    return data;
   }
 
   async findByLocadorId(locadorId: number): Promise<InmuebleDTO[]> {

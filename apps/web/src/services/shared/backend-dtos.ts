@@ -12,7 +12,7 @@
  */
 
 /**
- * Respuesta de `GET /api/v1/inmuebles/:id` (existe).
+ * Respuesta de `GET /api/v1/inmuebles/disponibles/:id` (existe).
  * Copia de `InmuebleDetalleDTO` de `apps/api/src/dtos/index.ts`.
  */
 export interface InmuebleDetalleResponse {

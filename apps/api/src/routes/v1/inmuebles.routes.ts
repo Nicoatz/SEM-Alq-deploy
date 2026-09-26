@@ -121,7 +121,29 @@ router.get(
   "/disponibles",
   inmuebleController.getInmueblesDisponibles.bind(inmuebleController)
 );
-router.get("/:id", inmuebleController.getById.bind(inmuebleController));
+/**
+ * @openapi
+ * /api/v1/inmuebles/disponibles/{id}:
+ *   get:
+ *     summary: Consultar el detalle de una propiedad disponible
+ *     tags:
+ *       - Inmuebles
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID del inmueble
+ *     responses:
+ *       200:
+ *         description: Detalle de la propiedad disponible
+ *       400:
+ *         description: El ID proporcionado no es válido
+ *       404:
+ *         description: Inmueble no encontrado o no disponible
+ */
+router.get("/disponibles/:id", inmuebleController.getById.bind(inmuebleController));
 
 router.post(
   "/",

@@ -82,8 +82,8 @@ export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
 /**
  * US-34 Consultar propiedades a alquilar — todas las buscables, sin filtros
  * ni paginación (la landing filtra en el cliente y muestra una vista previa).
- * @backend GET /api/v1/inmuebles/disponibles   (existe · no devuelve la publicación: precio y título)
- *          GET /api/v1/inmuebles/:id            (existe · se usa para traer la publicación de cada una)
+ * @backend GET /api/v1/inmuebles/disponibles       (existe · no devuelve la publicación: precio y título)
+ *          GET /api/v1/inmuebles/disponibles/:id   (existe · se usa para traer la publicación de cada una)
  * @returns PropiedadResumen[]
  * TODO(backend): que `/inmuebles/disponibles` incluya la publicación de cada
  * inmueble (precio, título, fecha). Mientras tanto se hace un pedido de
@@ -104,7 +104,7 @@ export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]>
 async function traerDisponiblesDelBack(query?: Record<string, string | string[]>): Promise<PropiedadResumen[]> {
   const inmuebles = await apiRequest<Inmueble[]>('/inmuebles/disponibles', { query })
   const detalles = await Promise.all(
-    inmuebles.map((inmueble) => apiRequest<InmuebleDetalleResponse>(`/inmuebles/${inmueble.id}`)),
+    inmuebles.map((inmueble) => apiRequest<InmuebleDetalleResponse>(`/inmuebles/disponibles/${inmueble.id}`)),
   )
   return inmuebles.map((inmueble, index) => inmuebleToPropiedadResumen(inmueble, detalles[index]?.publicacion ?? null))
 }
