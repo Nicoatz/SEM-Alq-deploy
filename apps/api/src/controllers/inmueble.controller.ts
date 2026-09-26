@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { inmuebleService } from '../services/inmueble.service';
-import { ApiResponse, InmuebleDTO, InmuebleDetalleDTO } from '../dtos';
+import { ApiResponse, InmuebleDTO, InmuebleDetalleDTO, FiltrosInmueblesDisponiblesDTO,
+  InmueblesDisponiblesResultadoDTO, } from '../dtos';
 
 export class InmuebleController {
   async getAll(req: Request, res: Response<ApiResponse<InmuebleDTO[]>>, next: NextFunction): Promise<void> {
@@ -45,13 +46,82 @@ export class InmuebleController {
     }
   }
 
-  async getInmueblesDisponibles(req: Request, res: Response<ApiResponse<InmuebleDTO[]>>, next: NextFunction): Promise<void> {
+  async getInmueblesDisponibles(
+    req: Request,
+    res: Response<ApiResponse<InmueblesDisponiblesResultadoDTO>>,
+    next: NextFunction
+  ): Promise<void> {
     try {
-      const inmuebles = await inmuebleService.getInmueblesDisponibles();
+      const filtros: FiltrosInmueblesDisponiblesDTO = {
+        barrio: req.query.barrio
+          ? String(req.query.barrio)
+          : undefined,
+  
+        precioMin: req.query.precioMin
+          ? Number(req.query.precioMin)
+          : undefined,
+  
+        precioMax: req.query.precioMax
+          ? Number(req.query.precioMax)
+          : undefined,
+  
+        tipo: req.query.tipo
+          ? Number(req.query.tipo)
+          : undefined,
+  
+        dormitorios: req.query.dormitorios
+          ? Number(req.query.dormitorios)
+          : undefined,
+  
+        ambientes: req.query.ambientes
+          ? Number(req.query.ambientes)
+          : undefined,
+  
+        superficieMin: req.query.superficieMin
+          ? Number(req.query.superficieMin)
+          : undefined,
+  
+        superficieMax: req.query.superficieMax
+          ? Number(req.query.superficieMax)
+          : undefined,
+  
+        tags: req.query.tags
+          ? String(req.query.tags)
+              .split(',')
+              .map(Number)
+          : undefined,
+  
+        indiceAjuste: req.query.indiceAjuste
+          ? Number(req.query.indiceAjuste)
+          : undefined,
+  
+        page: req.query.page
+          ? Number(req.query.page)
+          : undefined,
+  
+        limit: req.query.limit
+          ? Number(req.query.limit)
+          : undefined,
+  
+        orden: req.query.orden as
+          | 'precio'
+          | 'dormitorios'
+          | 'm2'
+          | undefined,
+  
+        direccion: req.query.direccion as
+          | 'asc'
+          | 'desc'
+          | undefined
+      };
+  
+      const resultado =
+        await inmuebleService.getInmueblesDisponibles(filtros);
+  
       res.status(200).json({
         success: true,
         message: 'Propiedades disponibles obtenidas exitosamente',
-        data: inmuebles
+        data: resultado
       });
     } catch (error) {
       next(error);

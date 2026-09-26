@@ -82,3 +82,71 @@ export interface UpdateInmuebleDTO {
 export type CreateInmuebleCompletoDTO = CreateInmuebleCompletoPayload;
 export type MisAlquileresDTO = MisAlquileresItem;
 
+export interface FiltrosInmueblesDisponiblesDTO {
+  barrio?: string;
+  precioMin?: number;
+  precioMax?: number;
+  tipo?: number;
+  dormitorios?: number;
+  ambientes?: number;
+  superficieMin?: number;
+  superficieMax?: number;
+  tags?: number[];
+  indiceAjuste?: number;
+
+  page?: number;
+  limit?: number;
+
+  orden?: 'precio' | 'dormitorios' | 'm2';
+  direccion?: 'asc' | 'desc';
+}
+
+export interface InmuebleDisponibleDTO {
+  id: number;
+
+  tipo: {
+    id: number;
+    descripcion: string;
+  };
+
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  ciudad: string;
+  barrio: string;
+  provincia: string;
+
+  ambientes: number;
+  dormitorios: number;
+  banos: number;
+
+  m2_totales: number;
+  m2_cubiertos: number;
+
+  descripcion?: string | null;
+
+  precio: number;
+  expensas: number;
+
+  indice_ajuste: {
+    id: number;
+    descripcion: string;
+  } | null;
+
+  fecha_disponible?: string | null;
+
+  tags: {
+    id: number;
+    descripcion: string;
+  }[];
+
+  foto_principal: string | null;
+}
+
+export interface InmueblesDisponiblesResultadoDTO {
+  items: InmuebleDisponibleDTO[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}

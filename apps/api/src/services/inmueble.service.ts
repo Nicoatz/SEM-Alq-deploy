@@ -4,7 +4,9 @@ import {
   CreateInmuebleDTO,
   UpdateInmuebleDTO,
   CreateInmuebleCompletoDTO,
-  MisAlquileresDTO
+  MisAlquileresDTO,
+  FiltrosInmueblesDisponiblesDTO,
+  InmueblesDisponiblesResultadoDTO,
 } from '../dtos';
 import { IInmuebleRepository, inmuebleRepository } from '../repositories/inmueble.repository';
 import { IContratoRepository, contratoRepository } from '../repositories/contrato.repository';
@@ -52,9 +54,10 @@ export class InmuebleService {
     };
   }
 
-  async getInmueblesDisponibles(): Promise<InmuebleDTO[]> {
-    const inmuebles = await this.inmRepo.findAll();
-    return inmuebles.filter(i => i.estado_alquiler === 'publicado');
+  async getInmueblesDisponibles(
+    filtros: FiltrosInmueblesDisponiblesDTO
+  ): Promise<InmueblesDisponiblesResultadoDTO> {
+    return await this.inmRepo.buscarDisponibles(filtros);
   }
 
   async create(data: CreateInmuebleDTO): Promise<InmuebleDTO> {
