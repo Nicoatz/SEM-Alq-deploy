@@ -24,10 +24,3 @@
   border-radius: var(--rentar-radius-pill);
   font-weight: 700;
 }
-
-/* En el celular el botón ocupa todo el ancho de la tarjeta (diseño, 05b móvil). */
-@media (max-width: 639px) {
-  .action {
-    width: 100%;
-  }
-}
