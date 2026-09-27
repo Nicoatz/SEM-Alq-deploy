@@ -5,7 +5,8 @@
  *
  * Qué es: el locador ve su panel de inicio (`PanelLocador`: plata del mes,
  * reclamos y contratos, o el onboarding si no tiene propiedades). El
- * locatario ve un placeholder: su panel no es del Sprint 1.
+ * locatario ve la versión mínima de su panel (`PanelLocatario`: buscar o
+ * publicar, diseño "Panel de inicio" · 05b); su panel completo es de otro sprint.
  * Cubre: sin US en Sprint 0 (inicio del locador, mapa A3); los conteos de
  * propiedades salen de US-02.
  *
@@ -13,11 +14,11 @@
  * sin recargar (cambio de rol del UserMenu).
  * Entra desde: el login, el ítem "Mi panel" del menú y el cambio de rol.
  */
-import { PlaceholderScreen } from '@/components/PlaceholderScreen'
 import { PanelLocador } from '@/components/panel/PanelLocador'
+import { PanelLocatario } from '@/components/panel/PanelLocatario'
 import { useAuth } from '@/lib/auth/AuthProvider'
 
-/** Inicio del panel: el del locador o el placeholder del locatario, según el rol activo. */
+/** Inicio del panel: el del locador o el mínimo del locatario, según el rol activo. */
 export default function PanelInicioPage() {
   const { user, activeRole } = useAuth()
   // El layout ya esperó al usuario: acá siempre hay sesión.
@@ -28,11 +29,5 @@ export default function PanelInicioPage() {
     return <PanelLocador key={user.id} nombre={user.nombre} />
   }
 
-  return (
-    <PlaceholderScreen
-      title="Mi panel"
-      subtitle="Tu alquiler, tus pagos y tus reclamos, en un solo lugar."
-      userStory="Panel del locatario (sin US en Sprint 0)"
-    />
-  )
+  return <PanelLocatario nombre={user.nombre} />
 }

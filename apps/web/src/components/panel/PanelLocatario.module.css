@@ -1,0 +1,33 @@
+/* Panel mínimo del locatario (Claude Design, "Panel de inicio" · 05b). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Dos tarjetas lado a lado en escritorio; una debajo de la otra en el celular. */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  padding: 0.5rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-xl);
+  background: var(--rentar-color-bg-surface);
+}
+
+.action {
+  border-radius: var(--rentar-radius-pill);
+  font-weight: 700;
+}
+
+/* En el celular el botón ocupa todo el ancho de la tarjeta (diseño, 05b móvil). */
+@media (max-width: 639px) {
+  .action {
+    width: 100%;
+  }
+}
