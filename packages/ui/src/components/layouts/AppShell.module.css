@@ -91,6 +91,49 @@
   margin-left: auto;
 }
 
+/* ─── Acción del encabezado (Paneles · 05b: "Publicar propiedad") ─── */
+
+.headerAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4375rem;
+  height: 2.375rem;
+  padding: 0 0.9375rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.18);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-bg-surface);
+  color: var(--rentar-color-text-primary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  flex: none;
+}
+
+.headerAction:hover,
+.headerAction:focus-visible {
+  border-color: var(--rentar-color-blue);
+  color: var(--rentar-color-blue);
+}
+
+.headerActionIcon {
+  display: inline-flex;
+  color: var(--rentar-color-blue);
+  font-size: 0.9375rem;
+}
+
+/* En el menú hamburguesa: ancho completo y 44px de alto para el dedo. */
+.drawerAction {
+  padding: 0.5rem 0.75rem 0.25rem;
+}
+
+.headerActionBlock {
+  width: 100%;
+  height: 2.75rem;
+}
+
 .content {
   padding: 1.5rem;
   background: var(--rentar-color-bg-page);
@@ -154,6 +197,11 @@
 @media (max-width: 767px) {
   .header {
     padding: 0 0.75rem;
+  }
+
+  /* La acción del encabezado pasa a la hoja del UserMenu (y sigue en el menú hamburguesa). */
+  .headerActionBar {
+    display: none;
   }
 
   /* Cuentas con dos roles: el chip reemplaza al título y al selector del header. */

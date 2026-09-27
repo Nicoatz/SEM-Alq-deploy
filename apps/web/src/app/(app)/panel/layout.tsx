@@ -15,6 +15,12 @@
  * 04). Reemplazan al viejo ítem "Cambiar a mi panel de…" de la tanda 2. En
  * escritorio sigue además el selector del header (`RoleContextSwitcher`).
  *
+ * "Publicar propiedad" (Claude Design, Paneles · 05b): acción del encabezado
+ * para cualquier usuario con sesión, locatario o locador, porque cualquiera
+ * puede publicar (regla del equipo, 27/09/2026: al publicar la primera se
+ * vuelve locador). En móvil pasa al menú hamburguesa y a la hoja del UserMenu
+ * (lo resuelve `AppShell#headerAction`). No se muestra en el alta misma.
+ *
  * Barra móvil: el título sale del ítem activo del menú; el alta
  * (`/panel/propiedades/nueva`) tiene su propia barra, "‹ Publicar propiedad ·
  * Salir" (Alta de propiedad · 09).
@@ -32,7 +38,7 @@ import { BellOutlined, LeftOutlined, UserOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import type { ResumenContextoRol, UserRole } from '@rentar/shared-types'
-import { AppShell, RoleContextSwitcher, type UserMenuItem, type UserMenuRoleOption } from '@rentar/ui'
+import { AppShell, RoleContextSwitcher, type AppShellHeaderAction, type UserMenuItem, type UserMenuRoleOption } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
 import { navItemsByRole, type PanelRole } from '@/lib/navigation/navConfig'
@@ -51,6 +57,9 @@ function isPanelRole(role: UserRole): role is PanelRole {
 
 /** Ruta del alta: en móvil tiene su propia barra (Alta de propiedad · 09). */
 const ALTA_PATH = '/panel/propiedades/nueva'
+
+/** "Publicar propiedad" del encabezado (Paneles · 05b), para cualquier rol. */
+const PUBLICAR_ACTION: AppShellHeaderAction = { label: 'Publicar propiedad', href: ALTA_PATH, 'data-testid': 'panel-publicar' }
 
 /** Títulos de la barra móvil para las rutas que no están en el menú lateral. */
 const MOBILE_TITLE_BY_PATH: Record<string, string> = {
@@ -173,6 +182,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
       roleOptions={roleOptions}
       onRoleChange={handleRoleChange}
       mobileHeader={pathname === ALTA_PATH ? <AltaMobileBar onBack={() => router.back()} /> : undefined}
+      headerAction={pathname === ALTA_PATH ? undefined : PUBLICAR_ACTION}
       contextSwitcher={
         hasTwoRoles ? (
           <RoleContextSwitcher
