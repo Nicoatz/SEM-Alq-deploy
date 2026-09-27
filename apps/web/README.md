@@ -43,7 +43,7 @@ Cuentas de prueba del modo mock (contraseña `Rentar2026`):
 |---|---|---|
 | `nicolas.arrieta@rentar.test` | locador | Panel con datos, Mis propiedades (7), alta |
 | `sofia.ledesma@rentar.test` | locador y locatario | Cambio de rol ("Viendo como") |
-| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/buscar`) |
+| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/panel`, la versión mínima: buscar o publicar) |
 
 Un locador recién registrado en `/registro` ve el panel vacío (onboarding). Lo creado se guarda en
 el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo borra.

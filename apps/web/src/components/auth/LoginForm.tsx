@@ -27,7 +27,6 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button, Form, Input } from 'antd'
-import type { UsuarioSesion } from '@rentar/shared-types'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { reglasEmail, reglasPasswordLogin } from '@/lib/validation/usuario.rules'
 import { ServiceError } from '@/services/shared/errors'
@@ -49,12 +48,12 @@ interface LoginFormProps {
 }
 
 /**
- * Adónde ir después del login si no hay `next`: el locador a su panel; una
- * cuenta solo locataria, a buscar (su panel no es del Sprint 1).
+ * Adónde ir después del login si no hay `next`: a `/panel`, para los dos
+ * roles. El locador ve su panel de inicio; el locatario, la versión mínima
+ * (buscar o publicar, "Panel de inicio" · 05b). Antes el locatario iba a
+ * `/buscar` porque su panel todavía no existía.
  */
-function defaultDestination(usuario: UsuarioSesion): string {
-  return usuario.roles.includes('locador') ? '/panel' : '/buscar'
-}
+const DEFAULT_DESTINATION = '/panel'
 
 /** Formulario de inicio de sesión. */
 export function LoginForm({ next, initialEmail }: LoginFormProps) {
@@ -71,7 +70,7 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
   // sentido mostrar el login: se sigue de largo.
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace(next ?? defaultDestination(user))
+      router.replace(next ?? DEFAULT_DESTINATION)
     }
   }, [isLoading, user, next, router])
 
@@ -82,8 +81,8 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
     setCredentialsError(false)
     setServerError(null)
     try {
-      const usuario = await login({ email: values.email, password: values.password })
-      router.replace(next ?? defaultDestination(usuario))
+      await login({ email: values.email, password: values.password })
+      router.replace(next ?? DEFAULT_DESTINATION)
     } catch (error) {
       if (error instanceof ServiceError && error.code === 'unauthorized') {
         // US-39: mensaje genérico arriba y el campo de contraseña marcado,
