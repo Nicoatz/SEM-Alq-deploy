@@ -13,13 +13,15 @@
  */
 import type {
   AdjustmentIndex,
+  BusquedaFiltros,
   CharacteristicKey,
   CreateFotoPayload,
   CreateInmuebleCompletoPayload,
   EstadoAlquiler,
-  Inmueble,
   MedioPagoPreferido,
   MisAlquileresItem,
+  OrdenBusqueda,
+  Paginado,
   PropertyStatus,
   PropertyType,
   PropiedadLocador,
@@ -28,11 +30,12 @@ import type {
 } from '@rentar/shared-types'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
+import type { DisponiblesQuery, InmuebleDisponibleResponse, InmueblesDisponiblesResponse } from '../shared/backend-dtos'
 import { formatApproxAddress, formatFloorUnit } from './direccion'
 
 /**
  * Foto que se muestra cuando el inmueble no tiene fotos (o el endpoint no
- * las devuelve, como `/inmuebles/disponibles`). Vive en
+ * las devuelve). Vive en
  * `lib/imagenes/fotoConRespaldo.ts`, que también la usa cuando una foto no carga.
  */
 export { PLACEHOLDER_PHOTO_SRC }
@@ -80,7 +83,7 @@ export function tagIdFromCharacteristic(key: CharacteristicKey): number | null {
 
 /**
  * Descripción de un tag (`tags_inmueble.descripcion`, como la devuelven
- * `/mis-alquileres` e `/inmuebles/:id`) → `CharacteristicKey`. `null` si no
+ * `/mis-alquileres` y `/inmuebles/disponibles`) → `CharacteristicKey`. `null` si no
  * tiene equivalente.
  * NOTA: se compara por el comienzo del texto, sin tildes ni mayúsculas, para
  * no romperse si backend retoca la descripción ("Balcón con vista abierta").
@@ -96,8 +99,7 @@ export function characteristicFromTagDescripcion(descripcion: string): Character
 }
 
 /**
- * `MisAlquileresItem.tipo_inmueble` / `InmuebleDetalle.tipo_inmueble` (la
- * descripción del tipo, ej. "Departamento") → `PropertyType`. Una
+ * `MisAlquileresItem.tipo_inmueble` (la descripción del tipo, ej. "Departamento") → `PropertyType`. Una
  * descripción desconocida se muestra como departamento.
  */
 function propertyTypeFromDescripcion(descripcion: string): PropertyType {
@@ -115,6 +117,12 @@ function propertyTypeFromDescripcion(descripcion: string): PropertyType {
  * contrato con CAC se muestra sin índice.
  */
 const INDICE_ID: Record<AdjustmentIndex, number> = { ICL: 1, IPC: 2 }
+
+/** `tipo_indice.id` → `AdjustmentIndex`; `null` para CAC o un id desconocido. */
+function adjustmentIndexFromId(id: number): AdjustmentIndex | null {
+  const entry = Object.entries(INDICE_ID).find(([, value]) => value === id)
+  return entry ? (entry[0] as AdjustmentIndex) : null
+}
 
 /**
  * Descripción del índice (`MisAlquileresItem.contrato.indice_aumento`, ej.
@@ -242,68 +250,183 @@ export function tituloDePropiedadNueva(nueva: Pick<PropiedadNueva, 'type' | 'roo
   return `${TYPE_TITLE[nueva.type]} de ${nueva.rooms} ${nueva.rooms === 1 ? 'ambiente' : 'ambientes'}`
 }
 
-// ─── Inmueble → PropiedadResumen (US-34) ────────────────────────────────
-
-/** Datos de `GET /inmuebles/:id` que completan el resumen (el listado no los trae). */
-export interface DetalleResumen {
-  /** Descripciones de los tags (`InmuebleDetalleResponse.tags`). */
-  tags: string[]
-}
+// ─── Disponibles → PropiedadResumen (US-34) ─────────────────────────────
 
 /**
- * `Inmueble` (de `GET /inmuebles/disponibles`) → `PropiedadResumen`
- * (tarjeta de `/buscar`, US-34).
+ * Item de `GET /inmuebles/disponibles` → `PropiedadResumen` (tarjeta de la
+ * landing y de `/buscar`, US-34).
  *
  * Campo por campo, lo que el back todavía no devuelve (brechas en
  * `docs/HANDOFF-BACKEND.md`):
  * - `title`: el back no tiene título; se arma con el tipo y los ambientes,
  *   igual que en el alta.
  * - `address`: aproximada ("calle al 400"), ver la NOTA de privacidad en direccion.ts.
- * - `expenses`: están en `contrato`, que el listado no trae. TODO(backend):
- *   sumarlas. Mientras tanto `null` (no se muestra nada; nunca "Sin expensas").
- * - `adjustmentIndex`: también en `contrato`; `null`. TODO(backend): sumar
- *   el índice del contrato al listado.
- * - `characteristics`: el listado no trae tags; salen de `detalle` (un pedido
- *   por inmueble a `/inmuebles/:id`, ver el service). TODO(backend): sumar
- *   los tags al listado para sacar el N+1.
- * - `imageSrc` / `photoSrcs`: el listado no trae fotos; {@link PLACEHOLDER_PHOTO_SRC}.
- *   TODO(backend): sumar las fotos (o al menos la principal).
- * - `publishedAt`: el back no guarda la fecha de publicación; `''` (el orden
- *   "Más recientes" queda como venga). TODO(db): guardar la fecha de publicación.
- * - `status`: `/disponibles` solo devuelve `publicado`. TODO(backend): sumar
- *   las alquiladas con `fecha_disponible` (`alquilada_publicada`).
+ * - `priceMonthly`, `expenses` y `adjustmentIndex`: del contrato del inmueble
+ *   (`precio`, `expensas`, `indice_ajuste`). CAC → `null` (el front no lo ofrece).
+ * - `characteristics`: de los ids de `tags` (un tag sin equivalente se descarta).
+ * - `imageSrc` / `photoSrcs`: solo la `foto_principal`; si no tiene fotos,
+ *   {@link PLACEHOLDER_PHOTO_SRC}.
+ * - `publishedAt`: el back no guarda la fecha de publicación; `''`. TODO(db):
+ *   guardar la fecha de publicación.
+ * - `status`: el listado no devuelve `estado_alquiler`. Una con
+ *   `fecha_disponible` se muestra como alquilada/publicada ("Disponible
+ *   desde"). TODO(backend): sumar `estado_alquiler` al item.
  */
-export function inmuebleToPropiedadResumen(inmueble: Inmueble, detalle: DetalleResumen | null): PropiedadResumen {
-  const type = propertyTypeFromTipoId(inmueble.tipo)
-  const barrio = barrioDe(inmueble.barrio)
-  const status = statusDeInmueble(inmueble.estado_alquiler, inmueble.fecha_disponible)
-  const characteristics = (detalle?.tags ?? [])
-    .map(characteristicFromTagDescripcion)
-    .filter((key): key is CharacteristicKey => key !== null)
+export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleResponse): PropiedadResumen {
+  const type = propertyTypeFromTipoId(item.tipo.id)
+  const barrio = barrioDe(item.barrio)
+  const characteristics = item.tags
+    .map((tag) => CHARACTERISTIC_BY_TAG_ID[tag.id] ?? characteristicFromTagDescripcion(tag.descripcion))
+    .filter((key): key is CharacteristicKey => Boolean(key))
+  const foto = item.foto_principal ?? PLACEHOLDER_PHOTO_SRC
 
   return {
-    id: String(inmueble.id),
-    title: tituloDePropiedadNueva({ type, rooms: inmueble.ambientes }),
-    address: formatApproxAddress(inmueble.direccion, inmueble.numero),
-    province: inmueble.provincia,
-    city: normalizarCiudad(inmueble.ciudad),
+    id: String(item.id),
+    title: tituloDePropiedadNueva({ type, rooms: item.ambientes }),
+    address: formatApproxAddress(item.direccion, item.numero),
+    province: item.provincia,
+    city: normalizarCiudad(item.ciudad),
     neighborhoodSlug: barrio.slug,
     neighborhoodName: barrio.name,
     type,
-    priceMonthly: aNumero(inmueble.precio_publicado),
-    expenses: null,
-    bedrooms: inmueble.dormitorios,
-    rooms: inmueble.ambientes,
-    areaM2: inmueble.m2_totales,
-    adjustmentIndex: null,
+    priceMonthly: aNumero(item.precio),
+    expenses: aNumero(item.expensas),
+    bedrooms: item.dormitorios,
+    rooms: item.ambientes,
+    areaM2: aNumero(item.m2_totales),
+    adjustmentIndex: item.indice_ajuste ? adjustmentIndexFromId(item.indice_ajuste.id) : null,
     characteristics: [...new Set(characteristics)],
-    description: inmueble.descripcion ?? '',
-    availableFrom: inmueble.fecha_disponible ?? null,
-    imageSrc: PLACEHOLDER_PHOTO_SRC,
-    photoSrcs: [PLACEHOLDER_PHOTO_SRC],
+    description: item.descripcion ?? '',
+    availableFrom: item.fecha_disponible ?? null,
+    imageSrc: foto,
+    photoSrcs: [foto],
     publishedAt: '',
-    status: status === 'alquilada_publicada' ? 'alquilada_publicada' : 'publicada',
+    status: item.fecha_disponible ? 'alquilada_publicada' : 'publicada',
   }
+}
+
+/** Una página de `/inmuebles/disponibles` → `Paginado<PropiedadResumen>` de `/buscar`. */
+export function disponiblesToPaginado(respuesta: InmueblesDisponiblesResponse): Paginado<PropiedadResumen> {
+  return {
+    items: respuesta.items.map(inmuebleDisponibleToPropiedadResumen),
+    page: respuesta.page,
+    pageSize: respuesta.limit,
+    total: respuesta.total,
+  }
+}
+
+// ─── Filtros de /buscar → query de /inmuebles/disponibles (US-34) ───────
+
+/**
+ * Resultado de {@link consultaDeDisponibles}.
+ * - `exacta: true`: el back puede resolver la búsqueda tal cual; `query` va
+ *   directo a `/inmuebles/disponibles` y la página que vuelve es la que se muestra.
+ * - `exacta: false`: algún filtro u orden no tiene equivalente exacto en el
+ *   back; hay que traer todas las disponibles y filtrar, ordenar y paginar en
+ *   el cliente (`lib/search/busqueda.ts`), igual que en modo mock.
+ */
+export type ConsultaDisponibles = { exacta: true; query: DisponiblesQuery } | { exacta: false }
+
+/** `true` si una selección múltiple de cantidades se puede mandar como un número exacto. */
+function cantidadExacta(elegidas: number[]): boolean {
+  return elegidas.length === 1 && elegidas[0] < 4
+}
+
+/**
+ * Traduce los filtros, el orden y la página de `/buscar` a los query params
+ * de `GET /inmuebles/disponibles`. Es el ÚNICO lugar donde se mapean los
+ * nombres de la URL del front (`lib/search/busquedaParams.ts`) a los del back.
+ *
+ * | Front (`BusquedaFiltros` / orden) | Back                               | Exacta si…                              |
+ * |-----------------------------------|------------------------------------|-----------------------------------------|
+ * | `neighborhoodSlugs`               | `barrio` (texto, "contiene")       | hay 0 o 1 barrio y está en el catálogo  |
+ * | `minPrice` / `maxPrice`           | `precioMin` / `precioMax`          | siempre                                 |
+ * | `types`                           | `tipo` (id)                        | hay 0 o 1 tipo                          |
+ * | `bedrooms` / `rooms`              | `dormitorios` / `ambientes`        | hay 0 o 1 valor y no es "4 o más"       |
+ * | `minAreaM2` / `maxAreaM2`         | `superficieMin` / `superficieMax`  | siempre                                 |
+ * | `characteristics`                 | `tags` (ids)                       | hay 0 o 1 y el tag existe en el back    |
+ * | `adjustmentIndex`                 | `indiceAjuste` (id)                | siempre                                 |
+ * | `province` / `city`               | —                                  | ver la NOTA de abajo                    |
+ * | `dormitorios_desc` / `m2_desc`    | `orden=dormitorios\|m2&direccion=desc` | siempre                             |
+ * | `predeterminado` / `recientes`    | sin orden (id descendente)         | siempre                                 |
+ * | `precio_asc` / `precio_desc`      | `orden=precio`                     | nunca (ver el TODO)                     |
+ *
+ * Por qué hay casos no exactos: el back acepta UN valor por filtro y
+ * cantidades exactas, y con `tags` devuelve las que tengan CUALQUIERA de los
+ * elegidos. US-34 pide selección múltiple, "4 o más" y "que cumplan con
+ * todos los criterios seleccionados".
+ * TODO(backend): aceptar varios valores por filtro, "4 o más" y tags con
+ * todas las elegidas, para que toda búsqueda se resuelva en el servidor.
+ * TODO(backend): `orden=precio` no ordena los inmuebles (ordena el contrato
+ * embebido: asc y desc devuelven lo mismo). Hasta que se arregle, los
+ * órdenes por precio se resuelven en el cliente.
+ * NOTA: `recientes` se manda sin orden: el back no guarda la fecha de
+ * publicación y su orden por defecto (id descendente, el más nuevo primero)
+ * es lo más parecido.
+ * NOTA: el back no filtra por provincia ni ciudad. Hoy solo hay propiedades
+ * de Córdoba Capital, así que se filtran en el cliente sobre la página que
+ * vuelve (ver `propiedades.service.ts#buscarPropiedades`).
+ */
+export function consultaDeDisponibles(
+  filtros: BusquedaFiltros,
+  orden: OrdenBusqueda,
+  pagina: number,
+  pageSize: number,
+): ConsultaDisponibles {
+  const query: DisponiblesQuery = { page: String(Math.max(1, pagina)), limit: String(pageSize) }
+
+  if (filtros.neighborhoodSlugs.length > 1) return { exacta: false }
+  if (filtros.neighborhoodSlugs.length === 1) {
+    const barrio = neighborhoods.find((item) => item.slug === filtros.neighborhoodSlugs[0])
+    if (!barrio) return { exacta: false }
+    query.barrio = barrio.name
+  }
+
+  if (filtros.minPrice !== null) query.precioMin = String(filtros.minPrice)
+  if (filtros.maxPrice !== null) query.precioMax = String(filtros.maxPrice)
+
+  if (filtros.types.length > 1) return { exacta: false }
+  if (filtros.types.length === 1) query.tipo = String(tipoIdFromPropertyType(filtros.types[0]))
+
+  if (filtros.bedrooms.length > 0) {
+    if (!cantidadExacta(filtros.bedrooms)) return { exacta: false }
+    query.dormitorios = String(filtros.bedrooms[0])
+  }
+  if (filtros.rooms.length > 0) {
+    if (!cantidadExacta(filtros.rooms)) return { exacta: false }
+    query.ambientes = String(filtros.rooms[0])
+  }
+
+  if (filtros.minAreaM2 !== null) query.superficieMin = String(filtros.minAreaM2)
+  if (filtros.maxAreaM2 !== null) query.superficieMax = String(filtros.maxAreaM2)
+
+  if (filtros.characteristics.length > 1) return { exacta: false }
+  if (filtros.characteristics.length === 1) {
+    const tagId = tagIdFromCharacteristic(filtros.characteristics[0])
+    if (tagId === null) return { exacta: false }
+    query.tags = String(tagId)
+  }
+
+  if (filtros.adjustmentIndex !== null) query.indiceAjuste = String(INDICE_ID[filtros.adjustmentIndex])
+
+  switch (orden) {
+    case 'precio_asc':
+    case 'precio_desc':
+      return { exacta: false }
+    case 'dormitorios_desc':
+      query.orden = 'dormitorios'
+      query.direccion = 'desc'
+      break
+    case 'm2_desc':
+      query.orden = 'm2'
+      query.direccion = 'desc'
+      break
+    case 'predeterminado':
+    case 'recientes':
+      break
+  }
+
+  return { exacta: true, query }
 }
 
 // ─── MisAlquileresItem → PropiedadLocador (US-02) ───────────────────────

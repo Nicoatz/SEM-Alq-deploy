@@ -71,7 +71,7 @@ Detalles que importan para backend:
 | Carpeta | Qué contiene |
 |---|---|
 | `apps/web/src/services/` | **La única frontera con el backend.** Un archivo por módulo (`auth`, `usuarios`, `propiedades`, `panel`). Cada función tiene rama mock y rama real. Ver su `README.md`. |
-| `apps/web/src/services/shared/` | `apiClient.ts` (cliente HTTP único, con el Bearer), `config.ts` (flag de mocks, URL de la API y las dos variables de Supabase), `errors.ts` (`ServiceError`), `concurrency.ts` (pedidos en paralelo con tope), `mockStore.ts`, `backend-dtos.ts` (copias de DTOs del back), `session.ts`. |
+| `apps/web/src/services/shared/` | `apiClient.ts` (cliente HTTP único, con el Bearer), `config.ts` (flag de mocks, URL de la API y las dos variables de Supabase), `errors.ts` (`ServiceError`), `mockStore.ts`, `backend-dtos.ts` (copias de DTOs del back), `session.ts`. |
 | `apps/web/src/services/adapters/` | Traducen DTO del back ↔ tipo de vista, campo por campo, con lo que falta marcado como `TODO(backend)` / `TODO(db)`. |
 | `apps/web/src/lib/auth/` | `AuthProvider` (usuario y rol activo), `session-cookie.ts` (`rentar_session`), `redirect.ts` (`?next=`) y `supabase/` (clientes de navegador, de servidor y de proxy). |
 | `apps/web/src/lib/imagenes/` | `useFotoConRespaldo`: si una foto no carga, se muestra el placeholder. |
@@ -141,8 +141,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | Supabase Auth `signInWithPassword` / `signOut` | `/login`, UserMenu | **Conectado** |
 | `GET /usuarios/me` | Sesión (login y recarga) | **Conectado** |
 | `POST /registrar-usuario` | `/registro` | **Conectado** (el `rol` se manda; el back lo toma cuando se mergee el PR #2) |
-| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: sin tags, fotos ni contrato; sin filtros ni paginación |
-| `GET /inmuebles/:id` | `/buscar` (solo para los tags) | **Parcial**: un pedido por inmueble (N+1, de a 5) |
+| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: filtros, orden y paginación en el servidor desde el 26/09; algunas búsquedas se resuelven todavía en el cliente (sección 7) |
+| `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: sin locatario, pagos, reclamos, ajuste ni fecha de alta |
 | `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta la subida de fotos (bucket) |
 | Supabase Storage, bucket `fotos-propiedades` | Alta | **Pendiente**: el bucket no existe (lo maneja Ivan) |
@@ -191,13 +191,23 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 ### US-34 Consultar propiedades a alquilar
 
+Desde el 26/09 (`develop`, "Fix endpoints de consulta propiedades disponibles con nuevo modelo
+bdd") `/disponibles` filtra, ordena y pagina en el servidor y cada item trae precio, expensas, tipo,
+tags, índice, foto principal y fecha de disponibilidad. El front ya lo usa así: se sacó el N+1 contra
+el detalle y el caché de 30 s. Los filtros de la URL de `/buscar` se traducen a los del back en un
+solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla completa).
+
 | Brecha | Dueño |
 |---|---|
-| `/disponibles` no trae tags, fotos ni datos del contrato (expensas, índice): el front pide `/inmuebles/:id` por cada uno (N+1, de a 5) y muestra expensas e índice vacíos, sin inventarlos. | backend |
-| No recibe filtros, orden ni paginación: el front filtra, ordena y pagina en el cliente (misma lógica que el modo mock) y guarda la lista 30 s en el navegador. | backend |
-| No devuelve las alquiladas con `fecha_disponible` ("alquilada/publicada", que US-34 pide mostrar). Hoy solo filtra `publicado`. | backend |
-| No hay fecha de publicación: el orden "Más recientes" no tiene efecto. | db |
-| Ciudades y barrios son texto libre ("Córdoba" vs. "Córdoba Capital"; "Alberdi" no está en el catálogo del front). Hace falta un catálogo de ubicaciones. | db |
+| `orden=precio` no ordena los inmuebles: ordena el contrato embebido (`order(..., { foreignTable })`), así que `asc` y `desc` devuelven lo mismo (probado el 27/09). Mientras tanto, los órdenes por precio se resuelven en el cliente. | backend |
+| Acepta un solo valor por filtro (barrio, tipo), cantidades exactas (sin "4 o más") y `tags` devuelve las que tengan **cualquiera** de los elegidos. US-34 pide selección múltiple y "que cumplan con todos los criterios". Cuando la búsqueda no se puede mandar exacta, el front trae todas y filtra en el cliente. | backend |
+| No filtra por provincia ni ciudad: el front las filtra sobre la página que vuelve (hoy solo hay Córdoba Capital). | backend |
+| Una página fuera de rango responde **400** ("Requested range not satisfiable"). El front pide la última en ese caso; lo esperable sería 200 con `items: []`. | backend |
+| El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
+| Solo lista `publicado` y `alquilado_disponible`, pero el alta guarda una alquilada con fecha como `alquilado` + `fecha_disponible` (y en la base no hay ningún `alquilado_disponible`): esas no aparecen. Acordar un solo criterio. | backend / db |
+| Solo lista inmuebles con contrato (`contrato!inner`), porque el precio sale de `contrato.monto_alquiler`. El alta crea el contrato junto con el inmueble, así que no bloquea (consulta abierta con Thiago). | backend |
+| No hay fecha de publicación: "Más recientes" usa el orden por defecto del back (id descendente). | db |
+| Ciudades y barrios son texto libre ("Córdoba" vs. "Córdoba Capital"; "Alberdi" no está en el catálogo del front, así que filtrar por ese barrio se resuelve en el cliente). Hace falta un catálogo de ubicaciones. | db |
 | El tag "Apto profesional" del front no existe en `tags_inmueble`. | db |
 | El índice CAC de la base no está en el front (US-01 habla solo de ICL e IPC): se muestra sin índice. | front / PO |
 
@@ -333,8 +343,8 @@ Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
 - Los tipos de vista del front están en archivos propios (`propiedad.ts`, `filters.ts`, `panel.ts`,
   `status.ts`, `usuario-sesion.ts`, `neighborhood.ts`) y se exportan al final de `index.ts`.
 - Qué adaptador conecta cada modelo con cada tipo de vista: `packages/shared-types/README.md`.
-- DTOs que el back todavía no exporta (`UsuarioMeResponse`, `InmuebleDetalleResponse`,
-  `RegistrarUsuarioRequest`): copiados en `apps/web/src/services/shared/backend-dtos.ts`, con
+- DTOs que el back todavía no exporta (`UsuarioMeResponse`, `InmueblesDisponiblesResponse`,
+  `InmuebleDetalleResponse`, `RegistrarUsuarioRequest`): copiados en `apps/web/src/services/shared/backend-dtos.ts`, con
   `TODO(backend)` para moverlos a `shared-types`.
 
 ## 14. Qué queda para el sprint 2

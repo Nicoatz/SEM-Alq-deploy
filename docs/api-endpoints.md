@@ -40,8 +40,8 @@ Notas:
 
 | Método y ruta | Auth | Estado | US | Service | Body / query | Respuesta (`data`) |
 |---|---|---|---|---|---|---|
-| `GET /inmuebles/disponibles` | — | parcial | US-34 | `propiedades.service#listarPropiedadesPublicadas`, `#buscarPropiedades`, `#contarPropiedades`, `#listarUbicaciones` | — (query propuesto: `provincia, ciudad, barrio[], precioMin, precioMax, tipo[], dorm[], amb[], m2Min, m2Max, tag[], indice, orden, pagina, tamanioPagina`) | `Inmueble[]` solo con `estado_alquiler = 'publicado'`, sin tags, fotos ni contrato → `inmuebleToPropiedadResumen`. Propuesto: `{ items, page, pageSize, total }` con tags, foto principal, expensas e índice |
-| `GET /inmuebles/:id` | — | parcial | US-34 | (dentro de `listarPropiedadesPublicadas`, de a 5 en paralelo) | — | `InmuebleDetalleResponse`: `tipo_inmueble` y `tags` como texto; sin precio, fotos ni contrato. 400 id inválido, 404 |
+| `GET /inmuebles/disponibles` | — | parcial (ver notas) | US-34 | `propiedades.service#listarPropiedadesPublicadas`, `#buscarPropiedades`, `#contarPropiedades`, `#listarUbicaciones` | `barrio, precioMin, precioMax, tipo (id), dormitorios, ambientes, superficieMin, superficieMax, tags (csv de ids), indiceAjuste (id), page, limit, orden (precio\|dormitorios\|m2), direccion (asc\|desc)`, armados por `propiedad.adapter#consultaDeDisponibles` | `{ items: InmuebleDisponibleResponse[], total, page, limit, totalPages }`; cada item con `tipo`, `tags` e `indice_ajuste` como `{ id, descripcion }`, `precio`, `expensas`, `foto_principal` y `fecha_disponible` → `inmuebleDisponibleToPropiedadResumen`. 400 si la página no existe |
+| `GET /inmuebles/disponibles/:id` | — | existe, sin usar | US-34 (detalle) | — (antes `GET /inmuebles/:id`, renombrada el 26/09) | — | `InmuebleDetalleResponse`: como el item de arriba más `servicio` y `fotos`. 400 id inválido, 404 |
 | `GET /mis-alquileres` | Bearer + rol `locador` | parcial | US-02 | `propiedades.service#listarMisPropiedades` | — | `MisAlquileresItem[]` (todos los inmuebles del locador, con `fotos`, `foto_principal`, `tags` y `contrato` con `monto_alquiler`, `expensas`, `indice_aumento` como texto y `medios_pago` como nombres) → `misAlquileresItemToPropiedadLocador`. 401 / 403 |
 | `POST /inmuebles` | Bearer + rol `locador` | parcial (falta el bucket) | US-01 | `propiedades.service#registrarPropiedad` | `CreateInmuebleCompletoPayload`: inmueble + `tags: number[]` + `fotos: { url, peso_kb, formato, es_principal }[]` (3 a 50, jpg/png, ≤ 350 KB) + `condiciones_contrato` (`monto_alquiler, expensas, indice_aumento (id), frecuencia_ajuste (texto), duracion_meses, deposito (monto), interes_por_dia, dias_gracia, medios_pago: number[]`) → `propiedadNuevaToCreateInmueble` | `Inmueble` creado (201). 400 con el mensaje de cada regla, 401, 403 |
 | Supabase Storage, bucket `fotos-propiedades` | sesión del usuario | pendiente (no existe el bucket) | US-01 | `propiedades.service#subirFotoPropiedad` | archivo en `<auth.uid>/<archivo>` | URL pública, `peso_kb` (redondeado hacia arriba) y `formato` |
@@ -60,6 +60,17 @@ Mapeos del alta (US-01), documentados en `services/adapters/propiedad.adapter.ts
   `fecha_disponible` si se cargó).
 - `frecuencia_ajuste`: "Mensual", "Bimestral", "Trimestral", "Cuatrimestral", "Semestral", "Anual" o
   "N meses". `deposito`: meses × precio. Piso y depto van juntos en `piso` ("3° B").
+
+Búsqueda (US-34), `GET /inmuebles/disponibles`:
+
+- El front manda al back lo que puede resolver exacto y, si no, trae todas (de a 100 por página) y
+  filtra, ordena y pagina en el cliente. No exacto: más de un barrio, un barrio fuera del catálogo
+  del front, más de un tipo, más de una cantidad de dormitorios o ambientes, "4 o más", más de una
+  característica (el back devuelve las que tengan cualquiera) y los órdenes por precio
+  (`orden=precio` no ordena). Tabla completa en `propiedad.adapter.ts#consultaDeDisponibles`.
+- Provincia y ciudad no las filtra el back: el front las filtra sobre la página (hoy solo hay
+  Córdoba Capital). "Más recientes" va sin `orden` (el back ordena por id descendente).
+- El "Ver N propiedades" del Drawer pide `limit=1` y lee `total`.
 
 ## Panel del locador (`/panel`)
 

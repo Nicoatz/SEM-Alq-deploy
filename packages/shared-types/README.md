@@ -17,7 +17,7 @@ adaptadores de `apps/web/src/services/adapters/` (ver `docs/HANDOFF-BACKEND.md`)
 | Respuesta de `GET /api/v1/usuarios/me` (`usuario` + sus roles) | `UsuarioSesion` | `usuario.adapter.ts#usuarioMeToSesion` |
 | `Usuario` (respuesta de `POST /api/v1/registrar-usuario`) | `UsuarioSesion` | `registro.adapter.ts#registroResponseToSesion` |
 | `Rol` (`rol.descripcion`) | `UserRole` | `usuario.adapter.ts#rolDtoToUserRole` (`'administrador'` ↔ `'admin'`) |
-| `Inmueble` (`inmueble`, de `GET /inmuebles/disponibles`) + tags de `GET /inmuebles/:id` | `PropiedadResumen` | `propiedad.adapter.ts#inmuebleToPropiedadResumen` |
+| Item de `GET /inmuebles/disponibles` (`InmuebleDisponibleResponse`, copiado en `backend-dtos.ts`) | `PropiedadResumen` | `propiedad.adapter.ts#inmuebleDisponibleToPropiedadResumen` |
 | `MisAlquileresItem` (respuesta de `GET /api/v1/mis-alquileres`) | `PropiedadLocador` | `propiedad.adapter.ts#misAlquileresItemToPropiedadLocador` |
 | `CreateInmuebleCompletoPayload` (cuerpo de `POST /api/v1/inmuebles`) | `PropiedadNueva` | `propiedad.adapter.ts#propiedadNuevaToCreateInmueble` |
 | Cobros, reclamos, solicitudes (tablas de sprints futuros) | `ResumenCobros`, `ResumenReclamos`, `EventoContratoPanel`, `SolicitudPanel` | Ninguno todavía: en modo real `/panel` los muestra vacíos (ver `apps/web/src/services/panel.service.ts`). |

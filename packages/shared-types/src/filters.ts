@@ -1,9 +1,9 @@
 /**
  * filters.ts — filtros, orden y paginación de los listados del frontend.
  *
- * Qué es: TIPOS DE VISTA DEL FRONT. Hoy el back no recibe filtros: los
- * services los mandan como query params (ver `docs/api-endpoints.md`) y,
- * mientras el back los ignore, filtran del lado del cliente.
+ * Qué es: TIPOS DE VISTA DEL FRONT. Los services los traducen a los query
+ * params del back (ver `docs/api-endpoints.md`); lo que el back todavía no
+ * puede filtrar se resuelve del lado del cliente.
  *
  * Quién lo usa: la landing (`FilterState`), `/buscar` (US-34) y
  * `/panel/propiedades` (US-02).

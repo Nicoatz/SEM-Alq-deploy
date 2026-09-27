@@ -67,10 +67,9 @@ export type EstadoPago = 'al_dia' | 'pago_pendiente' | 'retrasada'
  * Una propiedad buscable, tal como se ve en una tarjeta de la landing y de
  * `/buscar` (US-34).
  *
- * Adaptador: `propiedad.adapter.ts#inmuebleToPropiedadResumen`
- * (`Inmueble` de `GET /inmuebles/disponibles` + los tags de `GET /inmuebles/:id`
- * → `PropiedadResumen`). Los campos que el back todavía no devuelve están
- * marcados en ese adaptador.
+ * Adaptador: `propiedad.adapter.ts#inmuebleDisponibleToPropiedadResumen`
+ * (cada item de `GET /inmuebles/disponibles` → `PropiedadResumen`). Los
+ * campos que el back todavía no devuelve están marcados en ese adaptador.
  */
 export interface PropiedadResumen {
   id: string

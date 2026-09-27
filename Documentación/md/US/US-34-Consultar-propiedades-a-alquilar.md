@@ -1,4 +1,4 @@
-| **Consultar mis propiedades** |
+| **Consultar propiedades disponibles** |
 | - |
 | Como locatario quiero consultar las propiedades disponibles para acordar un alquiler. |
 | **Criterios de aceptación:** |
@@ -26,3 +26,23 @@
 |- Probar consultar propiedades disponibles y ordenarlas por cantidad de habitaciones (pasa). |
 |- Probar consultar propiedades disponibles y ordenarlas por cantidad de mts2 (pasa). |
 |- Probar consultar propiedades ordenandolas por algún criterio, quitar el ordenamiento aplicados y verificar que vuelvan a mostrarse todas las propiedades en el orden correspondientes (pasa).|
+
+| **Consultar detalle de propiedad disponible** |
+| - |
+| **Criterios de aceptación:** |
+| - Se debe poder consultar el detalle de una propiedad disponible mediante su ID. |
+| - Solo se debe poder consultar el detalle de propiedades con estado publicado o publicado/alquilado. |
+| - Se debe mostrar el tipo de inmueble. |
+| - Se debe mostrar la dirección, número, piso, ciudad, barrio y provincia. |
+| - Se debe mostrar la cantidad de ambientes, dormitorios y baños. |
+| - Se debe mostrar los m2 totales y cubiertos. |
+| - Se debe mostrar la descripción de la propiedad. |
+| - Se debe mostrar el precio del alquiler. |
+| - Se deben mostrar las expensas. |
+| - Se debe mostrar el índice de ajuste. |
+| - Se debe mostrar la fecha de disponibilidad. |
+| - Se deben mostrar los tags asociados a la propiedad. |
+| - Se debe mostrar el servicio asociado a la propiedad, si corresponde. |
+| - Se deben mostrar todas las fotos de la propiedad, indicando cuál es la foto principal. |
+| - Si el ID no corresponde a una propiedad disponible, se debe informar que la propiedad no fue encontrada. |
+| - Si el ID proporcionado no es válido, se debe informar que el ID debe ser un número entero válido. |

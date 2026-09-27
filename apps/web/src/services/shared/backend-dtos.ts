@@ -14,6 +14,7 @@
  */
 
 /**
+/**
  * Respuesta de `GET /api/v1/usuarios/me` (existe): el usuario del token con
  * sus roles. Copia del `data` que arma `usuarioController.obtenerMiPerfil`
  * (`apps/api/src/controllers/usuario.controller.ts`).
@@ -27,33 +28,110 @@ export interface UsuarioMeResponse {
   roles: string[]
 }
 
-/**
- * Respuesta de `GET /api/v1/inmuebles/:id` (existe). Copia de
- * `InmuebleDetalleDTO` de `apps/api/src/dtos/inmueble.dto.ts`.
- * NOTA: no trae precio, fotos ni contrato; `/buscar` lo usa solo para los
- * tags (ver `propiedades.service.ts`).
- */
-export interface InmuebleDetalleResponse {
+/** Un valor de catálogo como lo devuelve el back (`tipo_inmueble`, `tipo_indice`, `tags_inmueble`). */
+export interface CatalogoRef {
   id: number
-  tipo_inmueble: string
+  descripcion: string
+}
+
+/**
+ * Un item de `GET /api/v1/inmuebles/disponibles` (existe). Copia de
+ * `InmuebleDisponibleDTO` de `apps/api/src/dtos/inmueble.dto.ts`.
+ * NOTA: `precio`, `expensas` e `indice_ajuste` salen del contrato del
+ * inmueble; el back solo lista los inmuebles que tienen contrato.
+ */
+export interface InmuebleDisponibleResponse {
+  id: number
+  tipo: CatalogoRef
   direccion: string
   numero: number
   piso?: string | null
   ciudad: string
-  barrio?: string
-  provincia?: string
+  barrio: string
+  provincia: string
   ambientes: number
   dormitorios: number
   banos: number
-  m2_totales?: number
-  m2_cubiertos?: number
+  m2_totales: number
+  m2_cubiertos: number
   descripcion?: string | null
-  /** El primer tag (se mantiene por compatibilidad); usar `tags`. */
-  tag?: string | null
-  /** Descripciones de `tags_inmueble` (ej. "Acepta mascotas"). */
-  tags?: string[]
-  servicio?: string | null
-  id_locador: number
+  precio: number
+  expensas: number
+  indice_ajuste: CatalogoRef | null
+  fecha_disponible?: string | null
+  tags: CatalogoRef[]
+  /** URL de la foto principal (o de la primera); `null` si no tiene fotos. */
+  foto_principal: string | null
+}
+
+/**
+ * Respuesta de `GET /api/v1/inmuebles/disponibles` (existe, paginada desde el
+ * 26/09). Copia de `InmueblesDisponiblesResultadoDTO`.
+ */
+export interface InmueblesDisponiblesResponse {
+  items: InmuebleDisponibleResponse[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+/**
+ * Query params de `GET /api/v1/inmuebles/disponibles`, con los nombres del
+ * back. Los arma `propiedad.adapter.ts#consultaDeDisponibles` a partir de los
+ * filtros de `/buscar`. Todos van como texto en la URL.
+ */
+export interface DisponiblesQuery {
+  barrio?: string
+  precioMin?: string
+  precioMax?: string
+  /** `tipo_inmueble.id`. */
+  tipo?: string
+  /** Cantidad exacta. */
+  dormitorios?: string
+  /** Cantidad exacta. */
+  ambientes?: string
+  superficieMin?: string
+  superficieMax?: string
+  /** Ids de `tags_inmueble` separados por coma; el back devuelve los que tengan CUALQUIERA. */
+  tags?: string
+  /** `tipo_indice.id`. */
+  indiceAjuste?: string
+  page?: string
+  limit?: string
+  orden?: 'precio' | 'dormitorios' | 'm2'
+  direccion?: 'asc' | 'desc'
+}
+
+/**
+ * Respuesta de `GET /api/v1/inmuebles/disponibles/:id` (existe; antes
+ * `GET /inmuebles/:id`). Copia del detalle que arma
+ * `inmuebleService.getById` (`apps/api/src/services/inmueble.service.ts`).
+ * NOTA: todavía no la usa ninguna pantalla (el listado ya trae lo que
+ * muestra la tarjeta); queda para el detalle de la publicación.
+ */
+export interface InmuebleDetalleResponse {
+  id: number
+  tipo: CatalogoRef
+  direccion: string
+  numero: number
+  piso?: string | null
+  ciudad: string
+  barrio: string
+  provincia: string
+  ambientes: number
+  dormitorios: number
+  banos: number
+  m2_totales: number
+  m2_cubiertos: number
+  descripcion?: string | null
+  precio: number
+  expensas: number
+  indice_ajuste: CatalogoRef | null
+  fecha_disponible?: string | null
+  tags: CatalogoRef[]
+  servicio: { id: number; nombre: string; descripcion?: string | null } | null
+  fotos: Array<{ id: number; url: string; es_principal: boolean; orden: number | null }>
 }
 
 /**

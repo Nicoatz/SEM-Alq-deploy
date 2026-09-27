@@ -28,19 +28,20 @@ import type {
   PropiedadResumen,
   UbicacionOpciones,
 } from '@rentar/shared-types'
-import { buscarEnLista, ubicacionesDe } from '@/lib/search/busqueda'
+import { buscarEnLista, PAGE_SIZE, ubicacionesDe } from '@/lib/search/busqueda'
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
 import { hoy } from '@/lib/utils/fechas'
 import { isSearchable, propiedadMockToLocador, propiedadMockToResumen, propiedadNuevaToMock } from './adapters/propiedad-mock.adapter'
 import {
+  consultaDeDisponibles,
+  disponiblesToPaginado,
   estadoDePropiedadNueva,
-  inmuebleToPropiedadResumen,
+  inmuebleDisponibleToPropiedadResumen,
   misAlquileresItemToPropiedadLocador,
   propiedadNuevaToCreateInmueble,
 } from './adapters/propiedad.adapter'
 import { apiRequest } from './shared/apiClient'
-import { mapConLimite } from './shared/concurrency'
-import type { InmuebleDetalleResponse } from './shared/backend-dtos'
+import type { DisponiblesQuery, InmueblesDisponiblesResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
@@ -79,92 +80,63 @@ export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
 // ─── Búsqueda pública (US-34) ───────────────────────────────────────────
 
 /**
+ * Tamaño de página para traer TODAS las disponibles (landing, opciones de
+ * ubicación y búsquedas que el back no resuelve exacto).
+ * NOTA: el back no tiene tope de `limit`; se piden de a 100 para no armar una
+ * respuesta gigante si algún día hay muchas.
+ */
+const TODAS_POR_PAGINA = 100
+
+/** Pide una página de `/inmuebles/disponibles` con los params del back. */
+function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
+  return apiRequest<InmueblesDisponiblesResponse>('/inmuebles/disponibles', { query: { ...query } })
+}
+
+/**
+ * Rama real: todas las disponibles, recorriendo las páginas del back (la
+ * primera dice cuántas hay; el resto se piden juntas).
+ */
+async function todasLasDisponibles(): Promise<PropiedadResumen[]> {
+  const limit = String(TODAS_POR_PAGINA)
+  const primera = await pedirDisponibles({ page: '1', limit })
+  const resto = await Promise.all(
+    Array.from({ length: Math.max(0, primera.totalPages - 1) }, (_, index) => pedirDisponibles({ page: String(index + 2), limit })),
+  )
+  return [primera, ...resto].flatMap((pagina) => pagina.items.map(inmuebleDisponibleToPropiedadResumen))
+}
+
+/**
  * US-34 Consultar propiedades a alquilar — todas las buscables, sin filtros
  * ni paginación (la landing filtra en el cliente y muestra una vista previa).
- * @backend GET /api/v1/inmuebles/disponibles   (existe · sin fotos, tags ni contrato)
- *          GET /api/v1/inmuebles/:id            (existe · se usa solo para los tags de cada una)
+ * @backend GET /api/v1/inmuebles/disponibles?page=&limit=100   (existe · se recorren todas las páginas)
  * @returns PropiedadResumen[]
- * NOTA: los tags no vienen en `/disponibles`, así que se pide el detalle de
- * cada inmueble (N+1), de a {@link DETALLES_EN_PARALELO} por vez.
- * TODO(backend): que `/inmuebles/disponibles` incluya tags, fotos (al menos
- * la principal) y los datos del contrato que muestra la tarjeta (expensas e
- * índice), para sacar el N+1.
  */
 export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]> {
   if (USE_MOCKS) {
     await delay()
     return readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
   }
-  return disponiblesDelBack()
-}
-
-/** Tope de pedidos de detalle en paralelo (ver el N+1 de {@link listarPropiedadesPublicadas}). */
-const DETALLES_EN_PARALELO = 5
-
-/**
- * Cuánto se reusa la lista de disponibles en el navegador.
- * NOTA: `/buscar` pide la lista varias veces (resultados, opciones de
- * ubicación y el "Ver N propiedades" del Drawer, que se recalcula con cada
- * filtro). Como el back no filtra (devuelve siempre la lista entera), se
- * guarda una sola por 30 segundos en vez de repetir el N+1 en cada cambio.
- * Del lado del servidor (la landing) no se guarda: cada request pide datos frescos.
- */
-const DISPONIBLES_TTL_MS = 30_000
-
-/** Lista de disponibles guardada en el navegador (ver {@link DISPONIBLES_TTL_MS}). */
-let disponiblesEnCache: { pedido: Promise<PropiedadResumen[]>; hasta: number } | null = null
-
-/** Descarta la lista guardada (por ejemplo, después de dar de alta una propiedad). */
-function olvidarDisponibles(): void {
-  disponiblesEnCache = null
-}
-
-/**
- * Rama real: todas las disponibles del back, con sus tags. Reusa la lista
- * guardada si todavía no venció; si el pedido falla, no queda guardado.
- */
-function disponiblesDelBack(): Promise<PropiedadResumen[]> {
-  if (typeof window === 'undefined') return traerDisponiblesDelBack()
-  if (disponiblesEnCache && disponiblesEnCache.hasta > Date.now()) return disponiblesEnCache.pedido
-  const pedido = traerDisponiblesDelBack()
-  disponiblesEnCache = { pedido, hasta: Date.now() + DISPONIBLES_TTL_MS }
-  pedido.catch(olvidarDisponibles)
-  return pedido
-}
-
-/**
- * Pide `/disponibles` y el detalle de cada inmueble (de a
- * {@link DETALLES_EN_PARALELO}) para sus tags.
- *
- * NOTA: si falla el detalle de un inmueble, la tarjeta sale igual, sin
- * características: es mejor mostrar la propiedad que esconderla por un dato
- * secundario.
- */
-async function traerDisponiblesDelBack(): Promise<PropiedadResumen[]> {
-  const inmuebles = await apiRequest<Inmueble[]>('/inmuebles/disponibles')
-  const detalles = await mapConLimite(inmuebles, DETALLES_EN_PARALELO, (inmueble) =>
-    apiRequest<InmuebleDetalleResponse>(`/inmuebles/${inmueble.id}`).catch((): InmuebleDetalleResponse | null => null),
-  )
-  return inmuebles.map((inmueble, index) => {
-    const detalle = detalles[index]
-    return inmuebleToPropiedadResumen(inmueble, detalle ? { tags: detalle.tags ?? [] } : null)
-  })
+  return todasLasDisponibles()
 }
 
 /**
  * US-34 Consultar propiedades a alquilar — la búsqueda de `/buscar`: filtros,
  * orden y una página de 10 resultados.
- * @backend GET /api/v1/inmuebles/disponibles   (existe · sin filtros, orden ni paginación)
- * @query   (propuesto) { provincia?, ciudad?, barrio[]?, precioMin?, precioMax?, tipo[]?, dorm[]?,
- *            amb[]?, m2Min?, m2Max?, tag[]?, indice?, orden?, pagina?, tamanioPagina? }
- *          (mismos nombres que la URL de /buscar: `escribirBusqueda` de lib/search/busquedaParams.ts)
+ * @backend GET /api/v1/inmuebles/disponibles   (existe · filtros, orden y paginación desde el 26/09)
+ * @query   barrio, precioMin, precioMax, tipo, dormitorios, ambientes, superficieMin,
+ *          superficieMax, tags, indiceAjuste, page, limit, orden, direccion
+ *          (los arma `propiedad.adapter.ts#consultaDeDisponibles` a partir de los filtros de la URL)
  * @returns Paginado<PropiedadResumen>
- * TODO(backend): aceptar esos query params y responder `{ items, page, pageSize, total }`.
- * Cuando exista, mandarlos con `escribirBusqueda({ filtros, orden, pagina })`
- * y sacar el filtrado local y el caché de `disponiblesDelBack`.
- * NOTA: mientras tanto el back devuelve la lista entera y se filtra, ordena y
- * pagina acá, con las mismas reglas que el modo mock (lib/search/busqueda.ts).
- * Los params no se mandan: el back los ignora.
+ *
+ * NOTA: si la búsqueda no se puede mandar exacta al back (varios barrios,
+ * "4 o más", varias características, orden por precio: ver
+ * `consultaDeDisponibles`), se traen todas y se filtra, ordena y pagina acá,
+ * con las mismas reglas que el modo mock (`lib/search/busqueda.ts`).
+ * NOTA: provincia y ciudad las filtra el cliente sobre la página que vuelve
+ * (el back no las filtra). Hoy solo hay Córdoba Capital, así que no cambian el
+ * total. TODO(backend): filtrar por provincia y ciudad.
+ * NOTA: una página que ya no existe (se filtró de más) da 400 en el back; en
+ * ese caso se muestra la última, igual que en modo mock.
  */
 export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBusqueda, pagina: number): Promise<Paginado<PropiedadResumen>> {
   if (USE_MOCKS) {
@@ -172,17 +144,47 @@ export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBu
     const publicadas = readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
     return buscarEnLista(publicadas, filtros, orden, pagina)
   }
-  return buscarEnLista(await disponiblesDelBack(), filtros, orden, pagina)
+
+  const consulta = consultaDeDisponibles(filtros, orden, pagina, PAGE_SIZE)
+  if (!consulta.exacta) return buscarEnLista(await todasLasDisponibles(), filtros, orden, pagina)
+
+  const resultado = disponiblesToPaginado(await pedirPaginaOUltima(consulta.query))
+  return { ...resultado, items: resultado.items.filter((propiedad) => cumpleUbicacion(propiedad, filtros)) }
+}
+
+/**
+ * Pide la página de `query`; si el back responde 400 porque la página ya no
+ * existe, pide la primera para saber cuántas hay y devuelve la última.
+ */
+async function pedirPaginaOUltima(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
+  try {
+    return await pedirDisponibles(query)
+  } catch (error) {
+    if (!(error instanceof ServiceError) || error.code !== 'validation' || query.page === '1') throw error
+    const primera = await pedirDisponibles({ ...query, page: '1' })
+    return primera.totalPages > 1 ? pedirDisponibles({ ...query, page: String(primera.totalPages) }) : primera
+  }
+}
+
+/** `true` si la propiedad está en la provincia y la ciudad elegidas (el back no las filtra). */
+function cumpleUbicacion(propiedad: PropiedadResumen, filtros: BusquedaFiltros): boolean {
+  if (filtros.province && propiedad.province !== filtros.province) return false
+  if (filtros.city && propiedad.city !== filtros.city) return false
+  return true
 }
 
 /**
  * US-34 — cuántas propiedades da una combinación de filtros, sin traerlas
  * (el "Ver N propiedades" del Drawer de filtros en móvil, que se calcula
  * mientras se eligen los filtros, antes de aplicarlos).
- * @backend GET /api/v1/inmuebles/disponibles?…&tamanioPagina=1   (propuesto: se lee `total`)
+ * @backend GET /api/v1/inmuebles/disponibles?…&limit=1   (existe · se lee `total`)
  * @returns number
  */
 export async function contarPropiedades(filtros: BusquedaFiltros): Promise<number> {
+  if (!USE_MOCKS) {
+    const consulta = consultaDeDisponibles(filtros, 'predeterminado', 1, 1)
+    if (consulta.exacta) return (await pedirDisponibles(consulta.query)).total
+  }
   const resultado = await buscarPropiedades(filtros, 'predeterminado', 1)
   return resultado.total
 }
@@ -308,7 +310,6 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
 
   const fotos = await subirFotosPropiedad(nueva)
   const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
-  olvidarDisponibles() // la nueva tiene que aparecer en /buscar sin esperar
   return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
 }
 
