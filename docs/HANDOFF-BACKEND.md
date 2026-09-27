@@ -12,12 +12,13 @@ respuesta: [`api-endpoints.md`](api-endpoints.md).
 
 | US (Sprint 0) | Pantalla | Ruta | Con el back real |
 |---|---|---|---|
-| US-19 Registrar usuario | Registro en 2 pasos (rol y datos) | `/registro` | Conectado (el rol espera el PR #2) |
+| US-19 Registrar usuario | Registro en un paso (sin rol: toda cuenta nueva es locataria) | `/registro` | Conectado |
 | US-39 Iniciar y cerrar sesión | Login y "Cerrar sesión" del UserMenu | `/login` | Conectado (Supabase Auth + `/usuarios/me`) |
 | US-34 Consultar propiedades a alquilar | Búsqueda con filtros, orden y paginación, y la landing | `/buscar`, `/` | Parcial (faltan datos en `/disponibles`) |
 | US-02 Consultar mis propiedades | Listado del locador | `/panel/propiedades` | Parcial (faltan locatario, pagos, reclamos) |
-| US-01 Registrar mis propiedades | Alta en 5 pasos | `/panel/propiedades/nueva` | Parcial (espera el bucket de fotos) |
+| US-01 Registrar mis propiedades | Alta en 5 pasos, para cualquier usuario con sesión | `/panel/propiedades/nueva` | Parcial (espera el bucket de fotos y el cambio de roles de Thiago) |
 | — (inicio del locador) | Panel de inicio | `/panel` | Parcial (conteos reales; el resto, vacío) |
+| — (inicio del locatario) | Versión mínima: buscar o publicar | `/panel` | No usa datos del back (solo el nombre) |
 
 El front tiene dos modos, según `NEXT_PUBLIC_USE_MOCKS` (`apps/web/.env.local`):
 
@@ -65,6 +66,25 @@ Detalles que importan para backend:
   `SUPABASE_SECRET_KEY` es exclusiva de `apps/api`.
 - **Registro:** el back crea la cuenta ya confirmada (`email_confirm: true`), así que después del
   201 el front inicia sesión solo con las mismas credenciales (sin guardarlas).
+
+### Roles: todos empiezan como locatarios (regla del equipo, 27/09/2026)
+
+1. **Registro:** no se elige rol. `POST /registrar-usuario` va sin `rol` y el back registra a todos
+   como locatario (ya lo hace: `ROL_LOCATARIO_ID`). El PR #2, que aceptaba `rol`, se cerró sin
+   mergear.
+2. **Publicar:** cualquier usuario con sesión puede usar el alta (`/panel/propiedades/nueva`). Mis
+   propiedades (`/panel/propiedades`) sigue siendo solo para locadores.
+3. **Al publicar la primera propiedad**, el back le suma el rol locador a la cuenta.
+4. **Locador abarca a locatario:** para una cuenta locadora, `/usuarios/me` devuelve
+   `["locador", "locatario"]`.
+5. **Después del 201**, el front vuelve a pedir `/usuarios/me` sin cerrar sesión
+   (`useAuth().refrescarUsuario('locador')`). Si ya tiene el rol, queda locador como rol activo y
+   aparecen "Viendo como" y Mis propiedades.
+
+Lo que falta en el back (en curso, Thiago) está en la sección 7, US-01. Mientras tanto el front
+tolera las dos cosas: un 403 de `POST /inmuebles` se muestra como "Todavía no podés publicar desde
+esta cuenta, estamos terminando este cambio" (sin perder lo cargado), y si después del 201 la
+cuenta sigue sin el rol, el éxito se muestra sin "Ir a mis propiedades".
 
 ## 3. Mapa del frontend
 
@@ -140,11 +160,11 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 |---|---|---|
 | Supabase Auth `signInWithPassword` / `signOut` | `/login`, UserMenu | **Conectado** |
 | `GET /usuarios/me` | Sesión (login y recarga) | **Conectado** |
-| `POST /registrar-usuario` | `/registro` | **Conectado** (el `rol` se manda; el back lo toma cuando se mergee el PR #2) |
+| `POST /registrar-usuario` | `/registro` | **Conectado** (sin `rol`: el back registra locatario) |
 | `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: filtros, orden y paginación en el servidor desde el 26/09; algunas búsquedas se resuelven todavía en el cliente (sección 7) |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: sin locatario, pagos, reclamos, ajuste ni fecha de alta |
-| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta la subida de fotos (bucket) |
+| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta la subida de fotos (bucket). Todavía exige el rol locador (sección 7, US-01) |
 | Supabase Storage, bucket `fotos-propiedades` | Alta | **Pendiente**: el bucket no existe (lo maneja Ivan) |
 | `GET /publicaciones/activas` | — | **Pendiente**: no está montada y el archivo no compila (sección 10) |
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
@@ -184,7 +204,6 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 | Brecha | Dueño |
 |---|---|
-| El back registra a todos como locatario: aceptar `rol` en el body. **Resuelto en el PR #2** (`feature/registro-con-rol`), en revisión. | backend |
 | El 409 trae el texto crudo del error (en inglés el de Auth, el de Postgres para el DNI). Responder un código por campo (ej. `email_duplicado`, `dni_duplicado`) y el mensaje en español. | backend |
 | La contraseña: el front pide al menos 8 caracteres, mayúscula, minúscula y **un número**, solo letras y números (`PASSWORD_REGEX`); el back no exige el número. Sumarlo a su regex. | backend |
 | La tabla `usuario` tiene una columna `contrasena`, y un registro la tiene cargada. Supabase Auth ya maneja las contraseñas: revisar si se puede sacar. | db |
@@ -224,6 +243,9 @@ solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla complet
 
 | Brecha | Dueño |
 |---|---|
+| **`POST /inmuebles` tiene `requireRole("locador")`**: un locatario recibe 403. Con la regla nueva, tiene que aceptar a cualquier usuario con sesión. | backend (Thiago) |
+| **Asignar el rol locador al crear la primera propiedad** (fila en `usuario_x_rol` con `id_rol = 1`), en la misma operación del alta. Hoy la cuenta queda locataria y el front muestra el éxito sin "Ir a mis propiedades" (`TODO(backend)` en `AltaPropiedad`). | backend (Thiago) |
+| **Expansión de roles en `/usuarios/me`**: una cuenta locadora tiene que devolver `["locador", "locatario"]` (locador abarca a locatario). Hoy devuelve solo las filas de `usuario_x_rol`. Definir si se guarda la fila de locatario o se expande en `requireRole`/`/me`. | backend (Thiago) |
 | **No existe el bucket `fotos-propiedades`** en Storage. El back exige al menos 3 fotos con URL, así que el alta desde la pantalla avisa y no manda nada (sección 8). | db (Ivan) |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
@@ -231,6 +253,12 @@ solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla complet
 | El tag "Apto profesional" no existe: no se manda. | db |
 | El back tiene un solo campo `piso`: piso y departamento viajan juntos ("3° B"). | db |
 | "Pausada" la acepta la validación del back y la base no la restringe (se guardaría `pausado`); hoy la base solo usa `publicado` y `alquilado`. | — (informativo) |
+
+### `/panel` (inicio del locatario)
+
+Versión mínima del diseño ("Panel de inicio" · 05b): saludo, "Buscar propiedades" y "Publicá tu
+propiedad". No pide nada al back (el nombre sale de `/usuarios/me`). El panel completo del
+locatario (US-11, US-12) es de otro sprint.
 
 ### `/panel` (inicio del locador)
 
@@ -267,7 +295,7 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 
 ## 10. Observaciones para backend
 
-Encontradas al integrar. No se tocó `apps/api` (salvo el PR #2): quedan para el equipo.
+Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear): quedan para el equipo.
 
 1. **`npm run build` de la raíz falla en `apps/api`** por `src/services/publicacion.service.ts`:
    importa `repositories/publicacion.repository`, que no existe, y tipos que ya no están en
@@ -327,10 +355,11 @@ sesión dura hasta cerrarla).
 | `/login` | `login-email-input`, `login-password-input`, `login-submit-button`, `login-error-alert`, `login-register-link`, `login-forgot-link`, `login-forgot-link-mobile`, `auth-server-error`, `auth-retry-button` |
 | `/registro` | `registro-login-link`, `registro-<campo>-input`, `registro-terminos-checkbox`, `registro-submit-button`, `registro-email-taken-alert`, `registro-error-alert`, `registro-success`, `registro-success-buscar`, `registro-success-publicar`, `registro-email-simulado`, `auth-server-error`, `auth-retry-button`. Borrados el 27/09 (registro en un paso, sin rol): `registro-rol-locador`, `registro-rol-locatario`, `registro-continuar-button`, `registro-back-button`, `registro-success-cta`, `registro-success-panel-link` |
 | `/buscar` | `buscar-resultados`, `buscar-tarjeta`, `buscar-conteo`, `buscar-orden`, `buscar-paginacion`, `buscar-mostrando`, `buscar-sin-resultados`, `buscar-error`, `buscar-reintentar`, `buscar-abrir-filtros`, `buscar-drawer-ver`, `search-sidebar-*` / `search-drawer-*` (filtros) |
-| AppShell y UserMenu | `app-shell-logo-link`, `app-shell-menu-toggle`, `app-shell-role-chip`, `user-menu-trigger`, `user-menu-item-<key>`, `user-menu-role-<rol>`, `user-menu-logout`, `role-context-switcher` |
-| `/panel` | `panel-publicar`, `panel-registrar-pago`, `panel-pendientes`, `panel-stat-<cifra>`, `panel-cobro`, `panel-reclamo`, `panel-contrato`, `panel-error-<bloque>`, `panel-onboarding`, `panel-onboarding-publicar` |
+| AppShell y UserMenu | `app-shell-logo-link`, `app-shell-menu-toggle`, `app-shell-role-chip`, `app-shell-publicar` ("Publicar propiedad" del encabezado), `app-shell-publicar-drawer` (el mismo, en el menú hamburguesa), `user-menu-trigger`, `user-menu-item-<key>` (`user-menu-item-header-action`: "Publicar propiedad" en la hoja móvil), `user-menu-role-<rol>`, `user-menu-logout`, `role-context-switcher` |
+| `/panel` (locatario) | `panel-locatario`, `panel-locatario-buscar`, `panel-locatario-publicar` |
+| `/panel` (locador) | `panel-publicar`, `panel-registrar-pago`, `panel-pendientes`, `panel-stat-<cifra>`, `panel-cobro`, `panel-reclamo`, `panel-contrato`, `panel-error-<bloque>`, `panel-onboarding`, `panel-onboarding-publicar` |
 | `/panel/propiedades` | `mis-propiedades-tab-<estado>`, `mis-propiedades-buscar`, `mis-propiedades-filtro-<barrio\|tipo\|reclamos>`, `mis-propiedades-orden`, `data-table-row` (escritorio), `data-table-card` (móvil), `mis-propiedades-ver-detalle`, `mis-propiedades-mas`, `mis-propiedades-abrir-filtros`, `mis-propiedades-drawer-aplicar`, `mis-propiedades-limpiar`, `mis-propiedades-vacio`, `mis-propiedades-sin-resultados`, `mis-propiedades-error`, `mis-propiedades-reintentar` |
-| Alta | `alta-<campo>` (ej. `alta-calle`, `alta-precio`), `alta-fotos-dropzone`, `alta-foto`, `alta-foto-principal`, `alta-foto-quitar`, `alta-medio-<medio>-check` / `-recargo`, `alta-indice-<ICL\|IPC>`, `wizard-next-button`, `wizard-prev-button`, `wizard-finish-button`, `alta-mobile-volver`, `alta-mobile-salir`, `alta-errores`, `alta-publicando`, `alta-error-publicar`, `alta-reintentar`, `alta-exito`, `alta-exito-mis-propiedades` |
+| Alta | `alta-<campo>` (ej. `alta-calle`, `alta-precio`), `alta-fotos-dropzone`, `alta-foto`, `alta-foto-principal`, `alta-foto-quitar`, `alta-medio-<medio>-check` / `-recargo`, `alta-indice-<ICL\|IPC>`, `wizard-next-button`, `wizard-prev-button`, `wizard-finish-button`, `alta-mobile-volver`, `alta-mobile-salir`, `alta-errores`, `alta-publicando`, `alta-error-publicar`, `alta-reintentar`, `alta-error-login`, `alta-exito`, `alta-exito-mis-propiedades` (solo si la cuenta ya es locadora), `alta-exito-ver`, `alta-exito-panel` (locatario y no publicada), `alta-exito-otra` |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.

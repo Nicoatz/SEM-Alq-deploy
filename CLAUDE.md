@@ -143,6 +143,20 @@ importa mocks ni llama a `fetch` directo.
 - **Modo mock:** sin Supabase ni API. La sesión es la cookie `rentar_session` con `{ userId,
   activeRole }` y dura 30 días (no hay "Recordarme").
 
+## Roles (regla del equipo, 27/09/2026)
+
+- **Todos se registran como locatarios.** El registro no pregunta el rol.
+- **Cualquier usuario con sesión puede publicar** (`/panel/propiedades/nueva` solo pide sesión). Mis
+  propiedades (`/panel/propiedades`) sigue siendo solo para locadores (`RequireRole` en la página).
+- **Al publicar la primera propiedad, el back lo pasa a locador.** Locador abarca a locatario:
+  `/usuarios/me` devuelve `["locador", "locatario"]`. El front relee los roles después del 201
+  (`useAuth().refrescarUsuario('locador')`) sin cerrar sesión; en modo mock, la cuenta se guarda
+  con los dos roles en `rentar:mock:usuarios`.
+- **"Publicar propiedad"** va en el encabezado del panel para cualquier rol
+  (`AppShell#headerAction`); en móvil, primero en el menú hamburguesa y en la hoja del UserMenu.
+- El selector "Viendo como" (`RoleContextSwitcher`) no cambió: aparece cuando la cuenta tiene dos roles.
+- Lo que falta en el back (en curso, Thiago): `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
+
 ## Datos de prueba (modo mock)
 
 - **El elenco único** vive en `apps/web/src/lib/mocks/`. Los datos salen de ahí: ninguna pantalla

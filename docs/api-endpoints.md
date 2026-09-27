@@ -20,8 +20,8 @@ Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de
 |---|---|---|---|---|---|---|
 | Supabase Auth `signInWithPassword` | — (SDK, clave publicable) | conectado | US-39 | `auth.service#login` | `{ email, password }` | Sesión en cookies `sb-*` (la maneja `@supabase/ssr`) |
 | Supabase Auth `signOut` | sesión | conectado | US-39 | `auth.service#logout` | — | — |
-| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` | — | `{ id, nombre, apellido, email, roles: string[] }` → `usuarioMeToSesion` |
-| `POST /registrar-usuario` | **sin token** | conectado | US-19 | `auth.service#registrarUsuario` | `{ nombre, apellido, email, contraseña, confirmar_contraseña, telefono, numero_documento, fecha_nacimiento, acepta_terminos, rol }` | `Usuario` (`id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento`) → `registroResponseToSesion` |
+| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` (y `useAuth().refrescarUsuario` después de publicar) | — | `{ id, nombre, apellido, email, roles: string[] }` → `usuarioMeToSesion`. Propuesto: una cuenta locadora devuelve `["locador", "locatario"]` |
+| `POST /registrar-usuario` | **sin token** | conectado | US-19 | `auth.service#registrarUsuario` | `{ nombre, apellido, email, contraseña, confirmar_contraseña, telefono, numero_documento, fecha_nacimiento, acepta_terminos }` (sin `rol`) | `Usuario` (`id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento`) → `registroResponseToSesion` |
 | `GET /usuarios/me/contextos` | Bearer | pendiente (propuesto) | US-39 (cambio de rol) | `panel.service#getResumenRoles` | — | `ResumenContextoRol[]` (hoy se arma en el front) |
 
 Notas:
@@ -29,12 +29,15 @@ Notas:
 - **Login:** no hay `POST /auth/login` ni `/auth/logout` en `apps/api` (decisión de backend). Las
   credenciales inválidas de Supabase (400 `invalid_credentials`) se muestran con el mensaje genérico
   de US-39.
-- **Registro:** `rol` acepta `locatario` o `locador`; hoy el back lo ignora y registra locatario (se
-  resuelve con el PR #2). Errores: 400 con el mensaje de la validación; **409** si el mail ya existe
+- **Registro:** no lleva rol. Toda cuenta nueva es locataria (regla del equipo, 27/09/2026) y pasa
+  a ser también locadora al publicar su primera propiedad. El PR #2 (`rol` en el body) se cerró sin
+  mergear. Errores: 400 con el mensaje de la validación; **409** si el mail ya existe
   (Supabase Auth) o si el DNI ya existe (índice único `uq_usuario_numero_documento`). El back crea
   la cuenta confirmada: el front inicia sesión solo después del 201.
 - **`/usuarios/me`:** 401 sin token, con token inválido o si el usuario de Auth no tiene fila en
-  `usuario`.
+  `usuario`. **Locador abarca a locatario:** para una cuenta locadora tiene que devolver
+  `["locador", "locatario"]` (propuesto, en curso con Thiago). Hoy devuelve solo las filas de
+  `usuario_x_rol`.
 
 ## Propiedades
 
@@ -43,7 +46,7 @@ Notas:
 | `GET /inmuebles/disponibles` | — | parcial (ver notas) | US-34 | `propiedades.service#listarPropiedadesPublicadas`, `#buscarPropiedades`, `#contarPropiedades`, `#listarUbicaciones` | `barrio, precioMin, precioMax, tipo (id), dormitorios, ambientes, superficieMin, superficieMax, tags (csv de ids), indiceAjuste (id), page, limit, orden (precio\|dormitorios\|m2), direccion (asc\|desc)`, armados por `propiedad.adapter#consultaDeDisponibles` | `{ items: InmuebleDisponibleResponse[], total, page, limit, totalPages }`; cada item con `tipo`, `tags` e `indice_ajuste` como `{ id, descripcion }`, `precio`, `expensas`, `foto_principal` y `fecha_disponible` → `inmuebleDisponibleToPropiedadResumen`. 400 si la página no existe |
 | `GET /inmuebles/disponibles/:id` | — | existe, sin usar | US-34 (detalle) | — (antes `GET /inmuebles/:id`, renombrada el 26/09) | — | `InmuebleDetalleResponse`: como el item de arriba más `servicio` y `fotos`. 400 id inválido, 404 |
 | `GET /mis-alquileres` | Bearer + rol `locador` | parcial | US-02 | `propiedades.service#listarMisPropiedades` | — | `MisAlquileresItem[]` (todos los inmuebles del locador, con `fotos`, `foto_principal`, `tags` y `contrato` con `monto_alquiler`, `expensas`, `indice_aumento` como texto y `medios_pago` como nombres) → `misAlquileresItemToPropiedadLocador`. 401 / 403 |
-| `POST /inmuebles` | Bearer + rol `locador` | parcial (falta el bucket) | US-01 | `propiedades.service#registrarPropiedad` | `CreateInmuebleCompletoPayload`: inmueble + `tags: number[]` + `fotos: { url, peso_kb, formato, es_principal }[]` (3 a 50, jpg/png, ≤ 350 KB) + `condiciones_contrato` (`monto_alquiler, expensas, indice_aumento (id), frecuencia_ajuste (texto), duracion_meses, deposito (monto), interes_por_dia, dias_gracia, medios_pago: number[]`) → `propiedadNuevaToCreateInmueble` | `Inmueble` creado (201). 400 con el mensaje de cada regla, 401, 403 |
+| `POST /inmuebles` | Bearer + rol `locador` (propuesto: cualquier usuario con sesión, y asignarle el rol locador si no lo tenía) | parcial (falta el bucket y el cambio de roles) | US-01 | `propiedades.service#registrarPropiedad` | `CreateInmuebleCompletoPayload`: inmueble + `tags: number[]` + `fotos: { url, peso_kb, formato, es_principal }[]` (3 a 50, jpg/png, ≤ 350 KB) + `condiciones_contrato` (`monto_alquiler, expensas, indice_aumento (id), frecuencia_ajuste (texto), duracion_meses, deposito (monto), interes_por_dia, dias_gracia, medios_pago: number[]`) → `propiedadNuevaToCreateInmueble` | `Inmueble` creado (201). 400 con el mensaje de cada regla, 401, 403 (hoy, a un locatario: el front muestra "Todavía no podés publicar desde esta cuenta…") |
 | Supabase Storage, bucket `fotos-propiedades` | sesión del usuario | pendiente (no existe el bucket) | US-01 | `propiedades.service#subirFotoPropiedad` | archivo en `<auth.uid>/<archivo>` | URL pública, `peso_kb` (redondeado hacia arriba) y `formato` |
 | `GET /publicaciones/activas` | — | pendiente (no montada, no compila) | US-34 | — | — | — |
 | `GET /catalogos/ubicaciones` | — | pendiente (propuesto) | US-34 | `propiedades.service#listarUbicaciones` | — | `UbicacionOpciones` (hoy se arma con los datos) |
