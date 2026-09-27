@@ -24,6 +24,7 @@ import { Button, Form, Result } from 'antd'
 import { useRouter } from 'next/navigation'
 import type { PropiedadNueva } from '@rentar/shared-types'
 import { PageHeader, StatusTag, WizardLayout } from '@rentar/ui'
+import { useAuth } from '@/lib/auth/AuthProvider'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { ALTA_VALORES_INICIALES, CAMPOS_POR_PASO, ETIQUETA_CAMPO, type AltaValues } from '@/lib/validation/propiedad.rules'
 import { seVeEnBusqueda, tituloDePropiedadNueva } from '@/services/adapters/propiedad.adapter'
@@ -41,11 +42,16 @@ const PASOS = [
   { key: 'revision', title: 'Revisión' },
 ] as const
 
-const MIGA = [
+/**
+ * Miga del encabezado. "Propiedades" solo para el locador: un locatario
+ * todavía no tiene Mis propiedades (la gana al publicar la primera).
+ */
+const MIGA_LOCADOR = [
   { label: 'Mi panel', href: '/panel' },
   { label: 'Propiedades', href: '/panel/propiedades' },
   { label: 'Nueva' },
 ]
+const MIGA_LOCATARIO = [{ label: 'Mi panel', href: '/panel' }, { label: 'Publicar propiedad' }]
 
 /** Un error del paso para el resumen de arriba ("Faltan N datos para seguir"). */
 interface ErrorDePaso {
@@ -118,6 +124,7 @@ function esErrorDeValidacion(error: unknown): error is { errorFields: { name: (s
 /** Alta de una propiedad del locador en sesión. */
 export function AltaPropiedad() {
   const router = useRouter()
+  const { activeRole } = useAuth()
   const [form] = Form.useForm<AltaValues>()
   const valores = (Form.useWatch([], form) as AltaValues | undefined) ?? ALTA_VALORES_INICIALES
 
@@ -353,7 +360,7 @@ export function AltaPropiedad() {
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
-        <PageHeader title="Publicar una propiedad" subtitle={`Paso ${paso + 1} de ${PASOS.length} · ${PASOS[paso].title}.`} breadcrumb={MIGA} />
+        <PageHeader title="Publicar una propiedad" subtitle={`Paso ${paso + 1} de ${PASOS.length} · ${PASOS[paso].title}.`} breadcrumb={activeRole === 'locador' ? MIGA_LOCADOR : MIGA_LOCATARIO} />
       </div>
 
       <div className={styles.wizardCard}>

@@ -67,15 +67,18 @@ const MOBILE_TITLE_BY_PATH: Record<string, string> = {
   '/panel/notificaciones': 'Mis notificaciones',
 }
 
-/** Barra móvil del alta: "‹ Publicar propiedad · Salir". */
-function AltaMobileBar({ onBack }: { onBack: () => void }) {
+/**
+ * Barra móvil del alta: "‹ Publicar propiedad · Salir". "Salir" vuelve a Mis
+ * propiedades (locador) o al panel (locatario, que todavía no la tiene).
+ */
+function AltaMobileBar({ onBack, exitHref }: { onBack: () => void; exitHref: string }) {
   return (
     <div className={styles.altaBar}>
       <button type="button" className={styles.altaBack} onClick={onBack} aria-label="Volver" data-testid="alta-mobile-volver">
         <LeftOutlined />
       </button>
       <span className={styles.altaTitle}>Publicar propiedad</span>
-      <Link href="/panel/propiedades" className={styles.altaExit} data-testid="alta-mobile-salir">
+      <Link href={exitHref} className={styles.altaExit} data-testid="alta-mobile-salir">
         Salir
       </Link>
     </div>
@@ -181,7 +184,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
       activeRoleLabel={hasTwoRoles && isPanelRole(activeRole) ? ROLE_LABEL[activeRole] : undefined}
       roleOptions={roleOptions}
       onRoleChange={handleRoleChange}
-      mobileHeader={pathname === ALTA_PATH ? <AltaMobileBar onBack={() => router.back()} /> : undefined}
+      mobileHeader={pathname === ALTA_PATH ? <AltaMobileBar onBack={() => router.back()} exitHref={activeRole === 'locador' ? '/panel/propiedades' : '/panel'} /> : undefined}
       headerAction={pathname === ALTA_PATH ? undefined : PUBLICAR_ACTION}
       contextSwitcher={
         hasTwoRoles ? (

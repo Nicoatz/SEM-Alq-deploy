@@ -74,7 +74,9 @@ ningún botón del Sprint 1 quede roto. Se reemplazan ruta por ruta cuando llega
 
 `proxy.ts` protege `/panel/*`: sin sesión manda a `/login?next=…` y, después del login, vuelve ahí
 (US-39). En modo real verifica y renueva la sesión de Supabase; en modo mock, la cookie
-`rentar_session`. `/panel/propiedades/*` además exige el rol locador (`propiedades/layout.tsx`).
+`rentar_session`. Mis propiedades (`/panel/propiedades` y `/panel/propiedades/[id]`) además exige
+el rol locador (`RequireRole` en cada página). El alta (`/panel/propiedades/nueva`) está abierta
+para cualquier usuario con sesión: al publicar la primera propiedad, la cuenta pasa a ser locadora.
 
 ## Estructura de `src/`
 
