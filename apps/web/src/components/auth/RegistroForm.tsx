@@ -3,20 +3,16 @@
 /**
  * RegistroForm.tsx — `/registro` completo (US-19 Registrar usuario).
  *
- * Qué es: el registro en dos pasos del mapa de pantallas:
- * 1. "¿Alquilás o publicás?" → el rol (`locatario` o `locador`).
- * 2. "Tus datos" → nombre, apellido, fecha de nacimiento, DNI, teléfono,
- *    email, contraseña (con indicador de fuerza), repetir contraseña y
- *    términos.
- * Después inicia sesión solo (ver `iniciarSesionAutomatica`) y muestra "Cuenta
- * creada" con el siguiente paso según el rol.
- * Diseño: Claude Design, "Autenticación" · 03a (paso 1), 03 (paso 2) y 05 (estados).
+ * Qué es: el registro en un solo paso, "Tus datos": nombre, apellido, fecha
+ * de nacimiento, DNI, teléfono, email, contraseña (con indicador de fuerza),
+ * repetir contraseña y términos. Después inicia sesión solo (ver
+ * `iniciarSesionAutomatica`) y muestra "Cuenta creada" con "Buscar
+ * propiedades" y "Publicar una propiedad".
+ * Diseño: Claude Design, "Autenticación" · 03 (tus datos) y 05 (estados).
  *
- * El paso 1 siempre se muestra. Si la URL trae un rol (`?rol=locador`) o se
- * venía a publicar una propiedad, esa tarjeta llega preseleccionada, pero la
- * persona igual la confirma con "Continuar". "Atrás" en "Tus datos" vuelve al
- * paso 1 sin perder lo cargado: el formulario del paso 2 queda montado
- * (oculto) mientras se ve el paso 1.
+ * NOTA: no se elige rol (regla del equipo, 27/09/2026). Toda cuenta nueva es
+ * locataria; al publicar su primera propiedad el back le suma el rol locador
+ * (ver `propiedades.service.ts#registrarPropiedad`).
  *
  * De dónde saca los datos: `services/auth.service.ts#registrarUsuario` y,
  * para el login automático, `useAuth().login`.
@@ -44,20 +40,16 @@ import {
 } from '@/lib/validation/usuario.rules'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { hoy } from '@/lib/utils/fechas'
-import { registrarUsuario, type RegistroInput } from '@/services/auth.service'
+import { registrarUsuario } from '@/services/auth.service'
 import { USE_MOCKS } from '@/services/shared/config'
 import { ServiceError } from '@/services/shared/errors'
 import { FormAlert } from './FormAlert'
 import { isServerError, serverErrorCopy, type ServerErrorCopy } from './serverError'
 import { StatusBlock } from './StatusBlock'
-import { RolStep } from './RolStep'
 import { TerminosModal, type DocumentoLegal } from './TerminosModal'
 import styles from './AuthForm.module.css'
 
-/** Rol que se elige en el paso 1. */
-export type RolRegistro = RegistroInput['rol']
-
-type Step = 'rol' | 'datos' | 'listo'
+type Step = 'datos' | 'listo'
 
 interface DatosFormValues {
   nombre: string
@@ -72,22 +64,17 @@ interface DatosFormValues {
 }
 
 interface RegistroFormProps {
-  /** Tarjeta preseleccionada en el paso 1 (de `?rol=` o deducida de `next`); `null` = ninguna. */
-  initialRol: RolRegistro | null
   /** Ruta interna a la que se quería ir antes de registrarse, si había. */
   next: string | null
 }
 
-/** Registro de usuario en dos pasos, con los estados de carga, error y éxito. */
-export function RegistroForm({ initialRol, next }: RegistroFormProps) {
+/** Registro de usuario en un paso, con los estados de carga, error y éxito. */
+export function RegistroForm({ next }: RegistroFormProps) {
   const [form] = Form.useForm<DatosFormValues>()
   const { login } = useAuth()
 
   // ─── Estado local ───────────────────────────────────────────────────
-  // El rol vive en el estado del formulario (no en la URL): lo elige el paso 1
-  // y el paso 2 lo manda al service.
-  const [rol, setRol] = useState<RolRegistro | null>(initialRol)
-  const [step, setStep] = useState<Step>('rol')
+  const [step, setStep] = useState<Step>('datos')
   const [submitting, setSubmitting] = useState(false)
   const [emailTaken, setEmailTaken] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
@@ -108,15 +95,8 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
     setEmailTaken(false)
     setFormError(null)
     setServerError(null)
-    // No debería pasar (sin rol no se llega al paso 2), pero por las dudas se vuelve al paso 1.
-    if (!rol) {
-      setStep('rol')
-      setSubmitting(false)
-      return
-    }
     try {
       const usuario = await registrarUsuario({
-        rol,
         nombre: values.nombre,
         apellido: values.apellido,
         email: values.email,
@@ -171,45 +151,32 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
     void handleSubmit(form.getFieldsValue(true))
   }
 
-  /** "Atrás" en "Tus datos": vuelve al paso 1; lo cargado queda en el formulario. */
-  function handleBack(): void {
-    setStep('rol')
-  }
-
   // ─── Render: cuenta creada ──────────────────────────────────────────
 
   function renderListo() {
-    // El rol que se muestra es el que QUEDÓ en la cuenta: con sesión iniciada,
-    // el de `/usuarios/me`; si el login automático falló, el elegido en el paso 1.
-    // NOTA: hoy el back registra a todos como locatario (el rol del body entra
-    // con el PR #2, `feature/registro-con-rol`). Así, quien eligió "locador" ve
-    // "cuenta de locatario" en vez de un botón que lo lleve a una pantalla
-    // que no puede usar.
-    const esLocador = sesionIniciada ? sesionIniciada.roles.includes('locador') : rol === 'locador'
-    // El siguiente paso depende del rol (diseño: "Locador: el CTA pasa a
-    // Publicar mi primera propiedad").
+    // Diseño (Autenticación · 05, "Cuenta creada"): igual para todos, buscar
+    // (principal) o publicar (secundario). Al publicar la primera propiedad la
+    // cuenta pasa a ser también de locador.
     // NOTA: el registro inicia sesión solo (ver `iniciarSesionAutomatica`),
-    // así que los botones llevan directo a su destino. Si el login automático
-    // falló, los destinos del panel pasan por /login con el email ya cargado
-    // (solo falta la contraseña) y vuelven al destino con ?next=.
-    const destino = (ruta: string) =>
-      sesionIniciada ? ruta : `/login?next=${encodeURIComponent(ruta)}&email=${encodeURIComponent(emailCreado)}`
-    const cta = esLocador
-      ? { label: 'Publicar mi primera propiedad', href: destino('/panel/propiedades/nueva') }
-      : { label: 'Buscar propiedades en Córdoba', href: '/buscar' }
+    // así que "Publicar una propiedad" lleva directo al alta. Si el login
+    // automático falló, pasa por /login con el email ya cargado (solo falta
+    // la contraseña) y vuelve al alta con ?next=. Buscar no pide sesión.
+    const altaHref = sesionIniciada
+      ? '/panel/propiedades/nueva'
+      : `/login?next=${encodeURIComponent('/panel/propiedades/nueva')}&email=${encodeURIComponent(emailCreado)}`
     return (
       <StatusBlock
         variant="success"
         title={`¡Listo, ${nombreCreado}!`}
-        description={`Tu cuenta de ${esLocador ? 'locador' : 'locatario'} ya está activa. Te mandamos un email para confirmar la dirección.`}
+        description="Tu cuenta ya está activa. Te mandamos un email para confirmar la dirección."
         actions={
           <>
-            <Button type="primary" size="large" href={cta.href} className={styles.submit} data-testid="registro-success-cta">
-              {cta.label}
+            <Button type="primary" size="large" href="/buscar" className={`${styles.submit} ${styles.successButton}`} data-testid="registro-success-buscar">
+              Buscar propiedades
             </Button>
-            <Link href={destino('/panel')} className={styles.link} data-testid="registro-success-panel-link">
-              Ir a mi panel
-            </Link>
+            <Button size="large" href={altaHref} className={`${styles.secondaryButton} ${styles.successButton}`} data-testid="registro-success-publicar">
+              Publicar una propiedad
+            </Button>
             {/* El texto de arriba es el del diseño; este aviso aclara que el email
                 no sale: ni el mock ni el back mandan emails (el back crea la
                 cuenta ya confirmada). docs/PRODUCT.md: nunca simular sin decirlo.
@@ -227,7 +194,7 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
     )
   }
 
-  // ─── Render: paso 2 (datos) ─────────────────────────────────────────
+  // ─── Render: tus datos ──────────────────────────────────────────────
 
   function renderStepDatos() {
     return (
@@ -339,9 +306,6 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
             </Form.Item>
 
             <div className={styles.buttonRow}>
-              <Button onClick={handleBack} className={styles.secondaryButton} disabled={submitting} data-testid="registro-back-button">
-                Atrás
-              </Button>
               {/* disabled={false}: mismo motivo que en LoginForm (el botón se ve azul con el spinner). */}
               <Button
                 type="primary"
@@ -355,6 +319,14 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
               </Button>
             </div>
 
+            {/* Estaba en el paso 1 (que ya no existe); se mantiene para quien ya tiene cuenta. */}
+            <p className={styles.footerText}>
+              ¿Ya tenés cuenta?{' '}
+              <Link href={loginHref} className={styles.link} data-testid="registro-login-link">
+                Iniciá sesión
+              </Link>
+            </p>
+
             <TerminosModal documento={documentoAbierto} onClose={() => setDocumentoAbierto(null)} />
           </Form>
         </div>
@@ -364,14 +336,9 @@ export function RegistroForm({ initialRol, next }: RegistroFormProps) {
 
   // ─── Render ─────────────────────────────────────────────────────────
 
-  const title = step === 'listo' ? 'Cuenta creada' : step === 'rol' ? '¿Qué querés hacer en RentAR?' : 'Tus datos'
-  const subtitle = step === 'rol' ? 'Elegí cómo vas a empezar' : undefined
-
   return (
-    <AuthLayout title={title} subtitle={subtitle} data-testid="registro-page">
-      {step === 'rol' && <RolStep value={rol} onChange={setRol} onContinue={() => setStep('datos')} loginHref={loginHref} />}
-      {/* Montado también en el paso 1 (oculto), así "Atrás" no borra lo cargado. */}
-      {step !== 'listo' && <div hidden={step !== 'datos'}>{renderStepDatos()}</div>}
+    <AuthLayout title={step === 'listo' ? 'Cuenta creada' : 'Tus datos'} data-testid="registro-page">
+      {step === 'datos' && renderStepDatos()}
       {step === 'listo' && renderListo()}
     </AuthLayout>
   )

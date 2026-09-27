@@ -152,9 +152,11 @@ export async function logout(): Promise<void> {
 
 // ─── Registro (US-19) ──────────────────────────────────────────────────────
 
-/** Datos del registro (US-19): el rol del paso 1 y los datos del paso 2. */
+/**
+ * Datos del registro (US-19). No lleva rol: toda cuenta nueva es locataria
+ * (regla del equipo, 27/09/2026; el back la registra así).
+ */
 export interface RegistroInput {
-  rol: 'locador' | 'locatario'
   nombre: string
   apellido: string
   email: string
@@ -193,8 +195,8 @@ function esDniDuplicado(mensaje: string): boolean {
  * @backend POST /api/v1/registrar-usuario   (existe · sin token)
  * @body    RegistrarUsuarioRequest (lo arma `registroInputToRequest`)
  * @returns UsuarioSesion (la respuesta la traduce `registroResponseToSesion`)
- * TODO(backend): el back hoy ignora `rol` y registra a todos como locatario
- * (aceptarlo está en revisión en `feature/registro-con-rol`, PR #2).
+ * El back registra a todos como locatario (el rol locador se suma al
+ * publicar la primera propiedad).
  * @throws {ServiceError} `conflict` con {@link EMAIL_TAKEN_MESSAGE} si el mail ya existe;
  *   `validation` con {@link DNI_TAKEN_MESSAGE} si el DNI ya existe (índice
  *   único `uq_usuario_numero_documento`; el front no lo valida, lo decide la base).
@@ -219,7 +221,8 @@ export async function registrarUsuario(input: RegistroInput): Promise<UsuarioSes
       // NOTA: solo en modo mock, y solo en este navegador: el back real guarda
       // un hash, nunca la contraseña.
       password: input.password,
-      roles: [input.rol],
+      // Toda cuenta nueva es locataria (igual que en el back).
+      roles: ['locatario' as const],
       status: 'activo' as const,
       telefono: input.telefono,
       dni: input.dni,
@@ -239,7 +242,7 @@ export async function registrarUsuario(input: RegistroInput): Promise<UsuarioSes
       body: registroInputToRequest(input),
       auth: false,
     })
-    return registroResponseToSesion(response, input.rol)
+    return registroResponseToSesion(response)
   } catch (error) {
     if (error instanceof ServiceError && error.code === 'conflict') {
       // DNI repetido: va como error de datos (arriba del formulario, que

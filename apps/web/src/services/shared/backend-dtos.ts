@@ -135,13 +135,10 @@ export interface InmuebleDetalleResponse {
 }
 
 /**
- * Cuerpo de `POST /api/v1/registrar-usuario` (existe). Es
- * `CreateUsuarioPayload` de `@rentar/shared-types` más el rol. Las claves con
- * ñ (`contraseña`) son las que espera el back, tal cual.
- *
- * TODO(backend): hoy el back ignora `rol` y registra a todos como locatario.
- * Aceptarlo está en revisión en `feature/registro-con-rol`; cuando se mergee,
- * empieza a funcionar sin cambios en el front.
+ * Cuerpo de `POST /api/v1/registrar-usuario` (existe). Las claves con ñ
+ * (`contraseña`) son las que espera el back, tal cual.
+ * NOTA: no lleva rol. El back registra a todos como locatario (regla del
+ * equipo, 27/09/2026); el PR #2, que aceptaba `rol`, se cerró sin mergear.
  */
 export interface RegistrarUsuarioRequest {
   nombre: string
@@ -154,5 +151,4 @@ export interface RegistrarUsuarioRequest {
   /** Formato ISO `YYYY-MM-DD`. */
   fecha_nacimiento: string
   acepta_terminos: boolean
-  rol: 'locador' | 'locatario'
 }

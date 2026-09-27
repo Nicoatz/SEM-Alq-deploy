@@ -315,7 +315,7 @@ ni del texto visible.
 
 **Convención:** `<pantalla>-<elemento>[-<acción>]`, en minúsculas y con guiones. En listas, todos
 los ítems comparten el testid (`buscar-tarjeta`, `panel-cobro`, `data-table-row`); en grupos de
-opciones el testid lleva la clave (`registro-rol-locador`, `mis-propiedades-tab-alquilada`,
+opciones el testid lleva la clave (`mis-propiedades-tab-alquilada`,
 `alta-medio-transferencia`, `user-menu-role-locatario`).
 
 **Cambio de esta rama:** se borró `login-remember-checkbox` (se sacó "Recordarme": con Supabase la
@@ -325,7 +325,7 @@ sesión dura hasta cerrarla).
 |---|---|
 | Header y landing | `header-login-button`, `header-publish-button`, `header-menu-toggle`, `hero-search-cta`, `search-*` (buscador), `search-result-count`, `landing-more-properties-button`, `property-card-detail-button` |
 | `/login` | `login-email-input`, `login-password-input`, `login-submit-button`, `login-error-alert`, `login-register-link`, `login-forgot-link`, `login-forgot-link-mobile`, `auth-server-error`, `auth-retry-button` |
-| `/registro` | `registro-rol-locador` / `registro-rol-locatario`, `registro-continuar-button`, `registro-login-link`, `registro-<campo>-input`, `registro-terminos-checkbox`, `registro-submit-button`, `registro-back-button`, `registro-email-taken-alert`, `registro-error-alert`, `registro-success`, `registro-success-cta`, `registro-success-panel-link`, `registro-email-simulado`, `auth-server-error`, `auth-retry-button` |
+| `/registro` | `registro-login-link`, `registro-<campo>-input`, `registro-terminos-checkbox`, `registro-submit-button`, `registro-email-taken-alert`, `registro-error-alert`, `registro-success`, `registro-success-buscar`, `registro-success-publicar`, `registro-email-simulado`, `auth-server-error`, `auth-retry-button`. Borrados el 27/09 (registro en un paso, sin rol): `registro-rol-locador`, `registro-rol-locatario`, `registro-continuar-button`, `registro-back-button`, `registro-success-cta`, `registro-success-panel-link` |
 | `/buscar` | `buscar-resultados`, `buscar-tarjeta`, `buscar-conteo`, `buscar-orden`, `buscar-paginacion`, `buscar-mostrando`, `buscar-sin-resultados`, `buscar-error`, `buscar-reintentar`, `buscar-abrir-filtros`, `buscar-drawer-ver`, `search-sidebar-*` / `search-drawer-*` (filtros) |
 | AppShell y UserMenu | `app-shell-logo-link`, `app-shell-menu-toggle`, `app-shell-role-chip`, `user-menu-trigger`, `user-menu-item-<key>`, `user-menu-role-<rol>`, `user-menu-logout`, `role-context-switcher` |
 | `/panel` | `panel-publicar`, `panel-registrar-pago`, `panel-pendientes`, `panel-stat-<cifra>`, `panel-cobro`, `panel-reclamo`, `panel-contrato`, `panel-error-<bloque>`, `panel-onboarding`, `panel-onboarding-publicar` |
