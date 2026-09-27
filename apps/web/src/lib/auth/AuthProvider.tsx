@@ -47,6 +47,13 @@ interface AuthContextValue {
   login: (credentials: LoginCredentials) => Promise<UsuarioSesion>
   logout: () => void
   switchRole: (role: UserRole) => void
+  /**
+   * Vuelve a pedir el perfil y los roles sin cerrar sesión (después de
+   * publicar la primera propiedad, la cuenta suma el rol locador). Si el
+   * usuario tiene `rolPreferido`, queda como rol activo. Devuelve el usuario
+   * actualizado, o `null` si ya no hay sesión (no toca el estado).
+   */
+  refrescarUsuario: (rolPreferido?: UserRole) => Promise<UsuarioSesion | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -257,6 +264,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
   }
 
+  /**
+   * Relee `/usuarios/me` (en mock, la cuenta guardada) y actualiza usuario y
+   * rol activo, sin pasar por el login.
+   * Regla del equipo (27/09/2026): al publicar la primera propiedad el back
+   * le suma el rol locador a la cuenta. El alta llama a esto después del 201
+   * con `'locador'`, así "Viendo como" y Mis propiedades aparecen enseguida.
+   * NOTA: termina con `router.refresh()` (en real y en mock), para que Next
+   * no reuse una respuesta vieja de la ruta actual. `/buscar` no guarda la
+   * lista en el navegador (se sacó el caché de 30 s), así que la propiedad
+   * nueva aparece en la próxima búsqueda sin hacer nada más.
+   * @throws {ServiceError} si `/usuarios/me` falla por otra cosa que la sesión.
+   */
+  async function refrescarUsuario(rolPreferido?: UserRole): Promise<UsuarioSesion | null> {
+    const usuario = await getUsuarioActual()
+    if (!usuario) return null
+    const role =
+      rolPreferido && usuario.roles.includes(rolPreferido)
+        ? rolPreferido
+        : activeRole && usuario.roles.includes(activeRole)
+          ? activeRole
+          : initialRole(usuario)
+    writeSessionToDocument({ userId: usuario.id, activeRole: role })
+    setUser(usuario)
+    setActiveRole(role)
+    refreshRoutes()
+    return usuario
+  }
+
   /** Cambio de contexto (cuentas con dos roles). Ignora un rol que el usuario no tiene. */
   function switchRole(role: UserRole): void {
     if (!user || !user.roles.includes(role)) return
@@ -274,6 +309,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     switchRole,
+    refrescarUsuario,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
