@@ -59,7 +59,7 @@ function isPanelRole(role: UserRole): role is PanelRole {
 const ALTA_PATH = '/panel/propiedades/nueva'
 
 /** "Publicar propiedad" del encabezado (Paneles · 05b), para cualquier rol. */
-const PUBLICAR_ACTION: AppShellHeaderAction = { label: 'Publicar propiedad', href: ALTA_PATH, 'data-testid': 'panel-publicar' }
+const PUBLICAR_ACTION: AppShellHeaderAction = { label: 'Publicar propiedad', href: ALTA_PATH, 'data-testid': 'app-shell-publicar' }
 
 /** Títulos de la barra móvil para las rutas que no están en el menú lateral. */
 const MOBILE_TITLE_BY_PATH: Record<string, string> = {
