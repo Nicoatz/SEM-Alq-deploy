@@ -80,12 +80,18 @@ export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
 // ─── Búsqueda pública (US-34) ───────────────────────────────────────────
 
 /**
- * Tamaño de página para traer TODAS las disponibles (landing, opciones de
- * ubicación y búsquedas que el back no resuelve exacto).
- * NOTA: el back no tiene tope de `limit`; se piden de a 100 para no armar una
- * respuesta gigante si algún día hay muchas.
+ * Tope de propiedades que se traen cuando hace falta "traer todas" (landing,
+ * opciones de ubicación y búsquedas que el back no resuelve exacto).
+ * Es el máximo que devuelve el back en un pedido: la API no limita `limit`,
+ * pero Supabase corta cada consulta en 1000 filas (el "Max rows" por defecto
+ * de la API de datos).
+ * NOTA: traer todas y filtrar en el cliente sirve para el piloto (hoy hay muy
+ * pocas propiedades publicadas) y NO escala: con más de 1000 disponibles la
+ * lista quedaría incompleta, y aun antes de eso el pedido se vuelve pesado.
+ * La salida es que el back resuelva todos los filtros y órdenes (ver los
+ * TODO(backend) de `propiedad.adapter.ts#consultaDeDisponibles`).
  */
-const TODAS_POR_PAGINA = 100
+const TOPE_DISPONIBLES_CLIENTE = 1000
 
 /** Pide una página de `/inmuebles/disponibles` con los params del back. */
 function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
@@ -93,22 +99,18 @@ function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponibles
 }
 
 /**
- * Rama real: todas las disponibles, recorriendo las páginas del back (la
- * primera dice cuántas hay; el resto se piden juntas).
+ * Rama real: todas las disponibles en un solo pedido, hasta
+ * {@link TOPE_DISPONIBLES_CLIENTE} (ver su NOTA: sirve para el piloto, no escala).
  */
 async function todasLasDisponibles(): Promise<PropiedadResumen[]> {
-  const limit = String(TODAS_POR_PAGINA)
-  const primera = await pedirDisponibles({ page: '1', limit })
-  const resto = await Promise.all(
-    Array.from({ length: Math.max(0, primera.totalPages - 1) }, (_, index) => pedirDisponibles({ page: String(index + 2), limit })),
-  )
-  return [primera, ...resto].flatMap((pagina) => pagina.items.map(inmuebleDisponibleToPropiedadResumen))
+  const respuesta = await pedirDisponibles({ page: '1', limit: String(TOPE_DISPONIBLES_CLIENTE) })
+  return respuesta.items.map(inmuebleDisponibleToPropiedadResumen)
 }
 
 /**
  * US-34 Consultar propiedades a alquilar — todas las buscables, sin filtros
  * ni paginación (la landing filtra en el cliente y muestra una vista previa).
- * @backend GET /api/v1/inmuebles/disponibles?page=&limit=100   (existe · se recorren todas las páginas)
+ * @backend GET /api/v1/inmuebles/disponibles?page=1&limit=1000   (existe · hasta 1000, ver TOPE_DISPONIBLES_CLIENTE)
  * @returns PropiedadResumen[]
  */
 export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]> {

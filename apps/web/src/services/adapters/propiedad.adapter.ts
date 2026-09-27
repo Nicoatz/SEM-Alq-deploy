@@ -322,8 +322,10 @@ export function disponiblesToPaginado(respuesta: InmueblesDisponiblesResponse): 
  * - `exacta: true`: el back puede resolver la búsqueda tal cual; `query` va
  *   directo a `/inmuebles/disponibles` y la página que vuelve es la que se muestra.
  * - `exacta: false`: algún filtro u orden no tiene equivalente exacto en el
- *   back; hay que traer todas las disponibles y filtrar, ordenar y paginar en
- *   el cliente (`lib/search/busqueda.ts`), igual que en modo mock.
+ *   back; hay que traer todas las disponibles (hasta 1000, ver
+ *   `propiedades.service.ts#TOPE_DISPONIBLES_CLIENTE`: sirve para el piloto,
+ *   no escala) y filtrar, ordenar y paginar en el cliente
+ *   (`lib/search/busqueda.ts`), igual que en modo mock.
  */
 export type ConsultaDisponibles = { exacta: true; query: DisponiblesQuery } | { exacta: false }
 

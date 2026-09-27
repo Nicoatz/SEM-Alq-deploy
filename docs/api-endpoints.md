@@ -63,8 +63,9 @@ Mapeos del alta (US-01), documentados en `services/adapters/propiedad.adapter.ts
 
 Búsqueda (US-34), `GET /inmuebles/disponibles`:
 
-- El front manda al back lo que puede resolver exacto y, si no, trae todas (de a 100 por página) y
-  filtra, ordena y pagina en el cliente. No exacto: más de un barrio, un barrio fuera del catálogo
+- El front manda al back lo que puede resolver exacto y, si no, trae todas en un pedido (hasta
+  1000, el máximo de filas por consulta de Supabase) y filtra, ordena y pagina en el cliente. Sirve
+  para el piloto; no escala. No exacto: más de un barrio, un barrio fuera del catálogo
   del front, más de un tipo, más de una cantidad de dormitorios o ambientes, "4 o más", más de una
   característica (el back devuelve las que tengan cualquiera) y los órdenes por precio
   (`orden=precio` no ordena). Tabla completa en `propiedad.adapter.ts#consultaDeDisponibles`.
