@@ -290,6 +290,7 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Qué | Ids | Dónde |
 |---|---|---|
 | Usuarios `rentar.qa+test-rol-locador@example.com`, `+test-sin-rol`, `+test-t3-locador-1440`, `+test-t3-locatario-390` | **11, 12, 15 y 16** | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Usuario `rentar.qa+test-roles-390@example.com` (registro sin rol, 27/09, rama `feature/roles-publicar`) | **17** | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 
