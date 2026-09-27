@@ -47,6 +47,7 @@ import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
 import { requireSessionUserId } from './shared/session'
+import { readUsuariosMock } from './usuarios.service'
 
 // ─── Helpers de la rama mock ────────────────────────────────────────────
 
@@ -292,6 +293,22 @@ async function subirFotosPropiedad(nueva: PropiedadNueva): Promise<CreateFotoPay
 }
 
 /**
+ * Rama mock de la regla del equipo (27/09/2026): al publicar la primera
+ * propiedad, la cuenta pasa a tener `['locador', 'locatario']` (locador abarca
+ * a locatario, igual que lo va a devolver `/usuarios/me`). Se guarda en
+ * `rentar:mock:usuarios`, así sobrevive a recargar. La sesión se actualiza
+ * igual que en modo real: la pantalla llama a `useAuth().refrescarUsuario`.
+ * NOTA: si no se puede guardar (`localStorage` lleno), la propiedad ya quedó
+ * creada; la cuenta sigue como estaba y el alta muestra el éxito sin
+ * "Ir a mis propiedades".
+ */
+function sumarRolLocadorMock(userId: string): void {
+  const usuario = readUsuariosMock().find((item) => item.id === userId)
+  if (!usuario || usuario.roles.includes('locador')) return
+  saveMockRecord('usuarios', { ...usuario, roles: ['locador', 'locatario'] })
+}
+
+/**
  * US-01 Registrar mis propiedades — da de alta una propiedad del usuario en
  * sesión, locatario o locador, con sus condiciones de contrato y sus fotos
  * (publicada, pausada o alquilada; alquilada con fecha de disponibilidad →
@@ -323,6 +340,7 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
     if (!saveMockRecord('propiedades', propiedad)) {
       throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     }
+    sumarRolLocadorMock(ownerId)
     return { id: propiedad.id, status: propiedad.status }
   }
 
