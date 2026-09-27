@@ -116,6 +116,10 @@ su primera propiedad. Exports leídos en `.design-exports/roles/` (Paneles · 05
 - **`UserMenu`: prop opcional `sheetLeadingItem`** (un `UserMenuItem`): va primero en la hoja
   móvil, en azul y negrita; no aparece en el dropdown de escritorio. La pasa `AppShell` desde
   `headerAction` (`data-testid` `user-menu-item-header-action`).
+- **`EmptyState`: prop opcional `actionBlock`** (por defecto `false`, igual que antes): debajo de
+  640px la acción ocupa todo el ancho, como los botones de Paneles · 05b en móvil. Hoy la usa solo el
+  panel del locatario (`apps/web/src/components/panel/PanelLocatario.tsx`). Al subir, sumar una
+  historia `AccionAnchoCompleto` en `previews/EmptyState.tsx`.
 - **Contradicciones del diseño con la regla nueva (no se tocaron; pendientes para quien lleva
   Claude Design):**
   1. Paneles · 06 ("Locatario nuevo · Onboarding"), paso "Cuenta creada": dice "Podés activar

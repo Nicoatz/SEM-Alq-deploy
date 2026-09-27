@@ -43,6 +43,7 @@ export function PanelLocatario({ nombre }: PanelLocatarioProps) {
             icon={<SearchOutlined />}
             title="Buscar propiedades"
             description="Departamentos y casas en alquiler en Córdoba. Filtrá por barrio, precio y ambientes."
+            actionBlock
             action={
               <Button type="primary" size="large" className={styles.action} onClick={() => router.push('/buscar')} data-testid="panel-locatario-buscar">
                 Buscar propiedades
@@ -55,6 +56,7 @@ export function PanelLocatario({ nombre }: PanelLocatarioProps) {
             icon={<HomeOutlined />}
             title="¿Tenés una propiedad para alquilar? Publicala"
             description="Cargala en unos minutos. Al publicar la primera, se activa tu panel de locador."
+            actionBlock
             action={
               <Button size="large" className={styles.action} onClick={() => router.push('/panel/propiedades/nueva')} data-testid="panel-locatario-publicar">
                 Publicar propiedad
