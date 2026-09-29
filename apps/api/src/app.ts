@@ -29,3 +29,7 @@ export const createApp = (): Application => {
 };
 
 export const app = createApp();
+
+// Vercel toma src/app.ts como entrypoint y necesita la app como export default.
+// El listen() queda solo en src/server.ts, que se usa en local (dev:api / start).
+export default app;
