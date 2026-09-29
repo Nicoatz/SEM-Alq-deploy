@@ -18,6 +18,7 @@ export interface IInmuebleRepository {
   getFotosByInmuebleId(idInmueble: number): Promise<FotoInmuebleDTO[]>;
   addTags(idInmueble: number, tagIds: number[]): Promise<void>;
   getTagsByInmuebleId(idInmueble: number): Promise<TagInmuebleDTO[]>;
+  poseeReclamosNoResueltos(idInmueble: number): Promise<boolean>;
 }
 
 export class InmuebleRepository implements IInmuebleRepository {
@@ -71,13 +72,7 @@ export class InmuebleRepository implements IInmuebleRepository {
       fecha_disponible: '2028-03-01',
       servicios: 1,
       created_at: new Date('2026-02-10T10:00:00Z')
-        .filter(i => {
-          if (i.id_locador !== locadorId) return false;
-          if (filtros?.barrio && i.barrio !== filtros.barrio) return false;
-          if (filtros?.tipo !== undefined && i.tipo !== filtros.tipo) return false;
-          if (filtros?.estado && i.estado_alquiler !== filtros.estado) return false;
-          return true;
-        })
+    }
   ];
 
   private fotos: FotoInmuebleDTO[] = [
@@ -194,6 +189,10 @@ export class InmuebleRepository implements IInmuebleRepository {
       if (tag) resultado.push(tag);
     }
     return resultado;
+  }
+
+  async poseeReclamosNoResueltos(_idInmueble: number): Promise<boolean> {
+    return false;
   }
 }
 

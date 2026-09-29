@@ -112,6 +112,7 @@ export interface UpdateInmuebleDTO {
 
 export type CreateInmuebleCompletoDTO = CreateInmuebleCompletoPayload;
 export type MisAlquileresDTO = MisAlquileresItem;
+export type { Reclamo as ReclamoDTO } from '@rentar/shared-types';
 
 export interface FiltrosMisAlquileresDTO {
   barrio?: string;

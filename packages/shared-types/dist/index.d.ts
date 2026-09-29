@@ -95,6 +95,17 @@ export interface FotoInmueble {
     formato: string;
     orden: number;
 }
+export interface EstadoReclamo {
+    id: number;
+    nombre: string;
+}
+export interface Reclamo {
+    id: number;
+    id_inmueble: number;
+    titulo: string;
+    descripcion: string;
+    id_estado_reclamo: number;
+}
 export interface InmuebleXTag {
     id: number;
     id_inmueble: number;
@@ -185,6 +196,7 @@ export interface MisAlquileresItem {
     tags: string[];
     foto_principal: string | null;
     fotos: FotoInmueble[];
+    posee_reclamos_no_resueltos: boolean;
     contrato: {
         id: number;
         locatario: {

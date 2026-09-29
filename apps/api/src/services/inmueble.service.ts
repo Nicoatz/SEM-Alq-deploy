@@ -346,6 +346,7 @@ export class InmuebleService {
       const tagsObjs = await this.inmRepo.getTagsByInmuebleId(inm.id);
       const fotos = await this.inmRepo.getFotosByInmuebleId(inm.id);
       const fotoPrincipal = fotos.find(f => f.es_principal)?.url || (fotos.length > 0 ? fotos[0].url : null);
+      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
 
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];
@@ -390,6 +391,7 @@ export class InmuebleService {
         tags: tagsObjs.map(t => t.descripcion),
         foto_principal: fotoPrincipal,
         fotos: fotos,
+        posee_reclamos_no_resueltos: poseeReclamosNoResueltos,
         contrato: {
           id: contrato ? contrato.id : 0,
           locatario: locatario
