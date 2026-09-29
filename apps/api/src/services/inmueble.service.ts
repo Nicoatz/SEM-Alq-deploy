@@ -93,7 +93,15 @@ export class InmuebleService {
   }
 
   async getInmueblesDisponibles(filtros: FiltrosInmueblesDisponiblesDTO): Promise<InmueblesDisponiblesResultadoDTO> {
-    const inmuebles = await this.inmRepo.buscarDisponibles(filtros);
+    const { items: inmuebles, total, page, limit } = await this.inmRepo.buscarDisponibles(filtros);
+    const totalPages = Math.ceil(total / limit);
+
+    if (page > Math.max(totalPages, 1)) {
+      const error = new Error('La página solicitada no existe.');
+      Object.assign(error, { statusCode: 400 });
+      throw error;
+    }
+
     const items: InmuebleDisponibleDTO[] = [];
 
     for (const inmueble of inmuebles) {
@@ -177,10 +185,10 @@ export class InmuebleService {
 
     return {
       items,
-      total: items.length,
-      page: 1,
-      limit: items.length,
-      totalPages: 1
+      total,
+      page,
+      limit,
+      totalPages
     };
   }
 

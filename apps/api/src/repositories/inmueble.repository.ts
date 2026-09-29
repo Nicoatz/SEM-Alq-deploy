@@ -26,10 +26,12 @@ export interface IInmuebleRepository {
   getTagsByInmuebleId(idInmueble: number): Promise<TagInmuebleDTO[]>;
   poseeReclamosNoResueltos(idInmueble: number): Promise<boolean>;
   findDisponibleById(id: number): Promise<InmuebleDTO | null>;
-  buscarDisponibles(filtros?: {
-    barrio?: string;
-    tipo?: number;
-  }): Promise<InmuebleDTO[]>;
+  buscarDisponibles(filtros?: FiltrosInmueblesDisponiblesDTO): Promise<{
+    items: InmuebleDTO[];
+    total: number;
+    page: number;
+    limit: number;
+  }>;
   registrarPropiedadCompleta(idLocador: number, data: CreateInmuebleCompletoDTO): Promise<InmuebleDTO>;
 }
 
@@ -252,11 +254,39 @@ export class InmuebleRepository implements IInmuebleRepository {
     return data as InmuebleDTO | null;
   }
 
-  async buscarDisponibles(filtros?: { barrio?: string; tipo?: number; }): Promise<InmuebleDTO[]> {
+  async buscarDisponibles(filtros?: FiltrosInmueblesDisponiblesDTO): Promise<{
+    items: InmuebleDTO[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const page = filtros?.page && Number.isSafeInteger(filtros.page) && filtros.page > 0
+      ? filtros.page
+      : 1;
+    const requestedLimit = filtros?.limit && Number.isSafeInteger(filtros.limit) && filtros.limit > 0
+      ? filtros.limit
+      : 1000;
+    const limit = Math.min(requestedLimit, 1000);
+    const supabase = getSupabaseAdmin();
 
-    let query = getSupabaseAdmin()
+    let propertyIdsForTags: number[] | undefined;
+    if (filtros?.tags?.length) {
+      const { data: taggedProperties, error: tagsError } = await supabase
+        .from('inmueble_x_tag')
+        .select('id_inmueble')
+        .in('id_tag', filtros.tags);
+
+      if (tagsError) throw tagsError;
+
+      propertyIdsForTags = [...new Set((taggedProperties ?? []).map(row => row.id_inmueble))];
+      if (propertyIdsForTags.length === 0) {
+        return { items: [], total: 0, page, limit };
+      }
+    }
+
+    let query = supabase
       .from('inmueble')
-      .select('*')
+      .select('*, contrato!inner(monto_alquiler, indice_aumento)', { count: 'exact' })
       .in('estado_alquiler', [
         'publicado',
         'alquilado/publicado'
@@ -269,14 +299,53 @@ export class InmuebleRepository implements IInmuebleRepository {
     if (filtros?.tipo !== undefined) {
       query = query.eq('tipo', filtros.tipo);
     }
+    if (filtros?.precioMin !== undefined) {
+      query = query.gte('contrato.monto_alquiler', filtros.precioMin);
+    }
+    if (filtros?.precioMax !== undefined) {
+      query = query.lte('contrato.monto_alquiler', filtros.precioMax);
+    }
+    if (filtros?.dormitorios !== undefined) {
+      query = query.eq('dormitorios', filtros.dormitorios);
+    }
+    if (filtros?.ambientes !== undefined) {
+      query = query.eq('ambientes', filtros.ambientes);
+    }
+    if (filtros?.superficieMin !== undefined) {
+      query = query.gte('m2_totales', filtros.superficieMin);
+    }
+    if (filtros?.superficieMax !== undefined) {
+      query = query.lte('m2_totales', filtros.superficieMax);
+    }
+    if (filtros?.indiceAjuste !== undefined) {
+      query = query.eq('contrato.indice_aumento', filtros.indiceAjuste);
+    }
+    if (propertyIdsForTags) {
+      query = query.in('id', propertyIdsForTags);
+    }
 
-    const { data, error } = await query.order('id');
+    const ascending = filtros?.direccion !== 'desc';
+    if (filtros?.orden === 'dormitorios') {
+      query = query.order('dormitorios', { ascending });
+    } else if (filtros?.orden === 'm2') {
+      query = query.order('m2_totales', { ascending });
+    }
+
+    const from = (page - 1) * limit;
+    const { data, count, error } = await query
+      .order('id', { ascending: false })
+      .range(from, from + limit - 1);
 
     if (error) {
       throw error;
     }
 
-    return (data ?? []) as InmuebleDTO[];
+    return {
+      items: (data ?? []) as InmuebleDTO[],
+      total: count ?? 0,
+      page,
+      limit
+    };
   }
 }
 
