@@ -229,6 +229,7 @@ export interface MisAlquileresItem {
     monto_alquiler: number;
     expensas: number;
     indice_aumento?: string | null;
+    fecha_proximo_ajuste?: string | null;
     frecuencia_ajuste?: string | null;
     duracion_meses?: number | null;
     deposito?: number | null;

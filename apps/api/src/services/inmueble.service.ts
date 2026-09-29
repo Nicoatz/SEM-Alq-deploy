@@ -351,6 +351,12 @@ export class InmuebleService {
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];
       let indiceDescripcion: string | null = null;
+      const fechaProximoAjuste = contrato
+        ? this.calcularFechaProximoAjuste(
+            contrato.fecha_inicio_contrato,
+            contrato.frecuencia_ajuste
+          )
+        : null;
       const locatario = contrato
         ? await this.contRepo.getLocatarioByContratoId(contrato.id)
         : null;
@@ -404,6 +410,7 @@ export class InmuebleService {
           monto_alquiler: contrato ? contrato.monto_alquiler : inm.precio_publicado,
           expensas: contrato ? contrato.expensas : 0,
           indice_aumento: indiceDescripcion,
+          fecha_proximo_ajuste: fechaProximoAjuste,
           frecuencia_ajuste: contrato?.frecuencia_ajuste || null,
           duracion_meses: contrato?.duracion_meses || null,
           deposito: contrato?.deposito || null,
@@ -415,6 +422,36 @@ export class InmuebleService {
     }
 
     return resultado;
+  }
+
+  private calcularFechaProximoAjuste(
+    fechaInicio: string | null | undefined,
+    frecuencia: string | null | undefined
+  ): string | null {
+    if (!fechaInicio || !frecuencia) return null;
+
+    const mesesPorFrecuencia: Record<string, number> = {
+      mensual: 1,
+      bimestral: 2,
+      trimestral: 3,
+      cuatrimestral: 4,
+      semestral: 6,
+      anual: 12
+    };
+    const meses = mesesPorFrecuencia[frecuencia.trim().toLowerCase()];
+    if (!meses) return null;
+
+    const [anio, mes, dia] = fechaInicio.split('-').map(Number);
+    if (!anio || !mes || !dia) return null;
+
+    const hoy = new Date();
+    const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+
+    while (fecha <= hoy) {
+      fecha.setUTCMonth(fecha.getUTCMonth() + meses);
+    }
+
+    return fecha.toISOString().slice(0, 10);
   }
 }
 
