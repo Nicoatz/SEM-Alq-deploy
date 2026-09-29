@@ -312,6 +312,9 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Usuario `rentar.qa+test-roles-390@example.com` (registro sin rol, 27/09, rama `feature/roles-publicar`) | **17** | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Usuario `rentar.qa+test-rol-publicar@example.com` (prueba del rol al publicar, 29/09, `feature/vistas`) | **18**; `usuario_x_rol` **18** (locatario) y **19** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmueble "[TEST] Prueba del rol al publicar (feature/vistas, 29/09) - borrar" | inmueble **5**; `foto_inmueble` **13, 14 y 15**; `inmueble_x_tag` **7**; `contrato` **5**; `medio_pago_x_contrato` **7** | cada tabla |
+| Usuario `rentar.qa+test-fotos-390@example.com` (alta real con fotos, 29/09) | **19**; `usuario_x_rol` **21** (locatario) y **22** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Inmuebles del alta real con fotos (29/09): "Calle de Prueba Fotos 300" (usuario 18, publicado) y "Calle de Prueba Alquilada 400" (usuario 19, `publicado/alquilado`) | inmuebles **6 y 7**; `foto_inmueble` **16 a 21**; `contrato` **6 y 7**; `medio_pago_x_contrato` **8 y 9** (sin tags) | cada tabla |
+| Archivos del bucket `fotos-propiedades` | los de `foto_inmueble` 16 a 21 (carpetas de los usuarios 18 y 19) y **3 huérfanos** de la prueba del borrado (`32c9ed9b-…/6901f188-….png`, `…/67aa21ec-….png`, `…/70c9f11d-….png`), que no se pudieron borrar por la política de SELECT que falta (sección 8) | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 
