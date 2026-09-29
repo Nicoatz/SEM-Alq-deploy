@@ -12,8 +12,12 @@
  * porque el alta (`/panel/propiedades/nueva`) queda abierta para cualquier
  * usuario con sesión (regla del equipo, 27/09/2026).
  */
+import type { Metadata } from 'next'
 import { RequireRole } from '@/components/auth/RequireRole'
 import { MisPropiedades } from '@/components/mis-propiedades/MisPropiedades'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Mis propiedades' }
 
 /** Monta el listado de Mis propiedades (US-02), solo para locadores. */
 export default function MisPropiedadesPage() {

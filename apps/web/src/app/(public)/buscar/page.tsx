@@ -17,7 +17,7 @@ import { ResultadosCargando } from '@/components/buscar/ResultadosBusqueda'
 
 /** Título y descripción de la pestaña del navegador (Next.js los lee de este export). */
 export const metadata: Metadata = {
-  title: 'Buscar propiedades — RentAR',
+  title: 'Buscar propiedades',
   description: 'Alquileres de larga duración en Córdoba, directo con el dueño: filtrá por barrio, precio, tipología y más.',
 }
 

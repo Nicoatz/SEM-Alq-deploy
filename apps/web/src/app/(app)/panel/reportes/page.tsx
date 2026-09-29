@@ -5,7 +5,11 @@
  * lleva acá no quede roto.
  * Entra desde: el ítem "Reportes" del menú del locador.
  */
+import type { Metadata } from 'next'
 import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Reportes' }
 
 /** Placeholder de Reportes (otro sprint). */
 export default function ReportesPage() {

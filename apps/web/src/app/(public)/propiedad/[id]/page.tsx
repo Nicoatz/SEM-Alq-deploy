@@ -5,7 +5,11 @@
  * lleva acá no quede roto.
  * Entra desde: la PropertyCard de /buscar.
  */
+import type { Metadata } from 'next'
 import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Detalle de propiedad' }
 
 /** Placeholder del detalle público de una propiedad. */
 export default function PropiedadDetallePage() {
