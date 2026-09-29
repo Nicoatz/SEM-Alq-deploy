@@ -1,0 +1,41 @@
+# Sincroniza la rama develop de este fork con Thiago-DA/SEM-Alq (upstream).
+# Solo existe en el fork de deploy provisorio (Nicoatz/SEM-Alq-deploy): no va al repo del equipo.
+# NOTA: usa la API merge-upstream, que solo avanza la rama si es fast-forward o un merge limpio.
+# Si hay conflicto (develop del fork tiene commits propios), falla sin forzar nada.
+name: Sincronizar develop con upstream
+
+on:
+  schedule:
+    - cron: '0 * * * *' # cada hora
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-develop
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: merge-upstream de develop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set +e
+          response=$(gh api -X POST "repos/$REPO/merge-upstream" -f branch=develop 2>&1)
+          status=$?
+          set -e
+          echo "$response"
+          if [ $status -ne 0 ]; then
+            if echo "$response" | grep -q "HTTP 409"; then
+              echo "::error title=Conflicto al sincronizar develop::develop del fork tiene cambios que chocan con upstream. No se forzó nada: resolvelo a mano (o descartá los commits propios del fork en develop)."
+            else
+              echo "::error title=Falló merge-upstream::No se pudo sincronizar develop. Respuesta de la API arriba."
+            fi
+            exit 1
+          fi
+          echo "develop sincronizada con upstream."
