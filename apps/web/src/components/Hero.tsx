@@ -17,8 +17,8 @@ interface HeroProps {
   filters: FilterState
   /** Notifica un cambio de filtros hacia el estado de `Landing`. */
   onChange: (filters: FilterState) => void
-  /** Cantidad de propiedades que matchean los filtros actuales. */
-  resultCount: number
+  /** Cantidad de propiedades que matchean los filtros actuales; `null` si no se pudieron cargar. */
+  resultCount: number | null
   /** Opciones del filtro de zona (ver `SearchBar`); por defecto, el catálogo. */
   neighborhoodOptions?: readonly OpcionBarrio[]
 }

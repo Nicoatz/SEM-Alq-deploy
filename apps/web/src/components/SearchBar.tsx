@@ -32,8 +32,12 @@ interface SearchBarProps {
   filters: FilterState
   /** Notifica el nuevo estado de filtros cada vez que el usuario cambia uno. */
   onChange: (filters: FilterState) => void
-  /** Cantidad de propiedades que matchean los filtros actuales (se anuncia con `role="status"`). */
-  resultCount: number
+  /**
+   * Cantidad de propiedades que matchean los filtros actuales (se anuncia con
+   * `role="status"`). `null` si no se pudieron cargar: no se muestra el conteo,
+   * porque "0 propiedades" daría a entender que no hay resultados.
+   */
+  resultCount: number | null
   /**
    * Opciones del filtro de zona. Por defecto, el catálogo del piloto; la
    * landing le pasa el catálogo más los barrios de los datos reales
@@ -183,7 +187,7 @@ export default function SearchBar({ filters, onChange, resultCount, neighborhood
       </div>
 
       <p className={styles.resultCount} role="status" data-testid="search-result-count">
-        {resultCount} {resultCount === 1 ? 'propiedad encontrada' : 'propiedades encontradas'}
+        {resultCount !== null && `${resultCount} ${resultCount === 1 ? 'propiedad encontrada' : 'propiedades encontradas'}`}
       </p>
     </Card>
   )

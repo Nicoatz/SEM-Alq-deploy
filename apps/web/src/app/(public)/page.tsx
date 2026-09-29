@@ -15,11 +15,15 @@ import { listarPropiedadesPublicadas } from '@/services/propiedades.service'
 
 export default async function LandingPage() {
   let properties: PropiedadResumen[] = []
+  let loadError = false
   try {
     properties = await listarPropiedadesPublicadas()
   } catch {
-    // NOTA: si el backend real no responde, la landing se muestra igual, con
-    // el estado vacío del grid, en vez de romper la página de inicio.
+    // NOTA: si el backend real no responde, la landing se muestra igual (Hero
+    // y "Cómo funciona"), y en lugar del grid va un error con "Reintentar".
+    // No se muestra "No encontramos propiedades con esos filtros": sería
+    // mentirle al usuario sobre los filtros.
+    loadError = true
   }
-  return <Landing properties={properties} />
+  return <Landing properties={properties} loadError={loadError} />
 }
