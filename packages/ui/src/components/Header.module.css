@@ -129,13 +129,14 @@
 }
 
 .pendingButton {
-  width: 7.5rem;
-  height: 2.5rem;
+  width: 8.5rem;
+  height: 2.75rem;
 }
 
+/* El UserMenu mide según el largo del nombre; 9rem es el de un nombre y apellido típicos. */
 .pendingAvatar {
-  width: 10.5rem;
-  height: 2.75rem;
+  width: 9rem;
+  height: 2.5rem;
 }
 
 .srOnly {
@@ -185,7 +186,9 @@
   margin-bottom: 0.5rem;
 }
 
-.drawerLogout {
+/* Doble clase: el botón de antd centra su contenido y le gana a una sola. */
+.drawerActions .drawerLogout {
   justify-content: flex-start;
+  padding-left: 0.5rem;
   font-weight: 600;
 }
