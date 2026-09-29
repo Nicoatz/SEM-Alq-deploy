@@ -143,6 +143,13 @@ que pide "sumar la prop `user` en código").
 - **`PublicLayout`: prop opcional `header`** para recibir el Header ya armado (el layout es un
   Server Component y no le puede pasar funciones al Header).
 - Al subir: sumar historias `ConSesion` y `CargandoSesion` en `previews/Header.tsx`.
+- **Pendiente de sumar al template "Autenticación" (Claude Design): el estado "Revisando tu
+  sesión…"** de `/login` y `/registro`. Con la sesión abierta, esas pantallas llevan a `/panel` y,
+  mientras se confirma la sesión o se redirige, muestran un spinner de antd centrado con el texto
+  "Revisando tu sesión…" en vez del formulario (`apps/web/src/components/auth/RevisandoSesion.tsx`,
+  `data-testid` `auth-revisando-sesion`). No es un cambio de `@rentar/ui`: vive en `apps/web`, pero
+  el template todavía no tiene ese estado. Sumarlo en la sección 05 ("Estados de carga, error y
+  éxito") para que el diseño quede alineado.
 
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
