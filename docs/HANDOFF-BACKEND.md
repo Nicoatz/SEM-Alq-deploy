@@ -300,7 +300,7 @@ en la sección 9.
 
 | Brecha | Dueño |
 |---|---|
-| **Falta una política de SELECT para borrar.** Storage exige DELETE **y SELECT** sobre `storage.objects` para `remove()`; sin SELECT no borra nada y responde una lista vacía, sin error. Probado: forzando un error del alta, las 3 fotos subidas quedaron en el bucket. Propuesta: `create policy "ver fotos propias" on storage.objects for select to authenticated using ((bucket_id = 'fotos-propiedades') and ((storage.foldername(name))[1] = (auth.uid())::text));` (solo la carpeta propia: no habilita listar lo de otros). Cuando esté, sumarla también a la migración del bucket. | db (Ivan) / backend |
+| **Falta una política de SELECT para borrar.** Storage exige DELETE **y SELECT** sobre `storage.objects` para `remove()`; sin SELECT no borra nada y responde una lista vacía, sin error. Probado: forzando un error del alta, las 3 fotos subidas quedaron en el bucket. Propuesta: `create policy "ver fotos propias" on storage.objects for select to authenticated using ((bucket_id = 'fotos-propiedades') and ((storage.foldername(name))[1] = (auth.uid())::text));` (solo la carpeta propia: no habilita listar lo de otros). **Versionada en `supabase/migrations/20260930000000_bucket_fotos_select_propias.sql`** (idempotente); la aplica el PO desde el SQL Editor. Hasta que esté aplicada, el borrado sigue sin funcionar. | PO (aplicar) |
 
 ## 9. Datos de prueba para borrar
 
