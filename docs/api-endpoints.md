@@ -35,9 +35,9 @@ Notas:
   (Supabase Auth) o si el DNI ya existe (índice único `uq_usuario_numero_documento`). El back crea
   la cuenta confirmada: el front inicia sesión solo después del 201.
 - **`/usuarios/me`:** 401 sin token, con token inválido o si el usuario de Auth no tiene fila en
-  `usuario`. **Locador abarca a locatario:** para una cuenta locadora tiene que devolver
-  `["locador", "locatario"]` (propuesto, en curso con Thiago). Hoy devuelve solo las filas de
-  `usuario_x_rol`.
+  `usuario`. **Locador abarca a locatario:** una cuenta que publicó devuelve
+  `["locatario", "locador"]` (el registro guarda locatario y el alta suma locador, desde el 29/09).
+  Las cuentas locadoras viejas sin la fila de locatario devuelven solo `["locador"]`.
 
 ## Propiedades
 
@@ -47,7 +47,7 @@ Notas:
 | `GET /inmuebles/disponibles/:id` | — | existe, sin usar | US-34 (detalle) | — (antes `GET /inmuebles/:id`, renombrada el 26/09) | — | `InmuebleDetalleResponse`: como el item de arriba más `servicio` y `fotos`. 400 id inválido, 404 |
 | `GET /locadores/:idLocador/barrios` | Bearer + rol `locador` (solo el propio id; otro → 403) | existe, sin usar | US-02 (filtro de barrio) | — | — | `string[]` (barrios de las propiedades del locador) |
 | `GET /mis-alquileres` | Bearer + rol `locador` | parcial | US-02 | `propiedades.service#listarMisPropiedades` | el back documenta `barrio, tipo, estado, reclamos`, pero no los aplica (el front filtra en el cliente) | `MisAlquileresItem[]` (todos los inmuebles del locador; desde el 29/09 también `contrato.locatario`, `contrato.fecha_proximo_ajuste` y `posee_reclamos_no_resueltos`, que el front suma en el próximo PR; con `fotos`, `foto_principal`, `tags` y `contrato` con `monto_alquiler`, `expensas`, `indice_aumento` como texto y `medios_pago` como nombres) → `misAlquileresItemToPropiedadLocador`. 401 / 403 |
-| `POST /inmuebles` | Bearer + rol `locador` (propuesto: cualquier usuario con sesión, y asignarle el rol locador si no lo tenía) | parcial (falta el bucket y el cambio de roles) | US-01 | `propiedades.service#registrarPropiedad` | `CreateInmuebleCompletoPayload`: inmueble + `tags: number[]` + `fotos: { url, peso_kb, formato, es_principal }[]` (3 a 50, jpg/png, ≤ 350 KB) + `condiciones_contrato` (`monto_alquiler, expensas, indice_aumento (id), frecuencia_ajuste (texto), duracion_meses, deposito (monto), interes_por_dia, dias_gracia, medios_pago: number[]`) → `propiedadNuevaToCreateInmueble` | `Inmueble` creado (201). 400 con el mensaje de cada regla, 401, 403 (hoy, a un locatario: el front muestra "Todavía no podés publicar desde esta cuenta…") |
+| `POST /inmuebles` | Bearer, cualquier rol (desde el 29/09, d88deca: además le suma el rol locador al usuario, en una transacción) | parcial (el front todavía no sube las fotos) | US-01 | `propiedades.service#registrarPropiedad` | `CreateInmuebleCompletoPayload`: inmueble + `tags: number[]` + `fotos: { url, peso_kb, formato, es_principal }[]` (3 a 50, jpg/png, ≤ 350 KB) + `condiciones_contrato` (`monto_alquiler, expensas, indice_aumento (id), frecuencia_ajuste (texto), duracion_meses, deposito (monto), interes_por_dia, dias_gracia, medios_pago: number[]`) → `propiedadNuevaToCreateInmueble` | `Inmueble` creado (201). 400 con el mensaje de cada regla, 401. Si volviera un 403, el front muestra "Todavía no podés publicar desde esta cuenta…" |
 | Supabase Storage, bucket `fotos-propiedades` | sesión del usuario | pendiente (no existe el bucket) | US-01 | `propiedades.service#subirFotoPropiedad` | archivo en `<auth.uid>/<archivo>` | URL pública, `peso_kb` (redondeado hacia arriba) y `formato` |
 | `GET /catalogos/ubicaciones` | — | pendiente (propuesto) | US-34 | `propiedades.service#listarUbicaciones` | — | `UbicacionOpciones` (hoy se arma con los datos) |
 | `PATCH /inmuebles/:id/publicacion` | Bearer + rol `locador` | pendiente (propuesto) | publicar/pausar (sin US en Sprint 0, mapa US-40) | `propiedades.service#cambiarEstadoPublicacion` (sin usar) | `{ activa: boolean }` | — |

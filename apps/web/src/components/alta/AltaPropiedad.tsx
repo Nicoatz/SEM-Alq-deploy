@@ -18,11 +18,13 @@
  * (`useAuth().refrescarUsuario('locador')`) sin cerrar sesión:
  * - Si ya es locador: queda locador como rol activo (aparecen "Viendo como"
  *   y Mis propiedades) y el éxito ofrece "Ir a mis propiedades" primero.
- * - Si el back todavía no le sumó el rol: el mismo éxito, sin "Ir a mis
- *   propiedades" (le daría la vuelta a /panel). TODO(backend): asignar el rol
- *   locador al crear la primera propiedad (en curso, Thiago).
- * - Si el back responde 403 (todavía exige ser locador): se avisa con
- *   `PUBLICAR_SIN_ROL_MESSAGE` y lo cargado queda en el formulario.
+ * - Si la cuenta sigue sin el rol: el mismo éxito, sin "Ir a mis
+ *   propiedades" (le daría la vuelta a /panel).
+ * - Si el back responde 403: se avisa con `PUBLICAR_SIN_ROL_MESSAGE` y lo
+ *   cargado queda en el formulario.
+ * NOTA: desde el 29/09 (`develop` d88deca) el back ya no exige el rol y lo
+ * asigna al crear la propiedad (probado en real). Los dos últimos casos
+ * quedan como respaldo, por si el rol no se asigna o vuelve el 403.
  *
  * NOTA: no hay borradores. RentAR no tiene estado "Borrador" y el alta
  * tampoco guarda lo cargado en el navegador: los datos viven mientras la
@@ -272,8 +274,8 @@ export function AltaPropiedad() {
               <StatusTag domain="propiedad" status={registrada.status} />
               <div className={styles.resultActions}>
                 {/* Con el rol locador, "Ir a mis propiedades" va primero. Sin el rol
-                    (back sin el cambio de Thiago), no se ofrece: Mis propiedades es
-                    solo para locadores. TODO(backend): asignar el rol al publicar. */}
+                    (respaldo: el back lo asigna al publicar desde d88deca), no se
+                    ofrece: Mis propiedades es solo para locadores. */}
                 {esLocador && (
                   <Button type="primary" size="large" onClick={() => router.push('/panel/propiedades')} data-testid="alta-exito-mis-propiedades">
                     Ir a mis propiedades

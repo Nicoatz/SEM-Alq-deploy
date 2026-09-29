@@ -229,8 +229,9 @@ export const FOTOS_NO_DISPONIBLES_MESSAGE =
  * Mensaje si `POST /inmuebles` responde 403 a una cuenta locataria.
  * Regla del equipo (27/09/2026): cualquier usuario con sesión puede publicar,
  * y al publicar la primera el back le suma el rol locador.
- * TODO(backend): hoy la ruta tiene `requireRole("locador")`, así que un
- * locatario recibe 403. Cuando el cambio de Thiago esté, este caso no pasa más.
+ * NOTA: desde el 29/09 (`develop` d88deca) la ruta ya no tiene
+ * `requireRole("locador")` y un locatario recibe 201 (probado en real). El
+ * mensaje queda como respaldo, por si vuelve el 403.
  * La pantalla agrega "Tus datos siguen acá: no perdiste nada."
  */
 export const PUBLICAR_SIN_ROL_MESSAGE = 'Todavía no podés publicar desde esta cuenta, estamos terminando este cambio.'
@@ -281,14 +282,14 @@ function sumarRolLocadorMock(userId: string): void {
  * sesión, locatario o locador, con sus condiciones de contrato y sus fotos
  * (publicada, pausada o alquilada; alquilada con fecha de disponibilidad →
  * alquilada/publicada).
- * @backend POST /api/v1/inmuebles   (existe · token + rol locador; el dueño sale del token)
- *          Propuesto (en curso, Thiago): cualquier usuario con sesión, y si
- *          no era locador, sumarle ese rol al crear la primera.
+ * @backend POST /api/v1/inmuebles   (existe · token, cualquier rol; el dueño sale del token)
+ *          Desde el 29/09 (d88deca) crea todo en una transacción
+ *          (`registrar_propiedad_completa`) y le suma el rol locador al usuario.
  * @body    CreateInmuebleCompletoPayload (lo arma `propiedadNuevaToCreateInmueble`)
  * @returns PropiedadRegistrada
  * @throws {ServiceError} `unauthorized` sin sesión (US-01: "se debe haber
  *   iniciado sesión"); `forbidden` con {@link PUBLICAR_SIN_ROL_MESSAGE} si el
- *   back todavía exige el rol locador; `validation` si el back rechaza un
+ *   back vuelve a exigir el rol locador (respaldo); `validation` si el back rechaza un
  *   dato; `server` si las fotos no se pueden subir.
  *
  * NOTA: primero se suben las fotos y después se manda el alta con sus URLs.
@@ -317,7 +318,7 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
     const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
     return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
   } catch (error) {
-    // Back viejo: `requireRole("locador")` le da 403 a un locatario (ver el TODO(backend) del mensaje).
+    // Respaldo: si el back vuelve a exigir el rol locador, un locatario recibe 403 (ver el mensaje).
     if (error instanceof ServiceError && error.code === 'forbidden') throw new ServiceError('forbidden', PUBLICAR_SIN_ROL_MESSAGE)
     throw error
   }

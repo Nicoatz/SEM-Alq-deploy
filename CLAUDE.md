@@ -160,7 +160,8 @@ importa mocks ni llama a `fetch` directo.
 - **"Publicar propiedad"** va en el encabezado del panel para cualquier rol
   (`AppShell#headerAction`); en móvil, primero en el menú hamburguesa y en la hoja del UserMenu.
 - El selector "Viendo como" (`RoleContextSwitcher`) no cambió: aparece cuando la cuenta tiene dos roles.
-- Lo que falta en el back (en curso, Thiago): `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
+- En el back desde el 29/09 (d88deca): `POST /inmuebles` acepta cualquier rol y suma el rol locador
+  en la misma transacción (probado en real). Detalle en `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
 
 ## Datos de prueba (modo mock)
 

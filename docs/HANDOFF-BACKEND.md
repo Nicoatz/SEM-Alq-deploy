@@ -81,10 +81,12 @@ Detalles que importan para backend:
    (`useAuth().refrescarUsuario('locador')`). Si ya tiene el rol, queda locador como rol activo y
    aparecen "Viendo como" y Mis propiedades.
 
-Lo que falta en el back (en curso, Thiago) está en la sección 7, US-01. Mientras tanto el front
-tolera las dos cosas: un 403 de `POST /inmuebles` se muestra como "Todavía no podés publicar desde
-esta cuenta, estamos terminando este cambio" (sin perder lo cargado), y si después del 201 la
-cuenta sigue sin el rol, el éxito se muestra sin "Ir a mis propiedades".
+**En el back desde el 29/09 (`develop` d88deca):** `POST /inmuebles` ya no exige el rol locador y
+la función `registrar_propiedad_completa` (migración `20260928000000_us01_registro_atomico.sql`) crea
+inmueble, fotos, tags, contrato y medios de pago en una transacción y le suma el rol locador al
+usuario (`usuario_x_rol`, `ON CONFLICT DO NOTHING`). **Probado en real el 29/09:** una cuenta nueva
+pasa de `["locatario"]` a `["locatario", "locador"]` y la propiedad aparece en `/mis-alquileres`.
+El front conserva como respaldo el mensaje del 403 y el éxito sin "Ir a mis propiedades".
 
 ## 3. Mapa del frontend
 
@@ -245,9 +247,9 @@ cuando el back vuelva a respetar los filtros.
 
 | Brecha | Dueño |
 |---|---|
-| **`POST /inmuebles` tiene `requireRole("locador")`**: un locatario recibe 403. Con la regla nueva, tiene que aceptar a cualquier usuario con sesión. | backend (Thiago) |
-| **Asignar el rol locador al crear la primera propiedad** (fila en `usuario_x_rol` con `id_rol = 1`), en la misma operación del alta. Hoy la cuenta queda locataria y el front muestra el éxito sin "Ir a mis propiedades" (`TODO(backend)` en `AltaPropiedad`). | backend (Thiago) |
-| **Expansión de roles en `/usuarios/me`**: una cuenta locadora tiene que devolver `["locador", "locatario"]` (locador abarca a locatario). Hoy devuelve solo las filas de `usuario_x_rol`. Definir si se guarda la fila de locatario o se expande en `requireRole`/`/me`. | backend (Thiago) |
+| ~~`POST /inmuebles` exigía `requireRole("locador")`~~ **Resuelto (29/09, d88deca):** acepta a cualquier usuario con sesión. | — |
+| ~~Asignar el rol locador al crear la primera propiedad~~ **Resuelto (29/09, d88deca):** lo hace `registrar_propiedad_completa`, en la misma transacción del alta. | — |
+| **Expansión de roles en `/usuarios/me`:** para las cuentas nuevas no hace falta: el registro guarda la fila de locatario y al publicar se suma la de locador, así que `/me` devuelve las dos (en ese orden, `["locatario", "locador"]`; el front no depende del orden). Queda para las cuentas locadoras viejas que no tienen la fila de locatario (ej. `locador@rentar.com`): `/me` les devuelve solo `["locador"]`. | backend / db |
 | El bucket `fotos-propiedades` **ya existe** (29/09), pero se creó desde el dashboard, fuera de `supabase/migrations/` (sección 8). El front todavía avisa que no puede subir fotos: la subida va en el próximo PR. | db / front |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
@@ -304,6 +306,8 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 |---|---|---|
 | Usuarios `rentar.qa+test-rol-locador@example.com`, `+test-sin-rol`, `+test-t3-locador-1440`, `+test-t3-locatario-390` | **11, 12, 15 y 16** | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Usuario `rentar.qa+test-roles-390@example.com` (registro sin rol, 27/09, rama `feature/roles-publicar`) | **17** | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Usuario `rentar.qa+test-rol-publicar@example.com` (prueba del rol al publicar, 29/09, `feature/vistas`) | **18**; `usuario_x_rol` **18** (locatario) y **19** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Inmueble "[TEST] Prueba del rol al publicar (feature/vistas, 29/09) - borrar" | inmueble **5**; `foto_inmueble` **13, 14 y 15**; `inmueble_x_tag` **7**; `contrato` **5**; `medio_pago_x_contrato` **7** | cada tabla |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 
