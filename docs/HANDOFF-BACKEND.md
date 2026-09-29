@@ -365,6 +365,11 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
    panel (`AppShell#headerAction`, regla de roles del 27/09) y otra vez en el `PageHeader` de la
    pantalla (`mis-propiedades-publicar`); en móvil, además del menú, está el CTA fijo de abajo
    (`mis-propiedades-publicar-movil`). Lo decide el PO con el diseño: no se tocó.
+3. **Accesibilidad (menor): las flechitas de los `InputNumber` dicen "Increase Value" / "Decrease
+   Value".** Es el `aria-label` de los botones de subir y bajar (por ejemplo, Antigüedad y Superficie
+   en el alta). Está fijo en inglés en `@rc-component/input-number` (`StepHandler.js`): no pasa por
+   el locale `es_ES` ni hay una prop para cambiarlo. El PO decidió dejarlas como están (30/09).
+   Revisarlo cuando se actualice antd, por si una versión futura lo expone en el locale o como prop.
 
 ## 11. Numeración de las User Stories
 
