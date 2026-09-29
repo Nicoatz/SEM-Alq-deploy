@@ -10,6 +10,14 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+<<<<<<< HEAD
+    "dev:api": "npm run dev --workspace=apps/api"
+  },
+  "dependencies": {
+    "@supabase/server": "^1.8.0",
+    "@supabase/ssr": "^0.12.7",
+    "next": "^16.3.6"
+=======
     "dev:api": "npm run dev --workspace=apps/api",
     "dev:web": "npm run dev --workspace=apps/web",
     "lint": "npm run lint --workspaces --if-present",
@@ -17,6 +25,6 @@
   },
   "engines": {
     "node": ">=20.9.0"
-  },
-  "allowScripts": {}
+>>>>>>> origin/feature/vistas
+  }
 }

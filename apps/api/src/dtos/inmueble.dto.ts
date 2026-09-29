@@ -113,6 +113,12 @@ export interface UpdateInmuebleDTO {
 export type CreateInmuebleCompletoDTO = CreateInmuebleCompletoPayload;
 export type MisAlquileresDTO = MisAlquileresItem;
 
+export interface FiltrosMisAlquileresDTO {
+  barrio?: string;
+  tipo?: number;
+  estado?: EstadoAlquiler;
+}
+
 export interface FiltrosInmueblesDisponiblesDTO {
   barrio?: string;
   precioMin?: number;

@@ -5,6 +5,7 @@ import {
   UpdateInmuebleDTO,
   CreateInmuebleCompletoDTO,
   MisAlquileresDTO,
+  FiltrosMisAlquileresDTO,
   FiltrosInmueblesDisponiblesDTO,
   InmueblesDisponiblesResultadoDTO,
 } from '../dtos';
@@ -114,34 +115,6 @@ export class InmuebleService {
     filtros: FiltrosInmueblesDisponiblesDTO
   ): Promise<InmueblesDisponiblesResultadoDTO> {
     return await this.inmRepo.buscarDisponibles(filtros);
-  }
-
-  async create(data: CreateInmuebleDTO): Promise<InmuebleDTO> {
-    if (!data.direccion || !data.numero || !data.ciudad) {
-      throw new Error('Dirección, número y ciudad son campos requeridos.');
-    }
-    const nuevo = await this.inmRepo.create({
-      id_locador: data.id_locador || 1,
-      tipo: data.tipo,
-      descripcion: data.descripcion || null,
-      provincia: data.provincia || 'Córdoba',
-      ciudad: data.ciudad,
-      barrio: data.barrio || 'Centro',
-      direccion: data.direccion,
-      numero: data.numero,
-      piso: data.piso || null,
-      m2_totales: data.m2_totales || data.m2 || 50,
-      m2_cubiertos: data.m2_cubiertos || data.m2 || 45,
-      ambientes: data.ambientes,
-      dormitorios: data.dormitorios,
-      banos: data.banos,
-      antiguedad: data.antiguedad || null,
-      precio_publicado: data.precio_publicado || 100000,
-      estado_alquiler: data.estado_alquiler || 'publicado',
-      fecha_disponible: data.fecha_disponible || null,
-      servicios: data.servicios || null
-    });
-    return nuevo;
   }
 
   async update(id: number, data: UpdateInmuebleDTO): Promise<InmuebleDTO | null> {
@@ -360,8 +333,11 @@ export class InmuebleService {
     }
   }
 
-  async getMisInmueblesPublicados(idLocador: number): Promise<MisAlquileresDTO[]> {
-    const inmuebles = await this.inmRepo.findByLocadorId(idLocador);
+  async getMisInmueblesPublicados(
+    idLocador: number,
+    filtros?: FiltrosMisAlquileresDTO
+  ): Promise<MisAlquileresDTO[]> {
+    const inmuebles = await this.inmRepo.findByLocadorId(idLocador, filtros);
     const resultado: MisAlquileresDTO[] = [];
 
     for (const inm of inmuebles) {
