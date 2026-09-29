@@ -16,6 +16,7 @@ import Hero from './Hero'
 import HowItWorks from './HowItWorks'
 import PropertyGrid from './PropertyGrid'
 import { barriosConDatos } from '@/lib/catalogs/neighborhoods'
+import { hrefBuscarDesdeLanding } from '@/lib/search/busquedaParams'
 import { filtrosInicialesLanding, rangoPrecioLanding } from '@/lib/types/filters'
 import { USE_MOCKS } from '@/services/shared/config'
 import styles from './Landing.module.css'
@@ -68,7 +69,8 @@ function matchesFilters(property: PropiedadResumen, filters: FilterState): boole
  * `services/propiedades.service.ts`), arma el estado de filtros en el
  * cliente y orquesta Hero (con el buscador), el grid de propiedades
  * filtradas (recortado a `PREVIEW_LIMIT`) y HowItWorks. "Buscar más
- * propiedades" lleva a `/buscar` (US-34).
+ * propiedades" lleva a `/buscar` (US-34) con los filtros elegidos en la URL
+ * (`hrefBuscarDesdeLanding`).
  *
  * NOTA: no envuelve en `PublicLayout` — eso lo hace `app/(public)/layout.tsx`,
  * compartido con `/buscar` y `/propiedad/[id]`.
@@ -141,7 +143,7 @@ export default function Landing({ properties, loadError = false }: LandingProps)
           <PropertyGrid properties={filteredProperties.slice(0, PREVIEW_LIMIT)} />
         )}
         <div className={styles.moreWrap}>
-          <Button type="primary" size="large" href="/buscar" data-testid="landing-more-properties-button">
+          <Button type="primary" size="large" href={hrefBuscarDesdeLanding(filters, priceRange)} data-testid="landing-more-properties-button">
             Buscar más propiedades
           </Button>
         </div>
