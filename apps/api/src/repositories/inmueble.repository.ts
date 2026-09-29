@@ -212,6 +212,49 @@ export class InmuebleRepository implements IInmuebleRepository {
 
     return (count ?? 0) > 0;
   }
+
+  async findDisponibleById(id: number): Promise<InmuebleDTO | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('inmueble')
+      .select('*')
+      .eq('id', id)
+      .in('estado_alquiler', [
+        'publicado',
+        'alquilado/publicado'
+      ])
+      .maybeSingle();
+
+    if (error) { throw error;}
+
+    return data as InmuebleDTO | null;
+  }
+
+  async buscarDisponibles(filtros?: { barrio?: string; tipo?: number; }): Promise<InmuebleDTO[]> {
+
+    let query = getSupabaseAdmin()
+      .from('inmueble')
+      .select('*')
+      .in('estado_alquiler', [
+        'publicado',
+        'alquilado/publicado'
+      ]);
+
+    if (filtros?.barrio) {
+      query = query.eq('barrio', filtros.barrio);
+    }
+
+    if (filtros?.tipo !== undefined) {
+      query = query.eq('tipo', filtros.tipo);
+    }
+
+    const { data, error } = await query.order('id');
+
+    if (error) {
+      throw error;
+    }
+
+    return (data ?? []) as InmuebleDTO[];
+  }
 }
 
 export const inmuebleRepository = new InmuebleRepository();
