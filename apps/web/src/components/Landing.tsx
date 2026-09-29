@@ -16,7 +16,7 @@ import Hero from './Hero'
 import HowItWorks from './HowItWorks'
 import PropertyGrid from './PropertyGrid'
 import { barriosConDatos } from '@/lib/catalogs/neighborhoods'
-import { filtrosInicialesLanding } from '@/lib/types/filters'
+import { filtrosInicialesLanding, rangoPrecioLanding } from '@/lib/types/filters'
 import { USE_MOCKS } from '@/services/shared/config'
 import styles from './Landing.module.css'
 
@@ -79,9 +79,24 @@ export default function Landing({ properties, loadError = false }: LandingProps)
   // es quien llama al service; la transición marca el botón como cargando.
   const [reintentando, startReintento] = useTransition()
 
-  // Modo mock: los filtros del diseño; back real: sin filtros (ver la NOTA
-  // de `filtrosInicialesLanding`).
-  const [filters, setFilters] = useState<FilterState>(() => filtrosInicialesLanding(USE_MOCKS))
+  // Rango del slider de precio: el del diseño en modo mock; con el back real,
+  // de 0 al precio más alto publicado (ver `rangoPrecioLanding`).
+  const priceRange = useMemo(() => rangoPrecioLanding(USE_MOCKS, properties.map((property) => property.priceMonthly)), [properties])
+
+  // Modo mock: los filtros del diseño; back real: sin filtros ni tope de
+  // precio (ver la NOTA de `filtrosInicialesLanding`).
+  const [filters, setFilters] = useState<FilterState>(() => filtrosInicialesLanding(USE_MOCKS, priceRange))
+
+  // Si cambian las propiedades (por ejemplo, después de "Reintentar"), cambia
+  // el rango del slider. Si el tope estaba al máximo (sin tope), sigue sin
+  // tope con el máximo nuevo; si el usuario lo había movido, se respeta.
+  // NOTA: se ajusta durante el render, no en un efecto (patrón de React para
+  // derivar estado de una prop).
+  const [rangoAnterior, setRangoAnterior] = useState(priceRange)
+  if (rangoAnterior !== priceRange) {
+    setRangoAnterior(priceRange)
+    if (filters.maxPrice === rangoAnterior.max) setFilters({ ...filters, maxPrice: priceRange.max })
+  }
 
   // Zona: el catálogo más los barrios que traigan los datos (ej. "Alberdi").
   const barrios = useMemo(
@@ -101,6 +116,7 @@ export default function Landing({ properties, loadError = false }: LandingProps)
         onChange={setFilters}
         resultCount={loadError ? null : filteredProperties.length}
         neighborhoodOptions={barrios}
+        priceRange={priceRange}
       />
 
       <section className={styles.section}>

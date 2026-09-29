@@ -11,6 +11,7 @@ import { Card, Col, InputNumber, Row, Select, Slider, Tag } from 'antd'
 import type { FilterState } from '@rentar/shared-types'
 import { characteristicOptions } from '@/lib/catalogs/characteristics'
 import { neighborhoods, type OpcionBarrio } from '@/lib/catalogs/neighborhoods'
+import { PASO_PRECIO, RANGO_PRECIO_DISENO, type RangoPrecio } from '@/lib/types/filters'
 import { formatMonthlyPrice } from '@/lib/utils/format'
 import styles from './SearchBar.module.css'
 
@@ -44,6 +45,12 @@ interface SearchBarProps {
    * (`barriosConDatos`).
    */
   neighborhoodOptions?: readonly OpcionBarrio[]
+  /**
+   * Rango que cubre el slider de precio. Por defecto, el del diseño; con el
+   * back real la landing lo calcula de los precios publicados
+   * (`rangoPrecioLanding`).
+   */
+  priceRange?: RangoPrecio
 }
 
 /**
@@ -52,7 +59,13 @@ interface SearchBarProps {
  * (chips multi-select). Es controlado en su totalidad por `filters`/`onChange`
  * desde `Landing`, no tiene estado propio.
  */
-export default function SearchBar({ filters, onChange, resultCount, neighborhoodOptions = neighborhoods }: SearchBarProps) {
+export default function SearchBar({
+  filters,
+  onChange,
+  resultCount,
+  neighborhoodOptions = neighborhoods,
+  priceRange = RANGO_PRECIO_DISENO,
+}: SearchBarProps) {
   return (
     <Card id="buscar" className={styles.card}>
       <div className={styles.priceRowsWrap}>
@@ -130,9 +143,9 @@ export default function SearchBar({ filters, onChange, resultCount, neighborhood
                 controls={false}
                 min={0}
                 max={filters.maxPrice}
-                step={5000}
+                step={PASO_PRECIO}
                 value={filters.minPrice}
-                onChange={(value) => onChange({ ...filters, minPrice: value ?? 0 })}
+                onChange={(value) => onChange({ ...filters, minPrice: value ?? priceRange.min })}
                 formatter={formatPriceInput}
                 parser={parsePriceInput}
                 aria-label="Precio mínimo"
@@ -142,9 +155,9 @@ export default function SearchBar({ filters, onChange, resultCount, neighborhood
                 id="filtro-precio-hibrido"
                 range
                 className={`${styles.slider} ${styles.priceInlineSlider}`}
-                min={400000}
-                max={1000000}
-                step={5000}
+                min={priceRange.min}
+                max={priceRange.max}
+                step={PASO_PRECIO}
                 value={[filters.minPrice, filters.maxPrice]}
                 onChange={(value) => {
                   if (!Array.isArray(value)) return
@@ -158,10 +171,10 @@ export default function SearchBar({ filters, onChange, resultCount, neighborhood
                 size="large"
                 controls={false}
                 min={filters.minPrice}
-                max={1000000}
-                step={5000}
+                max={priceRange.max}
+                step={PASO_PRECIO}
                 value={filters.maxPrice}
-                onChange={(value) => onChange({ ...filters, maxPrice: value ?? 1000000 })}
+                onChange={(value) => onChange({ ...filters, maxPrice: value ?? priceRange.max })}
                 formatter={formatPriceInput}
                 parser={parsePriceInput}
                 aria-label="Precio máximo"
