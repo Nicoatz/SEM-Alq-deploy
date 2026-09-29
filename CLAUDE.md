@@ -134,6 +134,11 @@ importa mocks ni llama a `fetch` directo.
   Supabase, escucha `SIGNED_OUT`, relee la sesión en cada cambio de ruta y hace `router.refresh()`
   cuando la sesión cambia (el caché de rutas de Next guarda los redirects del proxy). El logout
   termina con una recarga completa en la landing. La cookie `rentar_session` guarda solo el rol activo.
+- **Header público con sesión** (`components/PublicHeader.tsx`): "Ir a mi panel" y el UserMenu con
+  el rol activo; "Cerrar sesión" ahí usa `logout({ quedarse: true })` (sin recargar). Para que no
+  parpadee, el layout público y `/login`/`/registro` leen si llega una cookie de sesión, sin
+  validarla (`lib/auth/sesion-probable.ts`): con cookie, placeholder mientras carga. Eso hace
+  dinámicas las páginas públicas. Con sesión, `/login` y `/registro` llevan a `/panel`.
 - **El front nunca consulta tablas con `supabase-js`.** RLS está activo y sin políticas: todo dato
   pasa por `apps/api`. Supabase se usa solo para Auth (y, cuando exista el bucket
   `fotos-propiedades`, para subir fotos a Storage).
