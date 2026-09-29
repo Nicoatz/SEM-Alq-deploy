@@ -1,10 +1,12 @@
 import {
   InmuebleDTO,
   InmuebleDetalleDTO,
+  InmuebleDisponibleDTO,
   CreateInmuebleDTO,
   UpdateInmuebleDTO,
   CreateInmuebleCompletoDTO,
   MisAlquileresDTO,
+  FiltrosMisAlquileresDTO,
   FiltrosInmueblesDisponiblesDTO,
   InmueblesDisponiblesResultadoDTO,
 } from '../dtos';
@@ -27,121 +29,159 @@ export class InmuebleService {
   
     if (!inmueble) return null;
   
-    const tipo = Array.isArray(inmueble.tipo_inmueble)
-      ? inmueble.tipo_inmueble[0]
-      : inmueble.tipo_inmueble;
+    const tipoObj = await lookupRepository.getTipoById(inmueble.tipo);
   
-    const servicio = Array.isArray(inmueble.servicio)
-      ? inmueble.servicio[0]
-      : inmueble.servicio;
-  
-    const contrato = Array.isArray(inmueble.contrato)
-      ? inmueble.contrato[0]
-      : inmueble.contrato;
-  
-    const indiceAjuste = Array.isArray(contrato?.tipo_indice)
-      ? contrato.tipo_indice[0]
-      : contrato?.tipo_indice;
-  
-    const tags = (inmueble.inmueble_x_tag ?? [])
-      .map((item: any) => {
-        const tag = Array.isArray(item.tags_inmueble)
-          ? item.tags_inmueble[0]
-          : item.tags_inmueble;
-  
-        return tag
-          ? {
-              id: tag.id,
-              descripcion: tag.descripcion
-            }
-          : null;
-      })
-      .filter(Boolean);
-  
-    const fotos = inmueble.foto_inmueble ?? [];
+    const servicioObj = inmueble.servicios ? await lookupRepository.getServicioById(inmueble.servicios): null;
+
+    const contrato = await this.contRepo.findByInmuebleId(inmueble.id);
+    const fotos = await this.inmRepo.getFotosByInmuebleId(inmueble.id);
+    const tags = await this.inmRepo.getTagsByInmuebleId(inmueble.id);
+
+    const indiceAjuste = contrato?.indice_aumento ? await lookupRepository.getTipoIndiceById(contrato.indice_aumento): null;
+   
   
     return {
       id: inmueble.id,
-  
+
       tipo: {
-        id: tipo?.id,
-        descripcion: tipo?.descripcion
+            id: tipoObj?.id ?? 0,
+            descripcion: tipoObj?.descripcion ?? ''
       },
-  
+
       direccion: inmueble.direccion,
       numero: inmueble.numero,
       piso: inmueble.piso,
+
       ciudad: inmueble.ciudad,
       barrio: inmueble.barrio,
       provincia: inmueble.provincia,
-  
+
       ambientes: inmueble.ambientes,
       dormitorios: inmueble.dormitorios,
       banos: inmueble.banos,
-  
+
       m2_totales: inmueble.m2_totales,
       m2_cubiertos: inmueble.m2_cubiertos,
-  
+
       descripcion: inmueble.descripcion,
-  
-      precio: contrato?.monto_alquiler,
-      expensas: contrato?.expensas,
-  
+
+      precio: contrato?.monto_alquiler ?? -1,
+
+      expensas: contrato?.expensas ?? -1,
+
       indice_ajuste: indiceAjuste
         ? {
             id: indiceAjuste.id,
             descripcion: indiceAjuste.descripcion
           }
         : null,
-  
+
       fecha_disponible: inmueble.fecha_disponible,
-  
+
       tags,
-  
-      servicio: servicio
+
+      servicio: servicioObj
         ? {
-            id: servicio.id,
-            nombre: servicio.nombre,
-            descripcion: servicio.descripcion
+            id: servicioObj.id,
+            nombre: servicioObj.nombre,
+            descripcion: servicioObj.descripcion
           }
         : null,
-  
+
       fotos
     };
   }
 
-  async getInmueblesDisponibles(
-    filtros: FiltrosInmueblesDisponiblesDTO
-  ): Promise<InmueblesDisponiblesResultadoDTO> {
-    return await this.inmRepo.buscarDisponibles(filtros);
-  }
+  async getInmueblesDisponibles(filtros: FiltrosInmueblesDisponiblesDTO): Promise<InmueblesDisponiblesResultadoDTO> {
+    const inmuebles = await this.inmRepo.buscarDisponibles(filtros);
+    const items: InmuebleDisponibleDTO[] = [];
 
-  async create(data: CreateInmuebleDTO): Promise<InmuebleDTO> {
-    if (!data.direccion || !data.numero || !data.ciudad) {
-      throw new Error('Dirección, número y ciudad son campos requeridos.');
+    for (const inmueble of inmuebles) {
+      const tipoObj = await lookupRepository.getTipoById(
+        inmueble.tipo
+      );
+
+      const contrato = await this.contRepo.findByInmuebleId(
+        inmueble.id
+      );
+
+      const indiceAjuste = contrato?.indice_aumento
+        ? await lookupRepository.getTipoIndiceById(
+            contrato.indice_aumento
+          )
+        : null;
+
+      const tags = await this.inmRepo.getTagsByInmuebleId(
+        inmueble.id
+      );
+
+      const fotos = await this.inmRepo.getFotosByInmuebleId(
+        inmueble.id
+      );
+
+      const fotoPrincipal =
+        fotos.find(f => f.es_principal)?.url ??
+        fotos[0]?.url ??
+        null;
+
+      items.push({
+        id: inmueble.id,
+
+        tipo: {
+          id: tipoObj?.id ?? 0,
+          descripcion: tipoObj?.descripcion ?? ''
+        },
+
+        direccion: inmueble.direccion,
+        numero: inmueble.numero,
+        piso: inmueble.piso,
+
+        ciudad: inmueble.ciudad,
+        barrio: inmueble.barrio,
+        provincia: inmueble.provincia,
+
+        ambientes: inmueble.ambientes,
+        dormitorios: inmueble.dormitorios,
+        banos: inmueble.banos,
+
+        m2_totales: inmueble.m2_totales,
+        m2_cubiertos: inmueble.m2_cubiertos,
+
+        descripcion: inmueble.descripcion,
+
+        precio:
+          contrato?.monto_alquiler ??
+          Number(inmueble.precio_publicado),
+
+        expensas:
+          contrato?.expensas ?? 0,
+
+        indice_ajuste: indiceAjuste
+          ? {
+              id: indiceAjuste.id,
+              descripcion: indiceAjuste.descripcion
+            }
+          : null,
+
+        fecha_disponible:
+          inmueble.fecha_disponible,
+
+        tags: tags.map(tag => ({
+          id: tag.id,
+          descripcion: tag.descripcion
+        })),
+
+        foto_principal: fotoPrincipal
+      });
     }
-    const nuevo = await this.inmRepo.create({
-      id_locador: data.id_locador || 1,
-      tipo: data.tipo,
-      descripcion: data.descripcion || null,
-      provincia: data.provincia || 'Córdoba',
-      ciudad: data.ciudad,
-      barrio: data.barrio || 'Centro',
-      direccion: data.direccion,
-      numero: data.numero,
-      piso: data.piso || null,
-      m2_totales: data.m2_totales || data.m2 || 50,
-      m2_cubiertos: data.m2_cubiertos || data.m2 || 45,
-      ambientes: data.ambientes,
-      dormitorios: data.dormitorios,
-      banos: data.banos,
-      antiguedad: data.antiguedad || null,
-      precio_publicado: data.precio_publicado || 100000,
-      estado_alquiler: data.estado_alquiler || 'publicado',
-      fecha_disponible: data.fecha_disponible || null,
-      servicios: data.servicios || null
-    });
-    return nuevo;
+
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      limit: items.length,
+      totalPages: 1
+    };
   }
 
   async update(id: number, data: UpdateInmuebleDTO): Promise<InmuebleDTO | null> {
@@ -224,7 +264,7 @@ export class InmuebleService {
       throw new Error('Se debe indicar la cantidad de baños (debe ser mayor a 0).');
     }
 
-    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado'].includes(data.estado_alquiler)) {
+    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'alquilada/publicada'].includes(data.estado_alquiler)) {
       throw new Error('Se debe indicar el estado del alquiler: publicado, pausado o alquilado.');
     }
 
@@ -360,8 +400,11 @@ export class InmuebleService {
     }
   }
 
-  async getMisInmueblesPublicados(idLocador: number): Promise<MisAlquileresDTO[]> {
-    const inmuebles = await this.inmRepo.findByLocadorId(idLocador);
+  async getMisInmueblesPublicados(
+    idLocador: number,
+    filtros?: FiltrosMisAlquileresDTO
+  ): Promise<MisAlquileresDTO[]> {
+    const inmuebles = await this.inmRepo.findByLocadorId(idLocador, filtros);
     const resultado: MisAlquileresDTO[] = [];
 
     for (const inm of inmuebles) {
@@ -370,10 +413,20 @@ export class InmuebleService {
       const tagsObjs = await this.inmRepo.getTagsByInmuebleId(inm.id);
       const fotos = await this.inmRepo.getFotosByInmuebleId(inm.id);
       const fotoPrincipal = fotos.find(f => f.es_principal)?.url || (fotos.length > 0 ? fotos[0].url : null);
+      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
 
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];
       let indiceDescripcion: string | null = null;
+      const fechaProximoAjuste = contrato
+        ? this.calcularFechaProximoAjuste(
+            contrato.fecha_inicio_contrato,
+            contrato.frecuencia_ajuste
+          )
+        : null;
+      const locatario = contrato
+        ? await this.contRepo.getLocatarioByContratoId(contrato.id)
+        : null;
 
       if (contrato) {
         const mediosPagoObjs = await this.contRepo.getMediosPagoByContratoId(contrato.id);
@@ -411,11 +464,20 @@ export class InmuebleService {
         tags: tagsObjs.map(t => t.descripcion),
         foto_principal: fotoPrincipal,
         fotos: fotos,
+        posee_reclamos_no_resueltos: poseeReclamosNoResueltos,
         contrato: {
           id: contrato ? contrato.id : 0,
+          locatario: locatario
+            ? {
+                id: locatario.id,
+                nombre: locatario.nombre,
+                apellido: locatario.apellido
+              }
+            : null,
           monto_alquiler: contrato ? contrato.monto_alquiler : inm.precio_publicado,
           expensas: contrato ? contrato.expensas : 0,
           indice_aumento: indiceDescripcion,
+          fecha_proximo_ajuste: fechaProximoAjuste,
           frecuencia_ajuste: contrato?.frecuencia_ajuste || null,
           duracion_meses: contrato?.duracion_meses || null,
           deposito: contrato?.deposito || null,
@@ -427,6 +489,40 @@ export class InmuebleService {
     }
 
     return resultado;
+  }
+
+  async getBarriosByLocadorId(idLocador: number): Promise<string[]> {
+    return this.inmRepo.findBarriosByLocadorId(idLocador);
+  }
+
+  private calcularFechaProximoAjuste(
+    fechaInicio: string | null | undefined,
+    frecuencia: string | null | undefined
+  ): string | null {
+    if (!fechaInicio || !frecuencia) return null;
+
+    const mesesPorFrecuencia: Record<string, number> = {
+      mensual: 1,
+      bimestral: 2,
+      trimestral: 3,
+      cuatrimestral: 4,
+      semestral: 6,
+      anual: 12
+    };
+    const meses = mesesPorFrecuencia[frecuencia.trim().toLowerCase()];
+    if (!meses) return null;
+
+    const [anio, mes, dia] = fechaInicio.split('-').map(Number);
+    if (!anio || !mes || !dia) return null;
+
+    const hoy = new Date();
+    const fecha = new Date(Date.UTC(anio, mes - 1, dia));
+
+    while (fecha <= hoy) {
+      fecha.setUTCMonth(fecha.getUTCMonth() + meses);
+    }
+
+    return fecha.toISOString().slice(0, 10);
   }
 }
 

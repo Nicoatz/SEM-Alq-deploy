@@ -75,7 +75,7 @@ export interface MedioPagoXContrato {
   id_medio_pago: number;
 }
 
-export type EstadoAlquiler = 'publicado' | 'pausado' | 'alquilado';
+export type EstadoAlquiler = 'publicado' | 'pausado' | 'alquilado' | 'alquilada/publicada';
 
 export interface Inmueble {
   id: number;
@@ -108,6 +108,19 @@ export interface FotoInmueble {
   peso_kb: number;
   formato: string;
   orden: number;
+}
+
+export interface EstadoReclamo {
+  id: number;
+  nombre: string;
+}
+
+export interface Reclamo {
+  id: number;
+  id_inmueble: number;
+  titulo: string;
+  descripcion: string;
+  id_estado_reclamo: number;
 }
 
 export interface InmuebleXTag {
@@ -205,11 +218,18 @@ export interface MisAlquileresItem {
   tags: string[];
   foto_principal: string | null;
   fotos: FotoInmueble[];
+  posee_reclamos_no_resueltos: boolean;
   contrato: {
     id: number;
+    locatario: {
+      id: number;
+      nombre: string;
+      apellido?: string | null;
+    } | null;
     monto_alquiler: number;
     expensas: number;
     indice_aumento?: string | null;
+    fecha_proximo_ajuste?: string | null;
     frecuencia_ajuste?: string | null;
     duracion_meses?: number | null;
     deposito?: number | null;
