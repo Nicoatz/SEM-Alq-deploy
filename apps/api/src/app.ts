@@ -3,13 +3,14 @@ import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import gatewayRouter from './gateway/gateway.router';
 import { swaggerSpec } from './config/swagger';
+import { corsOptions } from './config/cors';
 import { errorHandler } from './gateway/middlewares/error.middleware';
 
 export const createApp = (): Application => {
   const app = express();
 
   // Middlewares globales
-  app.use(cors());
+  app.use(cors(corsOptions()));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
