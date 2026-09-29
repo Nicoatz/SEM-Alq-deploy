@@ -79,10 +79,16 @@ export class InmuebleRepository implements IInmuebleRepository {
   }
 
   async findByLocadorId(locadorId: number, filtros?: FiltrosMisAlquileresDTO): Promise<InmuebleDTO[]> {
-    const { data, error } = await getSupabaseAdmin()
+    let query = getSupabaseAdmin()
       .from('inmueble')
       .select('*')
       .eq('id_locador', locadorId);
+
+    if (filtros?.barrio) query = query.eq('barrio', filtros.barrio);
+    if (filtros?.tipo !== undefined) query = query.eq('tipo', filtros.tipo);
+    if (filtros?.estado) query = query.eq('estado_alquiler', filtros.estado);
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

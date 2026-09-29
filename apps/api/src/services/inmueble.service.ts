@@ -358,12 +358,14 @@ export class InmuebleService {
     const resultado: MisAlquileresDTO[] = [];
 
     for (const inm of inmuebles) {
+      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
+      if (filtros?.reclamos !== undefined && poseeReclamosNoResueltos !== filtros.reclamos) continue;
+
       const tipoObj = await lookupRepository.getTipoById(inm.tipo);
       const servicioObj = inm.servicios ? await lookupRepository.getServicioById(inm.servicios) : null;
       const tagsObjs = await this.inmRepo.getTagsByInmuebleId(inm.id);
       const fotos = await this.inmRepo.getFotosByInmuebleId(inm.id);
       const fotoPrincipal = fotos.find(f => f.es_principal)?.url || (fotos.length > 0 ? fotos[0].url : null);
-      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
 
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];

@@ -44,11 +44,12 @@ export class MisAlquileresController {
       const user = (req as any).user;
       const locadorId = user.id;
       const tipo = req.query.tipo ? Number(req.query.tipo) : undefined;
+      const reclamosParam = String(req.query.reclamos ?? '').toLowerCase();
       const filtros: FiltrosMisAlquileresDTO = {
         barrio: req.query.barrio ? String(req.query.barrio) : undefined,
         tipo: tipo !== undefined && Number.isInteger(tipo) ? tipo : undefined,
         estado: req.query.estado ? String(req.query.estado) as FiltrosMisAlquileresDTO['estado'] : undefined,
-        reclamos: req.query.reclamos ? Boolean(req.query.reclamos) : undefined
+        reclamos: reclamosParam === 'true' ? true : reclamosParam === 'false' ? false : undefined
       };
 
       const propiedades = await inmuebleService.getMisInmueblesPublicados(locadorId, filtros);

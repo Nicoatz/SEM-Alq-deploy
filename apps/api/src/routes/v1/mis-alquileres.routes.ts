@@ -9,7 +9,7 @@ const router = Router();
  * /api/v1/mis-alquileres:
  *   get:
  *     summary: Consultar las propiedades del locador autenticado
- *     description: Retorna las propiedades del locador, con filtros opcionales por barrio, tipo y estado de alquiler.
+ *     description: Retorna las propiedades del locador, con filtros opcionales por barrio, tipo, estado de alquiler y reclamos no resueltos.
  *     tags:
  *       - Mis Alquileres
  *     parameters:
@@ -29,6 +29,11 @@ const router = Router();
  *           type: string
  *           enum: [publicado, pausado, alquilado, publicado/alquilado]
  *         description: Filtra por estado de alquiler.
+ *       - in: query
+ *         name: reclamos
+ *         schema:
+ *           type: boolean
+ *         description: Filtra por existencia de reclamos no resueltos.
  *     security:
  *       - SupabaseBearerAuth: []
  *     responses:
