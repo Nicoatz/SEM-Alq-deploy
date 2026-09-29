@@ -184,7 +184,10 @@ export function BuscarPropiedades() {
   // Mientras carga una página posterior (o si falló), se sigue mostrando la grilla anterior.
   const datos = resultado?.key === busquedaKey ? resultado.data : null
   const grilla = datos ?? (errorDePaginaPosterior || (cargando && aplicada.pagina > 1) ? ultimoConDatos : null)
-  const total = datos?.total ?? (cargando ? ultimoConDatos?.total : undefined)
+  const total = datos?.total ?? (cargando || errorDePaginaPosterior ? ultimoConDatos?.total : undefined)
+  // Falló la búsqueda y no hay una grilla anterior para mostrar: el subtítulo
+  // no puede quedar en "Buscando propiedades…" (QA del 30/09).
+  const errorSinDatos = !cargando && resultado?.error === true && total === undefined
 
   const selectorOrden = (
     <label className={`${styles.sortLabel} ${styles.desktopOnly}`}>
@@ -218,6 +221,8 @@ export function BuscarPropiedades() {
                   </strong>
                   <span className={styles.desktopOnly}> con los filtros que elegiste · trato directo con el dueño</span>
                 </>
+              ) : errorSinDatos ? (
+                'No pudimos cargar las propiedades'
               ) : (
                 'Buscando propiedades…'
               )}
