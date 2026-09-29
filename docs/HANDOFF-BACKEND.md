@@ -241,7 +241,8 @@ cuando el back vuelva a respetar los filtros.
 | **`reclamos` se lee con `Boolean(req.query.reclamos)`**: cualquier texto, incluido `"false"`, da `true`. Comparar con `=== 'true'`. | backend |
 | No hay fecha de alta: el orden "Más recientes" no tiene efecto. | db |
 | En el inmueble 1, `precio_publicado` es $360.000 y `contrato.monto_alquiler`, $350.000. El front muestra el publicado para las no alquiladas y el del contrato para las alquiladas: confirmar cuál manda. | backend / db |
-| El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario`. | db |
+| **`/mis-alquileres` de `locador@rentar.com` responde 400** ("JSON object requested, multiple (or no) rows returned"). `contrato.repository#getLocatarioByContratoId` busca el locatario con `maybeSingle()` sobre `contrato_x_usuario` (`tipo_firmante = 2`), y el contrato 2 tiene los firmantes duplicados: la consulta trae dos filas y falla **toda la lista**. En el front, Mis propiedades de esa cuenta muestra "No pudimos traer tus propiedades" (probado el 30/09). Arreglo propuesto: `limit(1)` (o deduplicar) en la consulta y borrar las filas duplicadas. | backend (Thiago) / db |
+| El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario` (causa del 400 de arriba). | db |
 
 ### US-01 Registrar mis propiedades
 
