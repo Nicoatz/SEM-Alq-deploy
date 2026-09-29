@@ -12,6 +12,7 @@ export interface IInmuebleRepository {
   findAll(): Promise<InmuebleDTO[]>;
   findById(id: number): Promise<InmuebleDTO | null>;
   findByLocadorId(locadorId: number, filtros?: FiltrosMisAlquileresDTO): Promise<InmuebleDTO[]>;
+  findBarriosByLocadorId(locadorId: number): Promise<string[]>;
   create(data: Omit<InmuebleDTO, 'id' | 'created_at'>): Promise<InmuebleDTO>;
   delete(id: number): Promise<boolean>;
   addFotos(idInmueble: number, fotos: CreateFotoDTO[]): Promise<FotoInmuebleDTO[]>;
@@ -109,6 +110,14 @@ export class InmuebleRepository implements IInmuebleRepository {
         return true;
       })
       .map(i => ({ ...i }));
+  }
+
+  async findBarriosByLocadorId(locadorId: number): Promise<string[]> {
+    return [...new Set(
+      this.inmuebles
+        .filter(inmueble => inmueble.id_locador === locadorId)
+        .map(inmueble => inmueble.barrio)
+    )].sort((a, b) => a.localeCompare(b));
   }
 
   async create(data: Omit<InmuebleDTO, 'id' | 'created_at'>): Promise<InmuebleDTO> {

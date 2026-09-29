@@ -4,6 +4,36 @@ import { ApiResponse, MisAlquileresDTO } from '../dtos';
 import { FiltrosMisAlquileresDTO } from '../dtos';
 
 export class MisAlquileresController {
+  async getBarrios(
+    req: Request<{ idLocador: string }>,
+    res: Response<ApiResponse<string[]>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idLocador = Number(req.params.idLocador);
+      const user = (req as any).user;
+
+      if (!Number.isInteger(idLocador) || idLocador <= 0) {
+        res.status(400).json({ success: false, error: 'El ID del locador debe ser un entero positivo.' });
+        return;
+      }
+
+      if (user.id !== idLocador) {
+        res.status(403).json({ success: false, error: 'No puede consultar barrios de otro locador.' });
+        return;
+      }
+
+      const barrios = await inmuebleService.getBarriosByLocadorId(idLocador);
+      res.status(200).json({
+        success: true,
+        message: 'Barrios disponibles obtenidos exitosamente.',
+        data: barrios
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getMisAlquileres(
     req: Request,
     res: Response<ApiResponse<MisAlquileresDTO[]>>,

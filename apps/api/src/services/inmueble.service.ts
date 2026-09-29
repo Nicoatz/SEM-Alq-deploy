@@ -197,7 +197,7 @@ export class InmuebleService {
       throw new Error('Se debe indicar la cantidad de baños (debe ser mayor a 0).');
     }
 
-    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado'].includes(data.estado_alquiler)) {
+    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'alquilada/publicada'].includes(data.estado_alquiler)) {
       throw new Error('Se debe indicar el estado del alquiler: publicado, pausado o alquilado.');
     }
 
@@ -422,6 +422,10 @@ export class InmuebleService {
     }
 
     return resultado;
+  }
+
+  async getBarriosByLocadorId(idLocador: number): Promise<string[]> {
+    return this.inmRepo.findBarriosByLocadorId(idLocador);
   }
 
   private calcularFechaProximoAjuste(
