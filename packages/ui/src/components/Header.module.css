@@ -106,3 +106,86 @@
   border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.05);
   padding-top: 0.75rem;
 }
+
+/* ─── Con sesión ("Header público · con sesión iniciada") ─────────── */
+
+.panelButton {
+  font-weight: 600;
+}
+
+/* Placeholder mientras se confirma la sesión: la forma de "Ir a mi panel" +
+   el avatar del UserMenu, del mismo ancho, para que nada salte al resolverse. */
+.pending {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pendingButton,
+.pendingAvatar {
+  display: block;
+  border-radius: var(--rentar-radius-pill);
+  background: rgba(var(--rentar-color-ink-rgb), 0.07);
+}
+
+.pendingButton {
+  width: 7.5rem;
+  height: 2.5rem;
+}
+
+.pendingAvatar {
+  width: 10.5rem;
+  height: 2.75rem;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
+/* Menú móvil con sesión (diseño 03). */
+.drawerUser {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.drawerAvatar {
+  flex: none;
+  background: var(--rentar-color-blue);
+  font-weight: 700;
+}
+
+.drawerUserText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.drawerUserName {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.drawerUserRole {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.drawerSessionActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.drawerLogout {
+  justify-content: flex-start;
+  font-weight: 600;
+}

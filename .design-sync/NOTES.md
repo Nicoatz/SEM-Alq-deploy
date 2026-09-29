@@ -130,6 +130,20 @@ su primera propiedad. Exports leídos en `.design-exports/roles/` (Paneles · 05
      "Activar mi rol de locador · Se activa desde mi perfil, sin crear otra cuenta". En la app ese
      texto no existe y "Viendo como" (`RoleContextSwitcher`) quedó sin cambios, por decisión del PO.
 
+Cambios del Header público con sesión (2026-09-29, rama `feature/header-sesion`), **pendientes de
+subir**. Export leído en `.design-exports/header/` (`templates/header-publico/HeaderPublico.dc.html`,
+que pide "sumar la prop `user` en código").
+- **`Header`: props opcionales `session` y `sessionPending`.** Sin props, el Header sin sesión de
+  siempre. `session` (`HeaderSession`: nombre, rol activo, avatar, `panelHref`, `publishHref`,
+  `menuItems` y `onLogout`) cambia "Iniciar sesión" + "Publicar propiedad" por "Ir a mi panel" + el
+  `UserMenu`; en móvil, el menú hamburguesa trae el usuario, "Ir a mi panel", "Publicar propiedad",
+  los links y "Cerrar sesión". `sessionPending` muestra un placeholder con la forma de la variante
+  con sesión (sin "Iniciar sesión") mientras la app la confirma. Se llamó `session` y no `user`
+  (como dice el template) porque trae también las acciones, no solo el usuario.
+- **`PublicLayout`: prop opcional `header`** para recibir el Header ya armado (el layout es un
+  Server Component y no le puede pasar funciones al Header).
+- Al subir: sumar historias `ConSesion` y `CargandoSesion` en `previews/Header.tsx`.
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).
