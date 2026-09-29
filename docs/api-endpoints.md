@@ -59,8 +59,9 @@ Mapeos del alta (US-01), documentados en `services/adapters/propiedad.adapter.ts
 - Medios de pago: `transferencia → 1`, `efectivo → 2`, MercadoPago débito y crédito → `3`
   (deduplicado); el recargo no se guarda.
 - Índice: `ICL → 1`, `IPC → 2` (la base además tiene CAC, 3).
-- Estado: `publicada → 'publicado'`, `pausada → 'pausado'`, `alquilada → 'alquilado'` (+
-  `fecha_disponible` si se cargó).
+- Estado: `publicada → 'publicado'`, `pausada → 'pausado'`, `alquilada` con fecha de
+  disponibilidad → `'publicado/alquilado'` (+ `fecha_disponible`; así aparece en `/buscar`), y sin
+  fecha → `'alquilado'`.
 - `frecuencia_ajuste`: "Mensual", "Bimestral", "Trimestral", "Cuatrimestral", "Semestral", "Anual" o
   "N meses". `deposito`: meses × precio. Piso y depto van juntos en `piso` ("3° B").
 

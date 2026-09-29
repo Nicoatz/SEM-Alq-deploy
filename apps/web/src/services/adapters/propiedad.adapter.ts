@@ -210,8 +210,10 @@ function aNumero(valor: number | string | null | undefined): number {
  * `estado_alquiler` (+ `fecha_disponible`) → `PropertyStatus`.
  * Una alquilada CON fecha de disponibilidad es `alquilada_publicada`: se
  * vuelve a ofrecer para el próximo inquilino (US-02, US-34).
- * NOTA: hoy la base solo usa `publicado` y `alquilado`; `pausado` lo acepta
- * la validación del back y se mapea por si aparece.
+ * `publicado/alquilado` (nombre acordado con el back el 29/09) también es
+ * `alquilada_publicada`; `alquilado` con fecha se sigue leyendo igual, por las
+ * que se guardaron antes de ese acuerdo.
+ * NOTA: `pausado` lo acepta la validación del back y se mapea por si aparece.
  */
 function statusDeInmueble(estado: EstadoAlquiler, fechaDisponible: string | null | undefined): PropertyStatus {
   if (estado === 'publicado/alquilado') return 'alquilada_publicada'
@@ -220,11 +222,23 @@ function statusDeInmueble(estado: EstadoAlquiler, fechaDisponible: string | null
   return 'publicada'
 }
 
-/** Estado del alta (US-01) → `estado_alquiler` del back. */
+/** Estado del alta (US-01) → `estado_alquiler` del back (sin contar la fecha: ver {@link estadoAlquilerDeAlta}). */
 const ESTADO_ALQUILER_DE_ALTA: Record<PropiedadNueva['status'], EstadoAlquiler> = {
   publicada: 'publicado',
   pausada: 'pausado',
   alquilada: 'alquilado',
+}
+
+/**
+ * `estado_alquiler` que manda el alta. Una alquilada CON fecha de
+ * disponibilidad va como `publicado/alquilado`: así la devuelve
+ * `/disponibles` (que busca `publicado` y `publicado/alquilado`) y aparece en
+ * `/buscar` con "Disponible desde" (US-34). Sin fecha, `alquilado`: no se ofrece.
+ * NOTA: nombre acordado con el back el 29/09 (`develop` 2264372). Antes el
+ * alta mandaba `alquilado` + fecha y esas no aparecían en la búsqueda.
+ */
+function estadoAlquilerDeAlta(nueva: Pick<PropiedadNueva, 'status' | 'availableFrom'>): EstadoAlquiler {
+  return nueva.status === 'alquilada' && nueva.availableFrom ? 'publicado/alquilado' : ESTADO_ALQUILER_DE_ALTA[nueva.status]
 }
 
 // ─── Títulos ────────────────────────────────────────────────────────────
@@ -439,7 +453,7 @@ export function propiedadNuevaToCreateInmueble(nueva: PropiedadNueva, fotos: Cre
     banos: nueva.bathrooms,
     antiguedad: nueva.ageYears,
     precio_publicado: nueva.priceMonthly,
-    estado_alquiler: ESTADO_ALQUILER_DE_ALTA[nueva.status],
+    estado_alquiler: estadoAlquilerDeAlta(nueva),
     fecha_disponible: nueva.availableFrom,
     servicios: null,
     tags: [...new Set(tags)],
