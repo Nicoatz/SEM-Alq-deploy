@@ -4,7 +4,7 @@
 
 -- Catálogos
 INSERT INTO rol (id, descripcion) VALUES
-(0, 'locatario'),
+        (0, 'locatario'),
 (1, 'locador'),
 (2, 'administrador')
 ON CONFLICT ("id") DO NOTHING;

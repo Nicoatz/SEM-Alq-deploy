@@ -4,7 +4,10 @@ import {
   CreateFotoDTO,
   InmuebleXTagDTO,
   TagInmuebleDTO,
-  FiltrosMisAlquileresDTO
+  FiltrosMisAlquileresDTO,
+  CreateInmuebleCompletoDTO,
+  FiltrosInmueblesDisponiblesDTO,
+  InmueblesDisponiblesResultadoDTO
 } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
 import { lookupRepository } from './lookup.repository';
@@ -27,9 +30,29 @@ export interface IInmuebleRepository {
     barrio?: string;
     tipo?: number;
   }): Promise<InmuebleDTO[]>;
+  registrarPropiedadCompleta(idLocador: number, data: CreateInmuebleCompletoDTO): Promise<InmuebleDTO>;
 }
 
 export class InmuebleRepository implements IInmuebleRepository {
+  async registrarPropiedadCompleta(
+    idLocador: number,
+    data: CreateInmuebleCompletoDTO
+  ): Promise<InmuebleDTO> {
+    const { data: inmuebles, error } = await getSupabaseAdmin().rpc(
+      'registrar_propiedad_completa',
+      {
+        p_id_locador: idLocador,
+        p_data: data
+      }
+    );
+
+    if (error || !inmuebles?.[0]) {
+      throw error ?? new Error('No se pudo registrar la propiedad completa.');
+    }
+
+    return inmuebles[0] as InmuebleDTO;
+  }
+
   async findAll(): Promise<InmuebleDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('inmueble')
