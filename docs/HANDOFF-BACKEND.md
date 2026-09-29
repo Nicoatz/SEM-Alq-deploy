@@ -166,8 +166,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: desde el 29/09 ignora casi todos los filtros, el orden y la paginación; el front trae todas y filtra, ordena y pagina en el cliente (sección 7) |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
-| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta implementar la subida de fotos (el bucket ya existe). Todavía exige el rol locador (sección 7, US-01) |
-| Supabase Storage, bucket `fotos-propiedades` | Alta | **Existe desde el 29/09** (creado desde el dashboard, fuera de las migraciones; sección 8). El front todavía no sube fotos: va en el próximo PR |
+| `POST /inmuebles` | Alta | **Conectado** (29/09): alta real de punta a punta desde la pantalla, con fotos en Storage; cualquier rol, y suma el rol locador |
+| Supabase Storage, bucket `fotos-propiedades` | Alta | **Conectado** (29/09): el alta sube las fotos y se probó de punta a punta. Falta la política de SELECT para borrar las de un alta fallida (sección 8) |
 | `GET /locadores/:idLocador/barrios` | — | Existe desde el 29/09 (Bearer + rol locador; solo el propio id). El front no la usa: arma los barrios del filtro de US-02 con sus propias propiedades |
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
@@ -250,7 +250,7 @@ cuando el back vuelva a respetar los filtros.
 | ~~`POST /inmuebles` exigía `requireRole("locador")`~~ **Resuelto (29/09, d88deca):** acepta a cualquier usuario con sesión. | — |
 | ~~Asignar el rol locador al crear la primera propiedad~~ **Resuelto (29/09, d88deca):** lo hace `registrar_propiedad_completa`, en la misma transacción del alta. | — |
 | **Expansión de roles en `/usuarios/me`:** para las cuentas nuevas no hace falta: el registro guarda la fila de locatario y al publicar se suma la de locador, así que `/me` devuelve las dos (en ese orden, `["locatario", "locador"]`; el front no depende del orden). Queda para las cuentas locadoras viejas que no tienen la fila de locatario (ej. `locador@rentar.com`): `/me` les devuelve solo `["locador"]`. | backend / db |
-| El bucket `fotos-propiedades` **ya existe** (29/09), pero se creó desde el dashboard, fuera de `supabase/migrations/` (sección 8). El front todavía avisa que no puede subir fotos: la subida va en el próximo PR. | db / front |
+| El bucket `fotos-propiedades` existe (29/09) y el front ya sube las fotos. Falta una política de SELECT para poder borrar las fotos de un alta que falla (sección 8). | db (Ivan) |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
 | `deposito` es un monto; el front lo pide en meses. Se manda meses × precio. | db |
@@ -282,21 +282,25 @@ archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configur
 "subir fotos propias" (INSERT) y "borrar fotos propias" (DELETE), las dos limitadas a la carpeta
 `<auth.uid>/`. Coincide con lo que espera el front (paso 1 de abajo).
 
-Lo que falta del lado del front (próximo PR):
+**Cómo sube el front (desde el 29/09, `propiedades.service.ts#subirFotoPropiedad`):**
 
-1. Implementar `subirFotoPropiedad()` en `apps/web/src/services/propiedades.service.ts` (hoy tira
-   el error acordado, con `TODO(db)`): subir cada foto al bucket `fotos-propiedades` en
-   `<auth.uid>/<archivo>`, con la sesión del usuario, y devolver la URL pública, `peso_kb` y
-   `formato`.
-2. **`peso_kb` redondeado hacia arriba** (`Math.ceil(bytes / 1024)`): el front deja cargar hasta
-   350 × 1024 bytes y el back rechaza `peso_kb > 350`; así coinciden.
-3. Sumar el host del bucket ya está hecho (`images.remotePatterns` de `apps/web/next.config.mjs`
-   acepta `*.supabase.co/storage/v1/object/public/**`). Sacar `rentar.com` cuando no queden fotos
-   de prueba del seed.
-4. **Probar que la nueva aparezca en `/buscar`:** después de un alta real publicada, tiene que
-   aparecer en la próxima búsqueda (el front ya no guarda la lista en el navegador).
-5. Repetir el recorrido del alta completo a 390 y 1440 px y verificar con el MCP las cinco tablas
-   (`inmueble`, `inmueble_x_tag`, `foto_inmueble`, `contrato`, `medio_pago_x_contrato`).
+1. Cada foto va a `fotos-propiedades/<auth.uid>/<uuid>.<jpg|png>`, con la sesión del usuario,
+   `upsert: false` y su `contentType`. Antes de subir se vuelve a validar JPG/PNG y 358400 bytes.
+2. Devuelve la URL pública (`getPublicUrl`), **`peso_kb` redondeado hacia arriba**
+   (`Math.ceil(bytes / 1024)`, así coincide con el `peso_kb > 350` del back) y `formato` (`jpg`/`png`).
+3. Se suben en paralelo. Si falla alguna, se intentan borrar las que subieron; si `POST /inmuebles`
+   falla después de subirlas, también (el alta del back es una transacción, así que no queda nada en
+   la base).
+4. `images.remotePatterns` de `apps/web/next.config.mjs` ya acepta
+   `*.supabase.co/storage/v1/object/public/**`. Sacar `rentar.com` cuando no queden fotos del seed.
+
+**Probado en real el 29/09**, desde la pantalla: la cuenta 18 (locadora, 1440 px) y una locataria
+nueva (19, 390 px, alquilada con fecha → pasó a locadora y apareció en `/buscar`). Filas y archivos
+en la sección 9.
+
+| Brecha | Dueño |
+|---|---|
+| **Falta una política de SELECT para borrar.** Storage exige DELETE **y SELECT** sobre `storage.objects` para `remove()`; sin SELECT no borra nada y responde una lista vacía, sin error. Probado: forzando un error del alta, las 3 fotos subidas quedaron en el bucket. Propuesta: `create policy "ver fotos propias" on storage.objects for select to authenticated using ((bucket_id = 'fotos-propiedades') and ((storage.foldername(name))[1] = (auth.uid())::text));` (solo la carpeta propia: no habilita listar lo de otros). Cuando esté, sumarla también a la migración del bucket. | db (Ivan) / backend |
 
 ## 9. Datos de prueba para borrar
 

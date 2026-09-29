@@ -12,7 +12,7 @@ mocks ni llama a `fetch` directo**: llaman a una función de un service y recibe
 | `usuarios.service.ts` | `getUsuarioActual` (`GET /usuarios/me`: nombre y roles del usuario del token) | US-39 |
 | `propiedades.service.ts` | `listarPropiedadesPublicadas`, `buscarPropiedades`, `contarPropiedades`, `listarUbicaciones` | US-34 |
 | | `listarMisPropiedades` | US-02 |
-| | `registrarPropiedad`, `subirFotoPropiedad` (Storage; espera el bucket) | US-01 |
+| | `registrarPropiedad`, `subirFotoPropiedad` (Supabase Storage, bucket `fotos-propiedades`) | US-01 |
 | | `cambiarEstadoPublicacion` (lista pero sin usar: es del sprint del detalle) | — |
 | `panel.service.ts` | `getResumenCobros`, `getResumenReclamos`, `getEventosContratos`, `getSolicitudesPendientes`, `getResumenRoles` | `/panel` (sin US en Sprint 0) |
 
