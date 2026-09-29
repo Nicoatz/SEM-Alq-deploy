@@ -13,15 +13,12 @@
  */
 import type {
   AdjustmentIndex,
-  BusquedaFiltros,
   CharacteristicKey,
   CreateFotoPayload,
   CreateInmuebleCompletoPayload,
   EstadoAlquiler,
   MedioPagoPreferido,
   MisAlquileresItem,
-  OrdenBusqueda,
-  Paginado,
   PropertyStatus,
   PropertyType,
   PropiedadLocador,
@@ -30,7 +27,7 @@ import type {
 } from '@rentar/shared-types'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
-import type { DisponiblesQuery, InmuebleDisponibleResponse, InmueblesDisponiblesResponse } from '../shared/backend-dtos'
+import type { InmuebleDisponibleResponse } from '../shared/backend-dtos'
 import { formatApproxAddress, formatFloorUnit } from './direccion'
 
 /**
@@ -264,6 +261,12 @@ export function tituloDePropiedadNueva(nueva: Pick<PropiedadNueva, 'type' | 'roo
  * - `address`: aproximada ("calle al 400"), ver la NOTA de privacidad en direccion.ts.
  * - `priceMonthly`, `expenses` y `adjustmentIndex`: del contrato del inmueble
  *   (`precio`, `expensas`, `indice_ajuste`). CAC → `null` (el front no lo ofrece).
+ *   Sin contrato, el back manda `precio_publicado` como precio y `0` de
+ *   expensas (y `-1` en el detalle).
+ * - `expenses`: `0` o negativo → `null`: no se sabe si no tiene expensas o si
+ *   no tiene contrato, así que no se muestra nada (nunca "$0" ni "Sin
+ *   expensas" inventados). TODO(backend): mandar `expensas: null` cuando no hay
+ *   contrato; así un `0` real se podría mostrar como "Sin expensas".
  * - `characteristics`: de los ids de `tags` (un tag sin equivalente se descarta).
  * - `imageSrc` / `photoSrcs`: solo la `foto_principal`; si no tiene fotos,
  *   {@link PLACEHOLDER_PHOTO_SRC}.
@@ -291,7 +294,7 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
     neighborhoodName: barrio.name,
     type,
     priceMonthly: aNumero(item.precio),
-    expenses: aNumero(item.expensas),
+    expenses: aNumero(item.expensas) > 0 ? aNumero(item.expensas) : null,
     bedrooms: item.dormitorios,
     rooms: item.ambientes,
     areaM2: aNumero(item.m2_totales),
@@ -304,132 +307,6 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
     publishedAt: '',
     status: item.fecha_disponible ? 'alquilada_publicada' : 'publicada',
   }
-}
-
-/** Una página de `/inmuebles/disponibles` → `Paginado<PropiedadResumen>` de `/buscar`. */
-export function disponiblesToPaginado(respuesta: InmueblesDisponiblesResponse): Paginado<PropiedadResumen> {
-  return {
-    items: respuesta.items.map(inmuebleDisponibleToPropiedadResumen),
-    page: respuesta.page,
-    pageSize: respuesta.limit,
-    total: respuesta.total,
-  }
-}
-
-// ─── Filtros de /buscar → query de /inmuebles/disponibles (US-34) ───────
-
-/**
- * Resultado de {@link consultaDeDisponibles}.
- * - `exacta: true`: el back puede resolver la búsqueda tal cual; `query` va
- *   directo a `/inmuebles/disponibles` y la página que vuelve es la que se muestra.
- * - `exacta: false`: algún filtro u orden no tiene equivalente exacto en el
- *   back; hay que traer todas las disponibles (hasta 1000, ver
- *   `propiedades.service.ts#TOPE_DISPONIBLES_CLIENTE`: sirve para el piloto,
- *   no escala) y filtrar, ordenar y paginar en el cliente
- *   (`lib/search/busqueda.ts`), igual que en modo mock.
- */
-export type ConsultaDisponibles = { exacta: true; query: DisponiblesQuery } | { exacta: false }
-
-/** `true` si una selección múltiple de cantidades se puede mandar como un número exacto. */
-function cantidadExacta(elegidas: number[]): boolean {
-  return elegidas.length === 1 && elegidas[0] < 4
-}
-
-/**
- * Traduce los filtros, el orden y la página de `/buscar` a los query params
- * de `GET /inmuebles/disponibles`. Es el ÚNICO lugar donde se mapean los
- * nombres de la URL del front (`lib/search/busquedaParams.ts`) a los del back.
- *
- * | Front (`BusquedaFiltros` / orden) | Back                               | Exacta si…                              |
- * |-----------------------------------|------------------------------------|-----------------------------------------|
- * | `neighborhoodSlugs`               | `barrio` (texto, "contiene")       | hay 0 o 1 barrio y está en el catálogo  |
- * | `minPrice` / `maxPrice`           | `precioMin` / `precioMax`          | siempre                                 |
- * | `types`                           | `tipo` (id)                        | hay 0 o 1 tipo                          |
- * | `bedrooms` / `rooms`              | `dormitorios` / `ambientes`        | hay 0 o 1 valor y no es "4 o más"       |
- * | `minAreaM2` / `maxAreaM2`         | `superficieMin` / `superficieMax`  | siempre                                 |
- * | `characteristics`                 | `tags` (ids)                       | hay 0 o 1 y el tag existe en el back    |
- * | `adjustmentIndex`                 | `indiceAjuste` (id)                | siempre                                 |
- * | `province` / `city`               | —                                  | ver la NOTA de abajo                    |
- * | `dormitorios_desc` / `m2_desc`    | `orden=dormitorios\|m2&direccion=desc` | siempre                             |
- * | `predeterminado` / `recientes`    | sin orden (id descendente)         | siempre                                 |
- * | `precio_asc` / `precio_desc`      | `orden=precio`                     | nunca (ver el TODO)                     |
- *
- * Por qué hay casos no exactos: el back acepta UN valor por filtro y
- * cantidades exactas, y con `tags` devuelve las que tengan CUALQUIERA de los
- * elegidos. US-34 pide selección múltiple, "4 o más" y "que cumplan con
- * todos los criterios seleccionados".
- * TODO(backend): aceptar varios valores por filtro, "4 o más" y tags con
- * todas las elegidas, para que toda búsqueda se resuelva en el servidor.
- * TODO(backend): `orden=precio` no ordena los inmuebles (ordena el contrato
- * embebido: asc y desc devuelven lo mismo). Hasta que se arregle, los
- * órdenes por precio se resuelven en el cliente.
- * NOTA: `recientes` se manda sin orden: el back no guarda la fecha de
- * publicación y su orden por defecto (id descendente, el más nuevo primero)
- * es lo más parecido.
- * NOTA: el back no filtra por provincia ni ciudad. Hoy solo hay propiedades
- * de Córdoba Capital, así que se filtran en el cliente sobre la página que
- * vuelve (ver `propiedades.service.ts#buscarPropiedades`).
- */
-export function consultaDeDisponibles(
-  filtros: BusquedaFiltros,
-  orden: OrdenBusqueda,
-  pagina: number,
-  pageSize: number,
-): ConsultaDisponibles {
-  const query: DisponiblesQuery = { page: String(Math.max(1, pagina)), limit: String(pageSize) }
-
-  if (filtros.neighborhoodSlugs.length > 1) return { exacta: false }
-  if (filtros.neighborhoodSlugs.length === 1) {
-    const barrio = neighborhoods.find((item) => item.slug === filtros.neighborhoodSlugs[0])
-    if (!barrio) return { exacta: false }
-    query.barrio = barrio.name
-  }
-
-  if (filtros.minPrice !== null) query.precioMin = String(filtros.minPrice)
-  if (filtros.maxPrice !== null) query.precioMax = String(filtros.maxPrice)
-
-  if (filtros.types.length > 1) return { exacta: false }
-  if (filtros.types.length === 1) query.tipo = String(tipoIdFromPropertyType(filtros.types[0]))
-
-  if (filtros.bedrooms.length > 0) {
-    if (!cantidadExacta(filtros.bedrooms)) return { exacta: false }
-    query.dormitorios = String(filtros.bedrooms[0])
-  }
-  if (filtros.rooms.length > 0) {
-    if (!cantidadExacta(filtros.rooms)) return { exacta: false }
-    query.ambientes = String(filtros.rooms[0])
-  }
-
-  if (filtros.minAreaM2 !== null) query.superficieMin = String(filtros.minAreaM2)
-  if (filtros.maxAreaM2 !== null) query.superficieMax = String(filtros.maxAreaM2)
-
-  if (filtros.characteristics.length > 1) return { exacta: false }
-  if (filtros.characteristics.length === 1) {
-    const tagId = tagIdFromCharacteristic(filtros.characteristics[0])
-    if (tagId === null) return { exacta: false }
-    query.tags = String(tagId)
-  }
-
-  if (filtros.adjustmentIndex !== null) query.indiceAjuste = String(INDICE_ID[filtros.adjustmentIndex])
-
-  switch (orden) {
-    case 'precio_asc':
-    case 'precio_desc':
-      return { exacta: false }
-    case 'dormitorios_desc':
-      query.orden = 'dormitorios'
-      query.direccion = 'desc'
-      break
-    case 'm2_desc':
-      query.orden = 'm2'
-      query.direccion = 'desc'
-      break
-    case 'predeterminado':
-    case 'recientes':
-      break
-  }
-
-  return { exacta: true, query }
 }
 
 // ─── MisAlquileresItem → PropiedadLocador (US-02) ───────────────────────

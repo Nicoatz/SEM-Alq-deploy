@@ -28,13 +28,11 @@ import type {
   PropiedadResumen,
   UbicacionOpciones,
 } from '@rentar/shared-types'
-import { buscarEnLista, PAGE_SIZE, ubicacionesDe } from '@/lib/search/busqueda'
+import { buscarEnLista, ubicacionesDe } from '@/lib/search/busqueda'
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
 import { hoy } from '@/lib/utils/fechas'
 import { isSearchable, propiedadMockToLocador, propiedadMockToResumen, propiedadNuevaToMock } from './adapters/propiedad-mock.adapter'
 import {
-  consultaDeDisponibles,
-  disponiblesToPaginado,
   estadoDePropiedadNueva,
   inmuebleDisponibleToPropiedadResumen,
   misAlquileresItemToPropiedadLocador,
@@ -81,20 +79,24 @@ export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
 // ─── Búsqueda pública (US-34) ───────────────────────────────────────────
 
 /**
- * Tope de propiedades que se traen cuando hace falta "traer todas" (landing,
- * opciones de ubicación y búsquedas que el back no resuelve exacto).
+ * Tope de propiedades que se traen al "traer todas" (landing, `/buscar` y
+ * opciones de ubicación).
  * Es el máximo que devuelve el back en un pedido: la API no limita `limit`,
  * pero Supabase corta cada consulta en 1000 filas (el "Max rows" por defecto
  * de la API de datos).
  * NOTA: traer todas y filtrar en el cliente sirve para el piloto (hoy hay muy
  * pocas propiedades publicadas) y NO escala: con más de 1000 disponibles la
  * lista quedaría incompleta, y aun antes de eso el pedido se vuelve pesado.
- * La salida es que el back resuelva todos los filtros y órdenes (ver los
- * TODO(backend) de `propiedad.adapter.ts#consultaDeDisponibles`).
+ * La salida es que el back resuelva todos los filtros y órdenes (ver el
+ * TODO(backend) de {@link buscarPropiedades}).
  */
 const TOPE_DISPONIBLES_CLIENTE = 1000
 
-/** Pide una página de `/inmuebles/disponibles` con los params del back. */
+/**
+ * Pide `/inmuebles/disponibles` con los params del back.
+ * NOTA: hoy el back ignora `page` y `limit` y devuelve todas (ver el
+ * TODO(backend) de {@link buscarPropiedades}); se mandan igual por si vuelve a paginar.
+ */
 function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
   return apiRequest<InmueblesDisponiblesResponse>('/inmuebles/disponibles', { query: { ...query } })
 }
@@ -125,21 +127,17 @@ export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]>
 /**
  * US-34 Consultar propiedades a alquilar — la búsqueda de `/buscar`: filtros,
  * orden y una página de 10 resultados.
- * @backend GET /api/v1/inmuebles/disponibles   (existe · filtros, orden y paginación desde el 26/09)
- * @query   barrio, precioMin, precioMax, tipo, dormitorios, ambientes, superficieMin,
- *          superficieMax, tags, indiceAjuste, page, limit, orden, direccion
- *          (los arma `propiedad.adapter.ts#consultaDeDisponibles` a partir de los filtros de la URL)
+ * @backend GET /api/v1/inmuebles/disponibles   (existe · hoy ignora casi todos los filtros y la paginación)
  * @returns Paginado<PropiedadResumen>
  *
- * NOTA: si la búsqueda no se puede mandar exacta al back (varios barrios,
- * "4 o más", varias características, orden por precio: ver
- * `consultaDeDisponibles`), se traen todas y se filtra, ordena y pagina acá,
- * con las mismas reglas que el modo mock (`lib/search/busqueda.ts`).
- * NOTA: provincia y ciudad las filtra el cliente sobre la página que vuelve
- * (el back no las filtra). Hoy solo hay Córdoba Capital, así que no cambian el
- * total. TODO(backend): filtrar por provincia y ciudad.
- * NOTA: una página que ya no existe (se filtró de más) da 400 en el back; en
- * ese caso se muestra la última, igual que en modo mock.
+ * NOTA: se traen todas las disponibles y se filtra, ordena y pagina SIEMPRE en
+ * el cliente, con las mismas reglas que el modo mock (`lib/search/busqueda.ts`).
+ * TODO(backend): desde el 29/09 (`develop` a00f099), `/disponibles` solo
+ * filtra por `barrio` (igual exacto) y `tipo`; ignora precio, dormitorios,
+ * ambientes, superficie, tags, índice, orden y `page`/`limit` (responde todas
+ * con `page: 1`). Cuando los respete, volver a mandar la búsqueda al servidor:
+ * el mapeo de la URL a sus params estaba en `propiedad.adapter.ts`
+ * (`consultaDeDisponibles`, commit 60f8c63). Ver `HANDOFF-BACKEND.md` §7.
  */
 export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBusqueda, pagina: number): Promise<Paginado<PropiedadResumen>> {
   if (USE_MOCKS) {
@@ -147,47 +145,17 @@ export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBu
     const publicadas = readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
     return buscarEnLista(publicadas, filtros, orden, pagina)
   }
-
-  const consulta = consultaDeDisponibles(filtros, orden, pagina, PAGE_SIZE)
-  if (!consulta.exacta) return buscarEnLista(await todasLasDisponibles(), filtros, orden, pagina)
-
-  const resultado = disponiblesToPaginado(await pedirPaginaOUltima(consulta.query))
-  return { ...resultado, items: resultado.items.filter((propiedad) => cumpleUbicacion(propiedad, filtros)) }
+  return buscarEnLista(await todasLasDisponibles(), filtros, orden, pagina)
 }
 
 /**
- * Pide la página de `query`; si el back responde 400 porque la página ya no
- * existe, pide la primera para saber cuántas hay y devuelve la última.
- */
-async function pedirPaginaOUltima(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
-  try {
-    return await pedirDisponibles(query)
-  } catch (error) {
-    if (!(error instanceof ServiceError) || error.code !== 'validation' || query.page === '1') throw error
-    const primera = await pedirDisponibles({ ...query, page: '1' })
-    return primera.totalPages > 1 ? pedirDisponibles({ ...query, page: String(primera.totalPages) }) : primera
-  }
-}
-
-/** `true` si la propiedad está en la provincia y la ciudad elegidas (el back no las filtra). */
-function cumpleUbicacion(propiedad: PropiedadResumen, filtros: BusquedaFiltros): boolean {
-  if (filtros.province && propiedad.province !== filtros.province) return false
-  if (filtros.city && propiedad.city !== filtros.city) return false
-  return true
-}
-
-/**
- * US-34 — cuántas propiedades da una combinación de filtros, sin traerlas
+ * US-34 — cuántas propiedades da una combinación de filtros, sin mostrarlas
  * (el "Ver N propiedades" del Drawer de filtros en móvil, que se calcula
  * mientras se eligen los filtros, antes de aplicarlos).
- * @backend GET /api/v1/inmuebles/disponibles?…&limit=1   (existe · se lee `total`)
+ * @backend GET /api/v1/inmuebles/disponibles   (existe · se cuenta en el cliente, ver `buscarPropiedades`)
  * @returns number
  */
 export async function contarPropiedades(filtros: BusquedaFiltros): Promise<number> {
-  if (!USE_MOCKS) {
-    const consulta = consultaDeDisponibles(filtros, 'predeterminado', 1, 1)
-    if (consulta.exacta) return (await pedirDisponibles(consulta.query)).total
-  }
   const resultado = await buscarPropiedades(filtros, 'predeterminado', 1)
   return resultado.total
 }
@@ -261,8 +229,9 @@ export const FOTOS_NO_DISPONIBLES_MESSAGE =
  * Mensaje si `POST /inmuebles` responde 403 a una cuenta locataria.
  * Regla del equipo (27/09/2026): cualquier usuario con sesión puede publicar,
  * y al publicar la primera el back le suma el rol locador.
- * TODO(backend): hoy la ruta tiene `requireRole("locador")`, así que un
- * locatario recibe 403. Cuando el cambio de Thiago esté, este caso no pasa más.
+ * NOTA: desde el 29/09 (`develop` d88deca) la ruta ya no tiene
+ * `requireRole("locador")` y un locatario recibe 201 (probado en real). El
+ * mensaje queda como respaldo, por si vuelve el 403.
  * La pantalla agrega "Tus datos siguen acá: no perdiste nada."
  */
 export const PUBLICAR_SIN_ROL_MESSAGE = 'Todavía no podés publicar desde esta cuenta, estamos terminando este cambio.'
@@ -313,14 +282,14 @@ function sumarRolLocadorMock(userId: string): void {
  * sesión, locatario o locador, con sus condiciones de contrato y sus fotos
  * (publicada, pausada o alquilada; alquilada con fecha de disponibilidad →
  * alquilada/publicada).
- * @backend POST /api/v1/inmuebles   (existe · token + rol locador; el dueño sale del token)
- *          Propuesto (en curso, Thiago): cualquier usuario con sesión, y si
- *          no era locador, sumarle ese rol al crear la primera.
+ * @backend POST /api/v1/inmuebles   (existe · token, cualquier rol; el dueño sale del token)
+ *          Desde el 29/09 (d88deca) crea todo en una transacción
+ *          (`registrar_propiedad_completa`) y le suma el rol locador al usuario.
  * @body    CreateInmuebleCompletoPayload (lo arma `propiedadNuevaToCreateInmueble`)
  * @returns PropiedadRegistrada
  * @throws {ServiceError} `unauthorized` sin sesión (US-01: "se debe haber
  *   iniciado sesión"); `forbidden` con {@link PUBLICAR_SIN_ROL_MESSAGE} si el
- *   back todavía exige el rol locador; `validation` si el back rechaza un
+ *   back vuelve a exigir el rol locador (respaldo); `validation` si el back rechaza un
  *   dato; `server` si las fotos no se pueden subir.
  *
  * NOTA: primero se suben las fotos y después se manda el alta con sus URLs.
@@ -349,7 +318,7 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
     const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
     return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
   } catch (error) {
-    // Back viejo: `requireRole("locador")` le da 403 a un locatario (ver el TODO(backend) del mensaje).
+    // Respaldo: si el back vuelve a exigir el rol locador, un locatario recibe 403 (ver el mensaje).
     if (error instanceof ServiceError && error.code === 'forbidden') throw new ServiceError('forbidden', PUBLICAR_SIN_ROL_MESSAGE)
     throw error
   }

@@ -63,10 +63,10 @@ npm run lint         # eslint de apps/web
 npm run typecheck    # tsc --noEmit en shared-types, ui y web
 ```
 
-NOTA: `npm run build` de la raíz falla en `apps/api` (`publicacion.service.ts` no compila) y el
-test de la API (`apps/api/tests/api/`) todavía manda `x-user-id` y escribe en la base: no correrlo.
-Los dos están anotados para backend en `docs/HANDOFF-BACKEND.md` §10. Para el front alcanza con
-`npm run typecheck`, `npm run lint` y `npm run build --workspace=@rentar/web`.
+NOTA: el test de la API (`apps/api/tests/api/`) todavía manda `x-user-id` y escribe en la base: no
+correrlo (anotado para backend en `docs/HANDOFF-BACKEND.md` §10). `apps/api` vuelve a compilar desde
+el 29/09. Para el front alcanza con `npm run typecheck`, `npm run lint` y
+`npm run build --workspace=@rentar/web`.
 
 ## Convenciones de código
 
@@ -160,7 +160,8 @@ importa mocks ni llama a `fetch` directo.
 - **"Publicar propiedad"** va en el encabezado del panel para cualquier rol
   (`AppShell#headerAction`); en móvil, primero en el menú hamburguesa y en la hoja del UserMenu.
 - El selector "Viendo como" (`RoleContextSwitcher`) no cambió: aparece cuando la cuenta tiene dos roles.
-- Lo que falta en el back (en curso, Thiago): `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
+- En el back desde el 29/09 (d88deca): `POST /inmuebles` acepta cualquier rol y suma el rol locador
+  en la misma transacción (probado en real). Detalle en `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
 
 ## Datos de prueba (modo mock)
 
@@ -190,7 +191,15 @@ Las acciones clave de cada pantalla llevan `data-testid` con la forma
 
 ## Ramas y commits
 
-- `main`: producción. `develop`: integración. `feature/<nombre>`: trabajo en curso, desde `develop`.
+- `main`: producción. `develop`: integración. `feature/<nombre>`: trabajo en curso, desde `develop`
+  (el front, siempre en `feature/vistas`: ver "Forma de trabajo").
 - Los PR van siempre contra `develop`.
 - Commits chicos, en español (`feat(web): …`, `fix(web): …`, `feat(ui): …`, `docs: …`).
 - No se hace push ni merge sin la aprobación del PO.
+
+## Forma de trabajo
+
+Todo el front se trabaja en `feature/vistas`. No se crean ramas por implementación. Al empezar cada
+sesión y antes de cada PR: `git fetch` y `git merge origin/develop`. Un PR a `develop` por cada US o
+bloque terminado, mergeado con merge commit (nunca squash). Nunca `push --force` sobre
+`feature/vistas`.

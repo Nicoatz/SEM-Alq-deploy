@@ -78,8 +78,10 @@ export interface InmueblesDisponiblesResponse {
 
 /**
  * Query params de `GET /api/v1/inmuebles/disponibles`, con los nombres del
- * back. Los arma `propiedad.adapter.ts#consultaDeDisponibles` a partir de los
- * filtros de `/buscar`. Todos van como texto en la URL.
+ * back. Todos van como texto en la URL.
+ * NOTA: hoy el front manda solo `page` y `limit`: el back ignora el resto de
+ * los filtros (ver `propiedades.service.ts#buscarPropiedades`). Quedan
+ * documentados para cuando los respete.
  */
 export interface DisponiblesQuery {
   barrio?: string

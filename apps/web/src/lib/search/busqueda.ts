@@ -2,11 +2,10 @@
  * busqueda.ts — filtrar, ordenar y paginar propiedades de `/buscar` (US-34).
  *
  * Qué es: la lógica de búsqueda, en funciones puras (sin React ni fetch).
- * La usa la rama mock del service. La rama real manda la búsqueda al back
- * (`GET /api/v1/inmuebles/disponibles`) y usa estas funciones solo cuando el
- * back no la puede resolver exacta (varios valores, "4 o más", orden por
- * precio: ver `propiedad.adapter.ts#consultaDeDisponibles`). Este archivo
- * documenta exactamente qué tiene que hacer el back con cada filtro.
+ * La usan las dos ramas del service: la mock y, por ahora, también la real,
+ * porque `GET /api/v1/inmuebles/disponibles` ignora casi todos los filtros y
+ * la paginación (ver el TODO(backend) de `propiedades.service.ts#buscarPropiedades`).
+ * Este archivo documenta exactamente qué tiene que hacer el back con cada filtro.
  *
  * Quién lo usa: `services/propiedades.service.ts` y `/buscar` (para contar en
  * vivo "Ver N propiedades" y armar los chips).
