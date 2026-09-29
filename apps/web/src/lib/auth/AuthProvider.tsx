@@ -45,8 +45,20 @@ interface AuthContextValue {
    * "Recordarme"). Devuelve el usuario para que la pantalla decida adónde ir.
    */
   login: (credentials: LoginCredentials) => Promise<UsuarioSesion>
-  logout: () => void
+  /**
+   * US-39: cierra la sesión. Por defecto termina en la landing con una recarga
+   * completa (desde el panel). Con `{ quedarse: true }` se queda en la página
+   * pública actual y solo pasa a "sin sesión" (desde el Header público).
+   */
+  logout: (opciones?: { quedarse?: boolean }) => void
   switchRole: (role: UserRole) => void
+  /**
+   * Vuelve a pedir el perfil y los roles sin cerrar sesión (después de
+   * publicar la primera propiedad, la cuenta suma el rol locador). Si el
+   * usuario tiene `rolPreferido`, queda como rol activo. Devuelve el usuario
+   * actualizado, o `null` si ya no hay sesión (no toca el estado).
+   */
+  refrescarUsuario: (rolPreferido?: UserRole) => Promise<UsuarioSesion | null>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -225,8 +237,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     router.push('/')
   }
 
+  /**
+   * Cierra la sesión sin salir de la página pública en la que está (Header
+   * público, "Cerrar sesión"). La página queda en su variante sin sesión, sin
+   * recargar.
+   * NOTA: desde lo público no hay links al panel que usen navegación del
+   * cliente ("Publicar propiedad" y los botones de antd son `<a>` comunes), así
+   * que la próxima entrada al panel pasa por el proxy y pide login. Por eso
+   * acá no hace falta la recarga completa del logout del panel.
+   */
+  function logoutQuedandose(): void {
+    clearSessionFromDocument()
+    const terminar = () => {
+      setUser(null)
+      setActiveRole(null)
+      refreshRoutes()
+    }
+    if (USE_MOCKS) {
+      void logoutRequest().catch(() => {
+        // Aunque el back no responda, la sesión del navegador se cierra igual.
+      })
+      terminar()
+      return
+    }
+    void logoutRequest()
+      .catch(() => {
+        // Igual se cierra la sesión de este navegador.
+      })
+      .finally(terminar)
+  }
+
   /** US-39: cerrar sesión desvincula la sesión del navegador y vuelve a la landing. */
-  function logout(): void {
+  function logout(opciones?: { quedarse?: boolean }): void {
+    if (opciones?.quedarse) {
+      logoutQuedandose()
+      return
+    }
     if (USE_MOCKS) {
       void logoutRequest().catch(() => {
         // Aunque el back no responda, la sesión del navegador se cierra igual.
@@ -257,6 +303,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
   }
 
+  /**
+   * Relee `/usuarios/me` (en mock, la cuenta guardada) y actualiza usuario y
+   * rol activo, sin pasar por el login.
+   * Regla del equipo (27/09/2026): al publicar la primera propiedad el back
+   * le suma el rol locador a la cuenta. El alta llama a esto después del 201
+   * con `'locador'`, así "Viendo como" y Mis propiedades aparecen enseguida.
+   * NOTA: termina con `router.refresh()` (en real y en mock), para que Next
+   * no reuse una respuesta vieja de la ruta actual. `/buscar` no guarda la
+   * lista en el navegador (se sacó el caché de 30 s), así que la propiedad
+   * nueva aparece en la próxima búsqueda sin hacer nada más.
+   * @throws {ServiceError} si `/usuarios/me` falla por otra cosa que la sesión.
+   */
+  async function refrescarUsuario(rolPreferido?: UserRole): Promise<UsuarioSesion | null> {
+    const usuario = await getUsuarioActual()
+    if (!usuario) return null
+    const role =
+      rolPreferido && usuario.roles.includes(rolPreferido)
+        ? rolPreferido
+        : activeRole && usuario.roles.includes(activeRole)
+          ? activeRole
+          : initialRole(usuario)
+    writeSessionToDocument({ userId: usuario.id, activeRole: role })
+    setUser(usuario)
+    setActiveRole(role)
+    refreshRoutes()
+    return usuario
+  }
+
   /** Cambio de contexto (cuentas con dos roles). Ignora un rol que el usuario no tiene. */
   function switchRole(role: UserRole): void {
     if (!user || !user.roles.includes(role)) return
@@ -274,6 +348,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     switchRole,
+    refrescarUsuario,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

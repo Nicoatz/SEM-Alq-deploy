@@ -31,3 +31,14 @@
 .action {
   margin-top: 0.5rem;
 }
+
+/* `actionBlock`: en el celular la acción se estira a todo el ancho (Paneles · 05b). */
+@media (max-width: 639px) {
+  .actionBlock {
+    align-self: stretch;
+  }
+
+  .actionBlock > * {
+    width: 100%;
+  }
+}

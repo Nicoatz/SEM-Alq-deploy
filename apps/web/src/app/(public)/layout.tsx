@@ -1,7 +1,8 @@
 /**
  * (public)/layout.tsx — zona pública (arquetipo A1): Header y Footer.
  *
- * Qué es: envuelve `/`, `/buscar` y `/propiedad/[id]` con `PublicLayout`.
+ * Qué es: envuelve `/`, `/buscar` y `/propiedad/[id]` con `PublicLayout`, con
+ * el Header que muestra la sesión (`components/PublicHeader.tsx`).
  * Quién lo usa: Next.js, para todas las rutas de `app/(public)/`.
  */
 import type { ReactNode } from 'react'
@@ -10,6 +11,8 @@ import type { ReactNode } from 'react'
 // módulo) — createContext no existe en el runtime "react-server" que usa
 // este layout (Server Component). Mismo motivo que en app/layout.tsx.
 import { PublicLayout } from '@rentar/ui/src/components/layouts/PublicLayout'
+import { PublicHeader } from '@/components/PublicHeader'
+import { haySesionProbable } from '@/lib/auth/sesion-probable'
 
 /**
  * layout.tsx — arquetipo A1 (zona pública), compartido por `/`, `/buscar`,
@@ -20,7 +23,30 @@ import { PublicLayout } from '@rentar/ui/src/components/layouts/PublicLayout'
  *
  * Quién lo usa: todas las pantallas de la zona pública, sin sesión
  * obligatoria (ver `docs/MapaDePantallas.pdf`, sección "1 Zona pública").
+ *
+ * Pista para el Header (`lib/auth/sesion-probable.ts`): si llega una cookie de
+ * sesión, sin validarla.
+ *
+ * NOTA: es una pista para que el Header no parpadee. Con la cookie, mientras
+ * el `AuthProvider` confirma la sesión, el Header muestra un placeholder con la
+ * forma de la variante con sesión, en vez de "Iniciar sesión". Sin la cookie
+ * (la mayoría de las visitas) sale la variante sin sesión de entrada. Si la
+ * cookie estaba vencida, se pasa del placeholder a "sin sesión": no se muestra
+ * nada falso.
+ *
+ * NOTA: leer las cookies acá hace DINÁMICAS todas las páginas de este grupo:
+ * `/buscar` y `/propiedad/[id]` pasan a renderizarse en cada pedido (la landing
+ * ya lo era, porque trae las propiedades del back en cada pedido). Es barato:
+ * las dos son Client Components livianos que piden sus datos en el navegador.
+ *
+ * NOTA: no se resuelve toda la sesión del lado del servidor (nombre y rol ya
+ * en el HTML) por dos motivos:
+ * - Modo real: habría que validar el token y llamar a `GET /usuarios/me` en
+ *   cada página pública, sumando un viaje a la API antes de mostrar nada.
+ * - Modo mock: las cuentas creadas en el registro viven en el `localStorage`
+ *   del navegador, que el servidor no puede leer.
  */
-export default function PublicRouteGroupLayout({ children }: { children: ReactNode }) {
-  return <PublicLayout>{children}</PublicLayout>
+export default async function PublicRouteGroupLayout({ children }: { children: ReactNode }) {
+  const sesionProbable = await haySesionProbable()
+  return <PublicLayout header={<PublicHeader sesionProbable={sesionProbable} />}>{children}</PublicLayout>
 }

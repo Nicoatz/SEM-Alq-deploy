@@ -43,7 +43,7 @@ Cuentas de prueba del modo mock (contraseña `Rentar2026`):
 |---|---|---|
 | `nicolas.arrieta@rentar.test` | locador | Panel con datos, Mis propiedades (7), alta |
 | `sofia.ledesma@rentar.test` | locador y locatario | Cambio de rol ("Viendo como") |
-| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/buscar`) |
+| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/panel`, la versión mínima: buscar o publicar) |
 
 Un locador recién registrado en `/registro` ve el panel vacío (onboarding). Lo creado se guarda en
 el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo borra.
@@ -55,8 +55,8 @@ el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo bo
 | `/` | Landing | — | `app/(public)/page.tsx` → `components/Landing.tsx` |
 | `/buscar` | Búsqueda de propiedades | US-34 | `app/(public)/buscar/` → `components/buscar/` |
 | `/login` | Iniciar sesión | US-39 | `app/(auth)/login/` → `components/auth/LoginForm.tsx` |
-| `/registro` | Registro en 2 pasos | US-19 | `app/(auth)/registro/` → `components/auth/RegistroForm.tsx` |
-| `/panel` | Inicio del locador (o placeholder del locatario) | sin US en Sprint 0 | `app/(app)/panel/page.tsx` → `components/panel/` |
+| `/registro` | Registro en un paso (sin rol) | US-19 | `app/(auth)/registro/` → `components/auth/RegistroForm.tsx` |
+| `/panel` | Inicio del locador (o el mínimo del locatario: buscar o publicar) | sin US en Sprint 0 | `app/(app)/panel/page.tsx` → `components/panel/` |
 | `/panel/propiedades` | Mis propiedades | US-02 | `components/mis-propiedades/` |
 | `/panel/propiedades/nueva` | Alta de propiedad en 5 pasos | US-01 | `components/alta/` |
 | `/design-system` | Catálogo vivo de `@rentar/ui` (solo desarrollo) | — | `components/DesignSystem.tsx` |
@@ -74,7 +74,9 @@ ningún botón del Sprint 1 quede roto. Se reemplazan ruta por ruta cuando llega
 
 `proxy.ts` protege `/panel/*`: sin sesión manda a `/login?next=…` y, después del login, vuelve ahí
 (US-39). En modo real verifica y renueva la sesión de Supabase; en modo mock, la cookie
-`rentar_session`. `/panel/propiedades/*` además exige el rol locador (`propiedades/layout.tsx`).
+`rentar_session`. Mis propiedades (`/panel/propiedades` y `/panel/propiedades/[id]`) además exige
+el rol locador (`RequireRole` en cada página). El alta (`/panel/propiedades/nueva`) está abierta
+para cualquier usuario con sesión: al publicar la primera propiedad, la cuenta pasa a ser locadora.
 
 ## Estructura de `src/`
 

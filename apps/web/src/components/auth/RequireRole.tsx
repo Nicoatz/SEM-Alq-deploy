@@ -9,8 +9,9 @@
  * que es otra cosa: el proxy pregunta "¿hay sesión?", esto pregunta "¿con qué
  * rol?".
  *
- * Quién lo usa: los layouts de las secciones del locador (por ejemplo
- * `(app)/panel/propiedades/layout.tsx`).
+ * Quién lo usa: las páginas del locador: Mis propiedades
+ * (`(app)/panel/propiedades/page.tsx`) y su detalle (`[id]/page.tsx`). El
+ * alta (`/panel/propiedades/nueva`) no: la puede usar cualquier usuario con sesión.
  */
 import { useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'

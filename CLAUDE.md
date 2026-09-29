@@ -134,6 +134,11 @@ importa mocks ni llama a `fetch` directo.
   Supabase, escucha `SIGNED_OUT`, relee la sesión en cada cambio de ruta y hace `router.refresh()`
   cuando la sesión cambia (el caché de rutas de Next guarda los redirects del proxy). El logout
   termina con una recarga completa en la landing. La cookie `rentar_session` guarda solo el rol activo.
+- **Header público con sesión** (`components/PublicHeader.tsx`): "Ir a mi panel" y el UserMenu con
+  el rol activo; "Cerrar sesión" ahí usa `logout({ quedarse: true })` (sin recargar). Para que no
+  parpadee, el layout público y `/login`/`/registro` leen si llega una cookie de sesión, sin
+  validarla (`lib/auth/sesion-probable.ts`): con cookie, placeholder mientras carga. Eso hace
+  dinámicas las páginas públicas. Con sesión, `/login` y `/registro` llevan a `/panel`.
 - **El front nunca consulta tablas con `supabase-js`.** RLS está activo y sin políticas: todo dato
   pasa por `apps/api`. Supabase se usa solo para Auth (y, cuando exista el bucket
   `fotos-propiedades`, para subir fotos a Storage).
@@ -142,6 +147,20 @@ importa mocks ni llama a `fetch` directo.
   en `apps/web`: es solo de `apps/api`.
 - **Modo mock:** sin Supabase ni API. La sesión es la cookie `rentar_session` con `{ userId,
   activeRole }` y dura 30 días (no hay "Recordarme").
+
+## Roles (regla del equipo, 27/09/2026)
+
+- **Todos se registran como locatarios.** El registro no pregunta el rol.
+- **Cualquier usuario con sesión puede publicar** (`/panel/propiedades/nueva` solo pide sesión). Mis
+  propiedades (`/panel/propiedades`) sigue siendo solo para locadores (`RequireRole` en la página).
+- **Al publicar la primera propiedad, el back lo pasa a locador.** Locador abarca a locatario:
+  `/usuarios/me` devuelve `["locador", "locatario"]`. El front relee los roles después del 201
+  (`useAuth().refrescarUsuario('locador')`) sin cerrar sesión; en modo mock, la cuenta se guarda
+  con los dos roles en `rentar:mock:usuarios`.
+- **"Publicar propiedad"** va en el encabezado del panel para cualquier rol
+  (`AppShell#headerAction`); en móvil, primero en el menú hamburguesa y en la hoja del UserMenu.
+- El selector "Viendo como" (`RoleContextSwitcher`) no cambió: aparece cuando la cuenta tiene dos roles.
+- Lo que falta en el back (en curso, Thiago): `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
 
 ## Datos de prueba (modo mock)
 

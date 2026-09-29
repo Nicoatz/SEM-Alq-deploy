@@ -8,7 +8,7 @@
  */
 import { useState, type ReactNode } from 'react'
 import { Drawer, Layout, Menu } from 'antd'
-import { MenuOutlined } from '@ant-design/icons'
+import { MenuOutlined, PlusOutlined } from '@ant-design/icons'
 import type { UserRole } from '@rentar/shared-types'
 import { useNextBridge } from '../../providers/NextBridge'
 import { LOGO } from '../../assets/logo'
@@ -26,6 +26,24 @@ export interface AppShellNavItem {
   label: string
   href: string
   icon?: ReactNode
+}
+
+/**
+ * Acción principal del encabezado (ej. "Publicar propiedad"): un link, no un
+ * `ReactNode`, porque el `AppShell` la dibuja en tres lugares distintos según
+ * el ancho (ver `AppShellProps#headerAction`).
+ */
+export interface AppShellHeaderAction {
+  label: string
+  href: string
+  /** Ícono a la izquierda del texto; por defecto, un "+". */
+  icon?: ReactNode
+  /**
+   * `data-testid` del botón del encabezado. El del menú hamburguesa es el
+   * mismo con `-drawer` al final; el de la hoja del `UserMenu`,
+   * `user-menu-item-header-action`.
+   */
+  'data-testid'?: string
 }
 
 interface AppShellUser {
@@ -87,6 +105,15 @@ interface AppShellProps {
    */
   mobileHeader?: ReactNode
   /**
+   * Acción secundaria del encabezado (Claude Design, Paneles · 05b:
+   * "Publicar propiedad" para cualquier usuario con sesión). Opcional.
+   * - Desde 768px: botón blanco con borde, antes de la campanita.
+   * - Debajo de 1024px (menú en `Drawer`): primer elemento del menú hamburguesa.
+   * - Debajo de 768px: sale de la barra y pasa a ser el primer ítem de la
+   *   hoja del `UserMenu` (ver `UserMenu#sheetLeadingItem`).
+   */
+  headerAction?: AppShellHeaderAction
+  /**
    * A dónde lleva el logo del menú lateral (y del menú móvil). Por defecto, a
    * la landing (`/`): pedido del PO, el logo siempre saca del panel al sitio
    * público.
@@ -123,6 +150,7 @@ export function AppShell({
   roleOptions,
   onRoleChange,
   mobileHeader,
+  headerAction,
   logoHref = '/',
   ...rest
 }: AppShellProps) {
@@ -130,6 +158,9 @@ export function AppShell({
   // Controla la hoja del UserMenu desde afuera: la abre el avatar o el chip del rol.
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const { ImageComponent, LinkComponent } = useNextBridge()
+
+  const actionIcon = headerAction ? (headerAction.icon ?? <PlusOutlined />) : null
+  const actionTestId = headerAction?.['data-testid']
 
   const menuItems = navItems.map((item) => ({
     key: item.key,
@@ -168,6 +199,19 @@ export function AppShell({
             <ImageComponent src={LOGO.src} width={LOGO.width} height={LOGO.height} alt="RentAR" style={{ height: '2rem', width: 'auto' }} />
           </LinkComponent>
         </div>
+        {headerAction && (
+          <div className={styles.drawerAction}>
+            <LinkComponent
+              href={headerAction.href}
+              className={`${styles.headerAction} ${styles.headerActionBlock}`}
+              onClick={() => setMobileOpen(false)}
+              data-testid={actionTestId ? `${actionTestId}-drawer` : undefined}
+            >
+              <span className={styles.headerActionIcon} aria-hidden="true">{actionIcon}</span>
+              {headerAction.label}
+            </LinkComponent>
+          </div>
+        )}
         <Menu mode="inline" selectedKeys={[activeKey]} items={menuItems} style={{ borderInlineEnd: 'none' }} />
       </Drawer>
 
@@ -206,6 +250,12 @@ export function AppShell({
             <div className={`${styles.contextSwitcherSlot} ${activeRoleLabel ? styles.contextSwitcherDesktopOnly : ''}`}>{contextSwitcher}</div>
           )}
           <div className={styles.headerActions}>
+            {headerAction && (
+              <LinkComponent href={headerAction.href} className={`${styles.headerAction} ${styles.headerActionBar}`} data-testid={actionTestId}>
+                <span className={styles.headerActionIcon} aria-hidden="true">{actionIcon}</span>
+                {headerAction.label}
+              </LinkComponent>
+            )}
             <NotificationBell notifications={notifications} />
             <UserMenu
               name={user.name}
@@ -216,6 +266,7 @@ export function AppShell({
               onLogout={onLogout}
               roleOptions={roleOptions}
               onRoleChange={onRoleChange}
+              sheetLeadingItem={headerAction ? { key: 'header-action', label: headerAction.label, href: headerAction.href, icon: actionIcon } : undefined}
               open={userMenuOpen}
               onOpenChange={setUserMenuOpen}
             />

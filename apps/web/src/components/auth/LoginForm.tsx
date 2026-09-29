@@ -27,12 +27,12 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button, Form, Input } from 'antd'
-import type { UsuarioSesion } from '@rentar/shared-types'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { reglasEmail, reglasPasswordLogin } from '@/lib/validation/usuario.rules'
 import { ServiceError } from '@/services/shared/errors'
 import { FormAlert } from './FormAlert'
 import { serverErrorCopy, type ServerErrorCopy } from './serverError'
+import { RevisandoSesion } from './RevisandoSesion'
 import { StatusBlock } from './StatusBlock'
 import styles from './AuthForm.module.css'
 
@@ -46,18 +46,20 @@ interface LoginFormProps {
   next: string | null
   /** Email precargado (viene del registro, para que solo falte la contraseña). */
   initialEmail?: string
+  /** `true` si llegó una cookie de sesión (ver `lib/auth/sesion-probable.ts`). */
+  sesionProbable?: boolean
 }
 
 /**
- * Adónde ir después del login si no hay `next`: el locador a su panel; una
- * cuenta solo locataria, a buscar (su panel no es del Sprint 1).
+ * Adónde ir después del login si no hay `next`: a `/panel`, para los dos
+ * roles. El locador ve su panel de inicio; el locatario, la versión mínima
+ * (buscar o publicar, "Panel de inicio" · 05b). Antes el locatario iba a
+ * `/buscar` porque su panel todavía no existía.
  */
-function defaultDestination(usuario: UsuarioSesion): string {
-  return usuario.roles.includes('locador') ? '/panel' : '/buscar'
-}
+const DEFAULT_DESTINATION = '/panel'
 
 /** Formulario de inicio de sesión. */
-export function LoginForm({ next, initialEmail }: LoginFormProps) {
+export function LoginForm({ next, initialEmail, sesionProbable = false }: LoginFormProps) {
   const router = useRouter()
   const { login, user, isLoading } = useAuth()
   const [form] = Form.useForm<LoginFormValues>()
@@ -71,7 +73,7 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
   // sentido mostrar el login: se sigue de largo.
   useEffect(() => {
     if (!isLoading && user) {
-      router.replace(next ?? defaultDestination(user))
+      router.replace(next ?? DEFAULT_DESTINATION)
     }
   }, [isLoading, user, next, router])
 
@@ -82,8 +84,8 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
     setCredentialsError(false)
     setServerError(null)
     try {
-      const usuario = await login({ email: values.email, password: values.password })
-      router.replace(next ?? defaultDestination(usuario))
+      await login({ email: values.email, password: values.password })
+      router.replace(next ?? DEFAULT_DESTINATION)
     } catch (error) {
       if (error instanceof ServiceError && error.code === 'unauthorized') {
         // US-39: mensaje genérico arriba y el campo de contraseña marcado,
@@ -107,6 +109,14 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
   const registerHref = next ? `/registro?next=${encodeURIComponent(next)}` : '/registro'
 
   // ─── Render ─────────────────────────────────────────────────────────
+
+  // Con sesión, esta pantalla lleva a `next` o a /panel (efecto de arriba). Para
+  // que el formulario no aparezca un instante: mientras se confirma una sesión
+  // probable (llegó la cookie) y mientras se redirige, "Revisando tu sesión…".
+  // Durante el propio envío no: el botón ya muestra que está entrando.
+  if ((sesionProbable && isLoading) || (!isLoading && user && !submitting)) {
+    return <RevisandoSesion />
+  }
 
   if (serverError) {
     return (

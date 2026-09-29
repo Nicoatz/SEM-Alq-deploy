@@ -12,6 +12,18 @@
  * Después: publicando (· 07), error con "Intentar de nuevo" (· 07) o éxito
  * con el próximo paso (· 08).
  *
+ * Quién puede publicar: cualquier usuario con sesión (regla del equipo,
+ * 27/09/2026). Al publicar la primera propiedad, el back le suma el rol
+ * locador a la cuenta. Por eso, después del 201 se releen los roles
+ * (`useAuth().refrescarUsuario('locador')`) sin cerrar sesión:
+ * - Si ya es locador: queda locador como rol activo (aparecen "Viendo como"
+ *   y Mis propiedades) y el éxito ofrece "Ir a mis propiedades" primero.
+ * - Si el back todavía no le sumó el rol: el mismo éxito, sin "Ir a mis
+ *   propiedades" (le daría la vuelta a /panel). TODO(backend): asignar el rol
+ *   locador al crear la primera propiedad (en curso, Thiago).
+ * - Si el back responde 403 (todavía exige ser locador): se avisa con
+ *   `PUBLICAR_SIN_ROL_MESSAGE` y lo cargado queda en el formulario.
+ *
  * NOTA: no hay borradores. RentAR no tiene estado "Borrador" y el alta
  * tampoco guarda lo cargado en el navegador: los datos viven mientras la
  * pantalla está abierta (moverse entre pasos no pierde nada).
@@ -24,6 +36,7 @@ import { Button, Form, Result } from 'antd'
 import { useRouter } from 'next/navigation'
 import type { PropiedadNueva } from '@rentar/shared-types'
 import { PageHeader, StatusTag, WizardLayout } from '@rentar/ui'
+import { useAuth } from '@/lib/auth/AuthProvider'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { ALTA_VALORES_INICIALES, CAMPOS_POR_PASO, ETIQUETA_CAMPO, type AltaValues } from '@/lib/validation/propiedad.rules'
 import { seVeEnBusqueda, tituloDePropiedadNueva } from '@/services/adapters/propiedad.adapter'
@@ -41,11 +54,16 @@ const PASOS = [
   { key: 'revision', title: 'Revisión' },
 ] as const
 
-const MIGA = [
+/**
+ * Miga del encabezado. "Propiedades" solo para el locador: un locatario
+ * todavía no tiene Mis propiedades (la gana al publicar la primera).
+ */
+const MIGA_LOCADOR = [
   { label: 'Mi panel', href: '/panel' },
   { label: 'Propiedades', href: '/panel/propiedades' },
   { label: 'Nueva' },
 ]
+const MIGA_LOCATARIO = [{ label: 'Mi panel', href: '/panel' }, { label: 'Publicar propiedad' }]
 
 /** Un error del paso para el resumen de arriba ("Faltan N datos para seguir"). */
 interface ErrorDePaso {
@@ -118,6 +136,7 @@ function esErrorDeValidacion(error: unknown): error is { errorFields: { name: (s
 /** Alta de una propiedad del locador en sesión. */
 export function AltaPropiedad() {
   const router = useRouter()
+  const { activeRole, refrescarUsuario } = useAuth()
   const [form] = Form.useForm<AltaValues>()
   const valores = (Form.useWatch([], form) as AltaValues | undefined) ?? ALTA_VALORES_INICIALES
 
@@ -128,6 +147,8 @@ export function AltaPropiedad() {
   const [fase, setFase] = useState<Fase>('formulario')
   const [errorPublicacion, setErrorPublicacion] = useState<ServiceError | null>(null)
   const [registrada, setRegistrada] = useState<(PropiedadRegistrada & { resumen: string }) | null>(null)
+  // Si la cuenta ya tiene el rol locador después de publicar (ver el encabezado).
+  const [esLocador, setEsLocador] = useState(false)
 
   // ─── Navegación entre pasos ─────────────────────────────────────────
 
@@ -191,12 +212,27 @@ export function AltaPropiedad() {
     try {
       const resultado = await registrarPropiedad(nueva)
       const barrio = neighborhoods.find((item) => item.slug === nueva.neighborhoodSlug)?.name ?? ''
+      setEsLocador(await rolLocadorDespuesDePublicar())
       setRegistrada({ ...resultado, resumen: `${tituloDePropiedadNueva(nueva)} en ${barrio}` })
       setFase('exito')
       window.scrollTo({ top: 0 })
     } catch (error) {
       setErrorPublicacion(error instanceof ServiceError ? error : new ServiceError('server', 'Ocurrió un error inesperado.'))
       setFase('error')
+    }
+  }
+
+  /**
+   * Relee los roles después del 201 y devuelve si la cuenta ya es locadora.
+   * NOTA: la propiedad ya se creó; si releer falla (sin red, back caído), no
+   * es un error del alta: se muestra el éxito con lo que se sabía antes.
+   */
+  async function rolLocadorDespuesDePublicar(): Promise<boolean> {
+    try {
+      const usuario = await refrescarUsuario('locador')
+      return usuario?.roles.includes('locador') ?? false
+    } catch {
+      return activeRole === 'locador'
     }
   }
 
@@ -235,14 +271,24 @@ export function AltaPropiedad() {
             <div className={styles.resultBody}>
               <StatusTag domain="propiedad" status={registrada.status} />
               <div className={styles.resultActions}>
+                {/* Con el rol locador, "Ir a mis propiedades" va primero. Sin el rol
+                    (back sin el cambio de Thiago), no se ofrece: Mis propiedades es
+                    solo para locadores. TODO(backend): asignar el rol al publicar. */}
+                {esLocador && (
+                  <Button type="primary" size="large" onClick={() => router.push('/panel/propiedades')} data-testid="alta-exito-mis-propiedades">
+                    Ir a mis propiedades
+                  </Button>
+                )}
                 {seVe && (
-                  <Button type="primary" size="large" onClick={() => router.push(`/propiedad/${registrada.id}`)} data-testid="alta-exito-ver">
+                  <Button type={esLocador ? 'default' : 'primary'} size="large" onClick={() => router.push(`/propiedad/${registrada.id}`)} data-testid="alta-exito-ver">
                     Ver la publicación
                   </Button>
                 )}
-                <Button type={seVe ? 'default' : 'primary'} size="large" onClick={() => router.push('/panel/propiedades')} data-testid="alta-exito-mis-propiedades">
-                  Ir a mis propiedades
-                </Button>
+                {!esLocador && !seVe && (
+                  <Button type="primary" size="large" onClick={() => router.push('/panel')} data-testid="alta-exito-panel">
+                    Ir a mi panel
+                  </Button>
+                )}
                 <Button size="large" onClick={publicarOtra} data-testid="alta-exito-otra">
                   Publicar otra
                 </Button>
@@ -252,7 +298,9 @@ export function AltaPropiedad() {
                 <span className={styles.nextText}>
                   {seVe
                     ? 'Cuando alguien la solicite, la vas a ver en Solicitudes. Desde ahí se arma el contrato con estos mismos datos.'
-                    : 'La vas a encontrar en Mis propiedades con su estado. Cuando quieras que se vea en la búsqueda, la publicás desde su detalle.'}
+                    : esLocador
+                      ? 'La vas a encontrar en Mis propiedades con su estado. Cuando quieras que se vea en la búsqueda, la publicás desde su detalle.'
+                      : 'Quedó guardada con su estado. Cuando quieras que se vea en la búsqueda, la vas a poder publicar desde Mis propiedades.'}
                 </span>
               </div>
             </div>
@@ -353,7 +401,7 @@ export function AltaPropiedad() {
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
-        <PageHeader title="Publicar una propiedad" subtitle={`Paso ${paso + 1} de ${PASOS.length} · ${PASOS[paso].title}.`} breadcrumb={MIGA} />
+        <PageHeader title="Publicar una propiedad" subtitle={`Paso ${paso + 1} de ${PASOS.length} · ${PASOS[paso].title}.`} breadcrumb={activeRole === 'locador' ? MIGA_LOCADOR : MIGA_LOCATARIO} />
       </div>
 
       <div className={styles.wizardCard}>

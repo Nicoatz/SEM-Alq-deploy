@@ -1,4 +1,5 @@
 export { Header } from './Header'
+export type { HeaderSession } from './Header'
 export { Footer } from './Footer'
 export { ThemeProvider } from './ThemeProvider'
 export * from './layouts'

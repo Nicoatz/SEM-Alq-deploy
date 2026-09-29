@@ -47,6 +47,7 @@ import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
 import { requireSessionUserId } from './shared/session'
+import { readUsuariosMock } from './usuarios.service'
 
 // ─── Helpers de la rama mock ────────────────────────────────────────────
 
@@ -257,6 +258,16 @@ export const FOTOS_NO_DISPONIBLES_MESSAGE =
   'Todavía no podemos guardar las fotos de las propiedades, así que por ahora el alta no se puede completar.'
 
 /**
+ * Mensaje si `POST /inmuebles` responde 403 a una cuenta locataria.
+ * Regla del equipo (27/09/2026): cualquier usuario con sesión puede publicar,
+ * y al publicar la primera el back le suma el rol locador.
+ * TODO(backend): hoy la ruta tiene `requireRole("locador")`, así que un
+ * locatario recibe 403. Cuando el cambio de Thiago esté, este caso no pasa más.
+ * La pantalla agrega "Tus datos siguen acá: no perdiste nada."
+ */
+export const PUBLICAR_SIN_ROL_MESSAGE = 'Todavía no podés publicar desde esta cuenta, estamos terminando este cambio.'
+
+/**
  * US-01 — sube una foto del alta a Supabase Storage y devuelve lo que el
  * back necesita para guardarla (URL pública, peso y formato).
  * @backend Supabase Storage, bucket `fotos-propiedades`, ruta `<auth.uid>/<archivo>`,
@@ -282,18 +293,40 @@ async function subirFotosPropiedad(nueva: PropiedadNueva): Promise<CreateFotoPay
 }
 
 /**
- * US-01 Registrar mis propiedades — da de alta la propiedad del locador en
- * sesión con sus condiciones de contrato y sus fotos (publicada, pausada o
- * alquilada; alquilada con fecha de disponibilidad → alquilada/publicada).
- * @backend POST /api/v1/inmuebles   (existe · token + rol locador; el locador sale del token)
+ * Rama mock de la regla del equipo (27/09/2026): al publicar la primera
+ * propiedad, la cuenta pasa a tener `['locador', 'locatario']` (locador abarca
+ * a locatario, igual que lo va a devolver `/usuarios/me`). Se guarda en
+ * `rentar:mock:usuarios`, así sobrevive a recargar. La sesión se actualiza
+ * igual que en modo real: la pantalla llama a `useAuth().refrescarUsuario`.
+ * NOTA: si no se puede guardar (`localStorage` lleno), la propiedad ya quedó
+ * creada; la cuenta sigue como estaba y el alta muestra el éxito sin
+ * "Ir a mis propiedades".
+ */
+function sumarRolLocadorMock(userId: string): void {
+  const usuario = readUsuariosMock().find((item) => item.id === userId)
+  if (!usuario || usuario.roles.includes('locador')) return
+  saveMockRecord('usuarios', { ...usuario, roles: ['locador', 'locatario'] })
+}
+
+/**
+ * US-01 Registrar mis propiedades — da de alta una propiedad del usuario en
+ * sesión, locatario o locador, con sus condiciones de contrato y sus fotos
+ * (publicada, pausada o alquilada; alquilada con fecha de disponibilidad →
+ * alquilada/publicada).
+ * @backend POST /api/v1/inmuebles   (existe · token + rol locador; el dueño sale del token)
+ *          Propuesto (en curso, Thiago): cualquier usuario con sesión, y si
+ *          no era locador, sumarle ese rol al crear la primera.
  * @body    CreateInmuebleCompletoPayload (lo arma `propiedadNuevaToCreateInmueble`)
  * @returns PropiedadRegistrada
  * @throws {ServiceError} `unauthorized` sin sesión (US-01: "se debe haber
- *   iniciado sesión"); `forbidden` si no es locador; `validation` si el back
- *   rechaza un dato; `server` si las fotos no se pueden subir.
+ *   iniciado sesión"); `forbidden` con {@link PUBLICAR_SIN_ROL_MESSAGE} si el
+ *   back todavía exige el rol locador; `validation` si el back rechaza un
+ *   dato; `server` si las fotos no se pueden subir.
  *
  * NOTA: primero se suben las fotos y después se manda el alta con sus URLs.
  * Si falla la subida, no se crea nada en la base.
+ * NOTA: esta función no actualiza la sesión. Después del 201 la pantalla
+ * relee los roles con `useAuth().refrescarUsuario` (ver `AltaPropiedad`).
  */
 export async function registrarPropiedad(nueva: PropiedadNueva): Promise<PropiedadRegistrada> {
   if (USE_MOCKS) {
@@ -307,12 +340,19 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
     if (!saveMockRecord('propiedades', propiedad)) {
       throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     }
+    sumarRolLocadorMock(ownerId)
     return { id: propiedad.id, status: propiedad.status }
   }
 
   const fotos = await subirFotosPropiedad(nueva)
-  const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
-  return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
+  try {
+    const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
+    return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
+  } catch (error) {
+    // Back viejo: `requireRole("locador")` le da 403 a un locatario (ver el TODO(backend) del mensaje).
+    if (error instanceof ServiceError && error.code === 'forbidden') throw new ServiceError('forbidden', PUBLICAR_SIN_ROL_MESSAGE)
+    throw error
+  }
 }
 
 // ─── Publicar o pausar (otro sprint) ────────────────────────────────────
