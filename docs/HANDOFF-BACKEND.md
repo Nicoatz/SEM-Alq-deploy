@@ -274,7 +274,7 @@ propiedades salen del `/mis-alquileres` real. Rutas propuestas: [`api-endpoints.
 
 **El bucket `fotos-propiedades` existe desde el 29/09/2026.** Lo creó Ivan desde el dashboard de
 Supabase, fuera de las migraciones del repo. Como Ivan no estaba disponible, el front lo versionó en
-`supabase/migrations/20260929000001_bucket_fotos_propiedades.sql`: copia exacta del bucket y sus dos
+`supabase/migrations/20260929000002_bucket_fotos_propiedades.sql` (primero se llamó `20260929000001_…`, la misma versión que `20260929000001_rename_estado_publicado_alquilado.sql` de Thiago; se renombró para que no choquen en `schema_migrations`): copia exacta del bucket y sus dos
 políticas, idempotente (`on conflict do nothing`, `drop policy if exists` + `create policy`). **No se
 aplicó** (la base ya lo tenía): sirve para que un entorno nuevo quede igual. El comentario del
 archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configuración (leída con el MCP, solo lectura): público, límite de 358400 bytes (350 KB), solo
