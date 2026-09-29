@@ -151,6 +151,15 @@ que pide "sumar la prop `user` en código").
   el template todavía no tiene ese estado. Sumarlo en la sección 05 ("Estados de carga, error y
   éxito") para que el diseño quede alineado.
 
+Cambios del QA de `develop` (2026-09-30, `feature/vistas`), **pendientes de subir** (a confirmar con
+el PO: no cambian nada visual):
+- **`UserMenu`: `aria-label` en el botón que abre el menú** (`"<nombre>, <rol>. Menú de la cuenta"`).
+  Debajo de 768px el nombre y el rol se ocultan y el botón quedaba solo con el avatar, sin nombre
+  para un lector de pantalla. El label arranca con el texto visible en escritorio. Se puede pisar
+  con `aria-label` en las props (va antes del `...rest`).
+- **`SearchSidebarFilters`: nombre en español del botón de borrar** de Provincia, Ciudad y Barrio
+  (`allowClear={{ label: 'Borrar la provincia' }}`, etc.). antd lo dejaba en inglés ("Clear").
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).
