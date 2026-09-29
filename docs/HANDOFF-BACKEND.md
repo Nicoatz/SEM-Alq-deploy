@@ -161,12 +161,12 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | Supabase Auth `signInWithPassword` / `signOut` | `/login`, UserMenu | **Conectado** |
 | `GET /usuarios/me` | Sesión (login y recarga) | **Conectado** |
 | `POST /registrar-usuario` | `/registro` | **Conectado** (sin `rol`: el back registra locatario) |
-| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: filtros, orden y paginación en el servidor desde el 26/09; algunas búsquedas se resuelven todavía en el cliente (sección 7) |
+| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: desde el 29/09 ignora casi todos los filtros, el orden y la paginación; el front trae todas y filtra, ordena y pagina en el cliente (sección 7) |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
-| `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: sin locatario, pagos, reclamos, ajuste ni fecha de alta |
-| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta la subida de fotos (bucket). Todavía exige el rol locador (sección 7, US-01) |
-| Supabase Storage, bucket `fotos-propiedades` | Alta | **Pendiente**: el bucket no existe (lo maneja Ivan) |
-| `GET /publicaciones/activas` | — | **Pendiente**: no está montada y el archivo no compila (sección 10) |
+| `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
+| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta implementar la subida de fotos (el bucket ya existe). Todavía exige el rol locador (sección 7, US-01) |
+| Supabase Storage, bucket `fotos-propiedades` | Alta | **Existe desde el 29/09** (creado desde el dashboard, fuera de las migraciones; sección 8). El front todavía no sube fotos: va en el próximo PR |
+| `GET /locadores/:idLocador/barrios` | — | Existe desde el 29/09 (Bearer + rol locador; solo el propio id). El front no la usa: arma los barrios del filtro de US-02 con sus propias propiedades |
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
 | `GET /panel/cobros`, `/panel/reclamos`, `/panel/contratos`, `/solicitudes` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
@@ -210,23 +210,23 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 ### US-34 Consultar propiedades a alquilar
 
-Desde el 26/09 (`develop`, "Fix endpoints de consulta propiedades disponibles con nuevo modelo
-bdd") `/disponibles` filtra, ordena y pagina en el servidor y cada item trae precio, expensas, tipo,
-tags, índice, foto principal y fecha de disponibilidad. El front ya lo usa así: se sacó el N+1 contra
-el detalle y el caché de 30 s. Los filtros de la URL de `/buscar` se traducen a los del back en un
-solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla completa).
+Desde el 29/09 (`develop` a00f099, "Emparejar inmueble service con repository") `/disponibles` usa
+un repositorio nuevo que ignora casi todos los filtros y la paginación. Por eso el front trae todas
+las disponibles y filtra, ordena y pagina en el cliente, con las mismas reglas que el modo mock
+(`propiedades.service.ts#buscarPropiedades`, con `TODO(backend)`). El mapeo de la URL de `/buscar` a
+los params del back (`consultaDeDisponibles`) se sacó; está en la historia (commit 60f8c63) para
+cuando el back vuelva a respetar los filtros.
 
 | Brecha | Dueño |
 |---|---|
-| `orden=precio` no ordena los inmuebles: ordena el contrato embebido (`order(..., { foreignTable })`), así que `asc` y `desc` devuelven lo mismo (probado el 27/09). Mientras tanto, los órdenes por precio se resuelven en el cliente. | backend |
-| Acepta un solo valor por filtro (barrio, tipo), cantidades exactas (sin "4 o más") y `tags` devuelve las que tengan **cualquiera** de los elegidos. US-34 pide selección múltiple y "que cumplan con todos los criterios". Cuando la búsqueda no se puede mandar exacta, el front trae todas y filtra en el cliente. | backend |
-| No filtra por provincia ni ciudad: el front las filtra sobre la página que vuelve (hoy solo hay Córdoba Capital). | backend |
-| Una página fuera de rango responde **400** ("Requested range not satisfiable"). El front pide la última en ese caso; lo esperable sería 200 con `items: []`. | backend |
+| **`/disponibles` ignora los filtros:** `buscarDisponibles` solo aplica `barrio` (igual exacto, antes "contiene") y `tipo`. Ignora `precioMin`/`precioMax`, `dormitorios`, `ambientes`, `superficieMin`/`superficieMax`, `tags`, `indiceAjuste`, `orden`/`direccion` y `page`/`limit`: siempre devuelve todas con `page: 1` y `limit` = cantidad. El controller los sigue leyendo y el Swagger los documenta. Probado el 29/09: `?dormitorios=1&page=2&limit=1` devuelve las 2 disponibles. | backend (Thiago) |
+| **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Con 2 propiedades, `/disponibles` tarda ~2,7 s. Con más, va a crecer lineal. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
+| **Expensas sin contrato:** `/disponibles` manda `expensas: 0` (y `precio` = `precio_publicado`) cuando el inmueble no tiene contrato; el detalle (`/disponibles/:id`) manda `-1` en `precio` y `expensas`. El front no puede distinguir "sin expensas" de "sin contrato", así que 0 o negativo se muestra vacío (nunca "$0"). Propuesta: `null` cuando no hay contrato. | backend |
+| **Nombre del estado "alquilada con fecha":** la validación de `POST /inmuebles` y `EstadoAlquiler` de `shared-types` aceptan `'alquilada/publicada'` (femenino), pero `/disponibles` y `/disponibles/:id` buscan `'alquilado/publicado'` (masculino). Una alquilada con fecha guardada con el valor que acepta el alta no aparecería en la búsqueda. Acordar un solo nombre. Mientras tanto, el alta sigue mandando `publicado`/`alquilado` (+ `fecha_disponible`), como antes. | backend |
 | El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
-| `/disponibles` lista `publicado` y `alquilado_disponible`, pero la validación de `POST /inmuebles` solo acepta `publicado`, `pausado` o `alquilado` (`inmueble.service.ts`, y `EstadoAlquiler` de `shared-types` tampoco tiene `alquilado_disponible`). Por eso el alta guarda una alquilada con fecha como `alquilado` + `fecha_disponible`, y esas no aparecen en la búsqueda (en la base no hay ningún `alquilado_disponible`). Propuesta: aceptar `alquilado_disponible` en la validación y en `EstadoAlquiler`. Cuando esté, el front cambia el adaptador del alta (alquilada con fecha → `alquilado_disponible`) y Mis propiedades lee los dos estados. | backend |
-| Solo lista inmuebles con contrato (`contrato!inner`), porque el precio sale de `contrato.monto_alquiler`. El alta crea el contrato junto con el inmueble, así que no bloquea (consulta abierta con Thiago). | backend |
-| No hay fecha de publicación: "Más recientes" usa el orden por defecto del back (id descendente). | db |
-| Ciudades y barrios son texto libre ("Córdoba" vs. "Córdoba Capital"; "Alberdi" no está en el catálogo del front, así que filtrar por ese barrio se resuelve en el cliente). Hace falta un catálogo de ubicaciones. | db |
+| No filtra por provincia ni ciudad (hoy solo hay Córdoba Capital). | backend |
+| No hay fecha de publicación: "Más recientes" queda en el orden por id que devuelve el back. | db |
+| Ciudades y barrios son texto libre ("Córdoba" vs. "Córdoba Capital"; "Alberdi" no está en el catálogo del front). Hace falta un catálogo de ubicaciones. | db |
 | El tag "Apto profesional" del front no existe en `tags_inmueble`. | db |
 | El índice CAC de la base no está en el front (US-01 habla solo de ICL e IPC): se muestra sin índice. | front / PO |
 
@@ -234,7 +234,9 @@ solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla complet
 
 | Brecha | Dueño |
 |---|---|
-| `/mis-alquileres` no trae locatario, estado del pago, días de atraso, reclamos abiertos ni próximo ajuste. En modo real, esas columnas muestran "—" para las alquiladas. | backend |
+| Desde el 29/09 `/mis-alquileres` trae `contrato.locatario`, `contrato.fecha_proximo_ajuste` y `posee_reclamos_no_resueltos` (sí/no, no la cantidad). El front todavía no los muestra: van en el próximo PR (hoy esas columnas siguen en "—"). Siguen faltando el estado del pago y los días de atraso. | front (próximo PR) / backend |
+| **`/mis-alquileres` ignora sus filtros:** documenta `barrio`, `tipo`, `estado` y `reclamos`, pero `findByLocadorId` no los aplica. Sin impacto en el front (US-02 filtra en el cliente). | backend |
+| **`reclamos` se lee con `Boolean(req.query.reclamos)`**: cualquier texto, incluido `"false"`, da `true`. Comparar con `=== 'true'`. | backend |
 | No hay fecha de alta: el orden "Más recientes" no tiene efecto. | db |
 | En el inmueble 1, `precio_publicado` es $360.000 y `contrato.monto_alquiler`, $350.000. El front muestra el publicado para las no alquiladas y el del contrato para las alquiladas: confirmar cuál manda. | backend / db |
 | El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario`. | db |
@@ -246,7 +248,7 @@ solo lugar: `propiedad.adapter.ts#consultaDeDisponibles` (tiene la tabla complet
 | **`POST /inmuebles` tiene `requireRole("locador")`**: un locatario recibe 403. Con la regla nueva, tiene que aceptar a cualquier usuario con sesión. | backend (Thiago) |
 | **Asignar el rol locador al crear la primera propiedad** (fila en `usuario_x_rol` con `id_rol = 1`), en la misma operación del alta. Hoy la cuenta queda locataria y el front muestra el éxito sin "Ir a mis propiedades" (`TODO(backend)` en `AltaPropiedad`). | backend (Thiago) |
 | **Expansión de roles en `/usuarios/me`**: una cuenta locadora tiene que devolver `["locador", "locatario"]` (locador abarca a locatario). Hoy devuelve solo las filas de `usuario_x_rol`. Definir si se guarda la fila de locatario o se expande en `requireRole`/`/me`. | backend (Thiago) |
-| **No existe el bucket `fotos-propiedades`** en Storage. El back exige al menos 3 fotos con URL, así que el alta desde la pantalla avisa y no manda nada (sección 8). | db (Ivan) |
+| El bucket `fotos-propiedades` **ya existe** (29/09), pero se creó desde el dashboard, fuera de `supabase/migrations/` (sección 8). El front todavía avisa que no puede subir fotos: la subida va en el próximo PR. | db / front |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
 | `deposito` es un monto; el front lo pide en meses. Se manda meses × precio. | db |
@@ -266,7 +268,16 @@ Cobros, reclamos, contratos y solicitudes son módulos de sprints futuros. En mo
 se muestran vacíos ("Todavía no hay cobros registrados", etc.), no con error. Los conteos de
 propiedades salen del `/mis-alquileres` real. Rutas propuestas: [`api-endpoints.md`](api-endpoints.md#panel-del-locador-panel).
 
-## 8. Para cuando exista el bucket de fotos
+## 8. Bucket de fotos
+
+**El bucket `fotos-propiedades` existe desde el 29/09/2026.** Lo creó Ivan desde el dashboard de
+Supabase, fuera de las migraciones del repo: en `supabase/migrations/` no hay ningún archivo que lo
+cree. Configuración (leída con el MCP, solo lectura): público, límite de 358400 bytes (350 KB), solo
+`image/jpeg` e `image/png`, y dos políticas sobre `storage.objects` para el rol `authenticated`:
+"subir fotos propias" (INSERT) y "borrar fotos propias" (DELETE), las dos limitadas a la carpeta
+`<auth.uid>/`. Coincide con lo que espera el front (paso 1 de abajo).
+
+Lo que falta del lado del front (próximo PR):
 
 1. Implementar `subirFotoPropiedad()` en `apps/web/src/services/propiedades.service.ts` (hoy tira
    el error acordado, con `TODO(db)`): subir cada foto al bucket `fotos-propiedades` en
@@ -277,9 +288,8 @@ propiedades salen del `/mis-alquileres` real. Rutas propuestas: [`api-endpoints.
 3. Sumar el host del bucket ya está hecho (`images.remotePatterns` de `apps/web/next.config.mjs`
    acepta `*.supabase.co/storage/v1/object/public/**`). Sacar `rentar.com` cuando no queden fotos
    de prueba del seed.
-4. **Probar el caché de `/buscar`:** después de un alta real publicada, la propiedad tiene que
-   aparecer en `/buscar` enseguida (el alta llama a `olvidarDisponibles()`). No se pudo probar sin
-   bucket.
+4. **Probar que la nueva aparezca en `/buscar`:** después de un alta real publicada, tiene que
+   aparecer en la próxima búsqueda (el front ya no guarda la lista en el navegador).
 5. Repetir el recorrido del alta completo a 390 y 1440 px y verificar con el MCP las cinco tablas
    (`inmueble`, `inmueble_x_tag`, `foto_inmueble`, `contrato`, `medio_pago_x_contrato`).
 
@@ -298,11 +308,9 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 
 Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear): quedan para el equipo.
 
-1. **`npm run build` de la raíz falla en `apps/api`** por `src/services/publicacion.service.ts`:
-   importa `repositories/publicacion.repository`, que no existe, y tipos que ya no están en
-   `@rentar/shared-types` (`PublicacionDTO`, `Inmueble.m2`, `Inmueble.tags`). Por eso
-   `publicaciones.routes.ts` no está montada y `GET /publicaciones/activas` responde 404 (tampoco
-   hay tabla `publicacion`). Definir si se borra o se rehace.
+1. **Publicaciones: resuelto (29/09).** El back sacó `publicacion.service.ts`, sus rutas y su
+   controller (`develop` 07b3475), y `apps/api` vuelve a compilar (`tsc --noEmit` sin errores).
+   El front nunca usó `/publicaciones`.
 2. **`packages/shared-types/dist/` está trackeado** aunque `.gitignore` excluye `dist`, y
    `apps/api` toma los tipos de ahí: un cambio en `src/` no llega a la API si no se regenera y
    commitea el `dist`. Definir si se sigue commiteando o si la API lo compila en su build.
@@ -318,6 +326,10 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    `.gitignore`.
 7. **`.gitignore` no ignora `apps/api/node_modules`** (hoy no hay nada trackeado ahí, pero ya pasó
    una vez).
+8. **El `package.json` raíz vuelve a declarar dependencias** (`next ^16.3.6`, `@supabase/ssr` y
+   `@supabase/server`, commits 041bea0 y ead9eb8) sin actualizar `package-lock.json`. En el #3 se
+   sacaron de ahí para tener una sola copia de Next (la de `apps/web`, 16.3.5 exacta): el próximo
+   `npm install` puede volver a traer dos. No se tocó desde el front (lo habla el PO con Thiago).
 
 ## 11. Numeración de las User Stories
 
@@ -368,8 +380,8 @@ Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
 ## 13. Tipos compartidos
 
 - Los modelos del back (`Inmueble`, `MisAlquileresItem`, `CreateInmuebleCompletoPayload`,
-  `Usuario`, `Rol`, `Contrato`…) están arriba de `packages/shared-types/src/index.ts`. `Publicacion`
-  ya no existe.
+  `Usuario`, `Rol`, `Contrato`, `Reclamo`, `EstadoReclamo`…) están arriba de
+  `packages/shared-types/src/index.ts`. `Publicacion` ya no existe.
 - Los tipos de vista del front están en archivos propios (`propiedad.ts`, `filters.ts`, `panel.ts`,
   `status.ts`, `usuario-sesion.ts`, `neighborhood.ts`) y se exportan al final de `index.ts`.
 - Qué adaptador conecta cada modelo con cada tipo de vista: `packages/shared-types/README.md`.

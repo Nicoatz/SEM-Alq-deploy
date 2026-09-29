@@ -63,10 +63,10 @@ npm run lint         # eslint de apps/web
 npm run typecheck    # tsc --noEmit en shared-types, ui y web
 ```
 
-NOTA: `npm run build` de la raíz falla en `apps/api` (`publicacion.service.ts` no compila) y el
-test de la API (`apps/api/tests/api/`) todavía manda `x-user-id` y escribe en la base: no correrlo.
-Los dos están anotados para backend en `docs/HANDOFF-BACKEND.md` §10. Para el front alcanza con
-`npm run typecheck`, `npm run lint` y `npm run build --workspace=@rentar/web`.
+NOTA: el test de la API (`apps/api/tests/api/`) todavía manda `x-user-id` y escribe en la base: no
+correrlo (anotado para backend en `docs/HANDOFF-BACKEND.md` §10). `apps/api` vuelve a compilar desde
+el 29/09. Para el front alcanza con `npm run typecheck`, `npm run lint` y
+`npm run build --workspace=@rentar/web`.
 
 ## Convenciones de código
 
