@@ -27,7 +27,11 @@ interface PlaceholderScreenProps {
   title: string
   subtitle?: string
   breadcrumb?: BreadcrumbItem[]
-  /** User Story que va a implementar esta pantalla, con la numeración del Sprint 0 (ej. "US-20 Consultar usuario"). */
+  /**
+   * User Story que va a implementar esta pantalla, con la numeración del
+   * Sprint 0 (ej. "US-20 Consultar usuario"). Es para el equipo: no se
+   * muestra (el usuario no conoce esos números); queda en `data-user-story`.
+   */
   userStory: string
   /**
    * Cuándo llega la pantalla real. Por defecto "un próximo sprint"; las rutas
@@ -36,12 +40,15 @@ interface PlaceholderScreenProps {
   availableIn?: string
 }
 
-/** Pantalla "En construcción" con el título de la ruta y la US que la va a implementar. */
+/**
+ * Pantalla "En construcción" con el título de la ruta. La US que la va a
+ * implementar queda en `data-user-story`, a la vista solo en el DOM.
+ */
 export function PlaceholderScreen({ title, subtitle, breadcrumb, userStory, availableIn = 'un próximo sprint' }: PlaceholderScreenProps) {
   return (
-    <div className={styles.wrap} data-testid="placeholder-screen">
+    <div className={styles.wrap} data-testid="placeholder-screen" data-user-story={userStory}>
       <PageHeader title={title} subtitle={subtitle} breadcrumb={breadcrumb} />
-      <EmptyState title="En construcción" description={`Esta pantalla llega en ${availableIn} (${userStory}).`} />
+      <EmptyState title="En construcción" description={`Esta pantalla llega en ${availableIn}.`} />
     </div>
   )
 }

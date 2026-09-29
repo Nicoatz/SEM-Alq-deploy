@@ -22,7 +22,7 @@ export const metadata: Metadata = { title: 'Recuperar contraseña' }
 export default function RecuperarPage() {
   return (
     <AuthLayout title="Recuperar contraseña" subtitle="Te enviamos un link a tu email.">
-      <EmptyState title="En construcción" description="Esta pantalla llega en un próximo sprint (US-40 Recuperar contraseña)." />
+      <EmptyState title="En construcción" description="Esta pantalla llega en un próximo sprint." />
     </AuthLayout>
   )
 }
