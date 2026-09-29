@@ -14,7 +14,9 @@ import type { FilterState, PropiedadResumen } from '@rentar/shared-types'
 import Hero from './Hero'
 import HowItWorks from './HowItWorks'
 import PropertyGrid from './PropertyGrid'
-import { defaultFilters } from '@/lib/types/filters'
+import { barriosConDatos } from '@/lib/catalogs/neighborhoods'
+import { filtrosInicialesLanding } from '@/lib/types/filters'
+import { USE_MOCKS } from '@/services/shared/config'
 import styles from './Landing.module.css'
 
 const PREVIEW_LIMIT = 8
@@ -66,7 +68,15 @@ function matchesFilters(property: PropiedadResumen, filters: FilterState): boole
  * compartido con `/buscar` y `/propiedad/[id]`.
  */
 export default function Landing({ properties }: LandingProps) {
-  const [filters, setFilters] = useState<FilterState>(defaultFilters)
+  // Modo mock: los filtros del diseño; back real: sin filtros (ver la NOTA
+  // de `filtrosInicialesLanding`).
+  const [filters, setFilters] = useState<FilterState>(() => filtrosInicialesLanding(USE_MOCKS))
+
+  // Zona: el catálogo más los barrios que traigan los datos (ej. "Alberdi").
+  const barrios = useMemo(
+    () => barriosConDatos(properties.map((property) => ({ slug: property.neighborhoodSlug, name: property.neighborhoodName }))),
+    [properties],
+  )
 
   const filteredProperties = useMemo(
     () => properties.filter((property) => matchesFilters(property, filters)),
@@ -75,7 +85,7 @@ export default function Landing({ properties }: LandingProps) {
 
   return (
     <>
-      <Hero filters={filters} onChange={setFilters} resultCount={filteredProperties.length} />
+      <Hero filters={filters} onChange={setFilters} resultCount={filteredProperties.length} neighborhoodOptions={barrios} />
 
       <section className={styles.section}>
         <h2 className={styles.heading}>Propiedades disponibles cerca tuyo en Córdoba</h2>

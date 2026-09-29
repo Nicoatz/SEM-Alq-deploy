@@ -12,13 +12,8 @@ const router = Router();
  *     description: Retorna el inventario de inmuebles publicados por el locador, tanto las disponibles para alquiler como aquellas con contrato ya pactado con un locatario.
  *     tags:
  *       - Mis Alquileres
- *     parameters:
- *       - in: header
- *         name: x-user-id
- *         schema:
- *           type: integer
- *           default: 1
- *         description: ID del usuario autenticado (debe tener rol locador)
+ *     security:
+ *       - SupabaseBearerAuth: []
  *     responses:
  *       200:
  *         description: Listado obtenido exitosamente

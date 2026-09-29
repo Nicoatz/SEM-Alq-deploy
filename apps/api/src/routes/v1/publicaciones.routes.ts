@@ -152,11 +152,5 @@ router.get(
     publicacionController
   )
 );
-router.get(
-  '/activas',
-  publicacionController.obtenerPublicacionesActivas.bind(
-    publicacionController
-  )
-);
 
 export default router;

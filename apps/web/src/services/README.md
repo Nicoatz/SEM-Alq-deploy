@@ -8,11 +8,11 @@ mocks ni llama a `fetch` directo**: llaman a una función de un service y recibe
 
 | Archivo | Funciones | US |
 |---|---|---|
-| `auth.service.ts` | `login`, `logout`, `registrarUsuario` | US-39, US-19 |
-| `usuarios.service.ts` | `getUsuarioSesion` (recupera la sesión al recargar) | US-39 |
+| `auth.service.ts` | `login`, `logout` (Supabase Auth, no pasan por la API), `registrarUsuario` | US-39, US-19 |
+| `usuarios.service.ts` | `getUsuarioActual` (`GET /usuarios/me`: nombre y roles del usuario del token) | US-39 |
 | `propiedades.service.ts` | `listarPropiedadesPublicadas`, `buscarPropiedades`, `contarPropiedades`, `listarUbicaciones` | US-34 |
 | | `listarMisPropiedades` | US-02 |
-| | `registrarPropiedad` | US-01 |
+| | `registrarPropiedad`, `subirFotoPropiedad` (Storage; espera el bucket) | US-01 |
 | | `cambiarEstadoPublicacion` (lista pero sin usar: es del sprint del detalle) | — |
 | `panel.service.ts` | `getResumenCobros`, `getResumenReclamos`, `getEventosContratos`, `getSolicitudesPendientes`, `getResumenRoles` | `/panel` (sin US en Sprint 0) |
 
@@ -46,8 +46,8 @@ export async function listarMisPropiedades(): Promise<PropiedadLocador[]> {
 
 | Carpeta / archivo | Qué hay |
 |---|---|
-| `shared/config.ts` | `USE_MOCKS` (`NEXT_PUBLIC_USE_MOCKS`, por defecto `true`) y `API_BASE_URL` (`NEXT_PUBLIC_API_URL`). |
-| `shared/apiClient.ts` | El único cliente HTTP: URL + query, header `x-user-id`, sobre `{ success, data, error }` y status → `ServiceError`. |
+| `shared/config.ts` | `USE_MOCKS` (`NEXT_PUBLIC_USE_MOCKS`, por defecto `true`), `API_BASE_URL` (`NEXT_PUBLIC_API_URL`) y las dos de Supabase (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`). |
+| `shared/apiClient.ts` | El único cliente HTTP: URL + query, `Authorization: Bearer <token de Supabase>` (salvo `auth: false`), sobre `{ success, data, error }` y status → `ServiceError`. |
 | `shared/errors.ts` | `ServiceError` y sus códigos (`validation`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `server`, `network`). |
 | `shared/mockStore.ts` | Lo que se crea en modo mock, guardado en `localStorage` (`rentar:mock:*`) encima del elenco. |
 | `shared/session.ts` | Quién está en sesión, para la rama mock. |
@@ -57,5 +57,6 @@ export async function listarMisPropiedades(): Promise<PropiedadLocador[]> {
 
 ## Probar la rama real
 
-`NEXT_PUBLIC_USE_MOCKS=false` en `apps/web/.env.local`, `npm run dev:api` y reiniciar
-`npm run dev:web`. Paso a paso y brechas conocidas: `docs/HANDOFF-BACKEND.md`.
+`NEXT_PUBLIC_USE_MOCKS=false` y las dos variables de Supabase en `apps/web/.env.local` (ver
+`.env.example`), `npm run dev:api` y reiniciar `npm run dev:web`. La sesión es la de Supabase Auth
+(clientes en `lib/auth/supabase/`). Paso a paso y brechas conocidas: `docs/HANDOFF-BACKEND.md`.

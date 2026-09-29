@@ -21,9 +21,9 @@
  * excepción documentada, el catálogo `/design-system`). Ninguna pantalla lo
  * importa directo.
  *
- * TODO(db): hoy son filas de `inmueble` + `publicacion` + `contrato` (y de
- * las tablas nuevas de fotos, tags y medios de pago en curso en
- * `feature/registrar-usuario`).
+ * Con el back real, cada propiedad son filas de `inmueble` + `contrato` +
+ * `foto_inmueble` + `inmueble_x_tag` + `medio_pago_x_contrato` (ver
+ * `services/adapters/propiedad.adapter.ts`).
  */
 import type {
   AdjustmentIndex,

@@ -1,16 +1,20 @@
 /**
- * session-cookie.ts — forma única de la cookie de sesión simulada (US-39).
+ * session-cookie.ts — forma única de la cookie `rentar_session` (US-39).
  *
  * Qué es: el shape que comparten `AuthProvider` (cliente), `proxy.ts`
- * (servidor, protege `/panel/*`) y los services (cliente, para saber quién
- * está en sesión y armar el header `x-user-id`). Se define acá una sola vez
- * para que todos lean y escriban exactamente lo mismo.
+ * (servidor, protege `/panel/*`), el layout del panel y la rama mock de los
+ * services. Se define acá una sola vez para que todos lean y escriban
+ * exactamente lo mismo.
+ *
+ * Qué significa según el modo:
+ * - Modo mock: ES la sesión (simulada). `proxy.ts` deja pasar si existe.
+ * - Modo real: la sesión es la de Supabase Auth (cookies `sb-…`, ver
+ *   `lib/auth/supabase/`). Esta cookie solo recuerda el rol activo y le
+ *   avisa al layout del panel que había una sesión; no autentica nada.
  *
  * NOTA: no es httpOnly a propósito — `AuthProvider` necesita leerla desde el
  * cliente al hidratar la sesión. Solo guarda `{ userId, activeRole }`; el
- * perfil completo se resuelve con `services/usuarios.service.ts#getUsuarioSesion`.
- * Es una sesión simulada: con el backend real se reemplaza por un JWT o una
- * sesión de servidor (ver `docs/HANDOFF-BACKEND.md`, US-39).
+ * perfil completo se resuelve con `services/usuarios.service.ts#getUsuarioActual`.
  */
 import type { UserRole } from '@rentar/shared-types'
 
@@ -18,19 +22,18 @@ import type { UserRole } from '@rentar/shared-types'
 export const SESSION_COOKIE_NAME = 'rentar_session'
 
 /**
- * Duración de la sesión con "Recordarme en este dispositivo" marcado: 30
- * días. Sin marcar, la cookie no lleva `max-age` y el navegador la borra al
- * cerrarse (cookie de sesión).
+ * Duración de la cookie: 30 días.
+ * NOTA: ya no hay "Recordarme". Con Supabase Auth la sesión dura hasta que
+ * la persona la cierra, así que esta cookie (que en modo real solo guarda el
+ * rol activo, y en modo mock simula la sesión) dura lo mismo en los dos modos.
  */
-export const REMEMBER_ME_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 
 /** Lo que guarda la cookie de sesión (JSON, URI-encodeado). */
 export interface SessionCookiePayload {
   /** `UsuarioSesion.id` del usuario en sesión (texto, ver `usuario-sesion.ts`). */
   userId: string
   activeRole: UserRole
-  /** `true` si se marcó "Recordarme": la cookie dura 30 días en vez de lo que dure el navegador abierto. */
-  persistent?: boolean
 }
 
 /** Arma el valor (ya URI-encodeado) que se guarda en la cookie. */
@@ -74,12 +77,10 @@ export function readSessionFromDocument(): SessionCookiePayload | null {
 
 /**
  * Guarda la sesión en `document.cookie` (visible para `proxy.ts` en el
- * próximo request). Con `persistent` dura {@link REMEMBER_ME_MAX_AGE_SECONDS};
- * sin él, hasta que se cierre el navegador.
+ * próximo request). Dura {@link SESSION_MAX_AGE_SECONDS}.
  */
 export function writeSessionToDocument(payload: SessionCookiePayload): void {
-  const maxAge = payload.persistent ? `; max-age=${REMEMBER_ME_MAX_AGE_SECONDS}` : ''
-  document.cookie = `${SESSION_COOKIE_NAME}=${serializeSessionCookie(payload)}; path=/${maxAge}; samesite=lax`
+  document.cookie = `${SESSION_COOKIE_NAME}=${serializeSessionCookie(payload)}; path=/; max-age=${SESSION_MAX_AGE_SECONDS}; samesite=lax`
 }
 
 /** Borra la sesión de `document.cookie` (US-39: "desvincular la sesión del navegador"). */

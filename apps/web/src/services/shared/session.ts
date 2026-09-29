@@ -4,9 +4,11 @@
  * Qué es: la rama mock de los services necesita saber de quién son "mis
  * propiedades" o "mi panel". Lo lee de la misma cookie de sesión que usa el
  * resto del front (`lib/auth/session-cookie.ts`). La rama real no lo usa: ahí
- * el usuario viaja en el header `x-user-id` (ver `apiClient.ts`).
+ * el usuario viaja en el token de Supabase (`Authorization: Bearer`, ver
+ * `apiClient.ts`) y el back sabe quién es.
  *
- * Quién lo usa: la rama mock de `propiedades.service.ts` y `panel.service.ts`.
+ * Quién lo usa: la rama mock de `propiedades.service.ts`, `panel.service.ts`
+ * y `usuarios.service.ts`; `apiClient.ts` (solo el mensaje de sesión vencida).
  */
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
 import { ServiceError } from './errors'

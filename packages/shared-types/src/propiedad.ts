@@ -23,8 +23,8 @@ export type PropertyType = 'departamento' | 'casa' | 'ph' | 'monoambiente'
 /**
  * Índice legal de ajuste periódico del alquiler en Argentina: IPC (INDEC) o
  * ICL (BCRA) — los dos únicos índices habilitados para contratos de alquiler.
- * TODO(db): el back todavía no guarda el índice (en curso en
- * `feature/registrar-usuario`, `contrato.indice_aumento`).
+ * El back lo guarda en `contrato.indice_aumento` (id de `tipo_indice`: ICL 1,
+ * IPC 2). NOTA: la base además tiene CAC (3), que el front no ofrece.
  */
 export type AdjustmentIndex = 'IPC' | 'ICL'
 
@@ -44,8 +44,9 @@ export interface CharacteristicOption {
  * Medio de pago que el locador acepta para el alquiler (US-01: "métodos de
  * pago preferidos", al menos uno). MercadoPago se separa en débito (dinero en
  * cuenta) y crédito porque la comisión de la pasarela es distinta.
- * TODO(db): el back todavía no tiene medios de pago (en curso en
- * `feature/registrar-usuario`, tabla `medio_pago`).
+ * TODO(db): la tabla `medio_pago` tiene otros medios (transferencia,
+ * efectivo, Mercado Pago, débito automático) y no guarda el recargo. El
+ * mapeo está en `propiedad.adapter.ts#propiedadNuevaToCreateInmueble`.
  */
 export type MedioPagoPreferido = 'transferencia' | 'mercadopago_debito' | 'mercadopago_credito' | 'efectivo'
 
@@ -66,9 +67,9 @@ export type EstadoPago = 'al_dia' | 'pago_pendiente' | 'retrasada'
  * Una propiedad buscable, tal como se ve en una tarjeta de la landing y de
  * `/buscar` (US-34).
  *
- * Adaptador: `propiedad.adapter.ts#inmuebleToPropiedadResumen`
- * (`Inmueble` + `Publicacion` → `PropiedadResumen`). Los campos que el back
- * todavía no devuelve están marcados en ese adaptador.
+ * Adaptador: `propiedad.adapter.ts#inmuebleDisponibleToPropiedadResumen`
+ * (cada item de `GET /inmuebles/disponibles` → `PropiedadResumen`). Los
+ * campos que el back todavía no devuelve están marcados en ese adaptador.
  */
 export interface PropiedadResumen {
   id: string
@@ -181,8 +182,9 @@ export type EstadoPublicacionAlta = Extract<PropertyStatus, 'publicada' | 'pausa
 
 /**
  * Una foto cargada en el alta. `src` es una data URL en modo mock.
- * TODO(backend): con el back real, el archivo se sube aparte y acá viaja la
- * URL que devuelva el storage.
+ * TODO(db): con el back real, cada foto se sube al bucket `fotos-propiedades`
+ * de Supabase Storage (todavía no existe) y al back viaja su URL pública
+ * (`propiedades.service.ts#subirFotoPropiedad`).
  */
 export interface FotoNueva {
   id: string

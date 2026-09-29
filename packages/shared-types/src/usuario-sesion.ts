@@ -7,8 +7,8 @@
  * back guarda aparte (`usuario_x_rol`).
  *
  * Adaptador que los conecta:
- * `apps/web/src/services/adapters/usuario.adapter.ts#usuarioDtoToSesion`
- * (`Usuario` + `Rol[]` → `UsuarioSesion`).
+ * `apps/web/src/services/adapters/usuario.adapter.ts#usuarioMeToSesion`
+ * (respuesta de `GET /usuarios/me`, con sus roles → `UsuarioSesion`).
  *
  * Quién lo usa: `AuthProvider` (US-39), el `AppShell`/`UserMenu` del panel y
  * el registro (US-19).
@@ -25,8 +25,8 @@ export interface UsuarioSesion {
   /**
    * Id del usuario, siempre como texto. En modo mock es el id del elenco
    * (`usr-nicolas`); con el back real es el id numérico convertido a texto
-   * (`'1'`). La conversión al header `x-user-id` vive en
-   * `apps/web/src/services/adapters/usuario.adapter.ts#toBackendUserId`.
+   * (`'1'`). La API no lo recibe: el usuario viaja en el token de Supabase
+   * (`Authorization: Bearer`).
    */
   id: string
   nombre: string

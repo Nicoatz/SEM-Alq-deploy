@@ -1,276 +1,170 @@
-import { Router } from 'express';
-import { inmuebleController } from '../../controllers/inmueble.controller';
-import { authenticateGateway, requireRole } from '../../gateway/middlewares/auth.middleware';
+import { Router } from "express";
+import { inmuebleController } from "../../controllers/inmueble.controller";
+import { authenticateGateway, requireRole } from "../../gateway/middlewares/auth.middleware";
 
 const router = Router();
 
-/**
- * @openapi
- * /api/v1/inmuebles:
- *   get:
- *     summary: Obtener todos los inmuebles registrados
- *     tags:
- *       - Inmuebles
- *     responses:
- *       200:
- *         description: Lista de inmuebles
- *   post:
- *     summary: Registrar un nuevo inmueble (ID autogenerado)
- *     tags:
- *       - Inmuebles
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - tipo
- *               - direccion
- *               - numero
- *               - ciudad
- *               - ambientes
- *               - dormitorios
- *               - banos
- *               - m2
- *               - id_locador
- *             properties:
- *               tipo:
- *                 type: integer
- *               direccion:
- *                 type: string
- *               numero:
- *                 type: integer
- *               piso:
- *                 type: string
- *               ciudad:
- *                 type: string
- *               ambientes:
- *                 type: integer
- *               dormitorios:
- *                 type: integer
- *               banos:
- *                 type: integer
- *               m2:
- *                 type: integer
- *               descripcion:
- *                 type: string
- *               tags:
- *                 type: integer
- *               id_locador:
- *                 type: integer
- *               servicios:
- *                 type: integer
- *     responses:
- *       201:
- *         description: Inmueble creado con éxito (ID generado automáticamente)
- */
-router.get('/', inmuebleController.getAll.bind(inmuebleController));
+router.get("/", inmuebleController.getAll.bind(inmuebleController));
 /**
  * @openapi
  * /api/v1/inmuebles/disponibles:
  *   get:
- *     summary: Obtener propiedades disponibles para alquilar
- *     description: Devuelve los inmuebles que tienen una publicación activa y no se encuentran alquilados.
+ *     summary: Obtener propiedades disponibles
+ *     description: Obtiene las propiedades disponibles para alquilar, permitiendo filtrar, ordenar y paginar los resultados.
  *     tags:
  *       - Inmuebles
+ *     parameters:
+ *       - in: query
+ *         name: barrio
+ *         schema:
+ *           type: string
+ *         description: Barrio por el cual filtrar.
+ *
+ *       - in: query
+ *         name: precioMin
+ *         schema:
+ *           type: number
+ *         description: Precio mínimo del alquiler mensual.
+ *
+ *       - in: query
+ *         name: precioMax
+ *         schema:
+ *           type: number
+ *         description: Precio máximo del alquiler mensual.
+ *
+ *       - in: query
+ *         name: tipo
+ *         schema:
+ *           type: integer
+ *         description: ID del tipo de inmueble.
+ *
+ *       - in: query
+ *         name: dormitorios
+ *         schema:
+ *           type: integer
+ *         description: Cantidad de dormitorios.
+ *
+ *       - in: query
+ *         name: ambientes
+ *         schema:
+ *           type: integer
+ *         description: Cantidad de ambientes.
+ *
+ *       - in: query
+ *         name: superficieMin
+ *         schema:
+ *           type: number
+ *         description: Superficie mínima en m².
+ *
+ *       - in: query
+ *         name: superficieMax
+ *         schema:
+ *           type: number
+ *         description: Superficie máxima en m².
+ *
+ *       - in: query
+ *         name: tags
+ *         schema:
+ *           type: string
+ *           example: "1,3"
+ *         description: IDs de los tags separados por coma. Se devuelve el inmueble si coincide con cualquiera de los tags.
+ *
+ *       - in: query
+ *         name: indiceAjuste
+ *         schema:
+ *           type: integer
+ *         description: ID del índice de ajuste.
+ *
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Número de página.
+ *
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 10
+ *         description: Cantidad de resultados por página.
+ *
+ *       - in: query
+ *         name: orden
+ *         schema:
+ *           type: string
+ *           enum:
+ *             - precio
+ *             - dormitorios
+ *             - m2
+ *         description: Criterio de ordenamiento.
+ *
+ *       - in: query
+ *         name: direccion
+ *         schema:
+ *           type: string
+ *           enum:
+ *             - asc
+ *             - desc
+ *           default: asc
+ *         description: Dirección del ordenamiento.
+ *
  *     responses:
  *       200:
- *         description: Lista de propiedades disponibles
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Propiedades disponibles obtenidas exitosamente
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       tipo:
- *                         type: integer
- *                         example: 1
- *                       direccion:
- *                         type: string
- *                         example: Av. Colón
- *                       numero:
- *                         type: integer
- *                         example: 1550
- *                       piso:
- *                         type: string
- *                         nullable: true
- *                         example: 4B
- *                       ciudad:
- *                         type: string
- *                         example: Córdoba
- *                       ambientes:
- *                         type: integer
- *                         example: 3
- *                       dormitorios:
- *                         type: integer
- *                         example: 2
- *                       banos:
- *                         type: integer
- *                         example: 1
- *                       m2:
- *                         type: integer
- *                         example: 65
- *                       descripcion:
- *                         type: string
- *                         nullable: true
- *                       tags:
- *                         type: integer
- *                         nullable: true
- *                         example: 1
- *                       id_locador:
- *                         type: integer
- *                         example: 1
- *                       servicios:
- *                         type: integer
- *                         nullable: true
- *                         example: 4
- *                       created_at:
- *                         type: string
- *                         format: date-time
+ *         description: Propiedades disponibles obtenidas exitosamente.
+ *       500:
+ *         description: Error interno del servidor.
  */
 router.get(
-  '/disponibles',
-  inmuebleController.getInmueblesDisponibles.bind(inmuebleController)
-);
-router.get(
-  '/disponibles',
+  "/disponibles",
   inmuebleController.getInmueblesDisponibles.bind(inmuebleController)
 );
 /**
  * @openapi
- * /api/v1/inmuebles/{id}:
+ * /api/v1/inmuebles/disponibles/{id}:
  *   get:
- *     summary: Obtener detalle de un inmueble
- *     description: Devuelve el detalle de un inmueble incluyendo su tipo, tag, servicio y publicación activa.
+ *     summary: Consultar el detalle de una propiedad disponible
  *     tags:
  *       - Inmuebles
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID del inmueble
  *         schema:
  *           type: integer
- *         example: 1
+ *         description: ID del inmueble
  *     responses:
  *       200:
- *         description: Detalle del inmueble obtenido correctamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     tipo_inmueble:
- *                       type: string
- *                       example: Departamento
- *                     direccion:
- *                       type: string
- *                       example: Av. Colón
- *                     numero:
- *                       type: integer
- *                       example: 1550
- *                     piso:
- *                       type: string
- *                       nullable: true
- *                       example: 4B
- *                     ciudad:
- *                       type: string
- *                       example: Córdoba
- *                     ambientes:
- *                       type: integer
- *                       example: 3
- *                     dormitorios:
- *                       type: integer
- *                       example: 2
- *                     banos:
- *                       type: integer
- *                       example: 1
- *                     m2:
- *                       type: integer
- *                       example: 65
- *                     descripcion:
- *                       type: string
- *                       nullable: true
- *                     tag:
- *                       type: string
- *                       nullable: true
- *                       example: Acepta mascotas
- *                     servicio:
- *                       type: string
- *                       nullable: true
- *                       example: Internet
- *                     id_locador:
- *                       type: integer
- *                       example: 1
- *                     created_at:
- *                       type: string
- *                       format: date-time
- *                     publicacion:
- *                       type: object
- *                       nullable: true
- *                       properties:
- *                         id:
- *                           type: integer
- *                           example: 1
- *                         titulo:
- *                           type: string
- *                           example: Alquiler Departamento 2 Dormitorios - Centro / Alberdi
- *                         precio:
- *                           type: number
- *                           example: 350000
- *                         activa:
- *                           type: boolean
- *                           example: true
- *                         created_at:
- *                           type: string
- *                           format: date-time
+ *         description: Detalle de la propiedad disponible
  *       400:
- *         description: El ID proporcionado no es un número entero válido
+ *         description: El ID proporcionado no es válido
  *       404:
- *         description: Inmueble no encontrado
+ *         description: Inmueble no encontrado o no disponible
  */
-router.get('/:id', inmuebleController.getById.bind(inmuebleController));
-router.get('/:id', inmuebleController.getById.bind(inmuebleController));
+router.get("/disponibles/:id", inmuebleController.getById.bind(inmuebleController));
+
 router.post(
-  '/',
+  "/",
   authenticateGateway,
-  requireRole('locador'),
+  requireRole("locador"),
   inmuebleController.create.bind(inmuebleController)
 );
+
 router.put(
-  '/:id',
+  "/:id",
   authenticateGateway,
-  requireRole('locador'),
+  requireRole("locador"),
   inmuebleController.update.bind(inmuebleController)
 );
+
 router.delete(
-  '/:id',
+  "/:id",
   authenticateGateway,
-  requireRole('locador'),
+  requireRole("locador"),
   inmuebleController.delete.bind(inmuebleController)
 );
 
 export default router;
+

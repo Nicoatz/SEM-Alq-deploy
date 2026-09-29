@@ -12,6 +12,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button, Card } from 'antd'
 import type { PropertyType, PropiedadResumen } from '@rentar/shared-types'
+import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { formatMonthlyPrice } from '@/lib/utils/format'
 import styles from './PropertyCard.module.css'
 
@@ -39,6 +40,8 @@ interface PropertyCardProps {
  */
 export default function PropertyCard({ property }: PropertyCardProps) {
   const router = useRouter()
+  // Si la foto no carga, el placeholder (no el ícono de imagen rota).
+  const foto = useFotoConRespaldo(property.imageSrc)
 
   return (
     <Card
@@ -46,7 +49,8 @@ export default function PropertyCard({ property }: PropertyCardProps) {
       cover={
         <div className={styles.imageWrap}>
           <Image
-            src={property.imageSrc}
+            src={foto.src}
+            onError={foto.onError}
             alt={`${typeLabels[property.type]} en ${property.neighborhoodName}`}
             fill
             sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
@@ -66,8 +70,10 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           {property.bedrooms} {property.bedrooms === 1 ? 'dormitorio' : 'dormitorios'}
         </span>
         <span>{property.areaM2} m²</span>
-        {/* NOTA: sin índice solo pasa con el back real (el elenco siempre lo tiene). */}
-        <span>{property.adjustmentIndex ? `Ajuste por ${property.adjustmentIndex}` : 'Sin índice de ajuste'}</span>
+        {/* NOTA: `null` = el índice no vino (con el back real, `/disponibles` no
+            trae el contrato), no "no tiene índice": no se muestra nada, igual
+            que en la tarjeta de /buscar. El elenco del modo mock siempre lo tiene. */}
+        {property.adjustmentIndex && <span>Ajuste por {property.adjustmentIndex}</span>}
       </div>
 
       <div className={styles.footerRow}>

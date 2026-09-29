@@ -1309,6 +1309,8 @@ export default function DesignSystem() {
               <div className={styles.componentStack}>
                 <SimulatedFeatureNotice feature="el pago" />
                 <SimulatedFeatureNotice />
+                {/* Con `reason`: el back está conectado pero esa función puntual no existe todavía. */}
+                <SimulatedFeatureNotice feature="el email de confirmación" reason="El servidor todavía no envía emails de confirmación." />
 
                 <div className={styles.inlineDemoRow}>
                   <Button danger onClick={() => setConfirmOpen(true)} data-testid="design-system-confirm-trigger">

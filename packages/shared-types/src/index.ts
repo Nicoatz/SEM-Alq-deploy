@@ -1,6 +1,38 @@
 /**
- * Shared Types for RentAR
+ * Shared Types for RentAR (Alineado con US-01)
  */
+
+export interface Rol {
+  id: number;
+  descripcion: string;
+}
+
+export interface Usuario {
+  id: number;
+  nombre: string;
+  apellido?: string | null;
+  email: string;
+  numero_documento: string;
+  telefono?: string | null;
+  fecha_nacimiento?: string | null;
+}
+
+export interface CreateUsuarioPayload {
+  nombre: string;
+  apellido: string;
+  email: string;
+  contraseña: string;
+  confirmar_contraseña: string;
+  telefono: string;
+  numero_documento: string;
+  fecha_nacimiento: string;
+  acepta_terminos: boolean;
+}
+
+export interface UsuarioXRol {
+  id_usuario: number;
+  id_rol: number;
+}
 
 export interface TipoInmueble {
   id: number;
@@ -10,6 +42,7 @@ export interface TipoInmueble {
 export interface TagInmueble {
   id: number;
   descripcion: string;
+  estado?: boolean;
 }
 
 export interface Servicio {
@@ -18,104 +51,172 @@ export interface Servicio {
   descripcion: string;
 }
 
-export interface Rol {
+export interface TipoIndice {
   id: number;
-  nombre: 'locador' | 'locatario' | 'administrador' | string;
   descripcion: string;
+  valor?: number;
 }
 
-export interface Usuario {
+export interface EstadoContrato {
+  id: number;
+  descripcion: string;
+  valor?: boolean;
+}
+
+export interface MedioPago {
   id: number;
   nombre: string;
-  email: string;
-  telefono?: string | null;
-  created_at?: string | Date;
+  descripcion?: string;
 }
 
-export interface UsuarioXRol {
+export interface MedioPagoXContrato {
   id: number;
-  id_usuario: number;
-  id_rol: number;
+  id_contrato: number;
+  id_medio_pago: number;
 }
+
+export type EstadoAlquiler = 'publicado' | 'pausado' | 'alquilado';
 
 export interface Inmueble {
   id: number;
+  id_locador: number;
   tipo: number;
+  descripcion?: string | null;
+  provincia: string;
+  ciudad: string;
+  barrio: string;
   direccion: string;
   numero: number;
   piso?: string | null;
-  ciudad: string;
+  m2_totales: number;
+  m2_cubiertos: number;
   ambientes: number;
   dormitorios: number;
   banos: number;
-  m2: number;
-  descripcion?: string | null;
-  tags?: number | null;
-  id_locador: number;
+  antiguedad?: number | null;
+  precio_publicado: number;
+  estado_alquiler: EstadoAlquiler;
+  fecha_disponible?: string | null;
   servicios?: number | null;
-  created_at?: string | Date;
 }
 
-export type EstadoContrato = 'borrador' | 'disponible' | 'vigente' | 'finalizado' | 'cancelado';
+export interface FotoInmueble {
+  id: number;
+  id_inmueble: number;
+  url: string;
+  es_principal: boolean;
+  peso_kb: number;
+  formato: string;
+  orden: number;
+}
+
+export interface InmuebleXTag {
+  id: number;
+  id_inmueble: number;
+  id_tag: number;
+}
 
 export interface Contrato {
   id: number;
   id_inmueble: number;
-  fecha_inicio?: string | null;
-  fecha_fin?: string | null;
-  monto: number;
-  estado: EstadoContrato | string;
-  created_at?: string | Date;
-}
-
-export interface ContratoXUsuario {
-  id: number;
-  id_contrato: number;
-  id_usuario: number;
-}
-
-export interface Publicacion {
-  id: number;
-  id_inmueble: number;
-  titulo: string;
-  precio: number;
-  activa: boolean;
-  created_at?: string | Date;
+  monto_alquiler: number;
+  expensas: number;
+  indice_aumento?: number | null;
+  frecuencia_ajuste?: string | null;
+  duracion_meses?: number | null;
+  deposito?: number | null;
+  interes_por_dia?: number | null;
+  dias_gracia?: number | null;
+  fecha_inicio_contrato?: string | null;
+  fecha_fin_contrato?: string | null;
+  estado?: number | null;
 }
 
 /**
- * Item detallado para la vista "Mis Propiedades / Mis Alquileres" del Locador
+ * Payload completo para el registro atómico de propiedad (US-01)
  */
-export interface MisAlquileresItem {
-  id_inmueble: number;
-  direccion_completa: string;
+export interface CreateFotoPayload {
+  url: string;
+  peso_kb: number;
+  formato: string;
+  es_principal?: boolean;
+}
+
+export interface CreateContratoCondicionesPayload {
+  monto_alquiler: number;
+  expensas: number;
+  indice_aumento?: number | null;
+  frecuencia_ajuste?: string | null;
+  duracion_meses?: number | null;
+  deposito?: number | null;
+  interes_por_dia?: number | null;
+  dias_gracia?: number | null;
+  medios_pago: number[]; // Obligatorio: al menos un medio de pago
+}
+
+export interface CreateInmuebleCompletoPayload {
+  tipo: number;
+  descripcion?: string | null;
+  provincia: string;
+  ciudad: string;
+  barrio: string;
   direccion: string;
   numero: number;
   piso?: string | null;
-  ciudad: string;
+  m2_totales: number;
+  m2_cubiertos: number;
   ambientes: number;
   dormitorios: number;
   banos: number;
-  m2: number;
+  antiguedad?: number | null;
+  precio_publicado: number;
+  estado_alquiler: EstadoAlquiler;
+  fecha_disponible?: string | null;
+  servicios?: number | null;
+  tags?: number[];
+  fotos: CreateFotoPayload[];
+  condiciones_contrato: CreateContratoCondicionesPayload;
+}
+
+/**
+ * Item para la vista "Mis Propiedades / Mis Alquileres" del Locador
+ */
+export interface MisAlquileresItem {
+  id_inmueble: number;
+  titulo_direccion: string; // Dirección formateada utilizada como título
+  provincia: string;
+  ciudad: string;
+  barrio: string;
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  m2_totales: number;
+  m2_cubiertos: number;
+  ambientes: number;
+  dormitorios: number;
+  banos: number;
+  antiguedad?: number | null;
   descripcion?: string | null;
   tipo_inmueble: string;
-  tag?: string | null;
+  precio_publicado: number;
+  estado_alquiler: EstadoAlquiler;
+  fecha_disponible?: string | null;
   servicio?: string | null;
-  publicacion: {
-    id: number;
-    titulo: string;
-    precio: number;
-    activa: boolean;
-    fecha_publicacion?: string | Date;
-  };
+  tags: string[];
+  foto_principal: string | null;
+  fotos: FotoInmueble[];
   contrato: {
     id: number;
-    monto: number;
-    fecha_inicio?: string | null;
-    fecha_fin?: string | null;
-    estado: string;
+    monto_alquiler: number;
+    expensas: number;
+    indice_aumento?: string | null;
+    frecuencia_ajuste?: string | null;
+    duracion_meses?: number | null;
+    deposito?: number | null;
+    interes_por_dia?: number | null;
+    dias_gracia?: number | null;
+    medios_pago: string[];
   };
-  estado_alquiler: 'disponible' | 'alquilado';
 }
 
 export interface ApiResponse<T> {

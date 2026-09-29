@@ -24,8 +24,8 @@ import type { PasswordRequirement, PasswordStrength } from '@rentar/ui'
  * caracter (su regex es `[A-Za-z0-9]{8,}`).
  *
  * TODO(backend): sumar el número al regex del back
- * (`feature/registrar-usuario`, `usuario.service.ts`): hoy acepta
- * contraseñas sin números. Que el front sea más estricto no rompe nada.
+ * (`apps/api/src/services/usuario.service.ts`): hoy acepta contraseñas sin
+ * números. Que el front sea más estricto no rompe nada.
  */
 export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z0-9]{8,}$/
 

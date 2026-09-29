@@ -80,6 +80,13 @@ interface UserMenuProps {
   /** Se llama al tocar un rol que no es el activo. */
   onRoleChange?: (role: UserRole) => void
   /**
+   * Ítem destacado que va PRIMERO en la hoja móvil, en azul (Claude Design,
+   * Paneles · 05b: "Publicar propiedad"). Solo en la hoja, no en el dropdown
+   * de escritorio: ahí la acción ya está en el encabezado. Lo pasa `AppShell`
+   * desde su `headerAction`. Opcional.
+   */
+  sheetLeadingItem?: UserMenuItem
+  /**
    * Apertura controlada (opcional). La usa `AppShell` para que el chip del
    * rol de la barra móvil abra la misma hoja que el avatar. Sin estas props,
    * el menú maneja su propio estado, como antes.
@@ -123,6 +130,7 @@ export function UserMenu({
   onLogout,
   roleOptions = [],
   onRoleChange,
+  sheetLeadingItem,
   open,
   onOpenChange,
   ...rest
@@ -296,6 +304,17 @@ export function UserMenu({
           </div>
           {roleSection}
           <nav aria-label="Menú de usuario" className={styles.sheetList}>
+            {sheetLeadingItem?.href && (
+              <LinkComponent
+                href={sheetLeadingItem.href}
+                className={`${styles.sheetItem} ${styles.sheetItemLeading}`}
+                onClick={run(sheetLeadingItem.onClick)}
+                data-testid={`user-menu-item-${sheetLeadingItem.key}`}
+              >
+                <span className={styles.sheetIcon}>{sheetLeadingItem.icon}</span>
+                {itemLabel(sheetLeadingItem)}
+              </LinkComponent>
+            )}
             {items.map((item) =>
               item.href ? (
                 <LinkComponent

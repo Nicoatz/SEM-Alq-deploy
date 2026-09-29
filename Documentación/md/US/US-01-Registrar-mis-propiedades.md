@@ -33,6 +33,7 @@
 | - Se puede indicar la frecuencia de ajuste. |
 | - Se puede indicar la duración del contrato. |
 | - Se puede indicar el depósito solicitado al locatario. |
+| - Se debe verificar el rol del usuario y, tras registrar la propiedad, asignarle automáticamente el rol de locador si aún no lo tiene. |
 | **Pruebas de usuario:** |
 | - Probar registrar una propiedad sin contar con una sesión iniciada (falla). |
 | - Probar registrar una propiedad y no haber adjuntado ninguna foto (falla). |

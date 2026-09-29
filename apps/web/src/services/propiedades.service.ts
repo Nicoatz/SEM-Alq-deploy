@@ -16,6 +16,8 @@
  */
 import type {
   BusquedaFiltros,
+  CreateFotoPayload,
+  FotoNueva,
   Inmueble,
   MisAlquileresItem,
   OrdenBusqueda,
@@ -24,29 +26,28 @@ import type {
   PropiedadLocador,
   PropiedadNueva,
   PropiedadResumen,
-  Publicacion,
   UbicacionOpciones,
 } from '@rentar/shared-types'
 import { buscarEnLista, PAGE_SIZE, ubicacionesDe } from '@/lib/search/busqueda'
-import { escribirBusqueda } from '@/lib/search/busquedaParams'
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
 import { hoy } from '@/lib/utils/fechas'
 import { isSearchable, propiedadMockToLocador, propiedadMockToResumen, propiedadNuevaToMock } from './adapters/propiedad-mock.adapter'
 import {
+  consultaDeDisponibles,
+  disponiblesToPaginado,
   estadoDePropiedadNueva,
-  inmuebleToPropiedadResumen,
+  inmuebleDisponibleToPropiedadResumen,
   misAlquileresItemToPropiedadLocador,
-  propiedadNuevaToCrearInmueble,
-  propiedadNuevaToCrearPublicacion,
+  propiedadNuevaToCreateInmueble,
 } from './adapters/propiedad.adapter'
-import { toBackendUserId } from './adapters/usuario.adapter'
 import { apiRequest } from './shared/apiClient'
-import type { InmuebleDetalleResponse } from './shared/backend-dtos'
+import type { DisponiblesQuery, InmueblesDisponiblesResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
-import { requireSessionUserId, SESSION_EXPIRED_MESSAGE } from './shared/session'
+import { requireSessionUserId } from './shared/session'
+import { readUsuariosMock } from './usuarios.service'
 
 // ─── Helpers de la rama mock ────────────────────────────────────────────
 
@@ -80,57 +81,65 @@ export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
 // ─── Búsqueda pública (US-34) ───────────────────────────────────────────
 
 /**
+ * Tope de propiedades que se traen cuando hace falta "traer todas" (landing,
+ * opciones de ubicación y búsquedas que el back no resuelve exacto).
+ * Es el máximo que devuelve el back en un pedido: la API no limita `limit`,
+ * pero Supabase corta cada consulta en 1000 filas (el "Max rows" por defecto
+ * de la API de datos).
+ * NOTA: traer todas y filtrar en el cliente sirve para el piloto (hoy hay muy
+ * pocas propiedades publicadas) y NO escala: con más de 1000 disponibles la
+ * lista quedaría incompleta, y aun antes de eso el pedido se vuelve pesado.
+ * La salida es que el back resuelva todos los filtros y órdenes (ver los
+ * TODO(backend) de `propiedad.adapter.ts#consultaDeDisponibles`).
+ */
+const TOPE_DISPONIBLES_CLIENTE = 1000
+
+/** Pide una página de `/inmuebles/disponibles` con los params del back. */
+function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
+  return apiRequest<InmueblesDisponiblesResponse>('/inmuebles/disponibles', { query: { ...query } })
+}
+
+/**
+ * Rama real: todas las disponibles en un solo pedido, hasta
+ * {@link TOPE_DISPONIBLES_CLIENTE} (ver su NOTA: sirve para el piloto, no escala).
+ */
+async function todasLasDisponibles(): Promise<PropiedadResumen[]> {
+  const respuesta = await pedirDisponibles({ page: '1', limit: String(TOPE_DISPONIBLES_CLIENTE) })
+  return respuesta.items.map(inmuebleDisponibleToPropiedadResumen)
+}
+
+/**
  * US-34 Consultar propiedades a alquilar — todas las buscables, sin filtros
  * ni paginación (la landing filtra en el cliente y muestra una vista previa).
- * @backend GET /api/v1/inmuebles/disponibles   (existe · no devuelve la publicación: precio y título)
- *          GET /api/v1/inmuebles/:id            (existe · se usa para traer la publicación de cada una)
+ * @backend GET /api/v1/inmuebles/disponibles?page=1&limit=1000   (existe · hasta 1000, ver TOPE_DISPONIBLES_CLIENTE)
  * @returns PropiedadResumen[]
- * TODO(backend): que `/inmuebles/disponibles` incluya la publicación de cada
- * inmueble (precio, título, fecha). Mientras tanto se hace un pedido de
- * detalle por inmueble (N+1), que alcanza para pocos datos de prueba.
  */
 export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]> {
   if (USE_MOCKS) {
     await delay()
     return readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
   }
-  return traerDisponiblesDelBack()
-}
-
-/**
- * Rama real: todas las disponibles del back, con su publicación.
- * Ver el TODO(backend) de {@link listarPropiedadesPublicadas} (N+1).
- */
-async function traerDisponiblesDelBack(query?: Record<string, string | string[]>): Promise<PropiedadResumen[]> {
-  const inmuebles = await apiRequest<Inmueble[]>('/inmuebles/disponibles', { query })
-  const detalles = await Promise.all(
-    inmuebles.map((inmueble) => apiRequest<InmuebleDetalleResponse>(`/inmuebles/${inmueble.id}`)),
-  )
-  return inmuebles.map((inmueble, index) => inmuebleToPropiedadResumen(inmueble, detalles[index]?.publicacion ?? null))
-}
-
-/** Pasa los query params de la búsqueda a un objeto para `apiRequest` (los repetidos, como lista). */
-function queryDeBusqueda(filtros: BusquedaFiltros, orden: OrdenBusqueda, pagina: number): Record<string, string | string[]> {
-  const params = escribirBusqueda({ filtros, orden, pagina })
-  const query: Record<string, string | string[]> = { tamanioPagina: String(PAGE_SIZE) }
-  for (const key of new Set(params.keys())) {
-    const valores = params.getAll(key)
-    query[key] = valores.length > 1 ? valores : valores[0]
-  }
-  return query
+  return todasLasDisponibles()
 }
 
 /**
  * US-34 Consultar propiedades a alquilar — la búsqueda de `/buscar`: filtros,
  * orden y una página de 10 resultados.
- * @backend GET /api/v1/inmuebles/disponibles   (existe · faltan filtros, orden y paginación)
- * @query   { provincia?, ciudad?, barrio[]?, precioMin?, precioMax?, tipo[]?, dorm[]?, amb[]?,
- *            m2Min?, m2Max?, tag[]?, indice?, orden?, pagina?, tamanioPagina? }
- *          (mismos nombres que la URL de /buscar, ver lib/search/busquedaParams.ts)
+ * @backend GET /api/v1/inmuebles/disponibles   (existe · filtros, orden y paginación desde el 26/09)
+ * @query   barrio, precioMin, precioMax, tipo, dormitorios, ambientes, superficieMin,
+ *          superficieMax, tags, indiceAjuste, page, limit, orden, direccion
+ *          (los arma `propiedad.adapter.ts#consultaDeDisponibles` a partir de los filtros de la URL)
  * @returns Paginado<PropiedadResumen>
- * TODO(backend): aceptar esos query params y responder `{ items, page, pageSize, total }`.
- * Mientras tanto el back ignora los params y devuelve una lista: en ese caso
- * se filtra, ordena y pagina acá, con las mismas reglas (lib/search/busqueda.ts).
+ *
+ * NOTA: si la búsqueda no se puede mandar exacta al back (varios barrios,
+ * "4 o más", varias características, orden por precio: ver
+ * `consultaDeDisponibles`), se traen todas y se filtra, ordena y pagina acá,
+ * con las mismas reglas que el modo mock (`lib/search/busqueda.ts`).
+ * NOTA: provincia y ciudad las filtra el cliente sobre la página que vuelve
+ * (el back no las filtra). Hoy solo hay Córdoba Capital, así que no cambian el
+ * total. TODO(backend): filtrar por provincia y ciudad.
+ * NOTA: una página que ya no existe (se filtró de más) da 400 en el back; en
+ * ese caso se muestra la última, igual que en modo mock.
  */
 export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBusqueda, pagina: number): Promise<Paginado<PropiedadResumen>> {
   if (USE_MOCKS) {
@@ -138,19 +147,47 @@ export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBu
     const publicadas = readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
     return buscarEnLista(publicadas, filtros, orden, pagina)
   }
-  // NOTA: respaldo mientras el back no pagine (ver el TODO(backend) de arriba).
-  const disponibles = await traerDisponiblesDelBack(queryDeBusqueda(filtros, orden, pagina))
-  return buscarEnLista(disponibles, filtros, orden, pagina)
+
+  const consulta = consultaDeDisponibles(filtros, orden, pagina, PAGE_SIZE)
+  if (!consulta.exacta) return buscarEnLista(await todasLasDisponibles(), filtros, orden, pagina)
+
+  const resultado = disponiblesToPaginado(await pedirPaginaOUltima(consulta.query))
+  return { ...resultado, items: resultado.items.filter((propiedad) => cumpleUbicacion(propiedad, filtros)) }
+}
+
+/**
+ * Pide la página de `query`; si el back responde 400 porque la página ya no
+ * existe, pide la primera para saber cuántas hay y devuelve la última.
+ */
+async function pedirPaginaOUltima(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
+  try {
+    return await pedirDisponibles(query)
+  } catch (error) {
+    if (!(error instanceof ServiceError) || error.code !== 'validation' || query.page === '1') throw error
+    const primera = await pedirDisponibles({ ...query, page: '1' })
+    return primera.totalPages > 1 ? pedirDisponibles({ ...query, page: String(primera.totalPages) }) : primera
+  }
+}
+
+/** `true` si la propiedad está en la provincia y la ciudad elegidas (el back no las filtra). */
+function cumpleUbicacion(propiedad: PropiedadResumen, filtros: BusquedaFiltros): boolean {
+  if (filtros.province && propiedad.province !== filtros.province) return false
+  if (filtros.city && propiedad.city !== filtros.city) return false
+  return true
 }
 
 /**
  * US-34 — cuántas propiedades da una combinación de filtros, sin traerlas
  * (el "Ver N propiedades" del Drawer de filtros en móvil, que se calcula
  * mientras se eligen los filtros, antes de aplicarlos).
- * @backend GET /api/v1/inmuebles/disponibles?…&tamanioPagina=1   (propuesto: se lee `total`)
+ * @backend GET /api/v1/inmuebles/disponibles?…&limit=1   (existe · se lee `total`)
  * @returns number
  */
 export async function contarPropiedades(filtros: BusquedaFiltros): Promise<number> {
+  if (!USE_MOCKS) {
+    const consulta = consultaDeDisponibles(filtros, 'predeterminado', 1, 1)
+    if (consulta.exacta) return (await pedirDisponibles(consulta.query)).total
+  }
   const resultado = await buscarPropiedades(filtros, 'predeterminado', 1)
   return resultado.total
 }
@@ -173,11 +210,11 @@ export async function listarUbicaciones(): Promise<UbicacionOpciones> {
  * US-02 Consultar mis propiedades — TODAS las propiedades del locador en
  * sesión (alquiladas o no, publicadas o no), con locatario, estado del pago,
  * reclamos abiertos y próximo ajuste.
- * @backend GET /api/v1/mis-alquileres   (existe · locador = header x-user-id)
+ * @backend GET /api/v1/mis-alquileres   (existe · token + rol locador; el locador sale del token)
  * @returns PropiedadLocador[]
- * TODO(backend): hoy devuelve solo las que tienen publicación, y le faltan
- * locatario, estado de pago, reclamos, próximo ajuste, barrio y fotos (ver
- * `propiedad.adapter.ts#misAlquileresItemToPropiedadLocador`).
+ * TODO(backend): le faltan locatario, estado de pago, reclamos, próximo
+ * ajuste y fecha de alta (ver `propiedad.adapter.ts#misAlquileresItemToPropiedadLocador`).
+ * @throws {ServiceError} `unauthorized` sin sesión; `forbidden` si la cuenta no es locadora.
  *
  * NOTA: los filtros de US-02 (barrio, tipo, estado, reclamos) y la búsqueda
  * se aplican en el cliente (`lib/mis-propiedades/`): un locador tiene pocas
@@ -211,18 +248,85 @@ const MOCK_STORAGE_FULL_MESSAGE =
   'No pudimos guardar la propiedad en este navegador: se llenó el espacio de los datos de prueba. Probá con fotos más livianas o tocá "Reiniciar datos de prueba".'
 
 /**
- * US-01 Registrar mis propiedades — da de alta la propiedad del locador en
- * sesión y, en el mismo paso, su publicación (publicada, pausada o alquilada;
- * alquilada con fecha de disponibilidad → alquilada/publicada).
- * @backend POST /api/v1/inmuebles       (existe · faltan casi todos los campos de US-01)
- *          POST /api/v1/publicaciones   (existe · hoy exige un contrato previo)
- * @body    CrearInmuebleRequest, después CrearPublicacionRequest (ver shared/backend-dtos.ts)
+ * Mensaje mientras no exista el bucket de fotos en Supabase Storage.
+ * NOTA: el back exige al menos 3 fotos con URL, así que sin bucket el alta
+ * real no se puede guardar. Se avisa ANTES de mandar nada. La pantalla
+ * agrega "Tus datos siguen acá: no perdiste nada." (el formulario conserva lo
+ * escrito en memoria; no hay borrador en localStorage).
+ */
+export const FOTOS_NO_DISPONIBLES_MESSAGE =
+  'Todavía no podemos guardar las fotos de las propiedades, así que por ahora el alta no se puede completar.'
+
+/**
+ * Mensaje si `POST /inmuebles` responde 403 a una cuenta locataria.
+ * Regla del equipo (27/09/2026): cualquier usuario con sesión puede publicar,
+ * y al publicar la primera el back le suma el rol locador.
+ * TODO(backend): hoy la ruta tiene `requireRole("locador")`, así que un
+ * locatario recibe 403. Cuando el cambio de Thiago esté, este caso no pasa más.
+ * La pantalla agrega "Tus datos siguen acá: no perdiste nada."
+ */
+export const PUBLICAR_SIN_ROL_MESSAGE = 'Todavía no podés publicar desde esta cuenta, estamos terminando este cambio.'
+
+/**
+ * US-01 — sube una foto del alta a Supabase Storage y devuelve lo que el
+ * back necesita para guardarla (URL pública, peso y formato).
+ * @backend Supabase Storage, bucket `fotos-propiedades`, ruta `<auth.uid>/<archivo>`,
+ *          con la sesión del usuario (no pasa por `apps/api`).
+ * @returns CreateFotoPayload (sin `es_principal`: lo marca quien llama)
+ * TODO(db): el bucket `fotos-propiedades` todavía no existe (la migración la
+ * maneja Ivan por separado). Hasta entonces esta función avisa que no se
+ * puede, sin intentar subir nada.
+ * @throws {ServiceError} `server` con {@link FOTOS_NO_DISPONIBLES_MESSAGE}.
+ */
+export async function subirFotoPropiedad(foto: FotoNueva): Promise<Omit<CreateFotoPayload, 'es_principal'>> {
+  void foto // se va a usar cuando exista el bucket (ver el TODO(db) de arriba)
+  throw new ServiceError('server', FOTOS_NO_DISPONIBLES_MESSAGE)
+}
+
+/**
+ * Sube todas las fotos del alta, en el orden en que se cargaron, y marca la
+ * principal (US-01: "la primera, cambiable").
+ */
+async function subirFotosPropiedad(nueva: PropiedadNueva): Promise<CreateFotoPayload[]> {
+  const subidas = await Promise.all(nueva.photos.map(subirFotoPropiedad))
+  return subidas.map((foto, index) => ({ ...foto, es_principal: index === nueva.mainPhotoIndex }))
+}
+
+/**
+ * Rama mock de la regla del equipo (27/09/2026): al publicar la primera
+ * propiedad, la cuenta pasa a tener `['locador', 'locatario']` (locador abarca
+ * a locatario, igual que lo va a devolver `/usuarios/me`). Se guarda en
+ * `rentar:mock:usuarios`, así sobrevive a recargar. La sesión se actualiza
+ * igual que en modo real: la pantalla llama a `useAuth().refrescarUsuario`.
+ * NOTA: si no se puede guardar (`localStorage` lleno), la propiedad ya quedó
+ * creada; la cuenta sigue como estaba y el alta muestra el éxito sin
+ * "Ir a mis propiedades".
+ */
+function sumarRolLocadorMock(userId: string): void {
+  const usuario = readUsuariosMock().find((item) => item.id === userId)
+  if (!usuario || usuario.roles.includes('locador')) return
+  saveMockRecord('usuarios', { ...usuario, roles: ['locador', 'locatario'] })
+}
+
+/**
+ * US-01 Registrar mis propiedades — da de alta una propiedad del usuario en
+ * sesión, locatario o locador, con sus condiciones de contrato y sus fotos
+ * (publicada, pausada o alquilada; alquilada con fecha de disponibilidad →
+ * alquilada/publicada).
+ * @backend POST /api/v1/inmuebles   (existe · token + rol locador; el dueño sale del token)
+ *          Propuesto (en curso, Thiago): cualquier usuario con sesión, y si
+ *          no era locador, sumarle ese rol al crear la primera.
+ * @body    CreateInmuebleCompletoPayload (lo arma `propiedadNuevaToCreateInmueble`)
  * @returns PropiedadRegistrada
  * @throws {ServiceError} `unauthorized` sin sesión (US-01: "se debe haber
- *   iniciado sesión"); `validation` si el back rechaza un dato.
- * TODO(backend): un solo `POST /api/v1/propiedades` que reciba la propiedad
- * completa (fotos incluidas) y cree inmueble + publicación juntos; hoy son
- * dos pedidos y, si falla el segundo, el inmueble queda creado sin publicar.
+ *   iniciado sesión"); `forbidden` con {@link PUBLICAR_SIN_ROL_MESSAGE} si el
+ *   back todavía exige el rol locador; `validation` si el back rechaza un
+ *   dato; `server` si las fotos no se pueden subir.
+ *
+ * NOTA: primero se suben las fotos y después se manda el alta con sus URLs.
+ * Si falla la subida, no se crea nada en la base.
+ * NOTA: esta función no actualiza la sesión. Después del 201 la pantalla
+ * relee los roles con `useAuth().refrescarUsuario` (ver `AltaPropiedad`).
  */
 export async function registrarPropiedad(nueva: PropiedadNueva): Promise<PropiedadRegistrada> {
   if (USE_MOCKS) {
@@ -236,23 +340,19 @@ export async function registrarPropiedad(nueva: PropiedadNueva): Promise<Propied
     if (!saveMockRecord('propiedades', propiedad)) {
       throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     }
+    sumarRolLocadorMock(ownerId)
     return { id: propiedad.id, status: propiedad.status }
   }
 
-  const idLocador = currentBackendUserId()
-  const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCrearInmueble(nueva, idLocador) })
-  await apiRequest<Publicacion>('/publicaciones', { method: 'POST', body: propiedadNuevaToCrearPublicacion(nueva, inmueble.id) })
-  return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
-}
-
-/**
- * Id numérico del back para el usuario en sesión (el `id_locador` del
- * alta). Sin equivalente en el back, no se puede dar de alta nada.
- */
-function currentBackendUserId(): number {
-  const backendId = toBackendUserId(requireSessionUserId())
-  if (!backendId) throw new ServiceError('unauthorized', SESSION_EXPIRED_MESSAGE)
-  return Number(backendId)
+  const fotos = await subirFotosPropiedad(nueva)
+  try {
+    const inmueble = await apiRequest<Inmueble>('/inmuebles', { method: 'POST', body: propiedadNuevaToCreateInmueble(nueva, fotos) })
+    return { id: String(inmueble.id), status: estadoDePropiedadNueva(nueva) }
+  } catch (error) {
+    // Back viejo: `requireRole("locador")` le da 403 a un locatario (ver el TODO(backend) del mensaje).
+    if (error instanceof ServiceError && error.code === 'forbidden') throw new ServiceError('forbidden', PUBLICAR_SIN_ROL_MESSAGE)
+    throw error
+  }
 }
 
 // ─── Publicar o pausar (otro sprint) ────────────────────────────────────
@@ -282,5 +382,5 @@ export async function cambiarEstadoPublicacion(propiedadId: string, estado: 'pub
     }
     return
   }
-  await apiRequest<Publicacion>(`/inmuebles/${encodeURIComponent(propiedadId)}/publicacion`, { method: 'PATCH', body: { activa: estado === 'publicada' } })
+  await apiRequest<void>(`/inmuebles/${encodeURIComponent(propiedadId)}/publicacion`, { method: 'PATCH', body: { activa: estado === 'publicada' } })
 }

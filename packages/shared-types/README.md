@@ -14,14 +14,15 @@ adaptadores de `apps/web/src/services/adapters/` (ver `docs/HANDOFF-BACKEND.md`)
 
 | Modelo del back (tabla) | Tipo de vista | Adaptador (`apps/web/src/services/adapters/`) |
 |---|---|---|
-| `Usuario` (`usuario`) + `Rol` (`rol` vía `usuario_x_rol`) | `UsuarioSesion` | `usuario.adapter.ts#usuarioDtoToSesion` |
-| `Rol` (`rol`) | `UserRole` | `usuario.adapter.ts#rolDtoToUserRole` (`'administrador'` ↔ `'admin'`) |
-| `Inmueble` (`inmueble`) + `Publicacion` (`publicacion`) | `PropiedadResumen` | `propiedad.adapter.ts#inmuebleToPropiedadResumen` |
+| Respuesta de `GET /api/v1/usuarios/me` (`usuario` + sus roles) | `UsuarioSesion` | `usuario.adapter.ts#usuarioMeToSesion` |
+| `Usuario` (respuesta de `POST /api/v1/registrar-usuario`) | `UsuarioSesion` | `registro.adapter.ts#registroResponseToSesion` |
+| `Rol` (`rol.descripcion`) | `UserRole` | `usuario.adapter.ts#rolDtoToUserRole` (`'administrador'` ↔ `'admin'`) |
+| Item de `GET /inmuebles/disponibles` (`InmuebleDisponibleResponse`, copiado en `backend-dtos.ts`) | `PropiedadResumen` | `propiedad.adapter.ts#inmuebleDisponibleToPropiedadResumen` |
 | `MisAlquileresItem` (respuesta de `GET /api/v1/mis-alquileres`) | `PropiedadLocador` | `propiedad.adapter.ts#misAlquileresItemToPropiedadLocador` |
-| — (el cuerpo de `POST /api/v1/inmuebles` sale del formulario del alta) | `PropiedadNueva` | `propiedad.adapter.ts#propiedadNuevaToCreateInmueble` |
-| `Contrato`, cobros, reclamos, solicitudes (tablas de sprints futuros) | `ResumenCobros`, `ResumenReclamos`, `EventoContratoPanel`, `SolicitudPanel` | Ninguno todavía: `/panel` usa solo mocks (ver `apps/web/src/services/panel.service.ts`). |
+| `CreateInmuebleCompletoPayload` (cuerpo de `POST /api/v1/inmuebles`) | `PropiedadNueva` | `propiedad.adapter.ts#propiedadNuevaToCreateInmueble` |
+| Cobros, reclamos, solicitudes (tablas de sprints futuros) | `ResumenCobros`, `ResumenReclamos`, `EventoContratoPanel`, `SolicitudPanel` | Ninguno todavía: en modo real `/panel` los muestra vacíos (ver `apps/web/src/services/panel.service.ts`). |
 | `TipoInmueble` (`tipo_inmueble`) | `PropertyType` | `propiedad.adapter.ts#propertyTypeFromTipoId` |
-| `TagInmueble` (`tag_inmueble`) | `CharacteristicKey` | `propiedad.adapter.ts#characteristicFromTagId` |
+| `TagInmueble` (`tags_inmueble`) | `CharacteristicKey` | `propiedad.adapter.ts#characteristicFromTagDescripcion` (lectura) y `#tagIdFromCharacteristic` (alta) |
 | `ContratoXUsuario`, `UsuarioXRol`, `Servicio` | — | Todavía no los usa ninguna pantalla del Sprint 1. |
 | `ApiResponse<T>` | — | Lo desarma `apps/web/src/services/shared/apiClient.ts`. |
 

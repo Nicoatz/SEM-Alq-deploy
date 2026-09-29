@@ -5,9 +5,11 @@
  * `docs/MapaDePantallas.pdf` ("Menú canónico"). Mi perfil y Notificaciones
  * NO van acá: viven en el UserMenu del header (ver `(app)/panel/layout.tsx`).
  *
- * NOTA: el panel del locatario no es del Sprint 1. Una cuenta locataria (o
- * Sofía, al cambiar de contexto) ve solo "Mi panel", con un placeholder —
- * su menú de 8 ítems llega con su sprint.
+ * NOTA: el panel completo del locatario no es del Sprint 1. Una cuenta
+ * locataria (o Sofía, al cambiar de contexto) ve solo "Mi panel", con la
+ * versión mínima (buscar o publicar, `PanelLocatario`) — su menú de 8 ítems
+ * llega con su sprint. No tiene "Propiedades": Mis propiedades es solo para
+ * locadores (se gana al publicar la primera).
  *
  * Quién lo usa: `(app)/panel/layout.tsx`, para armar los ítems del `AppShell`.
  */

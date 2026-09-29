@@ -15,6 +15,7 @@
 import { AuthLayout } from '@rentar/ui/src/components/layouts/AuthLayout'
 import { LoginForm } from '@/components/auth/LoginForm'
 import { safeNextPath } from '@/lib/auth/redirect'
+import { haySesionProbable } from '@/lib/auth/sesion-probable'
 
 interface LoginPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
@@ -22,9 +23,11 @@ interface LoginPageProps {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { next, email } = await searchParams
+  // Pista para no mostrar el formulario un instante si ya hay sesión (ver `sesion-probable.ts`).
+  const sesionProbable = await haySesionProbable()
   return (
     <AuthLayout title="Iniciar sesión" subtitle="Entrá a tu cuenta de RentAR" data-testid="login-page">
-      <LoginForm next={safeNextPath(next)} initialEmail={typeof email === 'string' ? email : undefined} />
+      <LoginForm next={safeNextPath(next)} initialEmail={typeof email === 'string' ? email : undefined} sesionProbable={sesionProbable} />
     </AuthLayout>
   )
 }

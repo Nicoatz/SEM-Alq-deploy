@@ -6,6 +6,7 @@
  */
 import { Button } from 'antd'
 import type { FilterState } from '@rentar/shared-types'
+import type { OpcionBarrio } from '@/lib/catalogs/neighborhoods'
 import ProcessLoopMotif from './ProcessLoopMotif'
 import SearchBar from './SearchBar'
 import styles from './Hero.module.css'
@@ -18,6 +19,8 @@ interface HeroProps {
   onChange: (filters: FilterState) => void
   /** Cantidad de propiedades que matchean los filtros actuales. */
   resultCount: number
+  /** Opciones del filtro de zona (ver `SearchBar`); por defecto, el catálogo. */
+  neighborhoodOptions?: readonly OpcionBarrio[]
 }
 
 /**
@@ -26,7 +29,7 @@ interface HeroProps {
  * que se superpone al borde inferior del hero con margen negativo para leerse
  * como una sola pieza con la sección siguiente.
  */
-export default function Hero({ filters, onChange, resultCount }: HeroProps) {
+export default function Hero({ filters, onChange, resultCount, neighborhoodOptions }: HeroProps) {
   return (
     <section id="inicio" className={styles.section}>
       <div className={styles.inner}>
@@ -58,7 +61,7 @@ export default function Hero({ filters, onChange, resultCount }: HeroProps) {
       </div>
 
       <div className={styles.searchWrap}>
-        <SearchBar filters={filters} onChange={onChange} resultCount={resultCount} />
+        <SearchBar filters={filters} onChange={onChange} resultCount={resultCount} neighborhoodOptions={neighborhoodOptions} />
       </div>
     </section>
   )

@@ -11,7 +11,7 @@ export class MisAlquileresController {
     try {
       // El ID del locador proviene del contexto de autenticación inyectado por el API Gateway
       const user = (req as any).user;
-      const locadorId = user?.id || parseInt(req.header('x-user-id') || '1', 10);
+      const locadorId = user.id;
 
       const propiedades = await inmuebleService.getMisInmueblesPublicados(locadorId);
 

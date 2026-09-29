@@ -7,12 +7,15 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx tests/api/mis-alquileres.test.ts"
+    "test": "tsx tests/api/us01-registrar-propiedades.test.ts"
   },
   "dependencies": {
     "@rentar/shared-types": "*",
+    "@supabase/supabase-js": "^2.117.1",
     "cors": "^2.8.5",
+    "dotenv": "^18.0.3",
     "express": "^4.19.2",
+    "jose": "^6.2.12",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },

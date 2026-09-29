@@ -30,7 +30,6 @@ de la cátedra Seminario Integrador (Ingeniería en Sistemas de Información, UT
 │   ├── shared-types/       # Modelos del back + tipos de vista del front (ver su README)
 │   └── ui/                 # @rentar/ui: tema de antd y componentes (design system)
 ├── supabase/               # migrations/ y seed.sql
-├── tests/api/              # Tests de la API (tsx)
 ├── docs/                   # PRODUCT.md, DESIGN.md, MapaDePantallas.pdf, HANDOFF-BACKEND.md, api-endpoints.md
 ├── Documentación/          # Documentación académica: Estudio Inicial, Sprint 0, US, planes (md y pdf)
 ├── .design-sync/           # Configuración y notas de /design-sync (ver NOTES.md)
@@ -62,11 +61,12 @@ npm run dev:api      # apps/api en http://localhost:3000
 npm run build        # build de todos los workspaces
 npm run lint         # eslint de apps/web
 npm run typecheck    # tsc --noEmit en shared-types, ui y web
-npx tsx tests/api/mis-alquileres.test.ts   # tests de la API (ver la NOTA de abajo)
 ```
 
-NOTA: `npm test` falla en `develop` porque el script de `apps/api` busca el test en
-`apps/api/tests/`. Está anotado para backend en `docs/HANDOFF-BACKEND.md` §8.
+NOTA: `npm run build` de la raíz falla en `apps/api` (`publicacion.service.ts` no compila) y el
+test de la API (`apps/api/tests/api/`) todavía manda `x-user-id` y escribe en la base: no correrlo.
+Los dos están anotados para backend en `docs/HANDOFF-BACKEND.md` §10. Para el front alcanza con
+`npm run typecheck`, `npm run lint` y `npm run build --workspace=@rentar/web`.
 
 ## Convenciones de código
 
@@ -82,7 +82,7 @@ Next.js ni Ant Design.
 - **Marcas para buscar con grep**, siempre con explicación: `TODO(backend):` (falta algo en la API),
   `TODO(db):` (falta algo en la base) y `NOTA:` (una decisión que no es obvia).
 - **User Stories:** siempre con la numeración del Sprint 0. Si algo no tiene US en el Sprint 0:
-  "sin US en Sprint 0 (mapa US-xx)". Tabla de equivalencias en `docs/HANDOFF-BACKEND.md` §6.
+  "sin US en Sprint 0 (mapa US-xx)". Tabla de equivalencias en `docs/HANDOFF-BACKEND.md` §11.
 - **Componentes:** `Componente.tsx` + `Componente.module.css`. Props con una interfaz explícita.
 - **Usar primero `@rentar/ui`.** Si algo parecido existe, extenderlo o componerlo. Los cambios en
   `@rentar/ui` se consultan antes con el PO y se anotan en `.design-sync/NOTES.md`.
@@ -101,17 +101,66 @@ importa mocks ni llama a `fetch` directo.
 
 - **Flag de mocks:** `NEXT_PUBLIC_USE_MOCKS` (por defecto `true`, ver `apps/web/.env.example`).
   Cada función de un service tiene dos ramas: la mock (datos del elenco) y la real (la API). Pasar a
-  la API es poner `NEXT_PUBLIC_USE_MOCKS=false` en `apps/web/.env.local` y reiniciar `dev:web`.
+  la API: en `apps/web/.env.local`, `NEXT_PUBLIC_USE_MOCKS=false` más las dos variables de Supabase
+  (sección "Sesión"), y reiniciar `dev:web`.
 - **Cliente HTTP único:** `services/shared/apiClient.ts`. Arma la URL con `NEXT_PUBLIC_API_URL`
-  (por defecto `http://localhost:3000/api/v1`), manda el header `x-user-id`, desarma el sobre
+  (por defecto `http://localhost:3000/api/v1`), manda `Authorization: Bearer <token de Supabase>`
+  (salvo `auth: false`, solo para el registro), usa `cache: 'no-store'`, desarma el sobre
   `{ success, message?, data?, error? }` y convierte cada status HTTP en un `ServiceError` con código.
 - **Adaptadores:** `services/adapters/`. Traducen cada DTO del back al tipo de vista que usa la
-  pantalla, campo por campo, con lo que falta marcado como `TODO(backend)`.
+  pantalla, campo por campo, con lo que falta marcado como `TODO(backend)` o `TODO(db)`. Un dato
+  que el back no manda se muestra vacío, **nunca inventado**.
 - **Cada función de service** lleva la US que cubre y un bloque `@backend` con método, ruta y
   estado: `(existe)`, `(en curso en <rama>)` o `(no existe — propuesto)`.
-- Paso a paso para conectar un endpoint, brechas contra la API actual y status HTTP que espera el
-  front: [`docs/HANDOFF-BACKEND.md`](docs/HANDOFF-BACKEND.md). Lista de endpoints:
+- Paso a paso para conectar un endpoint, estado de cada endpoint, brechas por US y status HTTP que
+  espera el front: [`docs/HANDOFF-BACKEND.md`](docs/HANDOFF-BACKEND.md). Lista de endpoints:
   [`docs/api-endpoints.md`](docs/api-endpoints.md).
+
+## Sesión (Supabase Auth)
+
+- **Modo real:** la sesión es la de **Supabase Auth**. El back no tiene rutas de login ni logout:
+  `auth.service` usa `supabase.auth.signInWithPassword` / `signOut`, y después pide el perfil y los
+  roles a `GET /api/v1/usuarios/me`. Si `/me` falla, se cierra la sesión y se muestra el error: los
+  roles nunca se deducen de otro lado. `x-user-id` ya no existe.
+- **Clientes de Supabase** (`@supabase/ssr`, en `apps/web/src/lib/auth/supabase/`): `client.ts`
+  (navegador, singleton; lo usan `AuthProvider`, `auth.service` y `apiClient`), `server.ts` (Server
+  Components, hoy sin uso) y `proxy.ts` (`updateSession`, con `getClaims()`). La sesión vive en
+  cookies `sb-*`, no en `localStorage`, para que el proxy la lea del lado del servidor.
+- **`src/proxy.ts`** protege `/panel/*`: en modo real verifica y renueva la sesión de Supabase; en
+  modo mock alcanza con la cookie `rentar_session`. Sin sesión, manda a `/login?next=<ruta>`.
+- **Token:** dura 1 hora y Supabase lo renueva solo. El `apiClient` pide la sesión vigente antes de
+  cada request; no se guarda aparte. Un 401 se muestra como "Tu sesión venció".
+- **`AuthProvider`** (`lib/auth/`): usuario y rol activo. En modo real hidrata desde la sesión de
+  Supabase, escucha `SIGNED_OUT`, relee la sesión en cada cambio de ruta y hace `router.refresh()`
+  cuando la sesión cambia (el caché de rutas de Next guarda los redirects del proxy). El logout
+  termina con una recarga completa en la landing. La cookie `rentar_session` guarda solo el rol activo.
+- **Header público con sesión** (`components/PublicHeader.tsx`): "Ir a mi panel" y el UserMenu con
+  el rol activo; "Cerrar sesión" ahí usa `logout({ quedarse: true })` (sin recargar). Para que no
+  parpadee, el layout público y `/login`/`/registro` leen si llega una cookie de sesión, sin
+  validarla (`lib/auth/sesion-probable.ts`): con cookie, placeholder mientras carga. Eso hace
+  dinámicas las páginas públicas. Con sesión, `/login` y `/registro` llevan a `/panel`.
+- **El front nunca consulta tablas con `supabase-js`.** RLS está activo y sin políticas: todo dato
+  pasa por `apps/api`. Supabase se usa solo para Auth (y, cuando exista el bucket
+  `fotos-propiedades`, para subir fotos a Storage).
+- **Variables** (`apps/web/.env.local`): `NEXT_PUBLIC_SUPABASE_URL` y
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (la clave **publicable**). La `SUPABASE_SECRET_KEY` nunca va
+  en `apps/web`: es solo de `apps/api`.
+- **Modo mock:** sin Supabase ni API. La sesión es la cookie `rentar_session` con `{ userId,
+  activeRole }` y dura 30 días (no hay "Recordarme").
+
+## Roles (regla del equipo, 27/09/2026)
+
+- **Todos se registran como locatarios.** El registro no pregunta el rol.
+- **Cualquier usuario con sesión puede publicar** (`/panel/propiedades/nueva` solo pide sesión). Mis
+  propiedades (`/panel/propiedades`) sigue siendo solo para locadores (`RequireRole` en la página).
+- **Al publicar la primera propiedad, el back lo pasa a locador.** Locador abarca a locatario:
+  `/usuarios/me` devuelve `["locador", "locatario"]`. El front relee los roles después del 201
+  (`useAuth().refrescarUsuario('locador')`) sin cerrar sesión; en modo mock, la cuenta se guarda
+  con los dos roles en `rentar:mock:usuarios`.
+- **"Publicar propiedad"** va en el encabezado del panel para cualquier rol
+  (`AppShell#headerAction`); en móvil, primero en el menú hamburguesa y en la hoja del UserMenu.
+- El selector "Viendo como" (`RoleContextSwitcher`) no cambió: aparece cuando la cuenta tiene dos roles.
+- Lo que falta en el back (en curso, Thiago): `docs/HANDOFF-BACKEND.md` §2 y §7 (US-01).
 
 ## Datos de prueba (modo mock)
 
@@ -128,7 +177,7 @@ importa mocks ni llama a `fetch` directo.
 
 Las acciones clave de cada pantalla llevan `data-testid` con la forma
 `<pantalla>-<elemento>[-<acción>]` (ej. `login-submit-button`, `mis-propiedades-tab-alquilada`,
-`alta-precio`). Tabla por pantalla en `docs/HANDOFF-BACKEND.md` §7. Toda acción nueva suma su
+`alta-precio`). Tabla por pantalla en `docs/HANDOFF-BACKEND.md` §12. Toda acción nueva suma su
 `data-testid` siguiendo el mismo patrón.
 
 ## Design system y `/design-sync`

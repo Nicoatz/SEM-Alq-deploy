@@ -19,11 +19,12 @@ const options: swaggerJsdoc.Options = {
     ],
     components: {
       securitySchemes: {
-        UserIdHeader: {
-          type: 'apiKey',
+        SupabaseBearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
           in: 'header',
-          name: 'x-user-id',
-          description: 'Identificador del usuario autenticado (ej. 1 para Carlos Locador)'
+          description: 'JWT de acceso emitido por Supabase Auth'
         }
       }
     }

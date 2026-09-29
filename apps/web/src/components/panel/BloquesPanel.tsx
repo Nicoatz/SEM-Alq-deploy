@@ -18,6 +18,7 @@ import { formatARS } from '@rentar/ui/src/utils/formatARS'
 import { formatDate } from '@rentar/ui/src/utils/formatDate'
 import { INDICE_INFO, periodicidad } from '@/lib/catalogs/propiedad'
 import { diasDesde, diasHasta, textoDias, textoEnDias, textoHaceDias } from '@/lib/utils/fechas'
+import { USE_MOCKS } from '@/services/shared/config'
 import styles from './Panel.module.css'
 
 /** Formato corto de las filas: "05/09". */
@@ -103,7 +104,12 @@ function detalleCobro(cobro: CobroPanel): string {
  */
 export function ProximosCobros({ resumen }: { resumen: ResumenCobros }) {
   if (resumen.items.length === 0) {
-    return <p className={styles.blockEmpty}>No tenés cobros este mes: todavía no hay propiedades alquiladas.</p>
+    // NOTA: con el back real el módulo de cobros todavía no existe (el
+    // service devuelve vacío, ver `panel.service.ts#getResumenCobros`): no se
+    // puede decir que "no hay propiedades alquiladas". En modo mock el texto
+    // queda como estaba.
+    const texto = USE_MOCKS ? 'No tenés cobros este mes: todavía no hay propiedades alquiladas.' : 'Todavía no hay cobros registrados.'
+    return <p className={styles.blockEmpty}>{texto}</p>
   }
   return (
     <ul className={styles.rows}>

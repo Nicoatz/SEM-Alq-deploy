@@ -10,7 +10,7 @@
 import { Card, Col, InputNumber, Row, Select, Slider, Tag } from 'antd'
 import type { FilterState } from '@rentar/shared-types'
 import { characteristicOptions } from '@/lib/catalogs/characteristics'
-import { neighborhoods } from '@/lib/catalogs/neighborhoods'
+import { neighborhoods, type OpcionBarrio } from '@/lib/catalogs/neighborhoods'
 import { formatMonthlyPrice } from '@/lib/utils/format'
 import styles from './SearchBar.module.css'
 
@@ -34,6 +34,12 @@ interface SearchBarProps {
   onChange: (filters: FilterState) => void
   /** Cantidad de propiedades que matchean los filtros actuales (se anuncia con `role="status"`). */
   resultCount: number
+  /**
+   * Opciones del filtro de zona. Por defecto, el catálogo del piloto; la
+   * landing le pasa el catálogo más los barrios de los datos reales
+   * (`barriosConDatos`).
+   */
+  neighborhoodOptions?: readonly OpcionBarrio[]
 }
 
 /**
@@ -42,7 +48,7 @@ interface SearchBarProps {
  * (chips multi-select). Es controlado en su totalidad por `filters`/`onChange`
  * desde `Landing`, no tiene estado propio.
  */
-export default function SearchBar({ filters, onChange, resultCount }: SearchBarProps) {
+export default function SearchBar({ filters, onChange, resultCount, neighborhoodOptions = neighborhoods }: SearchBarProps) {
   return (
     <Card id="buscar" className={styles.card}>
       <div className={styles.priceRowsWrap}>
@@ -59,7 +65,7 @@ export default function SearchBar({ filters, onChange, resultCount }: SearchBarP
               data-testid="search-neighborhood-select"
               options={[
                 { value: 'todos', label: 'Todos los barrios' },
-                ...neighborhoods.map((n) => ({ value: n.slug, label: n.name })),
+                ...neighborhoodOptions.map((n) => ({ value: n.slug, label: n.name })),
               ]}
             />
           </Col>

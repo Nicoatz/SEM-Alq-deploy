@@ -1,0 +1,15 @@
+SELECT setval(pg_get_serial_sequence('rol', 'id'), coalesce(max(id), 1)) FROM rol;
+SELECT setval(pg_get_serial_sequence('tipo_inmueble', 'id'), coalesce(max(id), 1)) FROM tipo_inmueble;
+SELECT setval(pg_get_serial_sequence('tags_inmueble', 'id'), coalesce(max(id), 1)) FROM tags_inmueble;
+SELECT setval(pg_get_serial_sequence('servicio', 'id'), coalesce(max(id), 1)) FROM servicio;
+SELECT setval(pg_get_serial_sequence('tipo_indice', 'id'), coalesce(max(id), 1)) FROM tipo_indice;
+SELECT setval(pg_get_serial_sequence('estado_contrato', 'id'), coalesce(max(id), 1)) FROM estado_contrato;
+SELECT setval(pg_get_serial_sequence('medio_pago', 'id'), coalesce(max(id), 1)) FROM medio_pago;
+SELECT setval(pg_get_serial_sequence('tipo_firmante', 'id'), coalesce(max(id), 1)) FROM tipo_firmante;
+SELECT setval(pg_get_serial_sequence('usuario', 'id'), coalesce(max(id), 1)) FROM usuario;
+SELECT setval(pg_get_serial_sequence('inmueble', 'id'), coalesce(max(id), 1)) FROM inmueble;
+SELECT setval(pg_get_serial_sequence('inmueble_x_tag', 'id'), coalesce(max(id), 1)) FROM inmueble_x_tag;
+SELECT setval(pg_get_serial_sequence('contrato', 'id'), coalesce(max(id), 1)) FROM contrato;
+SELECT setval(pg_get_serial_sequence('foto_inmueble', 'id'), coalesce(max(id), 1)) FROM foto_inmueble;
+SELECT setval(pg_get_serial_sequence('medio_pago_x_contrato', 'id'), coalesce(max(id), 1)) FROM medio_pago_x_contrato;
+SELECT setval(pg_get_serial_sequence('contrato_x_usuario', 'id'), coalesce(max(id), 1)) FROM contrato_x_usuario;

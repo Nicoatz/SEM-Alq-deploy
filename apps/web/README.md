@@ -16,16 +16,34 @@ npm run dev:web      # http://localhost:3001
 ```
 
 La API (`npm run dev:api`) usa el puerto 3000. Por defecto la web **no la necesita**: corre con datos
-de prueba. Para usar la API real, crear `apps/web/.env.local` a partir de `.env.example` con
-`NEXT_PUBLIC_USE_MOCKS=false` y reiniciar (ver `docs/HANDOFF-BACKEND.md` §3).
+de prueba (modo mock).
 
-Cuentas de prueba (contraseña `Rentar2026`):
+### Pasar de modo mock a modo real
+
+1. Copiar `apps/web/.env.example` a `apps/web/.env.local` (no se commitea) y completar:
+
+   | Variable | Para qué |
+   |---|---|
+   | `NEXT_PUBLIC_USE_MOCKS` | `false` = la API real; `true` (por defecto) = datos de prueba. |
+   | `NEXT_PUBLIC_API_URL` | URL de la API, por defecto `http://localhost:3000/api/v1`. |
+   | `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto de Supabase (la sesión es de Supabase Auth). |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Clave **publicable** (`sb_publishable_…`). Nunca la secreta: esa es solo de `apps/api`. |
+
+2. Levantar la API (`npm run dev:api`, con su `apps/api/.env`) y **reiniciar** `npm run dev:web`:
+   Next lee las `NEXT_PUBLIC_*` al arrancar.
+3. Entrar con una cuenta que esté en Supabase Auth y en la tabla `usuario` (por ejemplo, el locador
+   de prueba `locador@rentar.com`; la contraseña la tiene el equipo).
+
+Cómo funciona la sesión real: `CLAUDE.md`, sección "Sesión (Supabase Auth)". Estado de cada
+endpoint y brechas: `docs/HANDOFF-BACKEND.md`.
+
+Cuentas de prueba del modo mock (contraseña `Rentar2026`):
 
 | Email | Roles | Para probar |
 |---|---|---|
 | `nicolas.arrieta@rentar.test` | locador | Panel con datos, Mis propiedades (7), alta |
 | `sofia.ledesma@rentar.test` | locador y locatario | Cambio de rol ("Viendo como") |
-| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/buscar`) |
+| `julieta.peralta@rentar.test` | locatario | Login de locatario (va a `/panel`, la versión mínima: buscar o publicar) |
 
 Un locador recién registrado en `/registro` ve el panel vacío (onboarding). Lo creado se guarda en
 el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo borra.
@@ -37,8 +55,8 @@ el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo bo
 | `/` | Landing | — | `app/(public)/page.tsx` → `components/Landing.tsx` |
 | `/buscar` | Búsqueda de propiedades | US-34 | `app/(public)/buscar/` → `components/buscar/` |
 | `/login` | Iniciar sesión | US-39 | `app/(auth)/login/` → `components/auth/LoginForm.tsx` |
-| `/registro` | Registro en 2 pasos | US-19 | `app/(auth)/registro/` → `components/auth/RegistroForm.tsx` |
-| `/panel` | Inicio del locador (o placeholder del locatario) | sin US en Sprint 0 | `app/(app)/panel/page.tsx` → `components/panel/` |
+| `/registro` | Registro en un paso (sin rol) | US-19 | `app/(auth)/registro/` → `components/auth/RegistroForm.tsx` |
+| `/panel` | Inicio del locador (o el mínimo del locatario: buscar o publicar) | sin US en Sprint 0 | `app/(app)/panel/page.tsx` → `components/panel/` |
 | `/panel/propiedades` | Mis propiedades | US-02 | `components/mis-propiedades/` |
 | `/panel/propiedades/nueva` | Alta de propiedad en 5 pasos | US-01 | `components/alta/` |
 | `/design-system` | Catálogo vivo de `@rentar/ui` (solo desarrollo) | — | `components/DesignSystem.tsx` |
@@ -55,7 +73,10 @@ ningún botón del Sprint 1 quede roto. Se reemplazan ruta por ruta cuando llega
 | `/panel/perfil`, `/panel/notificaciones` | UserMenu | US-20/21, US-22/23 |
 
 `proxy.ts` protege `/panel/*`: sin sesión manda a `/login?next=…` y, después del login, vuelve ahí
-(US-39). `/panel/propiedades/*` además exige el rol locador (`propiedades/layout.tsx`).
+(US-39). En modo real verifica y renueva la sesión de Supabase; en modo mock, la cookie
+`rentar_session`. Mis propiedades (`/panel/propiedades` y `/panel/propiedades/[id]`) además exige
+el rol locador (`RequireRole` en cada página). El alta (`/panel/propiedades/nueva`) está abierta
+para cualquier usuario con sesión: al publicar la primera propiedad, la cuenta pasa a ser locadora.
 
 ## Estructura de `src/`
 
@@ -65,14 +86,15 @@ ningún botón del Sprint 1 quede roto. Se reemplazan ruta por ruta cuando llega
 | `components/` | Pantallas y sus piezas, una carpeta por pantalla (`auth/`, `buscar/`, `panel/`, `mis-propiedades/`, `alta/`) más la landing. |
 | `services/` | **La única frontera con el backend.** Ver `services/README.md`. |
 | `lib/mocks/` | El elenco de datos de prueba. Solo lo usan los services. Ver su `README.md`. |
-| `lib/auth/` | Sesión: `AuthProvider`, cookie, redirección después del login. |
+| `lib/auth/` | Sesión: `AuthProvider`, cookie `rentar_session`, redirección después del login y `supabase/` (clientes de Supabase de navegador, servidor y proxy). |
+| `lib/imagenes/` | `useFotoConRespaldo`: si una foto no carga, el placeholder. |
 | `lib/validation/` | Reglas de los formularios (`usuario.rules.ts`, `propiedad.rules.ts`), comentadas con el criterio de US que cubren. |
 | `lib/search/`, `lib/mis-propiedades/` | Filtros, orden y paginación (funciones puras) de `/buscar` y de Mis propiedades. |
 | `lib/catalogs/` | Textos fijos: barrios, características, tipos, índices, medios de pago. |
 | `lib/hooks/useServiceCall.ts` | Carga de un bloque de datos con sus estados (cargando, error, listo). |
 | `lib/utils/fechas.ts` | "Hoy" (fijo en 23/09/2026 en modo mock) y textos de días. |
 | `lib/navigation/navConfig.tsx` | Menú lateral del panel por rol. |
-| `proxy.ts` | Protección de `/panel/*`. |
+| `proxy.ts` | Protección de `/panel/*` (mock: cookie; real: sesión de Supabase). |
 
 ## Comandos del workspace
 

@@ -29,7 +29,7 @@ import type {
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock } from '@/lib/mocks'
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
-import { apiRequest } from './shared/apiClient'
+import { listarMisPropiedades } from './propiedades.service'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { readMockCollection } from './shared/mockStore'
@@ -83,6 +83,8 @@ function cobrosDe(ownerId: string): CobroPanel[] {
  * "Próximos cobros".
  * @backend GET /api/v1/panel/cobros   (no existe — propuesto) → ResumenCobros
  * TODO(backend): crear la ruta cuando exista el módulo de cobros (US-08/US-09).
+ * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
+ * existe: así el panel muestra su estado vacío y no un error.
  */
 export async function getResumenCobros(): Promise<ResumenCobros> {
   if (USE_MOCKS) {
@@ -99,7 +101,8 @@ export async function getResumenCobros(): Promise<ResumenCobros> {
       items,
     }
   }
-  return apiRequest<ResumenCobros>('/panel/cobros')
+  // TODO(backend): cuando exista la ruta: return apiRequest<ResumenCobros>('/panel/cobros')
+  return { month: hoy().format('YYYY-MM'), collected: 0, total: 0, overdueAmount: 0, overdueCount: 0, items: [] }
 }
 
 /**
@@ -107,6 +110,8 @@ export async function getResumenCobros(): Promise<ResumenCobros> {
  * responder y los más recientes.
  * @backend GET /api/v1/panel/reclamos   (no existe — propuesto) → ResumenReclamos
  * TODO(backend): crear la ruta cuando exista el módulo de reclamos (US-14 a US-18).
+ * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
+ * existe: así el panel muestra su estado vacío y no un error.
  */
 export async function getResumenReclamos(): Promise<ResumenReclamos> {
   if (USE_MOCKS) {
@@ -134,7 +139,8 @@ export async function getResumenReclamos(): Promise<ResumenReclamos> {
       recent: [...todos].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECLAMOS_RECIENTES),
     }
   }
-  return apiRequest<ResumenReclamos>('/panel/reclamos')
+  // TODO(backend): cuando exista la ruta: return apiRequest<ResumenReclamos>('/panel/reclamos')
+  return { open: 0, unanswered: 0, recent: [] }
 }
 
 /**
@@ -143,6 +149,8 @@ export async function getResumenReclamos(): Promise<ResumenReclamos> {
  * evento más cercano (regla del diseño).
  * @backend GET /api/v1/panel/contratos?dias=60   (no existe — propuesto) → EventoContratoPanel[]
  * TODO(backend): crear la ruta cuando exista el módulo de contratos (US-05 a US-07).
+ * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
+ * existe: así el panel muestra su estado vacío y no un error.
  */
 export async function getEventosContratos(): Promise<EventoContratoPanel[]> {
   if (USE_MOCKS) {
@@ -185,7 +193,9 @@ export async function getEventosContratos(): Promise<EventoContratoPanel[]> {
     }
     return eventos.sort((a, b) => a.date.localeCompare(b.date))
   }
-  return apiRequest<EventoContratoPanel[]>('/panel/contratos', { query: { dias: DIAS_EVENTOS_CONTRATO } })
+  // TODO(backend): cuando exista la ruta:
+  // return apiRequest<EventoContratoPanel[]>('/panel/contratos', { query: { dias: DIAS_EVENTOS_CONTRATO } })
+  return []
 }
 
 /**
@@ -193,6 +203,8 @@ export async function getEventosContratos(): Promise<EventoContratoPanel[]> {
  * sesión (las "cosas para resolver" del saludo).
  * @backend GET /api/v1/solicitudes?estado=pendiente   (no existe — propuesto, US-36) → SolicitudPanel[]
  * TODO(backend): crear la ruta con el módulo de solicitudes (US-35 a US-38).
+ * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
+ * existe: así el panel muestra su estado vacío y no un error.
  */
 export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
   if (USE_MOCKS) {
@@ -212,7 +224,9 @@ export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
       })
       .filter((solicitud): solicitud is SolicitudPanel => solicitud !== null)
   }
-  return apiRequest<SolicitudPanel[]>('/solicitudes', { query: { estado: 'pendiente' } })
+  // TODO(backend): cuando exista la ruta:
+  // return apiRequest<SolicitudPanel[]>('/solicitudes', { query: { estado: 'pendiente' } })
+  return []
 }
 
 // ─── "Viendo como" (Cambio de rol · 04) ─────────────────────────────────
@@ -227,7 +241,10 @@ function contarTexto(cantidad: number, singular: string, plural: string): string
  * qué tiene en cada rol y cuántas cosas pendientes (el contador rojo que se
  * ve cuando ese rol no es el activo).
  * @backend GET /api/v1/usuarios/me/contextos   (no existe — propuesto) → ResumenContextoRol[]
- * TODO(backend): crear la ruta junto con el login (US-39).
+ * TODO(backend): crear la ruta. Mientras tanto, en modo real se arma acá:
+ * la cantidad de propiedades sale del `/mis-alquileres` real
+ * (`listarMisPropiedades`); cobros vencidos y contratos del locatario no
+ * existen todavía, así que no se cuentan.
  */
 export async function getResumenRoles(roles: UserRole[]): Promise<ResumenContextoRol[]> {
   if (USE_MOCKS) {
@@ -250,5 +267,13 @@ export async function getResumenRoles(roles: UserRole[]): Promise<ResumenContext
     }
     return resumen
   }
-  return apiRequest<ResumenContextoRol[]>('/usuarios/me/contextos')
+  const resumen: ResumenContextoRol[] = []
+  if (roles.includes('locador')) {
+    const propias = await listarMisPropiedades()
+    resumen.push({ role: 'locador', description: contarTexto(propias.length, 'propiedad', 'propiedades'), pendingCount: 0 })
+  }
+  if (roles.includes('locatario')) {
+    resumen.push({ role: 'locatario', description: 'Sin contratos todavía', pendingCount: 0 })
+  }
+  return resumen
 }

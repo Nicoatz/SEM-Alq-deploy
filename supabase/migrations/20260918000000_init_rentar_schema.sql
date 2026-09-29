@@ -1,44 +1,19 @@
--- =============================================================================
--- RentAR - Esquema Inicial de Base de Datos
--- Migración: 20260918000000_init_rentar_schema.sql
--- =============================================================================
 
--- 1. Tabla de Tipos de Inmueble (Departamento, Casa, PH, etc.)
-CREATE TABLE IF NOT EXISTS tipo_inmueble (
-    id SERIAL PRIMARY KEY,
-    descripcion VARCHAR(255) NOT NULL
-);
-
--- 2. Tabla de Tag de Inmueble (tag individual por registro)
-CREATE TABLE IF NOT EXISTS tag_inmueble (
-    id SERIAL PRIMARY KEY,
-    descripcion VARCHAR(255) NOT NULL
-);
-
--- 3. Tabla de Servicio (servicio individual por registro: Luz, Gas natural, Agua, Internet, etc.)
-CREATE TABLE IF NOT EXISTS servicio (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(255) NOT NULL,
-    descripcion VARCHAR(255)
-);
-
--- 4. Tabla de Roles (locador, locatario, administrador)
 CREATE TABLE IF NOT EXISTS rol (
     id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL UNIQUE,
-    descripcion VARCHAR(255)
+    descripcion VARCHAR(100) NOT NULL UNIQUE
 );
 
--- 5. Tabla de Usuarios
 CREATE TABLE IF NOT EXISTS usuario (
     id SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
+    apellido VARCHAR(100),
     email VARCHAR(255) NOT NULL UNIQUE,
+    contrasena VARCHAR(255),
     telefono VARCHAR(50),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    fecha_nacimiento VARCHAR(50)
 );
 
--- 6. Tabla de Relación Usuario por Rol
 CREATE TABLE IF NOT EXISTS usuario_x_rol (
     id SERIAL PRIMARY KEY,
     id_usuario INT NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
@@ -46,56 +21,118 @@ CREATE TABLE IF NOT EXISTS usuario_x_rol (
     UNIQUE(id_usuario, id_rol)
 );
 
--- 7. Tabla Inmueble (id autogenerado)
+CREATE TABLE IF NOT EXISTS tipo_inmueble (
+    id SERIAL PRIMARY KEY,
+    descripcion VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS tags_inmueble (
+    id SERIAL PRIMARY KEY,
+    descripcion VARCHAR(100) NOT NULL UNIQUE,
+    estado BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS servicio (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL,
+    descripcion VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS tipo_indice (
+    id SERIAL PRIMARY KEY,
+    descripcion VARCHAR(100) NOT NULL,
+    valor NUMERIC(6, 2)
+);
+
+CREATE TABLE IF NOT EXISTS estado_contrato (
+    id SERIAL PRIMARY KEY,
+    descripcion VARCHAR(100) NOT NULL,
+    valor BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS medio_pago (
+    id SERIAL PRIMARY KEY,
+    nombre VARCHAR(100) NOT NULL UNIQUE,
+    descripcion VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS tipo_firmante (
+    id SERIAL PRIMARY KEY,
+    descripcion VARCHAR(100) NOT NULL UNIQUE
+);
+
 CREATE TABLE IF NOT EXISTS inmueble (
     id SERIAL PRIMARY KEY,
+    id_locador INT NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
     tipo INT NOT NULL REFERENCES tipo_inmueble(id),
+    descripcion VARCHAR(500),
+    provincia VARCHAR(100) NOT NULL,
+    ciudad VARCHAR(100) NOT NULL,
+    barrio VARCHAR(100) NOT NULL,
     direccion VARCHAR(255) NOT NULL,
     numero INT NOT NULL,
     piso VARCHAR(50),
-    ciudad VARCHAR(100) NOT NULL,
-    ambientes INT NOT NULL DEFAULT 1,
-    dormitorios INT NOT NULL DEFAULT 0,
-    banos INT NOT NULL DEFAULT 1,
-    m2 INT NOT NULL,
-    descripcion VARCHAR(500),
-    tags INT REFERENCES tag_inmueble(id),
-    id_locador INT NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
-    servicios INT REFERENCES servicio(id),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    m2_totales INT NOT NULL,
+    m2_cubiertos INT NOT NULL,
+    ambientes INT NOT NULL,
+    dormitorios INT NOT NULL,
+    banos INT NOT NULL,
+    antiguedad INT,
+    precio_publicado NUMERIC(12, 2) NOT NULL,
+    estado_alquiler VARCHAR(50) NOT NULL DEFAULT 'publicado',
+    fecha_disponible DATE,
+    servicios INT REFERENCES servicio(id)
 );
 
--- 8. Tabla Contrato
-CREATE TABLE IF NOT EXISTS contrato (
+CREATE TABLE IF NOT EXISTS inmueble_x_tag (
     id SERIAL PRIMARY KEY,
     id_inmueble INT NOT NULL REFERENCES inmueble(id) ON DELETE CASCADE,
-    fecha_inicio DATE,
-    fecha_fin DATE,
-    monto NUMERIC(12, 2) NOT NULL,
-    estado VARCHAR(50) NOT NULL DEFAULT 'disponible', -- 'disponible', 'vigente', 'finalizado', 'cancelado'
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    id_tag INT NOT NULL REFERENCES tags_inmueble(id) ON DELETE CASCADE,
+    UNIQUE(id_inmueble, id_tag)
 );
 
--- 9. Tabla Contrato por Usuario (relaciona contrato con usuarios como locador y locatario)
+CREATE TABLE IF NOT EXISTS foto_inmueble (
+    id SERIAL PRIMARY KEY,
+    id_inmueble INT NOT NULL REFERENCES inmueble(id) ON DELETE CASCADE,
+    url VARCHAR(500) NOT NULL,
+    es_principal BOOLEAN NOT NULL DEFAULT FALSE,
+    peso_kb INT NOT NULL,
+    formato VARCHAR(10) NOT NULL,
+    orden INT NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS contrato (
+    id SERIAL PRIMARY KEY,
+    id_inmueble INT NOT NULL REFERENCES inmueble(id) ON DELETE CASCADE UNIQUE,
+    monto_alquiler NUMERIC(12, 2) NOT NULL,
+    expensas NUMERIC(12, 2) NOT NULL,
+    indice_aumento INT REFERENCES tipo_indice(id),
+    frecuencia_ajuste VARCHAR(50),
+    duracion_meses INT,
+    deposito NUMERIC(12, 2),
+    interes_por_dia NUMERIC(6, 2),
+    dias_gracia INT,
+    fecha_inicio_contrato DATE,
+    fecha_fin_contrato DATE,
+    estado INT REFERENCES estado_contrato(id)
+);
+
+CREATE TABLE IF NOT EXISTS medio_pago_x_contrato (
+    id SERIAL PRIMARY KEY,
+    id_contrato INT NOT NULL REFERENCES contrato(id) ON DELETE CASCADE,
+    id_medio_pago INT NOT NULL REFERENCES medio_pago(id) ON DELETE CASCADE,
+    UNIQUE(id_contrato, id_medio_pago)
+);
+
 CREATE TABLE IF NOT EXISTS contrato_x_usuario (
     id SERIAL PRIMARY KEY,
     id_contrato INT NOT NULL REFERENCES contrato(id) ON DELETE CASCADE,
-    id_usuario INT NOT NULL REFERENCES usuario(id) ON DELETE CASCADE
+    id_usuario INT NOT NULL REFERENCES usuario(id) ON DELETE CASCADE,
+    tipo_firmante INT REFERENCES tipo_firmante(id)
 );
 
--- 10. Tabla Publicacion (requiere contrato asociado a nivel de negocio)
-CREATE TABLE IF NOT EXISTS publicacion (
-    id SERIAL PRIMARY KEY,
-    id_inmueble INT NOT NULL REFERENCES inmueble(id) ON DELETE CASCADE,
-    titulo VARCHAR(255) NOT NULL,
-    precio NUMERIC(12, 2) NOT NULL,
-    activa BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Índices para optimización de consultas
 CREATE INDEX IF NOT EXISTS idx_inmueble_locador ON inmueble(id_locador);
+CREATE INDEX IF NOT EXISTS idx_foto_inmueble ON foto_inmueble(id_inmueble);
+CREATE INDEX IF NOT EXISTS idx_inmueble_tag ON inmueble_x_tag(id_inmueble);
 CREATE INDEX IF NOT EXISTS idx_contrato_inmueble ON contrato(id_inmueble);
-CREATE INDEX IF NOT EXISTS idx_publicacion_inmueble ON publicacion(id_inmueble);
-CREATE INDEX IF NOT EXISTS idx_contrato_usuario_contrato ON contrato_x_usuario(id_contrato);
-CREATE INDEX IF NOT EXISTS idx_contrato_usuario_usuario ON contrato_x_usuario(id_usuario);
+CREATE INDEX IF NOT EXISTS idx_medio_pago_contrato ON medio_pago_x_contrato(id_contrato);

@@ -4,8 +4,10 @@
  * Qué es: la función que usa la rama real de cada service para hablar con
  * `apps/api`. Se encarga de tres cosas, para que ningún service las repita:
  * 1. Armar la URL: `API_BASE_URL` + ruta + query params.
- * 2. Identificar al usuario: el header `x-user-id` que hoy usa el back como
- *    "sesión" (ver `apps/api/src/gateway/middlewares/auth.middleware.ts`).
+ * 2. Identificar al usuario: `Authorization: Bearer <access_token>`, con el
+ *    token de la sesión de Supabase Auth. El back lo valida contra las
+ *    claves públicas del proyecto (JWKS) y resuelve el usuario por
+ *    `usuario.auth_user_id` (ver `apps/api/src/gateway/middlewares/auth.middleware.ts`).
  * 3. Desarmar el sobre de respuesta del back, `{ success, message?, data?, error? }`
  *    (`ApiResponse<T>` de `@rentar/shared-types`): devuelve `data` o tira un
  *    `ServiceError`.
@@ -17,8 +19,9 @@
  * - 400 / 422 → `validation`: un dato vino mal. El `error` del sobre se
  *   muestra tal cual arriba del formulario, así que tiene que estar en
  *   español y decir qué hacer.
- * - 401 → `unauthorized`: credenciales inválidas o sesión vencida. En el
- *   login se muestra el mensaje genérico de credenciales (US-39).
+ * - 401 → `unauthorized`: sin token, token vencido o inválido, o usuario
+ *   sin perfil. Se muestra "Tu sesión venció…" (US-39); el detalle técnico
+ *   del back no le sirve a quien usa la app.
  * - 403 → `forbidden`: hay sesión pero no el rol necesario.
  * - 404 → `not_found`: el recurso (o la RUTA) no existe. NOTA: nunca se
  *   interpreta como "credenciales incorrectas": un endpoint que todavía no
@@ -27,10 +30,10 @@
  * - 5xx → `server`; sin respuesta → `network`.
  */
 import type { ApiResponse } from '@rentar/shared-types'
-import { readSessionFromDocument } from '@/lib/auth/session-cookie'
-import { toBackendUserId } from '../adapters/usuario.adapter'
+import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { API_BASE_URL } from './config'
 import { errorCodeFromHttpStatus, ServiceError } from './errors'
+import { SESSION_EXPIRED_MESSAGE } from './session'
 
 /** Valor aceptado en un query param. Los arrays se mandan repetidos (`?tags=a&tags=b`). */
 export type QueryValue = string | number | boolean | string[] | undefined
@@ -42,6 +45,12 @@ export interface ApiRequestOptions {
   query?: Record<string, QueryValue>
   /** Cuerpo del request; se manda como JSON. */
   body?: unknown
+  /**
+   * `false` = no mandar el token aunque haya sesión. Solo para los endpoints
+   * públicos donde el token no tiene sentido (el registro, US-19).
+   * Por defecto `true`: si hay sesión, va el token.
+   */
+  auth?: boolean
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────
@@ -61,21 +70,33 @@ function buildUrl(path: string, query: ApiRequestOptions['query']): string {
 }
 
 /**
- * Headers del request. `x-user-id` sale de la cookie de sesión, traducido
- * por el adaptador (`toBackendUserId`) — este archivo no sabe nada de ids
- * del elenco.
+ * Token de acceso de la sesión de Supabase, o `null` si no hay sesión.
  *
- * NOTA: sin sesión no se manda `x-user-id`. OJO: hoy el back asume el
- * usuario 1 cuando falta el header (ver "Observaciones para backend" en
- * `docs/HANDOFF-BACKEND.md`).
+ * NOTA: se pide en CADA request y no se guarda aparte. El token dura 1 hora:
+ * `getSession()` devuelve el vigente y, si ya venció, primero lo renueva con
+ * el refresh token. Así nunca viaja un token vencido guardado en memoria.
+ * NOTA: en el servidor no hay sesión del navegador; hoy todos los services
+ * se llaman desde el navegador (ver `propiedades.service.ts`).
  */
-function buildHeaders(hasBody: boolean): Record<string, string> {
+async function getAccessToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null
+  const { data } = await getSupabaseBrowserClient().auth.getSession()
+  return data.session?.access_token ?? null
+}
+
+/**
+ * Headers del request. Con sesión (y `auth` distinto de `false`), va
+ * `Authorization: Bearer <token>`. Sin sesión, el request sale sin token: los
+ * endpoints públicos responden igual y los protegidos devuelven 401.
+ */
+async function buildHeaders(hasBody: boolean, auth: boolean): Promise<Record<string, string>> {
   const headers: Record<string, string> = { Accept: 'application/json' }
   if (hasBody) headers['Content-Type'] = 'application/json'
 
-  const session = readSessionFromDocument()
-  const backendUserId = session ? toBackendUserId(session.userId) : null
-  if (backendUserId) headers['x-user-id'] = backendUserId
+  if (auth) {
+    const token = await getAccessToken()
+    if (token) headers.Authorization = `Bearer ${token}`
+  }
 
   return headers
 }
@@ -102,13 +123,20 @@ async function readJson(response: Response): Promise<ApiResponse<unknown> | null
  * const inmuebles = await apiRequest<Inmueble[]>('/inmuebles/disponibles')
  */
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { method = 'GET', query, body } = options
+  const { method = 'GET', query, body, auth = true } = options
+  const headers = await buildHeaders(body !== undefined, auth)
 
   let response: Response
   try {
     response = await fetch(buildUrl(path, query), {
       method,
-      headers: buildHeaders(body !== undefined),
+      headers,
+      // NOTA: los datos de la API son en vivo. Sin `no-store`, un Server
+      // Component que llame a un service (la landing) se prerenderiza en el
+      // build: Next hace el pedido UNA vez en `next build` y las propiedades
+      // quedan congeladas (o vacías, si la API no estaba levantada). Con
+      // `no-store`, Next pide en cada request (y la ruta pasa a ser dinámica).
+      cache: 'no-store',
       body: body === undefined ? undefined : JSON.stringify(body),
     })
   } catch {
@@ -121,7 +149,9 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     // El back pone el detalle en `error` (y a veces un resumen en `message`).
     const message = envelope?.error ?? envelope?.message ?? 'Ocurrió un error inesperado. Probá de nuevo.'
     const code = response.ok ? 'server' : errorCodeFromHttpStatus(response.status)
-    throw new ServiceError(code, message)
+    // NOTA: el 401 del back trae un texto técnico ("el token de Supabase no es
+    // válido"). Para quien usa la app, es que la sesión venció.
+    throw new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message)
   }
 
   // NOTA: algunos endpoints responden `success: true` sin `data` (ej. un

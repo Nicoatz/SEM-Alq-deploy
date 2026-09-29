@@ -43,13 +43,15 @@
   font-weight: 600;
 }
 
-.rowBetween {
+/* Fila de "¿Olvidaste tu contraseña?" arriba del botón (escritorio).
+   NOTA: antes compartía la fila con "Recordarme", que se sacó al pasar a
+   Supabase Auth (la sesión dura hasta cerrarla). En móvil el link va debajo
+   del botón, así que la fila entera se oculta (`.desktopOnly`). */
+.forgotRow {
   min-height: 2.75rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
+  justify-content: flex-end;
   margin-bottom: var(--rentar-spacing-sm);
 }
 
@@ -142,119 +144,20 @@
   }
 }
 
-/* ─── Paso 1 del registro: elegir rol (Autenticación · 03a) ──────────── */
-
-.stepRol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rentar-spacing-sm);
-}
-
-.progress {
-  display: flex;
-  flex-direction: column;
-}
-
-.progressBars {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.progressBar {
-  flex: 1;
-  height: 0.375rem;
-  border-radius: var(--rentar-radius-pill);
-  background: rgba(var(--rentar-color-ink-rgb), 0.12);
-}
-
-.progressBarDone {
-  background: var(--rentar-color-blue);
-}
-
-.progressLabel {
-  margin-top: calc(-1 * var(--rentar-spacing-xs));
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--rentar-color-text-secondary);
-}
-
-.roleGroup {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(13.125rem, 1fr));
-  gap: 0.75rem;
-}
-
-.roleCard {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  width: 100%;
-  min-height: 2.75rem;
-  padding: 1rem;
-  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.18);
-  border-radius: var(--rentar-radius-lg);
-  background: var(--rentar-color-bg-surface);
-  font-family: inherit;
-  color: var(--rentar-color-text-primary);
-  text-align: left;
-  cursor: pointer;
-}
-
-.roleCardSelected {
-  border: 2px solid var(--rentar-color-blue);
-  background: var(--rentar-color-sky-light);
-  /* 1px menos de padding para compensar el borde de 2px y que no "salte". */
-  padding: calc(1rem - 1px);
-}
-
-.roleRadio {
+/* Botones de "Cuenta creada": principal y secundario, del mismo ancho. */
+.successButton {
   flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-top: 0.125rem;
-  border-radius: var(--rentar-radius-pill);
-  border: 1.5px solid rgba(var(--rentar-color-ink-rgb), 0.35);
+  width: 100%;
+  max-width: 17.5rem;
 }
 
-.roleCardSelected .roleRadio {
-  border: 6px solid var(--rentar-color-blue);
-}
-
-.roleText {
+/* "Revisando tu sesión…" (RevisandoSesion): mientras se confirma si ya hay sesión. */
+.revisando {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-}
-
-.roleTitle {
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.roleDescription {
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 0;
   font-size: 0.875rem;
-  line-height: 1.45;
   color: var(--rentar-color-text-secondary);
-  text-wrap: pretty;
-}
-
-.note {
-  margin: 0;
-  font-size: 0.8125rem;
-  line-height: 1.5;
-  color: var(--rentar-color-text-tertiary);
-}
-
-@media (max-width: 639px) {
-  .roleGroup {
-    gap: 0.625rem;
-  }
-
-  .roleCard {
-    padding: 0.875rem;
-  }
-
-  .roleCardSelected {
-    padding: calc(0.875rem - 1px);
-  }
 }

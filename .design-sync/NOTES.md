@@ -81,6 +81,76 @@ Cambios posteriores a la subida del 2026-09-24, **pendientes de subir** en el pr
   landing. Prop nueva y opcional `logoHref` (por defecto `/`), `data-testid="app-shell-logo-link"`.
   NOTA: el mapa decía que el logo del AppShell lleva a `/panel`; el PO lo cambió a la landing.
 
+Cambios de la conexión con el back (`feature/conexion-back`, 2026-09-25):
+- **Se sacó "Recordarme"** del login (`apps/web/src/components/auth/LoginForm.tsx`, decisión del PO).
+  Con Supabase Auth la sesión dura hasta que la persona la cierra, así que la opción no hacía nada.
+  No es un cambio de `@rentar/ui` (el formulario vive en `apps/web`), pero **el template de Claude
+  Design "Autenticación" · 01 y 02 todavía lo muestra**: actualizarlo ahí, y no volver a agregarlo
+  si se implementa desde un export. "¿Olvidaste tu contraseña?" queda solo, alineado a la derecha
+  arriba del botón en escritorio y debajo del botón en móvil (como ya estaba). Se borró el
+  `data-testid` `login-remember-checkbox` (avisado a QA).
+- **`SimulatedFeatureNotice`: prop opcional `reason`** (aprobada por el PO, **pendiente de subir**).
+  Es el motivo de la simulación como oración completa; sin `reason`, el texto es exactamente el de
+  antes ("… — no hay backend conectado en esta etapa."). El registro la usa en modo real: "El
+  servidor todavía no envía emails de confirmación." Ejemplo sumado en `/design-system`; al subir,
+  agregar una historia `ConMotivo` en `previews/SimulatedFeatureNotice.tsx`.
+- **Fotos que no cargan → placeholder** (aprobado por el PO). El `ImageComponent` que `apps/web`
+  inyecta en el `NextBridgeProvider` de `@rentar/ui` (`AppImage`, en `apps/web/src/lib/next-bridge.tsx`)
+  ahora pasa a `/placeholder-propiedad.svg` si la imagen falla, en vez del ícono de imagen rota
+  (`lib/imagenes/fotoConRespaldo.ts`). Afecta a todo lo que dibuja imágenes por el puente
+  (`PropertyCard`, `PropertyCardBusqueda`, logos). **El `DefaultImage` de `@rentar/ui` (el `<img>` de
+  las previews de Claude Design) no cambió**: en el proyecto de Claude Design una foto rota se sigue
+  viendo rota. Si se quiere lo mismo ahí, sumar el respaldo al `DefaultImage` en el próximo sync.
+
+Cambios del modelo de roles (2026-09-27, rama `feature/roles-publicar`), **pendientes de subir**.
+Regla del equipo: todos se registran como locatarios y pasan a ser también locadores al publicar
+su primera propiedad. Exports leídos en `.design-exports/roles/` (Paneles · 05b, Autenticación ·
+03 y 05, `templates/_shared/publicar-propiedad.js`).
+- **`AppShell`: prop opcional `headerAction`** (`AppShellHeaderAction`: `label`, `href`, `icon?`,
+  `data-testid?`), la que el template anuncia en `_shared/publicar-propiedad.js`. Desde 768px es
+  un botón blanco con borde antes de la campanita; debajo de 1024px también va primero en el menú
+  hamburguesa (`<testid>-drawer`); debajo de 768px sale de la barra y pasa a la hoja del
+  `UserMenu`. Es un link y no un `ReactNode` porque se dibuja en tres lugares. Al subir: borrar
+  `templates/_shared/publicar-propiedad.js` y su línea en cada `ds-base.js`, y sumar una historia
+  con `headerAction` en `previews/AppShell.tsx`.
+- **`UserMenu`: prop opcional `sheetLeadingItem`** (un `UserMenuItem`): va primero en la hoja
+  móvil, en azul y negrita; no aparece en el dropdown de escritorio. La pasa `AppShell` desde
+  `headerAction` (`data-testid` `user-menu-item-header-action`).
+- **`EmptyState`: prop opcional `actionBlock`** (por defecto `false`, igual que antes): debajo de
+  640px la acción ocupa todo el ancho, como los botones de Paneles · 05b en móvil. Hoy la usa solo el
+  panel del locatario (`apps/web/src/components/panel/PanelLocatario.tsx`). Al subir, sumar una
+  historia `AccionAnchoCompleto` en `previews/EmptyState.tsx`.
+- **Contradicciones del diseño con la regla nueva (no se tocaron; pendientes para quien lleva
+  Claude Design):**
+  1. Paneles · 06 ("Locatario nuevo · Onboarding"), paso "Cuenta creada": dice "Podés activar
+     también el rol de locadora cuando quieras, desde tu perfil". Con la regla nueva el rol de
+     locador no se activa desde el perfil: se gana al publicar. La app usa la versión mínima (05b),
+     no este checklist.
+  2. `templates/_shared/context-switcher.js` (el shim de "Viendo como" de los templates) ofrece
+     "Activar mi rol de locador · Se activa desde mi perfil, sin crear otra cuenta". En la app ese
+     texto no existe y "Viendo como" (`RoleContextSwitcher`) quedó sin cambios, por decisión del PO.
+
+Cambios del Header público con sesión (2026-09-29, rama `feature/header-sesion`), **pendientes de
+subir**. Export leído en `.design-exports/header/` (`templates/header-publico/HeaderPublico.dc.html`,
+que pide "sumar la prop `user` en código").
+- **`Header`: props opcionales `session` y `sessionPending`.** Sin props, el Header sin sesión de
+  siempre. `session` (`HeaderSession`: nombre, rol activo, avatar, `panelHref`, `publishHref`,
+  `menuItems` y `onLogout`) cambia "Iniciar sesión" + "Publicar propiedad" por "Ir a mi panel" + el
+  `UserMenu`; en móvil, el menú hamburguesa trae el usuario, "Ir a mi panel", "Publicar propiedad",
+  los links y "Cerrar sesión". `sessionPending` muestra un placeholder con la forma de la variante
+  con sesión (sin "Iniciar sesión") mientras la app la confirma. Se llamó `session` y no `user`
+  (como dice el template) porque trae también las acciones, no solo el usuario.
+- **`PublicLayout`: prop opcional `header`** para recibir el Header ya armado (el layout es un
+  Server Component y no le puede pasar funciones al Header).
+- Al subir: sumar historias `ConSesion` y `CargandoSesion` en `previews/Header.tsx`.
+- **Pendiente de sumar al template "Autenticación" (Claude Design): el estado "Revisando tu
+  sesión…"** de `/login` y `/registro`. Con la sesión abierta, esas pantallas llevan a `/panel` y,
+  mientras se confirma la sesión o se redirige, muestran un spinner de antd centrado con el texto
+  "Revisando tu sesión…" en vez del formulario (`apps/web/src/components/auth/RevisandoSesion.tsx`,
+  `data-testid` `auth-revisando-sesion`). No es un cambio de `@rentar/ui`: vive en `apps/web`, pero
+  el template todavía no tiene ese estado. Sumarlo en la sección 05 ("Estados de carga, error y
+  éxito") para que el diseño quede alineado.
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).
