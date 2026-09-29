@@ -73,8 +73,8 @@ function enPestania(propiedad: PropiedadLocador, estado: EstadoFiltroMisPropieda
 function cumpleFiltrosSinEstado(propiedad: PropiedadLocador, filtros: MisPropiedadesFiltros): boolean {
   if (filtros.neighborhoodSlug !== 'todos' && propiedad.neighborhoodSlug !== filtros.neighborhoodSlug) return false
   if (filtros.type !== 'todos' && propiedad.type !== filtros.type) return false
-  if (filtros.claims === 'con_reclamos' && propiedad.openClaims === 0) return false
-  if (filtros.claims === 'sin_reclamos' && propiedad.openClaims > 0) return false
+  if (filtros.claims === 'con_reclamos' && !propiedad.hasOpenClaims) return false
+  if (filtros.claims === 'sin_reclamos' && propiedad.hasOpenClaims) return false
   const texto = normalizar(filtros.text)
   if (texto && !normalizar(`${propiedad.address} ${propiedad.tenantName ?? ''}`).includes(texto)) return false
   return true

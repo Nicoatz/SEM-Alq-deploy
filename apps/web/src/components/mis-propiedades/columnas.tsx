@@ -117,12 +117,19 @@ function capitalizar(texto: string): string {
   return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
-/** Reclamos sin resolver (US-02): el número es link a Reclamos; si no hay, "Sin reclamos". */
+/**
+ * Reclamos sin resolver (US-02: "si posee reclamos no resueltos"): link a
+ * Reclamos; si no hay, "Sin reclamos".
+ * NOTA: con el back real se sabe si hay, pero no cuántos
+ * (`posee_reclamos_no_resueltos`): ahí dice "Con reclamos". Con la cantidad
+ * (modo mock), "N abiertos".
+ */
 function Reclamos({ propiedad }: { propiedad: PropiedadLocador }) {
-  if (propiedad.openClaims === 0) return <span className={styles.muted}>Sin reclamos</span>
+  if (!propiedad.hasOpenClaims) return <span className={styles.muted}>Sin reclamos</span>
+  const cantidad = propiedad.openClaims
   return (
     <Link href="/panel/reclamos" className={styles.claimsChip} onClick={cortarClick} data-testid="mis-propiedades-reclamos">
-      {propiedad.openClaims} {propiedad.openClaims === 1 ? 'abierto' : 'abiertos'}
+      {cantidad ? `${cantidad} ${cantidad === 1 ? 'abierto' : 'abiertos'}` : 'Con reclamos'}
     </Link>
   )
 }

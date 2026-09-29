@@ -339,16 +339,28 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
  * - `adjustmentIndex`: de `contrato.indice_aumento` (CAC → `null`).
  * - `publishedAt`: el back no guarda la fecha de alta; `''`. TODO(db): guardar
  *   la fecha de alta del inmueble.
- * - `tenantName`, `paymentStatus`, `paymentDueDate`, `daysOverdue`,
- *   `openClaims`, `nextAdjustment`: no existen todavía (módulos de contratos,
- *   cobros y reclamos). Se muestran vacíos ("—"). TODO(backend): sumarlos a
- *   `/mis-alquileres` cuando existan esos módulos.
+ * - `tenantName`: "Nombre Apellido" de `contrato.locatario` (desde el 29/09);
+ *   `null` si no hay locatario.
+ * - `nextAdjustment`: `contrato.fecha_proximo_ajuste` (lo calcula el back) +
+ *   el índice + cada cuántos meses (de `frecuencia_ajuste`, ver
+ *   {@link mesesDeFrecuencia}). Si falta alguno de los tres (sin fecha, índice
+ *   CAC o una frecuencia que no se entiende), `null`: se muestra "—", sin inventar.
+ * - `hasOpenClaims`: `posee_reclamos_no_resueltos` (desde el 29/09). El back
+ *   no manda la cantidad, así que `openClaims` es `null` (la columna dice
+ *   "Con reclamos").
+ * - `paymentStatus`, `paymentDueDate`, `daysOverdue`: no existen todavía
+ *   (módulo de cobros). Se muestran vacíos ("—"). TODO(backend): sumarlos a
+ *   `/mis-alquileres` cuando exista ese módulo.
  */
 export function misAlquileresItemToPropiedadLocador(item: MisAlquileresItem): PropiedadLocador {
   const type = propertyTypeFromDescripcion(item.tipo_inmueble)
   const status = statusDeInmueble(item.estado_alquiler, item.fecha_disponible)
   const alquilada = status === 'alquilada' || status === 'alquilada_publicada'
   const barrio = barrioDe(item.barrio)
+  const adjustmentIndex = adjustmentIndexFromDescripcion(item.contrato.indice_aumento)
+  const locatario = item.contrato.locatario
+  const mesesAjuste = mesesDeFrecuencia(item.contrato.frecuencia_ajuste)
+  const fechaAjuste = item.contrato.fecha_proximo_ajuste
 
   return {
     id: String(item.id_inmueble),
@@ -363,13 +375,14 @@ export function misAlquileresItemToPropiedadLocador(item: MisAlquileresItem): Pr
     expenses: aNumero(item.contrato.expensas),
     imageSrc: item.foto_principal ?? PLACEHOLDER_PHOTO_SRC,
     publishedAt: '',
-    tenantName: null,
+    tenantName: locatario ? `${locatario.nombre} ${locatario.apellido ?? ''}`.trim() : null,
     paymentStatus: null,
     paymentDueDate: null,
     daysOverdue: null,
-    openClaims: 0,
-    adjustmentIndex: adjustmentIndexFromDescripcion(item.contrato.indice_aumento),
-    nextAdjustment: null,
+    hasOpenClaims: item.posee_reclamos_no_resueltos,
+    openClaims: null,
+    adjustmentIndex,
+    nextAdjustment: fechaAjuste && adjustmentIndex && mesesAjuste ? { date: fechaAjuste, index: adjustmentIndex, everyMonths: mesesAjuste } : null,
     availableFrom: item.fecha_disponible ?? null,
   }
 }
@@ -399,16 +412,31 @@ export function seVeEnBusqueda(nueva: Pick<PropiedadNueva, 'status' | 'available
  * y "<n> meses" para el resto.
  * TODO(db): guardar la frecuencia como un entero (meses).
  */
+const NOMBRE_FRECUENCIA: Record<number, string> = {
+  1: 'Mensual',
+  2: 'Bimestral',
+  3: 'Trimestral',
+  4: 'Cuatrimestral',
+  6: 'Semestral',
+  12: 'Anual',
+}
+
 export function frecuenciaAjusteTexto(everyMonths: number): string {
-  const nombres: Record<number, string> = {
-    1: 'Mensual',
-    2: 'Bimestral',
-    3: 'Trimestral',
-    4: 'Cuatrimestral',
-    6: 'Semestral',
-    12: 'Anual',
-  }
-  return nombres[everyMonths] ?? `${everyMonths} meses`
+  return NOMBRE_FRECUENCIA[everyMonths] ?? `${everyMonths} meses`
+}
+
+/**
+ * Inversa de {@link frecuenciaAjusteTexto}: `contrato.frecuencia_ajuste`
+ * ("Semestral", "Anual", "5 meses"…) → cada cuántos meses. `null` si no se
+ * entiende (texto libre en la base, ver el TODO(db) de arriba).
+ */
+function mesesDeFrecuencia(texto: string | null | undefined): number | null {
+  if (!texto) return null
+  const limpio = sinTildes(texto)
+  const porNombre = Object.entries(NOMBRE_FRECUENCIA).find(([, nombre]) => sinTildes(nombre) === limpio)
+  if (porNombre) return Number(porNombre[0])
+  const meses = limpio.match(/^(\d{1,2})\s*mes(es)?$/)
+  return meses ? Number(meses[1]) : null
 }
 
 /**

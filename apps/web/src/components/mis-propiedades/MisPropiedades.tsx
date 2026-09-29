@@ -89,7 +89,7 @@ export function MisPropiedades() {
   const barrios = useMemo(() => barriosDe(todas), [todas])
   const visibles = useMemo(() => filtrarMisPropiedades(todas, filtros, orden), [todas, filtros, orden])
   const contadores = useMemo(() => contarPorPestania(todas, filtros), [todas, filtros])
-  const conReclamos = visibles.filter((propiedad) => propiedad.openClaims > 0).length
+  const conReclamos = visibles.filter((propiedad) => propiedad.hasOpenClaims).length
   const alquiladasHoy = todas.filter((propiedad) => propiedad.status === 'alquilada' || propiedad.status === 'alquilada_publicada').length
   const paginaVisible = visibles.slice((pagina - 1) * MIS_PROPIEDADES_PAGE_SIZE, pagina * MIS_PROPIEDADES_PAGE_SIZE)
   const conteoBorrador = useMemo(() => filtrarMisPropiedades(todas, borrador.filtros, borrador.orden).length, [todas, borrador])
