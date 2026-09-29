@@ -221,7 +221,7 @@ cuando el back vuelva a respetar los filtros.
 |---|---|
 | **`/disponibles` ignora los filtros:** `buscarDisponibles` solo aplica `barrio` (igual exacto, antes "contiene") y `tipo`. Ignora `precioMin`/`precioMax`, `dormitorios`, `ambientes`, `superficieMin`/`superficieMax`, `tags`, `indiceAjuste`, `orden`/`direccion` y `page`/`limit`: siempre devuelve todas con `page: 1` y `limit` = cantidad. El controller los sigue leyendo y el Swagger los documenta. Probado el 29/09: `?dormitorios=1&page=2&limit=1` devuelve las 2 disponibles. | backend (Thiago) |
 | **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Con 2 propiedades, `/disponibles` tarda ~2,7 s. Con más, va a crecer lineal. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
-| **Expensas sin contrato:** `/disponibles` manda `expensas: 0` (y `precio` = `precio_publicado`) cuando el inmueble no tiene contrato; el detalle (`/disponibles/:id`) manda `-1` en `precio` y `expensas`. El front no puede distinguir "sin expensas" de "sin contrato", así que 0 o negativo se muestra vacío (nunca "$0"). Propuesta: `null` cuando no hay contrato. | backend |
+| **Expensas sin contrato:** `/disponibles` manda `expensas: 0` (y `precio` = `precio_publicado`) cuando el inmueble no tiene contrato; el detalle (`/disponibles/:id`) manda `-1` en `precio` y `expensas`. El front no puede distinguir "sin expensas" de "sin contrato", así que 0 o negativo se muestra vacío (nunca "$0"). **Acordado con Thiago:** va a mandar `null` sin contrato. Cuando llegue, el front cambia el adaptador: `null` → vacío y `0` → "Sin expensas". | backend (Thiago) → front |
 | **Nombre del estado "alquilada con fecha":** la validación de `POST /inmuebles` y `EstadoAlquiler` de `shared-types` aceptan `'alquilada/publicada'` (femenino), pero `/disponibles` y `/disponibles/:id` buscan `'alquilado/publicado'` (masculino). Una alquilada con fecha guardada con el valor que acepta el alta no aparecería en la búsqueda. Acordar un solo nombre. Mientras tanto, el alta sigue mandando `publicado`/`alquilado` (+ `fecha_disponible`), como antes. | backend |
 | El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
 | No filtra por provincia ni ciudad (hoy solo hay Córdoba Capital). | backend |
@@ -271,8 +271,11 @@ propiedades salen del `/mis-alquileres` real. Rutas propuestas: [`api-endpoints.
 ## 8. Bucket de fotos
 
 **El bucket `fotos-propiedades` existe desde el 29/09/2026.** Lo creó Ivan desde el dashboard de
-Supabase, fuera de las migraciones del repo: en `supabase/migrations/` no hay ningún archivo que lo
-cree. Configuración (leída con el MCP, solo lectura): público, límite de 358400 bytes (350 KB), solo
+Supabase, fuera de las migraciones del repo. Como Ivan no estaba disponible, el front lo versionó en
+`supabase/migrations/20260929000001_bucket_fotos_propiedades.sql`: copia exacta del bucket y sus dos
+políticas, idempotente (`on conflict do nothing`, `drop policy if exists` + `create policy`). **No se
+aplicó** (la base ya lo tenía): sirve para que un entorno nuevo quede igual. El comentario del
+archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configuración (leída con el MCP, solo lectura): público, límite de 358400 bytes (350 KB), solo
 `image/jpeg` e `image/png`, y dos políticas sobre `storage.objects` para el rol `authenticated`:
 "subir fotos propias" (INSERT) y "borrar fotos propias" (DELETE), las dos limitadas a la carpeta
 `<auth.uid>/`. Coincide con lo que espera el front (paso 1 de abajo).
