@@ -32,6 +32,7 @@ import { reglasEmail, reglasPasswordLogin } from '@/lib/validation/usuario.rules
 import { ServiceError } from '@/services/shared/errors'
 import { FormAlert } from './FormAlert'
 import { serverErrorCopy, type ServerErrorCopy } from './serverError'
+import { RevisandoSesion } from './RevisandoSesion'
 import { StatusBlock } from './StatusBlock'
 import styles from './AuthForm.module.css'
 
@@ -45,6 +46,8 @@ interface LoginFormProps {
   next: string | null
   /** Email precargado (viene del registro, para que solo falte la contraseña). */
   initialEmail?: string
+  /** `true` si llegó una cookie de sesión (ver `lib/auth/sesion-probable.ts`). */
+  sesionProbable?: boolean
 }
 
 /**
@@ -56,7 +59,7 @@ interface LoginFormProps {
 const DEFAULT_DESTINATION = '/panel'
 
 /** Formulario de inicio de sesión. */
-export function LoginForm({ next, initialEmail }: LoginFormProps) {
+export function LoginForm({ next, initialEmail, sesionProbable = false }: LoginFormProps) {
   const router = useRouter()
   const { login, user, isLoading } = useAuth()
   const [form] = Form.useForm<LoginFormValues>()
@@ -106,6 +109,14 @@ export function LoginForm({ next, initialEmail }: LoginFormProps) {
   const registerHref = next ? `/registro?next=${encodeURIComponent(next)}` : '/registro'
 
   // ─── Render ─────────────────────────────────────────────────────────
+
+  // Con sesión, esta pantalla lleva a `next` o a /panel (efecto de arriba). Para
+  // que el formulario no aparezca un instante: mientras se confirma una sesión
+  // probable (llegó la cookie) y mientras se redirige, "Revisando tu sesión…".
+  // Durante el propio envío no: el botón ya muestra que está entrando.
+  if ((sesionProbable && isLoading) || (!isLoading && user && !submitting)) {
+    return <RevisandoSesion />
+  }
 
   if (serverError) {
     return (

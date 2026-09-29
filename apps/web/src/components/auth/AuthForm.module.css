@@ -150,3 +150,14 @@
   width: 100%;
   max-width: 17.5rem;
 }
+
+/* "Revisando tu sesión…" (RevisandoSesion): mientras se confirma si ya hay sesión. */
+.revisando {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 0;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}

@@ -6,22 +6,26 @@
  * Quién lo usa: Next.js, para todas las rutas de `app/(public)/`.
  */
 import type { ReactNode } from 'react'
-import { cookies } from 'next/headers'
 // Import directo (no del barrel @rentar/ui): ese barrel también re-exporta
 // statusMeta (usa @ant-design/icons, que llama createContext a nivel de
 // módulo) — createContext no existe en el runtime "react-server" que usa
 // este layout (Server Component). Mismo motivo que en app/layout.tsx.
 import { PublicLayout } from '@rentar/ui/src/components/layouts/PublicLayout'
 import { PublicHeader } from '@/components/PublicHeader'
-import { SESSION_COOKIE_NAME } from '@/lib/auth/session-cookie'
-import { USE_MOCKS } from '@/services/shared/config'
-
-/** Cookies de sesión de Supabase: `sb-<proyecto>-auth-token`, a veces partida en `.0`, `.1`… */
-const SUPABASE_SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/
+import { haySesionProbable } from '@/lib/auth/sesion-probable'
 
 /**
- * `true` si el pedido trae una cookie de sesión: `rentar_session` en modo mock,
- * la de Supabase Auth en modo real. Solo mira que exista, no la valida.
+ * layout.tsx — arquetipo A1 (zona pública), compartido por `/`, `/buscar`,
+ * `/propiedad/[id]`. Layout anidado (no root): el root layout
+ * (`app/layout.tsx`) ya pone `<html>`/`<body>`/`AntdRegistry`/
+ * `ConfigProvider` una sola vez — duplicarlos acá causaría el
+ * "full page reload" que Next 16 documenta entre root layouts distintos.
+ *
+ * Quién lo usa: todas las pantallas de la zona pública, sin sesión
+ * obligatoria (ver `docs/MapaDePantallas.pdf`, sección "1 Zona pública").
+ *
+ * Pista para el Header (`lib/auth/sesion-probable.ts`): si llega una cookie de
+ * sesión, sin validarla.
  *
  * NOTA: es una pista para que el Header no parpadee. Con la cookie, mientras
  * el `AuthProvider` confirma la sesión, el Header muestra un placeholder con la
@@ -41,22 +45,6 @@ const SUPABASE_SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/
  *   cada página pública, sumando un viaje a la API antes de mostrar nada.
  * - Modo mock: las cuentas creadas en el registro viven en el `localStorage`
  *   del navegador, que el servidor no puede leer.
- */
-async function haySesionProbable(): Promise<boolean> {
-  const cookieStore = await cookies()
-  if (USE_MOCKS) return cookieStore.has(SESSION_COOKIE_NAME)
-  return cookieStore.getAll().some((cookie) => SUPABASE_SESSION_COOKIE.test(cookie.name))
-}
-
-/**
- * layout.tsx — arquetipo A1 (zona pública), compartido por `/`, `/buscar`,
- * `/propiedad/[id]`. Layout anidado (no root): el root layout
- * (`app/layout.tsx`) ya pone `<html>`/`<body>`/`AntdRegistry`/
- * `ConfigProvider` una sola vez — duplicarlos acá causaría el
- * "full page reload" que Next 16 documenta entre root layouts distintos.
- *
- * Quién lo usa: todas las pantallas de la zona pública, sin sesión
- * obligatoria (ver `docs/MapaDePantallas.pdf`, sección "1 Zona pública").
  */
 export default async function PublicRouteGroupLayout({ children }: { children: ReactNode }) {
   const sesionProbable = await haySesionProbable()

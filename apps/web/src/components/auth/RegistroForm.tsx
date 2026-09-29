@@ -18,8 +18,9 @@
  * para el login automático, `useAuth().login`.
  * Quién lo usa: `app/(auth)/registro/page.tsx`.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button, Checkbox, DatePicker, Form, Input } from 'antd'
 import type { Dayjs } from 'dayjs'
 import type { UsuarioSesion } from '@rentar/shared-types'
@@ -45,6 +46,7 @@ import { USE_MOCKS } from '@/services/shared/config'
 import { ServiceError } from '@/services/shared/errors'
 import { FormAlert } from './FormAlert'
 import { isServerError, serverErrorCopy, type ServerErrorCopy } from './serverError'
+import { RevisandoSesion } from './RevisandoSesion'
 import { StatusBlock } from './StatusBlock'
 import { TerminosModal, type DocumentoLegal } from './TerminosModal'
 import styles from './AuthForm.module.css'
@@ -66,12 +68,15 @@ interface DatosFormValues {
 interface RegistroFormProps {
   /** Ruta interna a la que se quería ir antes de registrarse, si había. */
   next: string | null
+  /** `true` si llegó una cookie de sesión (ver `lib/auth/sesion-probable.ts`). */
+  sesionProbable?: boolean
 }
 
 /** Registro de usuario en un paso, con los estados de carga, error y éxito. */
-export function RegistroForm({ next }: RegistroFormProps) {
+export function RegistroForm({ next, sesionProbable = false }: RegistroFormProps) {
   const [form] = Form.useForm<DatosFormValues>()
-  const { login } = useAuth()
+  const router = useRouter()
+  const { login, user, isLoading } = useAuth()
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [step, setStep] = useState<Step>('datos')
@@ -85,12 +90,25 @@ export function RegistroForm({ next }: RegistroFormProps) {
   const [sesionIniciada, setSesionIniciada] = useState<UsuarioSesion | null>(null)
   const [documentoAbierto, setDocumentoAbierto] = useState<DocumentoLegal | null>(null)
 
+  // `true` desde que se envía el formulario. El registro inicia sesión solo
+  // después del 201 (ver `iniciarSesionAutomatica`): esa sesión nueva NO tiene
+  // que redirigir, porque se perdería la pantalla de "Cuenta creada".
+  const [registrando, setRegistrando] = useState(false)
+
   const password = Form.useWatch('password', form) ?? ''
+
+  // Si ya había una sesión ANTES de registrarse (por ejemplo, entró a
+  // /registro con la cuenta abierta), no tiene sentido crear otra: va a /panel.
+  const yaTeniaSesion = !isLoading && user !== null && !registrando
+  useEffect(() => {
+    if (yaTeniaSesion) router.replace('/panel')
+  }, [yaTeniaSesion, router])
   const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : '/login'
 
   // ─── Handlers ───────────────────────────────────────────────────────
 
   async function handleSubmit(values: DatosFormValues): Promise<void> {
+    setRegistrando(true)
     setSubmitting(true)
     setEmailTaken(false)
     setFormError(null)
@@ -335,6 +353,16 @@ export function RegistroForm({ next }: RegistroFormProps) {
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
+
+  // Mientras se confirma una sesión probable, o mientras se redirige a /panel,
+  // "Revisando tu sesión…" en vez del formulario (sin parpadeo).
+  if ((sesionProbable && isLoading) || yaTeniaSesion) {
+    return (
+      <AuthLayout title="Tus datos" data-testid="registro-page">
+        <RevisandoSesion />
+      </AuthLayout>
+    )
+  }
 
   return (
     <AuthLayout title={step === 'listo' ? 'Cuenta creada' : 'Tus datos'} data-testid="registro-page">
