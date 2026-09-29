@@ -71,6 +71,27 @@ function describirFiltros(filtros: MisPropiedadesFiltros, barrios: { value: stri
 
 // ─── Pantalla ───────────────────────────────────────────────────────────
 
+/**
+ * Título y texto del bloque de error, según qué falló (Listado · 05).
+ * - Sin respuesta del back (`network`) o el dispositivo sin red: "Revisá tu
+ *   conexión".
+ * - Sesión vencida (`unauthorized`): el mensaje del service ("Tu sesión venció…").
+ * - Cualquier otra respuesta del back (4xx/5xx): error del servidor. NOTA: no
+ *   se sugiere la conexión, porque el back sí respondió (por ejemplo, el 400
+ *   de `/mis-alquileres` con firmantes duplicados, ver HANDOFF §7).
+ */
+function textoDeError(code: string, message: string): { titulo: string; detalle: string } {
+  const sinRed = code === 'network' || (typeof navigator !== 'undefined' && navigator.onLine === false)
+  if (sinRed) {
+    return { titulo: 'No pudimos traer tus propiedades', detalle: 'Revisá tu conexión y probá de nuevo. Nada se perdió: tus propiedades siguen cargadas.' }
+  }
+  if (code === 'unauthorized') return { titulo: 'No pudimos traer tus propiedades', detalle: message }
+  return {
+    titulo: 'No pudimos traer tus propiedades por un error del servidor',
+    detalle: 'El problema es nuestro, no de tu conexión. Probá de nuevo en unos minutos: tus propiedades siguen cargadas.',
+  }
+}
+
 /** Listado de las propiedades del locador en sesión. */
 export function MisPropiedades() {
   const router = useRouter()
@@ -89,7 +110,7 @@ export function MisPropiedades() {
   const barrios = useMemo(() => barriosDe(todas), [todas])
   const visibles = useMemo(() => filtrarMisPropiedades(todas, filtros, orden), [todas, filtros, orden])
   const contadores = useMemo(() => contarPorPestania(todas, filtros), [todas, filtros])
-  const conReclamos = visibles.filter((propiedad) => propiedad.openClaims > 0).length
+  const conReclamos = visibles.filter((propiedad) => propiedad.hasOpenClaims).length
   const alquiladasHoy = todas.filter((propiedad) => propiedad.status === 'alquilada' || propiedad.status === 'alquilada_publicada').length
   const paginaVisible = visibles.slice((pagina - 1) * MIS_PROPIEDADES_PAGE_SIZE, pagina * MIS_PROPIEDADES_PAGE_SIZE)
   const conteoBorrador = useMemo(() => filtrarMisPropiedades(todas, borrador.filtros, borrador.orden).length, [todas, borrador])
@@ -129,6 +150,7 @@ export function MisPropiedades() {
 
   // ─── Error (Listado · 05) ───────────────────────────────────────────
   if (carga.status === 'error') {
+    const texto = textoDeError(carga.code, carga.message)
     return (
       <div className={styles.page}>
         <PageHeader title="Propiedades" breadcrumb={MIGA} />
@@ -136,8 +158,8 @@ export function MisPropiedades() {
           <span className={styles.errorIcon} aria-hidden="true">
             !
           </span>
-          <span className={styles.errorTitle}>No pudimos traer tus propiedades</span>
-          <span className={styles.errorText}>Puede ser la conexión. Nada se perdió: tus propiedades siguen cargadas.</span>
+          <span className={styles.errorTitle}>{texto.titulo}</span>
+          <span className={styles.errorText}>{texto.detalle}</span>
           <div className={styles.errorActions}>
             <Button type="primary" onClick={carga.reintentar} data-testid="mis-propiedades-reintentar">
               Reintentar

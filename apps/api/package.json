@@ -5,6 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "prebuild": "npm run build --workspace=@rentar/shared-types",
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "tsx tests/api/us01-registrar-propiedades.test.ts"

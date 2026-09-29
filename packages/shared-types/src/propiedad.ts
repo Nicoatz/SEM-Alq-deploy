@@ -163,8 +163,14 @@ export interface PropiedadLocador {
   paymentDueDate: string | null
   /** Días de atraso; solo si `paymentStatus` es `retrasada`. */
   daysOverdue: number | null
-  /** Cantidad de reclamos sin resolver (US-02: "si posee reclamos no resueltos"). */
-  openClaims: number
+  /** Si tiene reclamos sin resolver (US-02: "si posee reclamos no resueltos"). */
+  hasOpenClaims: boolean
+  /**
+   * Cuántos reclamos sin resolver tiene, si se sabe. `null` = hay (o no) pero
+   * no se sabe la cantidad: el back real manda solo sí/no
+   * (`posee_reclamos_no_resueltos`). En modo mock se sabe la cantidad.
+   */
+  openClaims: number | null
   /** Índice cargado en el alta (US-01, opcional); en las no alquiladas se aplica "al firmar". */
   adjustmentIndex: AdjustmentIndex | null
   /** Próximo ajuste; solo para alquiladas con contrato vigente (US-02). */

@@ -166,8 +166,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: desde el 29/09 ignora casi todos los filtros, el orden y la paginación; el front trae todas y filtra, ordena y pagina en el cliente (sección 7) |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
-| `POST /inmuebles` | Alta | **Parcial**: el body se validó con una carga de prueba (201); desde la pantalla falta implementar la subida de fotos (el bucket ya existe). Todavía exige el rol locador (sección 7, US-01) |
-| Supabase Storage, bucket `fotos-propiedades` | Alta | **Existe desde el 29/09** (creado desde el dashboard, fuera de las migraciones; sección 8). El front todavía no sube fotos: va en el próximo PR |
+| `POST /inmuebles` | Alta | **Conectado** (29/09): alta real de punta a punta desde la pantalla, con fotos en Storage; cualquier rol, y suma el rol locador |
+| Supabase Storage, bucket `fotos-propiedades` | Alta | **Conectado** (29/09): el alta sube las fotos y, si falla, las borra (desde el 30/09, con la política de SELECT; sección 8) |
 | `GET /locadores/:idLocador/barrios` | — | Existe desde el 29/09 (Bearer + rol locador; solo el propio id). El front no la usa: arma los barrios del filtro de US-02 con sus propias propiedades |
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
@@ -223,8 +223,8 @@ cuando el back vuelva a respetar los filtros.
 |---|---|
 | **`/disponibles` ignora los filtros:** `buscarDisponibles` solo aplica `barrio` (igual exacto, antes "contiene") y `tipo`. Ignora `precioMin`/`precioMax`, `dormitorios`, `ambientes`, `superficieMin`/`superficieMax`, `tags`, `indiceAjuste`, `orden`/`direccion` y `page`/`limit`: siempre devuelve todas con `page: 1` y `limit` = cantidad. El controller los sigue leyendo y el Swagger los documenta. Probado el 29/09: `?dormitorios=1&page=2&limit=1` devuelve las 2 disponibles. | backend (Thiago) |
 | **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Con 2 propiedades, `/disponibles` tarda ~2,7 s. Con más, va a crecer lineal. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
-| **Expensas sin contrato:** `/disponibles` manda `expensas: 0` (y `precio` = `precio_publicado`) cuando el inmueble no tiene contrato; el detalle (`/disponibles/:id`) manda `-1` en `precio` y `expensas`. El front no puede distinguir "sin expensas" de "sin contrato", así que 0 o negativo se muestra vacío (nunca "$0"). **Acordado con Thiago:** va a mandar `null` sin contrato. Cuando llegue, el front cambia el adaptador: `null` → vacío y `0` → "Sin expensas". | backend (Thiago) → front |
-| **Nombre del estado "alquilada con fecha":** la validación de `POST /inmuebles` y `EstadoAlquiler` de `shared-types` aceptan `'alquilada/publicada'` (femenino), pero `/disponibles` y `/disponibles/:id` buscan `'alquilado/publicado'` (masculino). Una alquilada con fecha guardada con el valor que acepta el alta no aparecería en la búsqueda. Acordar un solo nombre. Mientras tanto, el alta sigue mandando `publicado`/`alquilado` (+ `fecha_disponible`), como antes. | backend |
+| ~~Expensas sin contrato~~ **Resuelto (29/09, `develop` 8f9bf8c y ce677a4):** el detalle manda `null` sin contrato y el listado vuelve a pedir contrato, así que su `0` es real. El front muestra `0` como "Sin expensas" y `null` (o un `-1` viejo) vacío, nunca "$0". | — |
+| ~~Nombre del estado "alquilada con fecha"~~ **Resuelto (29/09, `develop` 2264372):** el back normalizó todo a `'publicado/alquilado'` (validación, `EstadoAlquiler`, `/disponibles`, `/mis-alquileres`, con migración). El alta manda `publicado/alquilado` para una alquilada con fecha y `alquilado` sin fecha; la lectura también acepta `alquilado` + fecha, por las viejas. | — |
 | El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
 | No filtra por provincia ni ciudad (hoy solo hay Córdoba Capital). | backend |
 | No hay fecha de publicación: "Más recientes" queda en el orden por id que devuelve el back. | db |
@@ -241,7 +241,8 @@ cuando el back vuelva a respetar los filtros.
 | **`reclamos` se lee con `Boolean(req.query.reclamos)`**: cualquier texto, incluido `"false"`, da `true`. Comparar con `=== 'true'`. | backend |
 | No hay fecha de alta: el orden "Más recientes" no tiene efecto. | db |
 | En el inmueble 1, `precio_publicado` es $360.000 y `contrato.monto_alquiler`, $350.000. El front muestra el publicado para las no alquiladas y el del contrato para las alquiladas: confirmar cuál manda. | backend / db |
-| El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario`. | db |
+| **`/mis-alquileres` de `locador@rentar.com` responde 400** ("JSON object requested, multiple (or no) rows returned"). `contrato.repository#getLocatarioByContratoId` busca el locatario con `maybeSingle()` sobre `contrato_x_usuario` (`tipo_firmante = 2`), y el contrato 2 tiene los firmantes duplicados: la consulta trae dos filas y falla **toda la lista**. En el front, Mis propiedades de esa cuenta muestra "No pudimos traer tus propiedades" (probado el 30/09). Arreglo propuesto: `limit(1)` (o deduplicar) en la consulta y borrar las filas duplicadas. | backend (Thiago) / db |
+| El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario` (causa del 400 de arriba). | db |
 
 ### US-01 Registrar mis propiedades
 
@@ -250,7 +251,7 @@ cuando el back vuelva a respetar los filtros.
 | ~~`POST /inmuebles` exigía `requireRole("locador")`~~ **Resuelto (29/09, d88deca):** acepta a cualquier usuario con sesión. | — |
 | ~~Asignar el rol locador al crear la primera propiedad~~ **Resuelto (29/09, d88deca):** lo hace `registrar_propiedad_completa`, en la misma transacción del alta. | — |
 | **Expansión de roles en `/usuarios/me`:** para las cuentas nuevas no hace falta: el registro guarda la fila de locatario y al publicar se suma la de locador, así que `/me` devuelve las dos (en ese orden, `["locatario", "locador"]`; el front no depende del orden). Queda para las cuentas locadoras viejas que no tienen la fila de locatario (ej. `locador@rentar.com`): `/me` les devuelve solo `["locador"]`. | backend / db |
-| El bucket `fotos-propiedades` **ya existe** (29/09), pero se creó desde el dashboard, fuera de `supabase/migrations/` (sección 8). El front todavía avisa que no puede subir fotos: la subida va en el próximo PR. | db / front |
+| ~~Faltaba la política de SELECT para borrar las fotos de un alta que falla~~ **Resuelto (30/09):** aplicada (sección 8). | — |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
 | `deposito` es un monto; el front lo pide en meses. Se manda meses × precio. | db |
@@ -274,7 +275,7 @@ propiedades salen del `/mis-alquileres` real. Rutas propuestas: [`api-endpoints.
 
 **El bucket `fotos-propiedades` existe desde el 29/09/2026.** Lo creó Ivan desde el dashboard de
 Supabase, fuera de las migraciones del repo. Como Ivan no estaba disponible, el front lo versionó en
-`supabase/migrations/20260929000001_bucket_fotos_propiedades.sql`: copia exacta del bucket y sus dos
+`supabase/migrations/20260929000002_bucket_fotos_propiedades.sql` (primero se llamó `20260929000001_…`, la misma versión que `20260929000001_rename_estado_publicado_alquilado.sql` de Thiago; se renombró para que no choquen en `schema_migrations`): copia exacta del bucket y sus dos
 políticas, idempotente (`on conflict do nothing`, `drop policy if exists` + `create policy`). **No se
 aplicó** (la base ya lo tenía): sirve para que un entorno nuevo quede igual. El comentario del
 archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configuración (leída con el MCP, solo lectura): público, límite de 358400 bytes (350 KB), solo
@@ -282,21 +283,27 @@ archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configur
 "subir fotos propias" (INSERT) y "borrar fotos propias" (DELETE), las dos limitadas a la carpeta
 `<auth.uid>/`. Coincide con lo que espera el front (paso 1 de abajo).
 
-Lo que falta del lado del front (próximo PR):
+**Cómo sube el front (desde el 29/09, `propiedades.service.ts#subirFotoPropiedad`):**
 
-1. Implementar `subirFotoPropiedad()` en `apps/web/src/services/propiedades.service.ts` (hoy tira
-   el error acordado, con `TODO(db)`): subir cada foto al bucket `fotos-propiedades` en
-   `<auth.uid>/<archivo>`, con la sesión del usuario, y devolver la URL pública, `peso_kb` y
-   `formato`.
-2. **`peso_kb` redondeado hacia arriba** (`Math.ceil(bytes / 1024)`): el front deja cargar hasta
-   350 × 1024 bytes y el back rechaza `peso_kb > 350`; así coinciden.
-3. Sumar el host del bucket ya está hecho (`images.remotePatterns` de `apps/web/next.config.mjs`
-   acepta `*.supabase.co/storage/v1/object/public/**`). Sacar `rentar.com` cuando no queden fotos
-   de prueba del seed.
-4. **Probar que la nueva aparezca en `/buscar`:** después de un alta real publicada, tiene que
-   aparecer en la próxima búsqueda (el front ya no guarda la lista en el navegador).
-5. Repetir el recorrido del alta completo a 390 y 1440 px y verificar con el MCP las cinco tablas
-   (`inmueble`, `inmueble_x_tag`, `foto_inmueble`, `contrato`, `medio_pago_x_contrato`).
+1. Cada foto va a `fotos-propiedades/<auth.uid>/<uuid>.<jpg|png>`, con la sesión del usuario,
+   `upsert: false` y su `contentType`. Antes de subir se vuelve a validar JPG/PNG y 358400 bytes.
+2. Devuelve la URL pública (`getPublicUrl`), **`peso_kb` redondeado hacia arriba**
+   (`Math.ceil(bytes / 1024)`, así coincide con el `peso_kb > 350` del back) y `formato` (`jpg`/`png`).
+3. Se suben en paralelo. Si falla alguna, se intentan borrar las que subieron; si `POST /inmuebles`
+   falla después de subirlas, también (el alta del back es una transacción, así que no queda nada en
+   la base).
+4. `images.remotePatterns` de `apps/web/next.config.mjs` ya acepta
+   `*.supabase.co/storage/v1/object/public/**`. Sacar `rentar.com` cuando no queden fotos del seed.
+
+**Probado en real el 29/09**, desde la pantalla: la cuenta 18 (locadora, 1440 px) y una locataria
+nueva (19, 390 px, alquilada con fecha → pasó a locadora y apareció en `/buscar`). Filas y archivos
+en la sección 9.
+
+**Borrado de las fotos de un alta que falla: resuelto (30/09).** Storage exige DELETE **y SELECT**
+para `remove()`, y el bucket no tenía SELECT: las fotos quedaban en el bucket, sin error. La política
+"ver fotos propias" (SELECT, `authenticated`, solo la carpeta propia) está versionada en
+`supabase/migrations/20260930000000_bucket_fotos_select_propias.sql` y **aplicada desde el SQL Editor**
+el 30/09. Probado: forzando un error del alta, las 3 fotos subidas se borraron.
 
 ## 9. Datos de prueba para borrar
 
@@ -308,6 +315,9 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Usuario `rentar.qa+test-roles-390@example.com` (registro sin rol, 27/09, rama `feature/roles-publicar`) | **17** | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Usuario `rentar.qa+test-rol-publicar@example.com` (prueba del rol al publicar, 29/09, `feature/vistas`) | **18**; `usuario_x_rol` **18** (locatario) y **19** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmueble "[TEST] Prueba del rol al publicar (feature/vistas, 29/09) - borrar" | inmueble **5**; `foto_inmueble` **13, 14 y 15**; `inmueble_x_tag` **7**; `contrato` **5**; `medio_pago_x_contrato` **7** | cada tabla |
+| Usuario `rentar.qa+test-fotos-390@example.com` (alta real con fotos, 29/09) | **19**; `usuario_x_rol` **21** (locatario) y **22** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Inmuebles del alta real con fotos (29/09): "Calle de Prueba Fotos 300" (usuario 18, publicado) y "Calle de Prueba Alquilada 400" (usuario 19, `publicado/alquilado`) | inmuebles **6 y 7**; `foto_inmueble` **16 a 21**; `contrato` **6 y 7**; `medio_pago_x_contrato` **8 y 9** (sin tags) | cada tabla |
+| Archivos del bucket `fotos-propiedades` | los 6 de `foto_inmueble` 16 a 21 (carpetas de los usuarios 18 y 19). Los 3 huérfanos de la primera prueba del borrado se borraron el 30/09 | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 

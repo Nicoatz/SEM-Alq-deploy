@@ -210,8 +210,10 @@ function aNumero(valor: number | string | null | undefined): number {
  * `estado_alquiler` (+ `fecha_disponible`) → `PropertyStatus`.
  * Una alquilada CON fecha de disponibilidad es `alquilada_publicada`: se
  * vuelve a ofrecer para el próximo inquilino (US-02, US-34).
- * NOTA: hoy la base solo usa `publicado` y `alquilado`; `pausado` lo acepta
- * la validación del back y se mapea por si aparece.
+ * `publicado/alquilado` (nombre acordado con el back el 29/09) también es
+ * `alquilada_publicada`; `alquilado` con fecha se sigue leyendo igual, por las
+ * que se guardaron antes de ese acuerdo.
+ * NOTA: `pausado` lo acepta la validación del back y se mapea por si aparece.
  */
 function statusDeInmueble(estado: EstadoAlquiler, fechaDisponible: string | null | undefined): PropertyStatus {
   if (estado === 'publicado/alquilado') return 'alquilada_publicada'
@@ -220,11 +222,23 @@ function statusDeInmueble(estado: EstadoAlquiler, fechaDisponible: string | null
   return 'publicada'
 }
 
-/** Estado del alta (US-01) → `estado_alquiler` del back. */
+/** Estado del alta (US-01) → `estado_alquiler` del back (sin contar la fecha: ver {@link estadoAlquilerDeAlta}). */
 const ESTADO_ALQUILER_DE_ALTA: Record<PropiedadNueva['status'], EstadoAlquiler> = {
   publicada: 'publicado',
   pausada: 'pausado',
   alquilada: 'alquilado',
+}
+
+/**
+ * `estado_alquiler` que manda el alta. Una alquilada CON fecha de
+ * disponibilidad va como `publicado/alquilado`: así la devuelve
+ * `/disponibles` (que busca `publicado` y `publicado/alquilado`) y aparece en
+ * `/buscar` con "Disponible desde" (US-34). Sin fecha, `alquilado`: no se ofrece.
+ * NOTA: nombre acordado con el back el 29/09 (`develop` 2264372). Antes el
+ * alta mandaba `alquilado` + fecha y esas no aparecían en la búsqueda.
+ */
+function estadoAlquilerDeAlta(nueva: Pick<PropiedadNueva, 'status' | 'availableFrom'>): EstadoAlquiler {
+  return nueva.status === 'alquilada' && nueva.availableFrom ? 'publicado/alquilado' : ESTADO_ALQUILER_DE_ALTA[nueva.status]
 }
 
 // ─── Títulos ────────────────────────────────────────────────────────────
@@ -261,12 +275,12 @@ export function tituloDePropiedadNueva(nueva: Pick<PropiedadNueva, 'type' | 'roo
  * - `address`: aproximada ("calle al 400"), ver la NOTA de privacidad en direccion.ts.
  * - `priceMonthly`, `expenses` y `adjustmentIndex`: del contrato del inmueble
  *   (`precio`, `expensas`, `indice_ajuste`). CAC → `null` (el front no lo ofrece).
- *   Sin contrato, el back manda `precio_publicado` como precio y `0` de
- *   expensas (y `-1` en el detalle).
- * - `expenses`: `0` o negativo → `null`: no se sabe si no tiene expensas o si
- *   no tiene contrato, así que no se muestra nada (nunca "$0" ni "Sin
- *   expensas" inventados). TODO(backend): mandar `expensas: null` cuando no hay
- *   contrato; así un `0` real se podría mostrar como "Sin expensas".
+ * - `expenses`: `null` (sin contrato) → `null`, y la tarjeta no muestra nada;
+ *   `0` → `0`, que la tarjeta muestra como "Sin expensas"; negativo (el `-1`
+ *   que mandaba el back sin contrato) → `null`. Nunca "$0".
+ *   NOTA: desde el 29/09 (`develop` ce677a4) el listado vuelve a pedir contrato
+ *   (`contrato!inner`), así que un `0` es "sin expensas" de verdad, y el back
+ *   manda `null` sin contrato (8f9bf8c).
  * - `characteristics`: de los ids de `tags` (un tag sin equivalente se descarta).
  * - `imageSrc` / `photoSrcs`: solo la `foto_principal`; si no tiene fotos,
  *   {@link PLACEHOLDER_PHOTO_SRC}.
@@ -294,7 +308,7 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
     neighborhoodName: barrio.name,
     type,
     priceMonthly: aNumero(item.precio),
-    expenses: aNumero(item.expensas) > 0 ? aNumero(item.expensas) : null,
+    expenses: item.expensas === null || aNumero(item.expensas) < 0 ? null : aNumero(item.expensas),
     bedrooms: item.dormitorios,
     rooms: item.ambientes,
     areaM2: aNumero(item.m2_totales),
@@ -325,16 +339,28 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
  * - `adjustmentIndex`: de `contrato.indice_aumento` (CAC → `null`).
  * - `publishedAt`: el back no guarda la fecha de alta; `''`. TODO(db): guardar
  *   la fecha de alta del inmueble.
- * - `tenantName`, `paymentStatus`, `paymentDueDate`, `daysOverdue`,
- *   `openClaims`, `nextAdjustment`: no existen todavía (módulos de contratos,
- *   cobros y reclamos). Se muestran vacíos ("—"). TODO(backend): sumarlos a
- *   `/mis-alquileres` cuando existan esos módulos.
+ * - `tenantName`: "Nombre Apellido" de `contrato.locatario` (desde el 29/09);
+ *   `null` si no hay locatario.
+ * - `nextAdjustment`: `contrato.fecha_proximo_ajuste` (lo calcula el back) +
+ *   el índice + cada cuántos meses (de `frecuencia_ajuste`, ver
+ *   {@link mesesDeFrecuencia}). Si falta alguno de los tres (sin fecha, índice
+ *   CAC o una frecuencia que no se entiende), `null`: se muestra "—", sin inventar.
+ * - `hasOpenClaims`: `posee_reclamos_no_resueltos` (desde el 29/09). El back
+ *   no manda la cantidad, así que `openClaims` es `null` (la columna dice
+ *   "Con reclamos").
+ * - `paymentStatus`, `paymentDueDate`, `daysOverdue`: no existen todavía
+ *   (módulo de cobros). Se muestran vacíos ("—"). TODO(backend): sumarlos a
+ *   `/mis-alquileres` cuando exista ese módulo.
  */
 export function misAlquileresItemToPropiedadLocador(item: MisAlquileresItem): PropiedadLocador {
   const type = propertyTypeFromDescripcion(item.tipo_inmueble)
   const status = statusDeInmueble(item.estado_alquiler, item.fecha_disponible)
   const alquilada = status === 'alquilada' || status === 'alquilada_publicada'
   const barrio = barrioDe(item.barrio)
+  const adjustmentIndex = adjustmentIndexFromDescripcion(item.contrato.indice_aumento)
+  const locatario = item.contrato.locatario
+  const mesesAjuste = mesesDeFrecuencia(item.contrato.frecuencia_ajuste)
+  const fechaAjuste = item.contrato.fecha_proximo_ajuste
 
   return {
     id: String(item.id_inmueble),
@@ -349,13 +375,14 @@ export function misAlquileresItemToPropiedadLocador(item: MisAlquileresItem): Pr
     expenses: aNumero(item.contrato.expensas),
     imageSrc: item.foto_principal ?? PLACEHOLDER_PHOTO_SRC,
     publishedAt: '',
-    tenantName: null,
+    tenantName: locatario ? `${locatario.nombre} ${locatario.apellido ?? ''}`.trim() : null,
     paymentStatus: null,
     paymentDueDate: null,
     daysOverdue: null,
-    openClaims: 0,
-    adjustmentIndex: adjustmentIndexFromDescripcion(item.contrato.indice_aumento),
-    nextAdjustment: null,
+    hasOpenClaims: item.posee_reclamos_no_resueltos,
+    openClaims: null,
+    adjustmentIndex,
+    nextAdjustment: fechaAjuste && adjustmentIndex && mesesAjuste ? { date: fechaAjuste, index: adjustmentIndex, everyMonths: mesesAjuste } : null,
     availableFrom: item.fecha_disponible ?? null,
   }
 }
@@ -385,16 +412,31 @@ export function seVeEnBusqueda(nueva: Pick<PropiedadNueva, 'status' | 'available
  * y "<n> meses" para el resto.
  * TODO(db): guardar la frecuencia como un entero (meses).
  */
+const NOMBRE_FRECUENCIA: Record<number, string> = {
+  1: 'Mensual',
+  2: 'Bimestral',
+  3: 'Trimestral',
+  4: 'Cuatrimestral',
+  6: 'Semestral',
+  12: 'Anual',
+}
+
 export function frecuenciaAjusteTexto(everyMonths: number): string {
-  const nombres: Record<number, string> = {
-    1: 'Mensual',
-    2: 'Bimestral',
-    3: 'Trimestral',
-    4: 'Cuatrimestral',
-    6: 'Semestral',
-    12: 'Anual',
-  }
-  return nombres[everyMonths] ?? `${everyMonths} meses`
+  return NOMBRE_FRECUENCIA[everyMonths] ?? `${everyMonths} meses`
+}
+
+/**
+ * Inversa de {@link frecuenciaAjusteTexto}: `contrato.frecuencia_ajuste`
+ * ("Semestral", "Anual", "5 meses"…) → cada cuántos meses. `null` si no se
+ * entiende (texto libre en la base, ver el TODO(db) de arriba).
+ */
+function mesesDeFrecuencia(texto: string | null | undefined): number | null {
+  if (!texto) return null
+  const limpio = sinTildes(texto)
+  const porNombre = Object.entries(NOMBRE_FRECUENCIA).find(([, nombre]) => sinTildes(nombre) === limpio)
+  if (porNombre) return Number(porNombre[0])
+  const meses = limpio.match(/^(\d{1,2})\s*mes(es)?$/)
+  return meses ? Number(meses[1]) : null
 }
 
 /**
@@ -439,7 +481,7 @@ export function propiedadNuevaToCreateInmueble(nueva: PropiedadNueva, fotos: Cre
     banos: nueva.bathrooms,
     antiguedad: nueva.ageYears,
     precio_publicado: nueva.priceMonthly,
-    estado_alquiler: ESTADO_ALQUILER_DE_ALTA[nueva.status],
+    estado_alquiler: estadoAlquilerDeAlta(nueva),
     fecha_disponible: nueva.availableFrom,
     servicios: null,
     tags: [...new Set(tags)],

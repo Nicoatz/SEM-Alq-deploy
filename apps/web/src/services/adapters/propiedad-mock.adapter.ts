@@ -120,6 +120,7 @@ export function propiedadMockToLocador(propiedad: PropiedadMock, { cobro, openCl
     paymentStatus: pago?.status ?? null,
     paymentDueDate: rental && cobro ? cobro.dueDate : null,
     daysOverdue: pago?.daysOverdue ?? null,
+    hasOpenClaims: openClaims > 0,
     openClaims,
     adjustmentIndex: propiedad.adjustmentIndex,
     nextAdjustment:
