@@ -65,9 +65,9 @@ export class InmuebleService {
 
       descripcion: inmueble.descripcion,
 
-      precio: contrato?.monto_alquiler ?? -1,
+      precio: contrato?.monto_alquiler ?? null,
 
-      expensas: contrato?.expensas ?? -1,
+      expensas: contrato?.expensas ?? null,
 
       indice_ajuste: indiceAjuste
         ? {
@@ -93,7 +93,15 @@ export class InmuebleService {
   }
 
   async getInmueblesDisponibles(filtros: FiltrosInmueblesDisponiblesDTO): Promise<InmueblesDisponiblesResultadoDTO> {
-    const inmuebles = await this.inmRepo.buscarDisponibles(filtros);
+    const { items: inmuebles, total, page, limit } = await this.inmRepo.buscarDisponibles(filtros);
+    const totalPages = Math.ceil(total / limit);
+
+    if (page > Math.max(totalPages, 1)) {
+      const error = new Error('La página solicitada no existe.');
+      Object.assign(error, { statusCode: 400 });
+      throw error;
+    }
+
     const items: InmuebleDisponibleDTO[] = [];
 
     for (const inmueble of inmuebles) {
@@ -177,10 +185,10 @@ export class InmuebleService {
 
     return {
       items,
-      total: items.length,
-      page: 1,
-      limit: items.length,
-      totalPages: 1
+      total,
+      page,
+      limit,
+      totalPages
     };
   }
 
@@ -264,8 +272,8 @@ export class InmuebleService {
       throw new Error('Se debe indicar la cantidad de baños (debe ser mayor a 0).');
     }
 
-    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'alquilada/publicada'].includes(data.estado_alquiler)) {
-      throw new Error('Se debe indicar el estado del alquiler: publicado, pausado o alquilado.');
+    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'publicado/alquilado'].includes(data.estado_alquiler)) {
+      throw new Error('Se debe indicar un estado de alquiler válido.');
     }
 
     if (data.precio_publicado === undefined || data.precio_publicado === null || data.precio_publicado <= 0) {
@@ -350,12 +358,14 @@ export class InmuebleService {
     const resultado: MisAlquileresDTO[] = [];
 
     for (const inm of inmuebles) {
+      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
+      if (filtros?.reclamos !== undefined && poseeReclamosNoResueltos !== filtros.reclamos) continue;
+
       const tipoObj = await lookupRepository.getTipoById(inm.tipo);
       const servicioObj = inm.servicios ? await lookupRepository.getServicioById(inm.servicios) : null;
       const tagsObjs = await this.inmRepo.getTagsByInmuebleId(inm.id);
       const fotos = await this.inmRepo.getFotosByInmuebleId(inm.id);
       const fotoPrincipal = fotos.find(f => f.es_principal)?.url || (fotos.length > 0 ? fotos[0].url : null);
-      const poseeReclamosNoResueltos = await this.inmRepo.poseeReclamosNoResueltos(inm.id);
 
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];

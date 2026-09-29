@@ -75,7 +75,7 @@ export interface MedioPagoXContrato {
   id_medio_pago: number;
 }
 
-export type EstadoAlquiler = 'publicado' | 'pausado' | 'alquilado' | 'alquilada/publicada';
+export type EstadoAlquiler = 'publicado' | 'pausado' | 'alquilado' | 'publicado/alquilado';
 
 export interface Inmueble {
   id: number;
