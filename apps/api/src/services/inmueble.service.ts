@@ -65,9 +65,9 @@ export class InmuebleService {
 
       descripcion: inmueble.descripcion,
 
-      precio: contrato?.monto_alquiler ?? -1,
+      precio: contrato?.monto_alquiler ?? null,
 
-      expensas: contrato?.expensas ?? -1,
+      expensas: contrato?.expensas ?? null,
 
       indice_ajuste: indiceAjuste
         ? {

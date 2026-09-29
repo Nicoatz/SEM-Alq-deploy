@@ -36,8 +36,8 @@ export interface InmuebleDetalleDTO {
 
   descripcion?: string | null;
 
-  precio: number;
-  expensas: number;
+  precio: number | null;
+  expensas: number | null;
 
   indice_ajuste: {
     id: number;
