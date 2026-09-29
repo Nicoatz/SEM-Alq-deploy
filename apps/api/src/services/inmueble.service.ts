@@ -206,7 +206,7 @@ export class InmuebleService {
    */
   private async validarReglasUS01(data: CreateInmuebleCompletoDTO, idLocador: number): Promise<void> {
     if (!idLocador) {
-      throw new Error('Se debe haber iniciado sesión como locador.');
+      throw new Error('Se debe haber iniciado sesión.');
     }
 
     if (
@@ -339,65 +339,7 @@ export class InmuebleService {
   ): Promise<InmuebleDTO> {
     await this.validarReglasUS01(data, idLocador);
 
-    let inmuebleCreadoId: number | null = null;
-
-    try {
-      const nuevoInmueble = await this.inmRepo.create({
-        id_locador: idLocador,
-        tipo: data.tipo,
-        descripcion: data.descripcion || null,
-        provincia: data.provincia,
-        ciudad: data.ciudad,
-        barrio: data.barrio,
-        direccion: data.direccion,
-        numero: data.numero,
-        piso: data.piso || null,
-        m2_totales: data.m2_totales,
-        m2_cubiertos: data.m2_cubiertos,
-        ambientes: data.ambientes,
-        dormitorios: data.dormitorios,
-        banos: data.banos,
-        antiguedad: data.antiguedad !== undefined ? data.antiguedad : null,
-        precio_publicado: data.precio_publicado,
-        estado_alquiler: data.estado_alquiler,
-        fecha_disponible: data.fecha_disponible || null,
-        servicios: data.servicios || null
-      });
-
-      inmuebleCreadoId = nuevoInmueble.id;
-
-      await this.inmRepo.addFotos(inmuebleCreadoId, data.fotos);
-
-      if (data.tags && data.tags.length > 0) {
-        await this.inmRepo.addTags(inmuebleCreadoId, data.tags);
-      }
-
-      await this.contRepo.create(
-        {
-          id_inmueble: inmuebleCreadoId,
-          monto_alquiler: data.condiciones_contrato.monto_alquiler,
-          expensas: data.condiciones_contrato.expensas,
-          indice_aumento: data.condiciones_contrato.indice_aumento || null,
-          frecuencia_ajuste: data.condiciones_contrato.frecuencia_ajuste || null,
-          duracion_meses: data.condiciones_contrato.duracion_meses || null,
-          deposito: data.condiciones_contrato.deposito || null,
-          interes_por_dia: data.condiciones_contrato.interes_por_dia || null,
-          dias_gracia: data.condiciones_contrato.dias_gracia || null,
-          fecha_inicio_contrato: null,
-          fecha_fin_contrato: null,
-          estado: 1
-        },
-        data.condiciones_contrato.medios_pago
-      );
-
-      return nuevoInmueble;
-    } catch (error) {
-      if (inmuebleCreadoId) {
-        await this.inmRepo.delete(inmuebleCreadoId);
-        await this.contRepo.deleteByInmuebleId(inmuebleCreadoId);
-      }
-      throw error;
-    }
+    return this.inmRepo.registrarPropiedadCompleta(idLocador, data);
   }
 
   async getMisInmueblesPublicados(

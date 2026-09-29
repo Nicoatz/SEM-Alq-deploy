@@ -148,7 +148,6 @@ router.get("/disponibles/:id", inmuebleController.getById.bind(inmuebleControlle
 router.post(
   "/",
   authenticateGateway,
-  requireRole("locador"),
   inmuebleController.create.bind(inmuebleController)
 );
 
