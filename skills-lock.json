@@ -1,19 +1,16 @@
 {
   "version": 1,
   "skills": {
-<<<<<<< HEAD
     "supabase-server": {
       "source": "supabase/server",
       "sourceType": "github",
       "skillPath": "skills/supabase-server/SKILL.md",
-      "computedHash": "5bb0cbbb600373b5dfc5b3369130db5fef5d2bcdf3a7cf95c0d65a0c5cf3e4df"
-=======
+      "computedHash": "5bb0cbbb600373b5dfc5b3369130db5fef5d2bcdf3a7cf95c0d65a0c5cf3e4df",
     "playwright-cli": {
       "source": "microsoft/playwright-cli",
       "sourceType": "github",
       "skillPath": "skills/playwright-cli/SKILL.md",
       "computedHash": "235fc46cba70822cb151893d1819314f6eedcd263434272f9d8341e92fdbd29e"
->>>>>>> origin/feature/vistas
     }
   }
 }

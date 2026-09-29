@@ -118,6 +118,7 @@ export interface FiltrosMisAlquileresDTO {
   barrio?: string;
   tipo?: number;
   estado?: EstadoAlquiler;
+  reclamos?: boolean;
 }
 
 export interface FiltrosInmueblesDisponiblesDTO {
