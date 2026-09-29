@@ -167,7 +167,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
 | `POST /inmuebles` | Alta | **Conectado** (29/09): alta real de punta a punta desde la pantalla, con fotos en Storage; cualquier rol, y suma el rol locador |
-| Supabase Storage, bucket `fotos-propiedades` | Alta | **Conectado** (29/09): el alta sube las fotos y se probó de punta a punta. Falta la política de SELECT para borrar las de un alta fallida (sección 8) |
+| Supabase Storage, bucket `fotos-propiedades` | Alta | **Conectado** (29/09): el alta sube las fotos y, si falla, las borra (desde el 30/09, con la política de SELECT; sección 8) |
 | `GET /locadores/:idLocador/barrios` | — | Existe desde el 29/09 (Bearer + rol locador; solo el propio id). El front no la usa: arma los barrios del filtro de US-02 con sus propias propiedades |
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
@@ -251,7 +251,7 @@ cuando el back vuelva a respetar los filtros.
 | ~~`POST /inmuebles` exigía `requireRole("locador")`~~ **Resuelto (29/09, d88deca):** acepta a cualquier usuario con sesión. | — |
 | ~~Asignar el rol locador al crear la primera propiedad~~ **Resuelto (29/09, d88deca):** lo hace `registrar_propiedad_completa`, en la misma transacción del alta. | — |
 | **Expansión de roles en `/usuarios/me`:** para las cuentas nuevas no hace falta: el registro guarda la fila de locatario y al publicar se suma la de locador, así que `/me` devuelve las dos (en ese orden, `["locatario", "locador"]`; el front no depende del orden). Queda para las cuentas locadoras viejas que no tienen la fila de locatario (ej. `locador@rentar.com`): `/me` les devuelve solo `["locador"]`. | backend / db |
-| El bucket `fotos-propiedades` existe (29/09) y el front ya sube las fotos. Falta una política de SELECT para poder borrar las fotos de un alta que falla (sección 8). | db (Ivan) |
+| ~~Faltaba la política de SELECT para borrar las fotos de un alta que falla~~ **Resuelto (30/09):** aplicada (sección 8). | — |
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
 | `deposito` es un monto; el front lo pide en meses. Se manda meses × precio. | db |
@@ -299,9 +299,11 @@ archivo anota que faltan políticas de UPDATE y SELECT, sin agregarlas. Configur
 nueva (19, 390 px, alquilada con fecha → pasó a locadora y apareció en `/buscar`). Filas y archivos
 en la sección 9.
 
-| Brecha | Dueño |
-|---|---|
-| **Falta una política de SELECT para borrar.** Storage exige DELETE **y SELECT** sobre `storage.objects` para `remove()`; sin SELECT no borra nada y responde una lista vacía, sin error. Probado: forzando un error del alta, las 3 fotos subidas quedaron en el bucket. Propuesta: `create policy "ver fotos propias" on storage.objects for select to authenticated using ((bucket_id = 'fotos-propiedades') and ((storage.foldername(name))[1] = (auth.uid())::text));` (solo la carpeta propia: no habilita listar lo de otros). **Versionada en `supabase/migrations/20260930000000_bucket_fotos_select_propias.sql`** (idempotente); la aplica el PO desde el SQL Editor. Hasta que esté aplicada, el borrado sigue sin funcionar. | PO (aplicar) |
+**Borrado de las fotos de un alta que falla: resuelto (30/09).** Storage exige DELETE **y SELECT**
+para `remove()`, y el bucket no tenía SELECT: las fotos quedaban en el bucket, sin error. La política
+"ver fotos propias" (SELECT, `authenticated`, solo la carpeta propia) está versionada en
+`supabase/migrations/20260930000000_bucket_fotos_select_propias.sql` y **aplicada desde el SQL Editor**
+el 30/09. Probado: forzando un error del alta, las 3 fotos subidas se borraron.
 
 ## 9. Datos de prueba para borrar
 
@@ -315,7 +317,7 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Inmueble "[TEST] Prueba del rol al publicar (feature/vistas, 29/09) - borrar" | inmueble **5**; `foto_inmueble` **13, 14 y 15**; `inmueble_x_tag` **7**; `contrato` **5**; `medio_pago_x_contrato` **7** | cada tabla |
 | Usuario `rentar.qa+test-fotos-390@example.com` (alta real con fotos, 29/09) | **19**; `usuario_x_rol` **21** (locatario) y **22** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmuebles del alta real con fotos (29/09): "Calle de Prueba Fotos 300" (usuario 18, publicado) y "Calle de Prueba Alquilada 400" (usuario 19, `publicado/alquilado`) | inmuebles **6 y 7**; `foto_inmueble` **16 a 21**; `contrato` **6 y 7**; `medio_pago_x_contrato` **8 y 9** (sin tags) | cada tabla |
-| Archivos del bucket `fotos-propiedades` | los de `foto_inmueble` 16 a 21 (carpetas de los usuarios 18 y 19) y **3 huérfanos** de la prueba del borrado (`32c9ed9b-…/6901f188-….png`, `…/67aa21ec-….png`, `…/70c9f11d-….png`), que no se pudieron borrar por la política de SELECT que falta (sección 8) | `storage.objects` |
+| Archivos del bucket `fotos-propiedades` | los 6 de `foto_inmueble` 16 a 21 (carpetas de los usuarios 18 y 19). Los 3 huérfanos de la primera prueba del borrado se borraron el 30/09 | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 

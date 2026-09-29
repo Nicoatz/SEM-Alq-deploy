@@ -298,11 +298,12 @@ export async function subirFotoPropiedad(foto: FotoNueva): Promise<FotoSubida> {
  * archivos sueltos en el bucket. Usa la política "borrar fotos propias".
  * NOTA: es un intento: si el borrado falla, se anota en la consola y no tapa
  * el error del alta, que es lo que la persona tiene que ver.
- * TODO(db): para borrar, Storage exige permisos de DELETE **y SELECT** sobre
- * `storage.objects`, y el bucket solo tiene INSERT y DELETE. Sin una política
- * de SELECT sobre la carpeta propia, `remove()` no borra nada y tampoco
- * devuelve error (responde una lista vacía). Probado el 29/09: las fotos de un
- * alta fallida quedaron en el bucket. Ver `HANDOFF-BACKEND.md` §8.
+ * NOTA: para borrar, Storage exige permisos de DELETE **y SELECT** sobre
+ * `storage.objects`. Sin la política de SELECT, `remove()` no borra nada y
+ * tampoco devuelve error (responde una lista vacía): por eso se compara
+ * cuántos borró. La política "ver fotos propias" (migración
+ * `20260930000000_bucket_fotos_select_propias.sql`) está aplicada desde el
+ * 30/09 y el borrado se probó en real.
  */
 async function borrarFotosSubidas(paths: string[]): Promise<void> {
   if (paths.length === 0) return
@@ -310,7 +311,7 @@ async function borrarFotosSubidas(paths: string[]): Promise<void> {
     const { data, error } = await getSupabaseBrowserClient().storage.from(BUCKET_FOTOS).remove(paths)
     if (error) console.warn('No se pudieron borrar las fotos de un alta que no se completó.', error.message)
     else if ((data?.length ?? 0) < paths.length) {
-      console.warn(`Se borraron ${data?.length ?? 0} de ${paths.length} fotos de un alta que no se completó (falta la política de SELECT del bucket).`)
+      console.warn(`Se borraron ${data?.length ?? 0} de ${paths.length} fotos de un alta que no se completó (¿falta la política de SELECT del bucket?).`)
     }
   } catch (error) {
     console.warn('No se pudieron borrar las fotos de un alta que no se completó.', error)
