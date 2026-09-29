@@ -275,12 +275,12 @@ export function tituloDePropiedadNueva(nueva: Pick<PropiedadNueva, 'type' | 'roo
  * - `address`: aproximada ("calle al 400"), ver la NOTA de privacidad en direccion.ts.
  * - `priceMonthly`, `expenses` y `adjustmentIndex`: del contrato del inmueble
  *   (`precio`, `expensas`, `indice_ajuste`). CAC → `null` (el front no lo ofrece).
- *   Sin contrato, el back manda `precio_publicado` como precio y `0` de
- *   expensas (y `-1` en el detalle).
- * - `expenses`: `0` o negativo → `null`: no se sabe si no tiene expensas o si
- *   no tiene contrato, así que no se muestra nada (nunca "$0" ni "Sin
- *   expensas" inventados). TODO(backend): mandar `expensas: null` cuando no hay
- *   contrato; así un `0` real se podría mostrar como "Sin expensas".
+ * - `expenses`: `null` (sin contrato) → `null`, y la tarjeta no muestra nada;
+ *   `0` → `0`, que la tarjeta muestra como "Sin expensas"; negativo (el `-1`
+ *   que mandaba el back sin contrato) → `null`. Nunca "$0".
+ *   NOTA: desde el 29/09 (`develop` ce677a4) el listado vuelve a pedir contrato
+ *   (`contrato!inner`), así que un `0` es "sin expensas" de verdad, y el back
+ *   manda `null` sin contrato (8f9bf8c).
  * - `characteristics`: de los ids de `tags` (un tag sin equivalente se descarta).
  * - `imageSrc` / `photoSrcs`: solo la `foto_principal`; si no tiene fotos,
  *   {@link PLACEHOLDER_PHOTO_SRC}.
@@ -308,7 +308,7 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
     neighborhoodName: barrio.name,
     type,
     priceMonthly: aNumero(item.precio),
-    expenses: aNumero(item.expensas) > 0 ? aNumero(item.expensas) : null,
+    expenses: item.expensas === null || aNumero(item.expensas) < 0 ? null : aNumero(item.expensas),
     bedrooms: item.dormitorios,
     rooms: item.ambientes,
     areaM2: aNumero(item.m2_totales),

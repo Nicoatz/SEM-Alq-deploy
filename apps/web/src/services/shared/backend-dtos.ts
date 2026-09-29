@@ -56,7 +56,8 @@ export interface InmuebleDisponibleResponse {
   m2_cubiertos: number
   descripcion?: string | null
   precio: number
-  expensas: number
+  /** `null` sin contrato (desde el 29/09); antes `0` o `-1`. */
+  expensas: number | null
   indice_ajuste: CatalogoRef | null
   fecha_disponible?: string | null
   tags: CatalogoRef[]
@@ -127,8 +128,10 @@ export interface InmuebleDetalleResponse {
   m2_totales: number
   m2_cubiertos: number
   descripcion?: string | null
-  precio: number
-  expensas: number
+  /** `null` sin contrato (desde el 29/09); antes `-1`. */
+  precio: number | null
+  /** `null` sin contrato (desde el 29/09); antes `-1`. */
+  expensas: number | null
   indice_ajuste: CatalogoRef | null
   fecha_disponible?: string | null
   tags: CatalogoRef[]
