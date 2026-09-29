@@ -190,7 +190,15 @@ Las acciones clave de cada pantalla llevan `data-testid` con la forma
 
 ## Ramas y commits
 
-- `main`: producción. `develop`: integración. `feature/<nombre>`: trabajo en curso, desde `develop`.
+- `main`: producción. `develop`: integración. `feature/<nombre>`: trabajo en curso, desde `develop`
+  (el front, siempre en `feature/vistas`: ver "Forma de trabajo").
 - Los PR van siempre contra `develop`.
 - Commits chicos, en español (`feat(web): …`, `fix(web): …`, `feat(ui): …`, `docs: …`).
 - No se hace push ni merge sin la aprobación del PO.
+
+## Forma de trabajo
+
+Todo el front se trabaja en `feature/vistas`. No se crean ramas por implementación. Al empezar cada
+sesión y antes de cada PR: `git fetch` y `git merge origin/develop`. Un PR a `develop` por cada US o
+bloque terminado, mergeado con merge commit (nunca squash). Nunca `push --force` sobre
+`feature/vistas`.
