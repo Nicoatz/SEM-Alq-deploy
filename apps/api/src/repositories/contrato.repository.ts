@@ -1,4 +1,4 @@
-import { ContratoDTO, MedioPagoDTO } from '../dtos';
+import { ContratoDTO, MedioPagoDTO, UsuarioDTO } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
 
 export interface IContratoRepository {
@@ -6,6 +6,7 @@ export interface IContratoRepository {
   findByInmuebleId(inmuebleId: number): Promise<ContratoDTO | null>;
   create(data: Omit<ContratoDTO, 'id'>, mediosPagoIds: number[]): Promise<ContratoDTO>;
   getMediosPagoByContratoId(contratoId: number): Promise<MedioPagoDTO[]>;
+  getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null>;
   delete(id: number): Promise<boolean>;
   deleteByInmuebleId(inmuebleId: number): Promise<boolean>;
 }
@@ -51,6 +52,20 @@ export class ContratoRepository implements IContratoRepository {
       .eq('id_contrato', contratoId);
     if (error) throw error;
     return (data ?? []).map((row: any) => row.medio_pago).filter(Boolean) as MedioPagoDTO[];
+  }
+
+  async getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('contrato_x_usuario')
+      .select('usuario(id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento)')
+      .eq('id_contrato', contratoId)
+      .eq('tipo_firmante', 2)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const relacion = data as { usuario: UsuarioDTO | null } | null;
+    return relacion?.usuario ?? null;
   }
 
   async delete(id: number): Promise<boolean> {

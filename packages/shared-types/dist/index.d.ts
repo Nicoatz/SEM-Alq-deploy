@@ -187,6 +187,11 @@ export interface MisAlquileresItem {
     fotos: FotoInmueble[];
     contrato: {
         id: number;
+        locatario: {
+            id: number;
+            nombre: string;
+            apellido?: string | null;
+        } | null;
         monto_alquiler: number;
         expensas: number;
         indice_aumento?: string | null;

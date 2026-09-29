@@ -350,6 +350,9 @@ export class InmuebleService {
       const contrato = await this.contRepo.findByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];
       let indiceDescripcion: string | null = null;
+      const locatario = contrato
+        ? await this.contRepo.getLocatarioByContratoId(contrato.id)
+        : null;
 
       if (contrato) {
         const mediosPagoObjs = await this.contRepo.getMediosPagoByContratoId(contrato.id);
@@ -389,6 +392,13 @@ export class InmuebleService {
         fotos: fotos,
         contrato: {
           id: contrato ? contrato.id : 0,
+          locatario: locatario
+            ? {
+                id: locatario.id,
+                nombre: locatario.nombre,
+                apellido: locatario.apellido
+              }
+            : null,
           monto_alquiler: contrato ? contrato.monto_alquiler : inm.precio_publicado,
           expensas: contrato ? contrato.expensas : 0,
           indice_aumento: indiceDescripcion,
