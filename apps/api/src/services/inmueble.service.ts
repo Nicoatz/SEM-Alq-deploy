@@ -272,8 +272,8 @@ export class InmuebleService {
       throw new Error('Se debe indicar la cantidad de baños (debe ser mayor a 0).');
     }
 
-    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'alquilada/publicada'].includes(data.estado_alquiler)) {
-      throw new Error('Se debe indicar el estado del alquiler: publicado, pausado o alquilado.');
+    if (!data.estado_alquiler || !['publicado', 'pausado', 'alquilado', 'publicado/alquilado'].includes(data.estado_alquiler)) {
+      throw new Error('Se debe indicar un estado de alquiler válido.');
     }
 
     if (data.precio_publicado === undefined || data.precio_publicado === null || data.precio_publicado <= 0) {

@@ -217,6 +217,7 @@ function aNumero(valor: number | string | null | undefined): number {
  * la validación del back y se mapea por si aparece.
  */
 function statusDeInmueble(estado: EstadoAlquiler, fechaDisponible: string | null | undefined): PropertyStatus {
+  if (estado === 'publicado/alquilado') return 'alquilada_publicada'
   if (estado === 'alquilado') return fechaDisponible ? 'alquilada_publicada' : 'alquilada'
   if (estado === 'pausado') return 'pausada'
   return 'publicada'

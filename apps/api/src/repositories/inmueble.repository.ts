@@ -245,7 +245,7 @@ export class InmuebleRepository implements IInmuebleRepository {
       .eq('id', id)
       .in('estado_alquiler', [
         'publicado',
-        'alquilado/publicado'
+        'publicado/alquilado'
       ])
       .maybeSingle();
 
@@ -289,7 +289,7 @@ export class InmuebleRepository implements IInmuebleRepository {
       .select('*, contrato!inner(monto_alquiler, indice_aumento)', { count: 'exact' })
       .in('estado_alquiler', [
         'publicado',
-        'alquilado/publicado'
+        'publicado/alquilado'
       ]);
 
     if (filtros?.barrio) {

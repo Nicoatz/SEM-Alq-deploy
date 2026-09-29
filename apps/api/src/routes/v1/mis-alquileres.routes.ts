@@ -27,7 +27,7 @@ const router = Router();
  *         name: estado
  *         schema:
  *           type: string
- *           enum: [publicado, pausado, alquilado, alquilada/publicada]
+ *           enum: [publicado, pausado, alquilado, publicado/alquilado]
  *         description: Filtra por estado de alquiler.
  *     security:
  *       - SupabaseBearerAuth: []
