@@ -5,7 +5,11 @@
  * lleva acá no quede roto.
  * Entra desde: el ítem "Solicitudes" del menú del locador.
  */
+import type { Metadata } from 'next'
 import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Solicitudes' }
 
 /** Placeholder de Solicitudes (otro sprint). */
 export default function SolicitudesPage() {

@@ -183,7 +183,8 @@ export function SearchSidebarFilters({
           <Select
             value={value.province ?? undefined}
             placeholder="Todas"
-            allowClear
+            // `label`: nombre del botón de borrar (antd lo deja en inglés, "Clear").
+            allowClear={{ label: 'Borrar la provincia' }}
             showSearch
             options={locations.provinces.map((item) => ({ value: item.name, label: item.name }))}
             // Cambiar de provincia vacía la ciudad y los barrios: dependen de ella.
@@ -196,7 +197,7 @@ export function SearchSidebarFilters({
           <Select
             value={value.city ?? undefined}
             placeholder="Todas"
-            allowClear
+            allowClear={{ label: 'Borrar la ciudad' }}
             showSearch
             // Se habilita recién con una provincia, y lista solo sus ciudades.
             disabled={!province}
@@ -211,7 +212,7 @@ export function SearchSidebarFilters({
             mode="multiple"
             value={value.neighborhoodSlugs}
             placeholder="Todos"
-            allowClear
+            allowClear={{ label: 'Borrar los barrios' }}
             showSearch
             optionFilterProp="label"
             maxTagCount="responsive"

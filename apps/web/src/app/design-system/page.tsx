@@ -10,7 +10,7 @@ import DesignSystem from '@/components/DesignSystem'
 
 /** Título y descripción de la pestaña del navegador (Next.js los lee de este export). */
 export const metadata: Metadata = {
-  title: 'Sistema de Diseño — RentAR',
+  title: 'Sistema de Diseño',
   description: 'Referencia visual e interactiva del sistema de diseño de RentAR: colores, tipografía, espaciado, componentes y reglas de uso.',
 }
 

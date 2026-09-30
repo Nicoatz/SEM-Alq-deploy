@@ -5,7 +5,11 @@
  * lleva acá no quede roto.
  * Entra desde: "Mi perfil" del UserMenu.
  */
+import type { Metadata } from 'next'
 import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Mi perfil' }
 
 /** Placeholder de Mi perfil (otro sprint). */
 export default function PerfilPage() {

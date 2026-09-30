@@ -241,6 +241,10 @@ export function UserMenu({
       type="button"
       className={styles.trigger}
       data-testid="user-menu-trigger"
+      // En móvil el nombre y el rol se ocultan y queda solo el avatar: sin
+      // este label, el botón no tiene nombre para un lector de pantalla. Arranca
+      // con el texto visible en escritorio (nombre y rol), en el mismo orden.
+      aria-label={`${name}, ${ROLE_LABEL[role]}. Menú de la cuenta`}
       aria-haspopup="menu"
       onClick={isMobile ? () => setOpen(true) : undefined}
       {...rest}

@@ -26,7 +26,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Button, Checkbox, Drawer, Dropdown, Input, Pagination, Select } from 'antd'
-import { EllipsisOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { CloseCircleFilled, EllipsisOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { MisPropiedadesFiltros, OrdenMisPropiedades, PropiedadLocador } from '@rentar/shared-types'
 import { DataTable, EmptyState, PageHeader } from '@rentar/ui'
@@ -230,7 +230,9 @@ export function MisPropiedades() {
             className={styles.search}
             prefix={<SearchOutlined />}
             placeholder="Buscar por dirección o locatario"
-            allowClear
+            // El botón de borrar de antd toma el nombre del ícono ("close-circle",
+            // en inglés): se lo pisa con uno en español.
+            allowClear={{ clearIcon: <CloseCircleFilled aria-label="Borrar la búsqueda" /> }}
             value={filtros.text}
             onChange={(event) => cambiarFiltros({ text: event.target.value })}
             aria-label="Buscar por dirección o locatario"

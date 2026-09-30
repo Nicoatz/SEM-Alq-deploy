@@ -32,3 +32,48 @@
   display: flex;
   justify-content: center;
 }
+
+/* ─── Error de carga (el back no respondió) ───────────────────────── */
+/* Mismo bloque que el error de `/buscar` (`buscar/Buscar.module.css`). */
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5625rem;
+  padding: 2.5rem 1.25rem;
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+  text-align: center;
+}
+
+.errorIcon {
+  width: 3rem;
+  height: 3rem;
+  display: grid;
+  place-items: center;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-status-error-bg);
+  color: var(--rentar-color-error);
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.errorTitle {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  max-width: 22rem;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+.errorBlock :global(.ant-btn) {
+  border-radius: var(--rentar-radius-pill);
+}

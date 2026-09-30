@@ -31,9 +31,18 @@ const leagueSpartan = League_Spartan({
   display: 'swap',
 })
 
-/** Título y descripción de la pestaña del navegador (Next.js los lee de este export). */
+/**
+ * Título y descripción de la pestaña del navegador (Next.js los lee de este export).
+ *
+ * `title.template`: cada página exporta solo su nombre (`{ title: 'Mis
+ * propiedades' }`) y Next le suma "— RentAR". La landing no exporta título y
+ * usa `default`.
+ */
 export const metadata: Metadata = {
-  title: 'RentAR — Alquilá directo, sin inmobiliaria',
+  title: {
+    default: 'RentAR — Alquilá directo, sin inmobiliaria',
+    template: '%s — RentAR',
+  },
   description:
     'RentAR: alquilá o publicá tu propiedad en Córdoba directamente entre particulares, sin inmobiliaria. Contrato con firma electrónica, ajuste automático por IPC/ICL y pagos trazables.',
 }

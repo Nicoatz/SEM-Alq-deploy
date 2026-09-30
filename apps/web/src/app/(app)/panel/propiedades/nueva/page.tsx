@@ -10,7 +10,11 @@
  * Entra desde: "Publicar propiedad" del encabezado del panel, del listado,
  * del panel del locatario, del registro y del Header público.
  */
+import type { Metadata } from 'next'
 import { AltaPropiedad } from '@/components/alta/AltaPropiedad'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Publicar propiedad' }
 
 /** Monta el alta de propiedad (US-01). */
 export default function NuevaPropiedadPage() {

@@ -14,9 +14,13 @@
  * toda cuenta nueva es locataria y pasa a ser también locadora al publicar su
  * primera propiedad. `?rol=` ya no se lee.
  */
+import type { Metadata } from 'next'
 import { RegistroForm } from '@/components/auth/RegistroForm'
 import { safeNextPath } from '@/lib/auth/redirect'
 import { haySesionProbable } from '@/lib/auth/sesion-probable'
+
+/** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
+export const metadata: Metadata = { title: 'Crear cuenta' }
 
 interface RegistroPageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>

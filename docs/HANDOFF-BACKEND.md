@@ -318,6 +318,9 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Usuario `rentar.qa+test-fotos-390@example.com` (alta real con fotos, 29/09) | **19**; `usuario_x_rol` **21** (locatario) y **22** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmuebles del alta real con fotos (29/09): "Calle de Prueba Fotos 300" (usuario 18, publicado) y "Calle de Prueba Alquilada 400" (usuario 19, `publicado/alquilado`) | inmuebles **6 y 7**; `foto_inmueble` **16 a 21**; `contrato` **6 y 7**; `medio_pago_x_contrato` **8 y 9** (sin tags) | cada tabla |
 | Archivos del bucket `fotos-propiedades` | los 6 de `foto_inmueble` 16 a 21 (carpetas de los usuarios 18 y 19). Los 3 huérfanos de la primera prueba del borrado se borraron el 30/09 | `storage.objects` |
+| Usuario `nicoartaz+test3009@gmail.com` (QA de `develop` en real, 30/09, `feature/vistas`: registro, login/logout, alta con 3 fotos y pase a locador) | **20**; `usuario_x_rol` **23** (locatario) y **24** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
+| Inmueble "Calle QA 30-09 1234" (Güemes, usuario 20, publicado) | inmueble **8**; `foto_inmueble` **22, 23 y 24**; `inmueble_x_tag` **8**; `contrato` **8**; `medio_pago_x_contrato` **10** | cada tabla |
+| Archivos del bucket `fotos-propiedades` del inmueble 8 | los 3 de `foto_inmueble` 22 a 24 (carpeta `6ac3e808-…`, del usuario 20) | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 
@@ -347,6 +350,26 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    `@supabase/server`, commits 041bea0 y ead9eb8) sin actualizar `package-lock.json`. En el #3 se
    sacaron de ahí para tener una sola copia de Next (la de `apps/web`, 16.3.5 exacta): el próximo
    `npm install` puede volver a traer dos. No se tocó desde el front (lo habla el PO con Thiago).
+
+### Pendientes del front anotados en el QA de `develop` (30/09)
+
+No se arreglaron en el PR del QA; quedan anotados para cuando toque:
+
+1. **Bloqueo por rol de las páginas del locador.** Hoy solo `/panel/propiedades` y
+   `/panel/propiedades/[id]` están envueltas en `RequireRole role="locador"`. Solicitudes, Contratos,
+   Cobros, Reclamos, Mensajes, Reportes y Suscripción son placeholders sin bloqueo: un locatario no
+   las ve en el menú (`navConfig.tsx`), pero entra si escribe la URL. Cuando cada una se implemente,
+   envolverla en `RequireRole` (y que el back responda 403 a un locatario, ver §6), salvo las que
+   también sean del locatario (Contratos, Cobros, Reclamos y Mensajes lo van a ser con su panel).
+2. **Doble "Publicar propiedad" en Mis propiedades.** En escritorio aparece en el encabezado del
+   panel (`AppShell#headerAction`, regla de roles del 27/09) y otra vez en el `PageHeader` de la
+   pantalla (`mis-propiedades-publicar`); en móvil, además del menú, está el CTA fijo de abajo
+   (`mis-propiedades-publicar-movil`). Lo decide el PO con el diseño: no se tocó.
+3. **Accesibilidad (menor): las flechitas de los `InputNumber` dicen "Increase Value" / "Decrease
+   Value".** Es el `aria-label` de los botones de subir y bajar (por ejemplo, Antigüedad y Superficie
+   en el alta). Está fijo en inglés en `@rc-component/input-number` (`StepHandler.js`): no pasa por
+   el locale `es_ES` ni hay una prop para cambiarlo. El PO decidió dejarlas como están (30/09).
+   Revisarlo cuando se actualice antd, por si una versión futura lo expone en el locale o como prop.
 
 ## 11. Numeración de las User Stories
 
