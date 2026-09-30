@@ -23,9 +23,14 @@ export class ContratoRepository implements IContratoRepository {
       .from('contrato')
       .select('*')
       .eq('id_inmueble', inmuebleId)
-      .maybeSingle();
+      .order('id', { ascending: false });
     if (error) throw error;
-    return data as ContratoDTO | null;
+
+    // NOTA: un inmueble puede tener varios contratos (historial de finalizados). Con
+    // maybeSingle() eso rompía con "multiple (or no) rows returned". Se prefiere el
+    // contrato no finalizado (estado 3) más reciente; si no hay, el último.
+    const contratos = (data ?? []) as ContratoDTO[];
+    return contratos.find(c => c.estado !== 3) ?? contratos[0] ?? null;
   }
 
   async create(
@@ -60,11 +65,12 @@ export class ContratoRepository implements IContratoRepository {
       .select('usuario(id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento)')
       .eq('id_contrato', contratoId)
       .eq('tipo_firmante', 2)
-      .maybeSingle();
+      .limit(1);
 
     if (error) throw error;
 
-    const relacion = data as { usuario: UsuarioDTO | null } | null;
+    // NOTA: limit(1) en vez de maybeSingle() para no fallar si hubiera más de un locatario principal.
+    const relacion = (data as unknown as { usuario: UsuarioDTO | null }[] | null)?.[0];
     return relacion?.usuario ?? null;
   }
 
