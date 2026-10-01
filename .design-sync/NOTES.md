@@ -198,6 +198,56 @@ Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendie
   quedaba 48 px corrido respecto de `/buscar` y 24 px respecto de la landing. El `Footer` pone logo y
   links en fila desde 768 px (antes 640). La API no cambia.
 
+## Tarea aparte: peso del JS común (Lighthouse móvil), para después del merge de la landing
+
+Decisión del PO (01/10/2026): no se resuelve en `feature/nuevo-landing`. Queda acá y en la
+descripción del PR de la landing.
+
+**Números** (build de producción en modo mock, Lighthouse 12 con el perfil móvil por defecto, Edge
+sin interfaz):
+
+| Página | Performance (simulado) | LCP simulado | Performance (estrangulamiento real) | JS transferido |
+|---|---|---|---|---|
+| `/` (landing) | 76–77 (3 corridas) | 6,0 s | 94 (LCP 1,8 s, CLS 0) | ~750 KB en 20 archivos |
+| `/login` | 76 | 5,9 s | — | ~746 KB |
+| `/buscar` | 72 | 6,9 s | — | ~757 KB |
+
+Accesibilidad, buenas prácticas y SEO dan 100 en la landing.
+
+**Diagnóstico.** El LCP medido es el titular y coincide con el FCP (~0,2 s en local). La diferencia
+viene del método simulado: cuenta como dependencia del LCP todo pedido que no sea imagen y que haya
+empezado antes del pintado, y los ~750 KB de JS empiezan a bajar a los 35–90 ms. Ese JS es del
+armazón común (layout raíz, providers y Header), no de la landing: `/login` pesa lo mismo. Los
+chunks más grandes:
+- antd y sus dependencias (`@ant-design/cssinjs`, `@rc-component/*`, `rc-util`): ~205 KB
+  transferidos en el chunk principal más otros ~100 KB.
+- El cliente de Supabase (`@supabase/ssr`, GoTrueClient, realtime) junto con el store de mocks:
+  ~69 KB transferidos (262 KB sin comprimir). Se carga en todas las páginas, también en modo mock.
+- Las herramientas de desarrollo (`DevTools` → `RoleSwitcher` importado del barril de
+  `@rentar/ui`): ~32 KB. `DevTools` devuelve `null` en producción, pero el import estático lo
+  deja en el bundle.
+- `react-dom`: ~64 KB (no se puede sacar).
+
+**Propuesta de arreglo** (una rama aparte, con mediciones antes y después; los comandos y opciones están en la documentación de Next 16 instalada, `node_modules/next/dist/docs/01-app/02-guides/package-bundling.md`):
+1. **Supabase solo cuando hace falta.** En `lib/auth/AuthProvider.tsx`, `services/auth.service.ts`
+   y `services/propiedades.service.ts`, cambiar el import estático de `getSupabaseBrowserClient`
+   (y el de `isAuthApiError`/`isAuthRetryableFetchError` de `@supabase/supabase-js`) por
+   `await import('@/lib/auth/supabase/client')` dentro de las ramas reales (`USE_MOCKS === false`).
+   En modo mock no se baja nunca; en modo real sale del bundle inicial y llega después de hidratar.
+   Ahorro esperado: ~69 KB por página.
+2. **Herramientas de desarrollo fuera del bundle de producción.** En `lib/AppProviders.tsx`,
+   montar `DevTools` con `next/dynamic(() => import('@/components/dev/DevTools'), { ssr: false })`
+   y solo si `process.env.NODE_ENV !== 'production'`. En `DevTools.tsx`, importar `RoleSwitcher`
+   desde su archivo y no desde el barril. Ahorro esperado: ~32 KB.
+3. **antd en las páginas públicas.** Medir con el analizador de bundles (`next experimental-analyze`
+   en Next 16, o `@next/bundle-analyzer`). Después: en las páginas públicas, importar los componentes
+   de `@rentar/ui` desde sus archivos (el barril, con sus CSS modules, impide descartar lo que no se
+   usa), cargar el Drawer del menú móvil del Header recién al abrirlo y probar
+   `experimental.optimizePackageImports` con `antd`, `@ant-design/icons` y `@rentar/ui`.
+4. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
+   Performance simulado ≥ 90 en `/`, `/login` y `/buscar` (mediana de 3 corridas), sin romper la
+   sesión real (login, `/me`, logout) ni el modo mock.
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).
