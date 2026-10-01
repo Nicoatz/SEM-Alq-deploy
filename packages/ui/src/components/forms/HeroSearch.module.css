@@ -479,6 +479,23 @@
   border: 0;
 }
 
+/*
+ * ─── Móvil: "Buscar" antes que "Más filtros" ────────────────────────────
+ * El orden del contrato de dirección para móvil: Zona, Tipología, Precio,
+ * Buscar y Más filtros. NOTA: es solo visual: en el DOM (y en el orden del
+ * foco) "Más filtros" va antes que "Buscar", como se ve en escritorio.
+ */
+
+@media (max-width: 767.98px) {
+  .cellAction {
+    order: 1;
+  }
+
+  .more {
+    order: 2;
+  }
+}
+
 /* ─── Móvil con JS (hasta 767 px): hoja desde abajo con fondo oscuro ─── */
 
 @media (max-width: 767.98px) {
