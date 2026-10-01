@@ -160,6 +160,41 @@ el PO: no cambian nada visual):
 - **`SearchSidebarFilters`: nombre en español del botón de borrar** de Provincia, Ciudad y Barrio
   (`allowClear={{ label: 'Borrar la provincia' }}`, etc.). antd lo dejaba en inglés ("Clear").
 
+Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendientes de subir**
+(aprobados por el PO en el plan de la landing):
+- **Tokens nuevos** (`tokens/primitives.ts` y `css-vars.css`; `design-sync-fonts.css` regenerado):
+  `spacing['2xl']` (6rem), `breakpoints` (sm 576 · md 768 · lg 992 · xl 1200, los de antd),
+  `layout.containerMax` (1200 px, `--rentar-container-max`), `motion` (duraciones de 160, 240 y
+  400 ms, curvas `out`, `inOut` y `drawer`, escalonado de 60 ms; `--rentar-motion-*`) y los tamaños
+  de `typography` como variables (`--rentar-font-size-display|headline|title|body|label`).
+  NOTA: `--rentar-color-sky-rgb` vale el celeste CLARO (#E3F2FB), no #A0D1EF. Quedó solo anotado
+  en `css-vars.css`; no se cambió.
+- **Nuevo: `HeroSearch`** (`components/forms/`): el buscador del hero ("A · La consola"). Controles
+  nativos con la piel de los campos de `/buscar`, dentro de un `<form method="get">` que funciona
+  sin JS; con `onSearch`, el envío lo resuelve la app. "Más filtros" es un `<details>`: panel
+  flotante desde 768 px y hoja desde abajo en móvil (con JS, diálogo modal con el foco atrapado y
+  `aria-expanded` en el resumen). Una columna en móvil, dos desde 768 px y una sola fila cuando el
+  buscador mide 70rem o más. NOTA: ese corte es un container query (con un corte por pantalla, en
+  992 px, los selects se cortaban entre 992 y 1167 px y en `/design-system`). `data-testid` con el
+  prefijo que se le pase (la landing usa `landing-buscador`). Al subir: sumar
+  `previews/HeroSearch.tsx` con historias de escritorio, de 768 px y de móvil con la hoja abierta.
+- **`PropertyCardBusqueda`: hover nuevo** (también en `/buscar`, decisión del PO): solo con
+  puntero fino, la foto se acerca (`scale(1.04)`) y la sombra pasa a `lifted` con una capa de
+  opacidad. Con "reducir movimiento", sin zoom. La API no cambia.
+- **`Header`: el nav completo aparece desde 992 px** (antes 768) y los links van con `nowrap`:
+  entre 768 y 991 px se partían en dos líneas. En ese rango queda el menú hamburguesa. La API no
+  cambia.
+- **`SearchFilters` (la barra horizontal) quedó sin uso:** la landing usa `HeroSearch` y `/buscar`
+  usa `SearchSidebarFilters`. Candidato a borrar de `@rentar/ui` y de Claude Design en el próximo
+  sync (consultarlo con el PO). Sigue en `/design-system` con esa nota.
+- Quedan en `apps/web` (no en `@rentar/ui`): las secciones de la landing
+  (`components/landing/`), el motivo `ProcessLoopMotif` (mejorado: tokens, ícono de "Postulate",
+  órbita circular y estados `quieto`/`corriendo`/`pausado`) y `RevealAlEntrar`. Se borraron
+  `SearchBar`, la `PropertyCard` de la landing, `HowItWorks` y `useInView`.
+- **Observación, sin cambio:** el contenedor del `Header` y del `Footer` mide 72rem (1152 px) y el de
+  la landing y `/buscar`, 75rem (1200 px): en 1440 px el logo y el titular quedan desalineados
+  24 px. No se tocó (el Header queda como está); a resolver aparte, con el PO.
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).

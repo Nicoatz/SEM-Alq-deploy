@@ -405,7 +405,8 @@ sesión dura hasta cerrarla).
 
 | Pantalla | `data-testid` |
 |---|---|
-| Header y landing | Sin sesión: `header-login-button`, `header-publish-button`, `header-drawer-login-button`, `header-drawer-publish-button`. Con sesión (29/09): `header-panel-button`, `header-user-menu` (adentro, `user-menu-item-panel`, `user-menu-item-publicar`, `user-menu-item-perfil` y `user-menu-logout`), `header-drawer-panel`, `header-drawer-publish-button`, `header-drawer-logout`; mientras se confirma la sesión, `header-session-pending`. Con sesión NO están `header-login-button`, `header-publish-button` ni `header-drawer-login-button`. Siempre: `header-menu-toggle`, `hero-search-cta`, `search-*` (buscador), `search-result-count`, `landing-more-properties-button`, `property-card-detail-button` |
+| Header y landing | Sin sesión: `header-login-button`, `header-publish-button`, `header-drawer-login-button`, `header-drawer-publish-button`. Con sesión (29/09): `header-panel-button`, `header-user-menu` (adentro, `user-menu-item-panel`, `user-menu-item-publicar`, `user-menu-item-perfil` y `user-menu-logout`), `header-drawer-panel`, `header-drawer-publish-button`, `header-drawer-logout`; mientras se confirma la sesión, `header-session-pending`. Con sesión NO están `header-login-button`, `header-publish-button` ni `header-drawer-login-button`. Siempre: `header-menu-toggle` |
+| Landing (`/`) | Buscador: `landing-buscador` (el formulario), `landing-buscador-barrio`, `landing-buscador-tipo`, `landing-buscador-precio-min`, `landing-buscador-precio-max`, `landing-buscador-dorm` (desde 768 px), `landing-buscador-submit`, `landing-buscador-mas-filtros` (abre y cierra), `landing-buscador-mas-filtros-contador`, `landing-buscador-mas-filtros-panel`, `landing-buscador-mas-filtros-cerrar` (móvil), `landing-buscador-dorm-movil-<todos\|1\|2\|3\|4>` (móvil), `landing-buscador-amb-<todos\|1\|2\|3\|4>`, `landing-buscador-tag-<clave>`, `landing-buscador-m2-min`, `landing-buscador-m2-max`, `landing-buscador-indice-<todos\|IPC\|ICL>`, `landing-buscador-limpiar`, `landing-buscador-mas-filtros-buscar`, `landing-buscador-chip-<barrio>`. Recién publicadas: `landing-recientes`, `landing-ver-todas`, `landing-tarjeta`, `landing-cargando`, `landing-sin-propiedades`, `landing-sin-propiedades-publicar`, `landing-error`, `landing-reintentar`. Resto: `landing-barrios`, `landing-barrio-<barrio>`, `landing-como-funciona`, `landing-como-funciona-paso-<1..4>`, `landing-publicar` |
 | `/login` | `auth-revisando-sesion` (con sesión, mientras redirige; también en `/registro`), `login-email-input`, `login-password-input`, `login-submit-button`, `login-error-alert`, `login-register-link`, `login-forgot-link`, `login-forgot-link-mobile`, `auth-server-error`, `auth-retry-button` |
 | `/registro` | `registro-login-link`, `registro-<campo>-input`, `registro-terminos-checkbox`, `registro-submit-button`, `registro-email-taken-alert`, `registro-error-alert`, `registro-success`, `registro-success-buscar`, `registro-success-publicar`, `registro-email-simulado`, `auth-server-error`, `auth-retry-button`. Borrados el 27/09 (registro en un paso, sin rol): `registro-rol-locador`, `registro-rol-locatario`, `registro-continuar-button`, `registro-back-button`, `registro-success-cta`, `registro-success-panel-link` |
 | `/buscar` | `buscar-resultados`, `buscar-tarjeta`, `buscar-conteo`, `buscar-orden`, `buscar-paginacion`, `buscar-mostrando`, `buscar-sin-resultados`, `buscar-error`, `buscar-reintentar`, `buscar-abrir-filtros`, `buscar-drawer-ver`, `search-sidebar-*` / `search-drawer-*` (filtros) |
@@ -417,6 +418,31 @@ sesión dura hasta cerrarla).
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
+
+### Landing nueva: testids viejos → nuevos (01/10/2026)
+
+La landing se rehízo (rama `feature/nuevo-landing`) y sus testids pasaron a un set nuevo en español
+con el prefijo `landing-` (decisión del PO). `<barrio>` es el slug del catálogo (`nueva-cordoba`,
+`guemes`, `centro`, `general-paz`, `cofico`, `alta-cordoba`).
+
+| Antes | Ahora |
+|---|---|
+| `hero-search-cta` | `landing-buscador-submit` |
+| `hero-how-it-works-cta` | Se sacó: "Cómo funciona" está en el Header y el Footer (`/#como-funciona`). La sección es `landing-como-funciona`. |
+| `search-neighborhood-select` | `landing-buscador-barrio` (select nativo). Los atajos de barrio: `landing-buscador-chip-<barrio>`. |
+| `search-type-select` | `landing-buscador-tipo` |
+| `search-price-min-input`, `search-price-max-input`, `search-price-slider` | `landing-buscador-precio-min`, `landing-buscador-precio-max` (selects con montos fijos; ya no hay slider) |
+| `search-bedrooms-select` | `landing-buscador-dorm` (desde 768 px); en móvil, `landing-buscador-dorm-movil-<valor>` dentro de "Más filtros" |
+| `search-characteristics-chips` | `landing-buscador-tag-<clave>` (casillas dentro de "Más filtros") |
+| `search-result-count` | Se sacó: la landing ya no filtra ni cuenta, lleva a `/buscar` (`buscar-conteo`). |
+| `landing-more-properties-button` | `landing-ver-todas` |
+| `property-card-detail-button` | `landing-tarjeta` (la tarjeta de `/buscar`: la tarjeta entera es el link) |
+| `landing-error`, `landing-reintentar` | Sin cambios |
+
+Nuevos, sin equivalente anterior: `landing-buscador`, `landing-buscador-mas-filtros*`,
+`landing-buscador-amb-<valor>`, `landing-buscador-m2-min` / `-max`, `landing-buscador-indice-<valor>`,
+`landing-buscador-limpiar`, `landing-recientes`, `landing-cargando`, `landing-sin-propiedades*`,
+`landing-barrios`, `landing-barrio-<barrio>`, `landing-como-funciona-paso-<n>` y `landing-publicar`.
 
 ## 13. Tipos compartidos
 
