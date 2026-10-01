@@ -316,6 +316,10 @@ export function HeroSearch({
     if (!isDesktop) {
       document.body.style.overflow = 'hidden'
       panelRef.current?.focus()
+    } else {
+      // En pantallas bajas (1280×720, por ejemplo) el panel flotante terminaba
+      // debajo del pliegue, con "Buscar" fuera de vista: se desplaza lo justo.
+      panelRef.current?.scrollIntoView({ block: 'nearest' })
     }
     return () => {
       document.removeEventListener('keydown', onKeyDown)

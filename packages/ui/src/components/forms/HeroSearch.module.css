@@ -8,9 +8,15 @@
  * - Desde 768 px: panel flotante debajo del botón, con o sin JS (se cierra
  *   con el mismo botón; con JS, también con Escape o un clic afuera).
  *
- * NOTA: ningún contenedor de "Más filtros" (bandeja, núcleo, celdas) lleva
- * `overflow`, `transform`, `filter` ni `z-index`: cualquiera de esos haría
- * que la hoja móvil (`position: fixed`) quede recortada o debajo del Header.
+ * Las celdas: una columna en móvil, dos desde 768 px y una sola fila cuando
+ * el buscador mide 70rem o más. NOTA: ese último corte mira el ancho del
+ * buscador (container query), no el de la pantalla: con la pantalla (992 px)
+ * los selects se cortaban entre 992 y 1167 px y en el catálogo /design-system.
+ *
+ * NOTA: debajo de 768 px ningún contenedor de "Más filtros" (formulario,
+ * bandeja, núcleo, celdas) lleva `overflow`, `transform`, `filter`,
+ * `z-index` ni `container`: cualquiera de esos haría que la hoja móvil
+ * (`position: fixed`) quede recortada o debajo del Header.
  */
 
 .form {
@@ -534,6 +540,17 @@
 /* ─── 768 px (breakpoints.md): dos columnas y panel flotante ──────────── */
 
 @media (min-width: 768px) {
+  /*
+   * El formulario pasa a ser el contenedor de la fila única (ver abajo) y
+   * queda por encima del contenido que sigue, para que el panel flotante no
+   * quede debajo de las tarjetas. Desde acá no hay hoja fija (ver la NOTA de arriba).
+   */
+  .form {
+    container: hero-search / inline-size;
+    position: relative;
+    z-index: var(--rentar-z-decorative);
+  }
+
   .cells {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -591,9 +608,13 @@
   }
 }
 
-/* ─── 992 px (breakpoints.lg): una sola fila con hairlines ────────────── */
+/*
+ * ─── Una sola fila con hairlines, con el buscador de 70rem o más ────────
+ * En la landing: desde 1168 px de pantalla (el contenedor de 1200 px menos
+ * los márgenes). Con menos, los textos de los selects no entraban.
+ */
 
-@media (min-width: 992px) {
+@container hero-search (min-width: 70rem) {
   .cells {
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.05fr) minmax(0, 1.8fr) minmax(0, 0.85fr) auto auto;
     align-items: end;
