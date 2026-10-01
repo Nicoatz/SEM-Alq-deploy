@@ -1,7 +1,8 @@
 /* Recientes.module.css — "Recién publicadas": encabezado, carril/grilla, esqueleto y estados. */
 
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
 .section {
-  max-width: var(--rentar-container-max);
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
   margin: 0 auto;
   padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
 }
@@ -198,7 +199,7 @@
 
 @media (min-width: 768px) {
   .section {
-    padding: var(--rentar-spacing-2xl) var(--rentar-spacing-md);
+    padding: var(--rentar-spacing-2xl) var(--rentar-spacing-sm);
   }
 
   .grid {
@@ -213,6 +214,10 @@
 }
 
 @media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
+  }
+
   .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }

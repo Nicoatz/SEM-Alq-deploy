@@ -3,7 +3,7 @@
 /* `width: 100%`: en la landing es ítem de un contenedor flex y, con margen auto, se encogería. */
 .section {
   width: 100%;
-  max-width: var(--rentar-container-max);
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
   margin: 0 auto;
   padding: var(--rentar-spacing-md) var(--rentar-spacing-sm);
 }
@@ -54,7 +54,7 @@
 /* 768 px (breakpoints.md): tres columnas separadas por hairlines verticales. */
 @media (min-width: 768px) {
   .section {
-    padding: var(--rentar-spacing-lg) var(--rentar-spacing-md);
+    padding: var(--rentar-spacing-lg) var(--rentar-spacing-sm);
   }
 
   .list {
@@ -72,5 +72,12 @@
   .item + .item {
     border-top: 0;
     border-left: 1px solid var(--rentar-color-border-hairline);
+  }
+}
+
+/* 992 px (breakpoints.lg): margen lateral de escritorio (como el Header y /buscar). */
+@media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
   }
 }

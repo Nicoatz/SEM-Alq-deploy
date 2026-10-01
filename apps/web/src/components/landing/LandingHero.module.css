@@ -12,8 +12,9 @@
   background: linear-gradient(to bottom, var(--rentar-color-sky-light), var(--rentar-color-bg-page));
 }
 
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
 .inner {
-  max-width: var(--rentar-container-max);
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
   margin: 0 auto;
   padding: var(--rentar-spacing-md) var(--rentar-spacing-sm) var(--rentar-spacing-lg);
 }
@@ -142,7 +143,7 @@
 
   .inner {
     width: 100%;
-    padding: var(--rentar-spacing-xl) var(--rentar-spacing-md);
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
   }
 
   .subtitle {
@@ -158,6 +159,14 @@
     margin: 0;
     padding: 0;
     overflow: visible;
+  }
+}
+
+/* ─── 992 px (breakpoints.lg): margen lateral de escritorio ───────────── */
+
+@media (min-width: 992px) {
+  .inner {
+    padding-inline: var(--rentar-spacing-md);
   }
 }
 

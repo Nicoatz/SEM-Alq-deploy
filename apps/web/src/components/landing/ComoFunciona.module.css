@@ -16,8 +16,9 @@
   background: var(--rentar-color-bg-surface-alt);
 }
 
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
 .inner {
-  max-width: var(--rentar-container-max);
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
   margin: 0 auto;
   padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
 }
@@ -181,7 +182,7 @@
 
 @media (min-width: 768px) {
   .inner {
-    padding: var(--rentar-spacing-xl) var(--rentar-spacing-md);
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
   }
 
   .body {
@@ -201,7 +202,7 @@
 
 @media (min-width: 992px) {
   .inner {
-    padding-block: var(--rentar-spacing-2xl);
+    padding: var(--rentar-spacing-2xl) var(--rentar-spacing-md);
   }
 
   .body {
