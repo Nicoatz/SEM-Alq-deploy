@@ -737,7 +737,7 @@ export default function DesignSystem() {
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowDeep}`} />
                   <span className={styles.demoCaption}>Contenedor profundo</span>
-                  <p className={styles.demoSub}>--rentar-shadow-deep (solo el motivo del loop)</p>
+                  <p className={styles.demoSub}>--rentar-shadow-deep (el motivo del loop y la hoja móvil de &quot;Más filtros&quot;)</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowForm}`} />
