@@ -24,7 +24,8 @@ export function LandingHero() {
   return (
     <section className={styles.hero} aria-labelledby="landing-titulo">
       <div className={styles.inner}>
-        <h1 id="landing-titulo" className={`${styles.title} ${styles.enter}`}>
+        {/* NOTA: el titular no tiene animación de entrada: es el LCP y tiene que estar sólido desde el primer pintado. */}
+        <h1 id="landing-titulo" className={styles.title}>
           Alquilá directo con el dueño
         </h1>
         <p className={`${styles.subtitle} ${styles.enter}`}>Departamentos, casas y PH publicados por sus dueños en Córdoba.</p>

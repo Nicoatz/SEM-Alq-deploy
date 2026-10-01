@@ -100,7 +100,12 @@
   }
 }
 
-/* ─── Entrada: titular, buscador y chips, escalonados (360 ms en total) ── */
+/*
+ * ─── Entrada: subtítulo, buscador y chips, escalonados (360 ms en total) ──
+ * NOTA: el titular queda afuera a propósito. Es el LCP y tiene que estar
+ * sólido desde el primer pintado: con el fade desde opacidad 0, el LCP
+ * medido caía ~150 ms después del FCP; sin él, LCP = FCP.
+ */
 
 @keyframes enter {
   from {
