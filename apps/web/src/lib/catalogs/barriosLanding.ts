@@ -48,12 +48,11 @@ const LINEAS: Record<string, string> = {
   // https://www.cadena3.com/noticia/sociedad/llaryora-inauguro-las-obras-en-la-plaza-alberdi-de-barrio-general-paz_359191
   'general-paz': 'Al este del Centro, cruzando el Suquía, alrededor de la Plaza Alberdi.',
 
-  // Fuentes: Nuestra Ciudad, "Barrio Cofico" https://nuestraciudad.info/portal/Barrio_Cofico
-  // ("ubicado al norte del área central", "sobre la pendiente de la barranca norte del Río
-  // Suquía", límites de la Ordenanza 7874/83, "limita con Alta Córdoba e Independencia")
-  // y Wikipedia, "Barrio Cofico" https://es.wikipedia.org/wiki/Barrio_Cofico ("zona centro").
-  // NOTA: línea nueva (01/10/2026), pendiente de revisión del PO.
-  cofico: 'Al norte del Centro, sobre la barranca del Suquía, junto a Alta Córdoba.',
+  // Fuente: Nuestra Ciudad, "Barrio Cofico" https://nuestraciudad.info/portal/Barrio_Cofico
+  // ("ubicado al norte del área central de la ciudad de Córdoba" y, con los límites de la
+  // Ordenanza Municipal 7874/83 de Nomenclatura de Barrios, "limita con Alta Córdoba e
+  // Independencia"). Texto elegido por el PO (01/10/2026).
+  cofico: 'Al norte del Centro, junto a Alta Córdoba.',
 
   // Fuentes: Argentina.travel, "Tren de las Sierras" https://www.argentina.travel/actividades/tren-de-las-sierras
   // y MDZ, "Cómo es el tren que recorre rincones ocultos de Córdoba"
@@ -62,11 +61,18 @@ const LINEAS: Record<string, string> = {
 }
 
 /**
- * Ilustración de cada barrio, por slug.
- * NOTA: vacío hasta que el PO apruebe las ilustraciones (01/10/2026). Con el
- * OK, cada una va a `public/landing/barrios/<slug>.webp`.
+ * Ilustración de cada barrio, por slug (aprobadas por el PO el 01/10/2026).
+ * Son ilustraciones generadas, no fotos de propiedades: prompts, semilla y
+ * modelo en `public/landing/IMAGES.md`.
  */
-const IMAGENES: Partial<Record<string, string>> = {}
+const IMAGENES: Partial<Record<string, string>> = {
+  'nueva-cordoba': '/landing/barrios/nueva-cordoba.webp',
+  guemes: '/landing/barrios/guemes.webp',
+  centro: '/landing/barrios/centro.webp',
+  'general-paz': '/landing/barrios/general-paz.webp',
+  cofico: '/landing/barrios/cofico.webp',
+  'alta-cordoba': '/landing/barrios/alta-cordoba.webp',
+}
 
 /** Los 6 barrios del piloto, en el orden del catálogo. */
 export const BARRIOS_LANDING: readonly BarrioLanding[] = neighborhoods.map(({ slug, name }) => ({
