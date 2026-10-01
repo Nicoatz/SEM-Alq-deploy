@@ -12,7 +12,8 @@
   --loop-duracion: 8s;
   /* NOTA: alto del Header sticky de @rentar/ui (Header.module.css), para que el ancla no quede tapada. */
   scroll-margin-top: calc(4.25rem + 1px);
-  background: var(--rentar-color-sky-light);
+  /* Celeste claro en la landing; en el tema oscuro de /design-system pasa a la superficie oscura. */
+  background: var(--rentar-color-bg-surface-alt);
 }
 
 .inner {
