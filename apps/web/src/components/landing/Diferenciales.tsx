@@ -35,7 +35,7 @@ export function Diferenciales() {
       </h2>
       <ul className={styles.list}>
         {DIFERENCIALES.map((diferencial) => (
-          <li key={diferencial.titulo} className={styles.item}>
+          <li key={diferencial.titulo} className={styles.item} data-reveal>
             <p className={styles.itemTitle}>{diferencial.titulo}</p>
             <p className={styles.itemText}>{diferencial.texto}</p>
           </li>

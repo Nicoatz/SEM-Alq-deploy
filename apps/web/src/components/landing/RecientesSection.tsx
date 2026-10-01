@@ -20,7 +20,7 @@ import styles from './Recientes.module.css'
 export function RecientesSection() {
   return (
     <section className={styles.section} aria-labelledby="landing-recientes-titulo" data-testid="landing-recientes">
-      <div className={styles.header}>
+      <div className={styles.header} data-reveal>
         <h2 id="landing-recientes-titulo" className={styles.heading}>
           Recién publicadas
         </h2>

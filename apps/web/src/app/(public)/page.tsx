@@ -3,8 +3,8 @@
  * (la landing no tiene vista de Claude Design, ver `docs/MapaDePantallas.pdf`).
  *
  * Qué es: el buscador como hero (entra completo en el primer viewport y
- * funciona sin JS), los diferenciales, las publicaciones más recientes y
- * "Cómo funciona".
+ * funciona sin JS), los diferenciales, las publicaciones más recientes, los
+ * barrios del piloto, "Cómo funciona" y el cierre para locadores.
  * Cubre: US-34 Consultar propiedades a alquilar (entrada a `/buscar`).
  *
  * De dónde saca los datos: `services/propiedades.service.ts#listarPropiedadesRecientes`,
@@ -17,10 +17,13 @@
  * landing muestra solo el elenco (no las propiedades creadas en el alta).
  * `/buscar` sí las muestra, porque carga del lado del cliente.
  */
-import HowItWorks from '@/components/HowItWorks'
+import { BarriosSection } from '@/components/landing/BarriosSection'
+import { ComoFunciona } from '@/components/landing/ComoFunciona'
+import { CtaLocadores } from '@/components/landing/CtaLocadores'
 import { Diferenciales } from '@/components/landing/Diferenciales'
 import { LandingHero } from '@/components/landing/LandingHero'
 import { RecientesSection } from '@/components/landing/RecientesSection'
+import { RevealAlEntrar } from '@/components/landing/RevealAlEntrar'
 import styles from './page.module.css'
 
 /** La landing (`/`). El layout de `app/(public)/` pone el Header y el Footer. */
@@ -33,8 +36,11 @@ export default function LandingPage() {
         <Diferenciales />
       </div>
       <RecientesSection />
-      {/* Provisorio: el "Cómo funciona" nuevo (motivo + timeline sincronizados) llega en el próximo paso. */}
-      <HowItWorks />
+      <BarriosSection />
+      <ComoFunciona />
+      <CtaLocadores />
+      {/* Hace aparecer al entrar en pantalla lo marcado con `data-reveal` (no renderiza nada). */}
+      <RevealAlEntrar />
     </>
   )
 }
