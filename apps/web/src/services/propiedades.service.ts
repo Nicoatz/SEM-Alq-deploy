@@ -29,7 +29,7 @@ import type {
   UbicacionOpciones,
 } from '@rentar/shared-types'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
-import { buscarEnLista, ubicacionesDe } from '@/lib/search/busqueda'
+import { buscarEnLista, ordenar, ubicacionesDe } from '@/lib/search/busqueda'
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
 import { hoy } from '@/lib/utils/fechas'
 import { FOTO_PESO_MAXIMO_BYTES, FOTO_TIPOS_ACEPTADOS } from '@/lib/validation/propiedad.rules'
@@ -124,6 +124,31 @@ export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]>
     return readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
   }
   return todasLasDisponibles()
+}
+
+/**
+ * US-34 Consultar propiedades a alquilar — las `cantidad` publicaciones más
+ * recientes, para "Recién publicadas" de la landing.
+ * @backend GET /api/v1/inmuebles/disponibles?page=1&limit=<cantidad>   (existe · pagina y ordena por id descendente)
+ * @returns PropiedadResumen[]
+ *
+ * NOTA: "recientes" es el orden por id que devuelve el back (el último que
+ * se cargó, primero). En modo mock, por `publishedAt`.
+ * TODO(db): la base no guarda la fecha de publicación; con ese dato, el back
+ * podría ordenar por fecha de verdad (y el front, mostrarla).
+ * TODO(backend): `/disponibles` hace varias consultas por cada propiedad, una
+ * atrás de otra (ver `HANDOFF-BACKEND.md` §7): pedir pocas (`limit`) acota la
+ * espera, pero sigue siendo lenta. La landing la muestra con `Suspense`, así
+ * el resto de la página no la espera.
+ */
+export async function listarPropiedadesRecientes(cantidad: number): Promise<PropiedadResumen[]> {
+  if (USE_MOCKS) {
+    await delay()
+    const publicadas = readPropiedadesMock().filter(isSearchable).map(propiedadMockToResumen)
+    return ordenar(publicadas, 'recientes').slice(0, cantidad)
+  }
+  const respuesta = await pedirDisponibles({ page: '1', limit: String(cantidad) })
+  return respuesta.items.map(inmuebleDisponibleToPropiedadResumen)
 }
 
 /**
