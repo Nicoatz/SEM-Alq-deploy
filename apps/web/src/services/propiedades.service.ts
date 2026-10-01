@@ -148,7 +148,9 @@ export async function listarPropiedadesRecientes(cantidad: number): Promise<Prop
     return ordenar(publicadas, 'recientes').slice(0, cantidad)
   }
   const respuesta = await pedirDisponibles({ page: '1', limit: String(cantidad) })
-  return respuesta.items.map(inmuebleDisponibleToPropiedadResumen)
+  // NOTA: se corta igual a `cantidad` por si el back devuelve más (antes de
+  // ce677a4, del 29/09, ignoraba `limit` y devolvía todas).
+  return respuesta.items.slice(0, cantidad).map(inmuebleDisponibleToPropiedadResumen)
 }
 
 /**
