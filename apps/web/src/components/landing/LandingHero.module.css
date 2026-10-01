@@ -1,0 +1,165 @@
+/*
+ * LandingHero.module.css — hero de la landing ("A · La consola").
+ *
+ * NOTA: este contenedor y los del buscador no llevan `overflow`, `z-index`
+ * ni `transform` permanentes: la hoja de "Más filtros" (móvil) es
+ * `position: fixed` y quedaría recortada o debajo del Header. La animación
+ * de entrada usa `transform` solo mientras dura (`animation-fill-mode:
+ * backwards`, no queda aplicada al terminar).
+ */
+
+.hero {
+  background: linear-gradient(to bottom, var(--rentar-color-sky-light), var(--rentar-color-bg-page));
+}
+
+.inner {
+  max-width: var(--rentar-container-max);
+  margin: 0 auto;
+  padding: var(--rentar-spacing-md) var(--rentar-spacing-sm) var(--rentar-spacing-lg);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--rentar-font-size-display);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: var(--rentar-color-text-primary);
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: var(--rentar-spacing-xs) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: var(--rentar-color-text-secondary);
+  text-wrap: pretty;
+}
+
+.search {
+  margin-top: var(--rentar-spacing-md);
+}
+
+/* ─── Búsquedas rápidas por barrio ────────────────────────────────────── */
+
+.quick {
+  display: flex;
+  align-items: center;
+  gap: var(--rentar-spacing-xs);
+  margin-top: var(--rentar-spacing-sm);
+}
+
+.quickLabel {
+  flex-shrink: 0;
+  font-size: var(--rentar-font-size-label);
+  color: var(--rentar-color-text-secondary);
+}
+
+/* En móvil, una fila que se desliza hasta el borde de la pantalla. */
+.chips {
+  display: flex;
+  gap: var(--rentar-spacing-xs);
+  min-width: 0;
+  margin: 0 calc(-1 * var(--rentar-spacing-sm)) 0 0;
+  padding: calc(var(--rentar-spacing-xs) / 2) var(--rentar-spacing-sm) calc(var(--rentar-spacing-xs) / 2) calc(var(--rentar-spacing-xs) / 2);
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--rentar-spacing-sm);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-bg-surface);
+  color: var(--rentar-color-text-primary);
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  scroll-snap-align: start;
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    border-color: var(--rentar-color-blue);
+    color: var(--rentar-color-blue);
+  }
+}
+
+/* ─── Entrada: titular, buscador y chips, escalonados (360 ms en total) ── */
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rentar-spacing-xs));
+  }
+}
+
+.enter {
+  animation: enter var(--rentar-motion-duration-base) var(--rentar-motion-ease-out) backwards;
+}
+
+.enterSecond {
+  animation-delay: var(--rentar-motion-stagger);
+}
+
+.enterThird {
+  animation-delay: calc(var(--rentar-motion-stagger) * 2);
+}
+
+/* ─── 768 px (breakpoints.md) ─────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .inner {
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-md);
+  }
+
+  .subtitle {
+    font-size: var(--rentar-font-size-title);
+  }
+
+  .search {
+    margin-top: var(--rentar-spacing-lg);
+  }
+
+  .chips {
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+}
+
+/* ─── 992 px (breakpoints.lg) ─────────────────────────────────────────── */
+
+@media (min-width: 992px) {
+  .inner {
+    padding-top: var(--rentar-spacing-2xl);
+  }
+}
+
+/* ─── Movimiento reducido: todo aparece sin desplazarse ───────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+
+  .chip:active {
+    transform: none;
+  }
+}

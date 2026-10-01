@@ -1,0 +1,74 @@
+/* Diferenciales.module.css — franja tipográfica debajo del hero. */
+
+.section {
+  max-width: var(--rentar-container-max);
+  margin: 0 auto;
+  padding: var(--rentar-spacing-md) var(--rentar-spacing-sm);
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Móvil: una debajo de la otra, separadas por hairlines horizontales. */
+.item {
+  padding: var(--rentar-spacing-sm) 0;
+}
+
+.item + .item {
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+.itemTitle {
+  margin: 0;
+  font-size: var(--rentar-font-size-title);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--rentar-color-text-primary);
+}
+
+.itemText {
+  margin: calc(var(--rentar-spacing-xs) / 4) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: var(--rentar-color-text-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 768 px (breakpoints.md): tres columnas separadas por hairlines verticales. */
+@media (min-width: 768px) {
+  .section {
+    padding: var(--rentar-spacing-lg) var(--rentar-spacing-md);
+  }
+
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .item {
+    padding: 0 var(--rentar-spacing-md);
+  }
+
+  .item:first-child {
+    padding-left: 0;
+  }
+
+  .item + .item {
+    border-top: 0;
+    border-left: 1px solid var(--rentar-color-border-hairline);
+  }
+}

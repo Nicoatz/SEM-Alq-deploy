@@ -20,8 +20,8 @@ export interface ChipFiltro {
 /**
  * "1, 2 y 4+" para una selección de cantidades (llega ordenada).
  *
- * NOTA: 3 y 4+ juntos son "3 o más", igual que el filtro de dormitorios de la
- * landing, que manda justamente `dorm=3&dorm=4` (ver `hrefBuscarDesdeLanding`).
+ * NOTA: 3 y 4+ juntos son "3 o más": así llegaban los links del buscador de
+ * la landing anterior (`dorm=3&dorm=4`), que pueden seguir guardados o compartidos.
  */
 function listaCantidades(cantidades: number[]): string {
   const tresOMas = cantidades.includes(3) && cantidades.some((n) => n >= 4)

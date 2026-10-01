@@ -21,10 +21,9 @@
  *
  * Quién lo usa: `components/buscar/BuscarPropiedades.tsx`,
  * `services/propiedades.service.ts` (rama real, para mandar los filtros al back)
- * y la landing (`Landing.tsx`, para "Buscar más propiedades").
+ * y el buscador de la landing (`lib/search/buscadorLanding.ts`).
  */
-import type { AdjustmentIndex, BusquedaFiltros, CharacteristicKey, FilterState, OrdenBusqueda, PropertyType } from '@rentar/shared-types'
-import type { RangoPrecio } from '@/lib/types/filters'
+import type { AdjustmentIndex, BusquedaFiltros, CharacteristicKey, OrdenBusqueda, PropertyType } from '@rentar/shared-types'
 import { FILTROS_INICIALES, ORDEN_OPCIONES } from './busqueda'
 
 const TIPOS: PropertyType[] = ['departamento', 'casa', 'ph', 'monoambiente']
@@ -115,33 +114,4 @@ export function escribirBusqueda({ filtros, orden, pagina }: EstadoBusqueda): UR
   if (orden !== 'predeterminado') params.set('orden', orden)
   if (pagina > 1) params.set('pagina', String(pagina))
   return params
-}
-
-// ─── Desde la landing ───────────────────────────────────────────────────
-
-/**
- * Link a `/buscar` con los filtros elegidos en el buscador de la landing
- * (barrio, tipo, dormitorios, precio y características), con el mismo
- * formato que lee {@link leerBusqueda}.
- *
- * Equivalencias:
- * - "Todos" (barrio, tipo, dormitorios) no se escribe.
- * - Dormitorios "3 o más" de la landing = `dorm=3&dorm=4` (en `/buscar`, el 4
- *   es "4 o más").
- * - El precio solo se escribe si se aleja del borde del slider: el mínimo en
- *   el borde inferior y el máximo en el superior son "sin límite".
- * - La ubicación queda en la del piloto (Córdoba Capital), como en la landing.
- */
-export function hrefBuscarDesdeLanding(filters: FilterState, rango: RangoPrecio): string {
-  const filtros: BusquedaFiltros = {
-    ...FILTROS_INICIALES,
-    neighborhoodSlugs: filters.neighborhoodSlug === 'todos' ? [] : [filters.neighborhoodSlug],
-    minPrice: filters.minPrice > rango.min ? filters.minPrice : null,
-    maxPrice: filters.maxPrice < rango.max ? filters.maxPrice : null,
-    types: filters.type === 'todos' ? [] : [filters.type],
-    bedrooms: filters.bedrooms === 'todos' ? [] : filters.bedrooms >= 3 ? [3, 4] : [filters.bedrooms],
-    characteristics: filters.characteristics,
-  }
-  const query = escribirBusqueda({ filtros, orden: 'predeterminado', pagina: 1 }).toString()
-  return query ? `/buscar?${query}` : '/buscar'
 }
