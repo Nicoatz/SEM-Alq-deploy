@@ -236,13 +236,14 @@
 .count {
   display: inline-grid;
   place-items: center;
-  min-width: 1.25rem;
-  height: 1.25rem;
+  min-width: 1.375rem;
+  height: 1.375rem;
   padding: 0 calc(var(--rentar-spacing-xs) * 0.75);
   border-radius: var(--rentar-radius-pill);
   background: var(--rentar-color-blue);
   color: var(--rentar-color-bg-surface);
-  font-size: 0.75rem;
+  /* El paso más chico de la escala (label): un número suelto se lee igual a 14 px. */
+  font-size: var(--rentar-font-size-label);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   opacity: 0;
