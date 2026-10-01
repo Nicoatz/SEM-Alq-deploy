@@ -1,19 +1,53 @@
 /* Tarjeta de /buscar (Claude Design, "Búsqueda de propiedades" · 01 y 03). */
 
+/*
+ * NOTA: la tarjeta no lleva `overflow: hidden` (lo lleva la foto): si no,
+ * la capa de sombra de hover (`::before`) quedaría recortada. `isolation`
+ * deja esa capa debajo del contenido pero arriba del fondo de la página.
+ */
 .card {
   position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
   border: 1px solid var(--rentar-color-border-hairline);
   border-radius: var(--rentar-radius-lg);
   background: var(--rentar-color-bg-surface);
-  box-shadow: 0 1px 2px rgba(var(--rentar-color-ink-rgb), 0.05);
-  transition: box-shadow 0.2s;
+  box-shadow: var(--rentar-shadow-resting);
 }
 
-.card:hover {
+/*
+ * Hover ("La regla de sombra ganada": la tarjeta es accionable): la sombra
+ * `lifted` es una capa aparte que solo cambia de opacidad, y la foto hace un
+ * zoom suave. Solo con mouse (en pantallas táctiles el hover queda pegado).
+ */
+.card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
   box-shadow: var(--rentar-shadow-lifted);
+  opacity: 0;
+  transition: opacity var(--rentar-motion-duration-base) var(--rentar-motion-ease-out);
+  pointer-events: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card:hover::before {
+    opacity: 1;
+  }
+
+  .card:hover .image {
+    transform: scale(1.04);
+  }
+}
+
+/* Movimiento reducido: la sombra sigue apareciendo, la foto no se agranda. */
+@media (prefers-reduced-motion: reduce) {
+  .card:hover .image {
+    transform: none;
+  }
 }
 
 /* Foco visible en toda la tarjeta cuando el link (estirado) tiene el foco. */
@@ -25,11 +59,15 @@
 .imageWrap {
   position: relative;
   aspect-ratio: 4 / 3;
+  overflow: hidden;
+  /* Radio interior: el de la tarjeta menos su borde de 1 px. */
+  border-radius: calc(var(--rentar-radius-lg) - 1px) calc(var(--rentar-radius-lg) - 1px) 0 0;
   background: var(--rentar-color-sky-light);
 }
 
 .image {
   object-fit: cover;
+  transition: transform var(--rentar-motion-duration-slow) var(--rentar-motion-ease-out);
 }
 
 .photoCount {
