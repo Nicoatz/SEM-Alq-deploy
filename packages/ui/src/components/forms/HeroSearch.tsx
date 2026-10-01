@@ -33,10 +33,22 @@
  * fixed` y nada del hero crea un contexto que la recorte (sin `overflow`,
  * `transform` ni `z-index` en sus contenedores: ver HeroSearch.module.css).
  */
-import { useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentPropsWithRef, type FocusEvent, type FormEvent } from 'react'
+import {
+  useEffect,
+  useEffectEvent,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ComponentPropsWithRef,
+  type FocusEvent,
+  type FormEvent,
+  type MouseEvent,
+} from 'react'
 import { Button } from 'antd'
 import { CloseOutlined, DownOutlined, FilterOutlined, SearchOutlined } from '@ant-design/icons'
 import type { AdjustmentIndex, CharacteristicKey, CharacteristicOption, PropertyType } from '@rentar/shared-types'
+import { motion } from '../../tokens'
 import { formatARS } from '../../utils/formatARS'
 import styles from './HeroSearch.module.css'
 
@@ -274,6 +286,43 @@ export function HeroSearch({
   // del formulario en cada cambio; los campos no dependen de este estado.
   const [values, setValues] = useState<HeroSearchValues | null>(null)
   const [moreOpen, setMoreOpen] = useState(false)
+  // "Más filtros" se está cerrando: la salida se anima y después se cierra el <details>.
+  const [closing, setClosing] = useState(false)
+  const closingRef = useRef(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  // ─── Cierre de "Más filtros" ────────────────────────────────────────
+  /**
+   * Cierra "Más filtros". Con JS, primero anima la salida (en móvil la hoja
+   * vuelve a bajar y el fondo se apaga; en escritorio el panel se desvanece
+   * hacia su botón) y recién después cierra el `<details>`: así sale por
+   * donde entró. Sin JS o con "reducir movimiento", cierra de inmediato.
+   * @param returnFocus Si el foco vuelve a "Más filtros" (Escape, ✕ y el fondo oscuro).
+   */
+  function closeMore(returnFocus: boolean) {
+    if (!moreOpen || closingRef.current) return
+    if (returnFocus) summaryRef.current?.focus()
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!hydrated || reduceMotion) {
+      setMoreOpen(false)
+      return
+    }
+    closingRef.current = true
+    setClosing(true)
+    closeTimerRef.current = window.setTimeout(
+      () => {
+        closingRef.current = false
+        closeTimerRef.current = null
+        setClosing(false)
+        setMoreOpen(false)
+      },
+      // Los mismos tiempos que la salida en HeroSearch.module.css (`.closing`).
+      isDesktop ? motion.duration.fast : motion.duration.base,
+    )
+  }
+
+  /** `closeMore` para los listeners del efecto (Escape y clic afuera), siempre con el estado al día. */
+  const onCloseRequest = useEffectEvent((returnFocus: boolean) => closeMore(returnFocus))
 
   // ─── Efectos ────────────────────────────────────────────────────────
   // Con "Más filtros" abierto: Escape lo cierra (y el foco vuelve a "Más
@@ -285,11 +334,10 @@ export function HeroSearch({
     const details = detailsRef.current
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setMoreOpen(false)
-        summaryRef.current?.focus()
+        onCloseRequest(true)
         return
       }
-      if (event.key !== 'Tab' || isDesktop) return
+      if (event.key !== 'Tab' || isDesktop || closingRef.current) return
       // Trampa de foco: los bordes son la ✕ (primero) y "Buscar" (último).
       const panel = panelRef.current
       const first = closeButtonRef.current
@@ -308,7 +356,7 @@ export function HeroSearch({
       }
     }
     const onPointerDown = (event: PointerEvent) => {
-      if (details && event.target instanceof Node && !details.contains(event.target)) setMoreOpen(false)
+      if (details && event.target instanceof Node && !details.contains(event.target)) onCloseRequest(false)
     }
     document.addEventListener('keydown', onKeyDown)
     document.addEventListener('pointerdown', onPointerDown)
@@ -328,7 +376,21 @@ export function HeroSearch({
     }
   }, [moreOpen, isDesktop])
 
+  // Si el componente se desmonta mientras "Más filtros" se cierra, se cancela el cierre pendiente.
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current)
+    }
+  }, [])
+
   // ─── Handlers ───────────────────────────────────────────────────────
+  /** Con JS, tocar "Más filtros" abierto pasa por el cierre animado (abrir sigue siendo lo nativo del `<details>`). */
+  function handleSummaryClick(event: MouseEvent<HTMLElement>) {
+    if (!hydrated || !moreOpen) return
+    event.preventDefault()
+    closeMore(false)
+  }
+
   /** Cualquier cambio: sincroniza los dos "Dormitorios", cuida el rango de precio y relee los filtros. */
   function handleChange(event: FormEvent<HTMLFormElement>) {
     const form = formRef.current
@@ -399,7 +461,7 @@ export function HeroSearch({
     const next = event.relatedTarget
     if (next instanceof Node && detailsRef.current?.contains(next)) return
     // `relatedTarget` vacío = el foco fue a una parte no enfocable (o a otra ventana): se deja abierto.
-    if (next) setMoreOpen(false)
+    if (next) closeMore(false)
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
@@ -498,7 +560,7 @@ export function HeroSearch({
 
             <details
               ref={detailsRef}
-              className={styles.more}
+              className={`${styles.more} ${closing ? styles.closing : ''}`}
               open={moreOpen}
               onToggle={handleToggle}
               onBlur={handleDetailsBlur}
@@ -509,6 +571,7 @@ export function HeroSearch({
                 className={styles.summary}
                 aria-expanded={hydrated ? moreOpen : undefined}
                 aria-controls={hydrated ? panelId : undefined}
+                onClick={handleSummaryClick}
                 data-testid={`${testId}-mas-filtros`}
               >
                 <FilterOutlined aria-hidden="true" />
@@ -520,14 +583,7 @@ export function HeroSearch({
               </summary>
 
               {/* Fondo oscuro de la hoja móvil (solo con JS; ver el CSS). Tocarlo cierra "Más filtros". */}
-              <div
-              className={styles.backdrop}
-              aria-hidden="true"
-              onClick={() => {
-                setMoreOpen(false)
-                summaryRef.current?.focus()
-              }}
-            />
+              <div className={styles.backdrop} aria-hidden="true" onClick={() => closeMore(true)} />
 
               <div
                 ref={panelRef}
@@ -550,10 +606,7 @@ export function HeroSearch({
                       type="button"
                       className={styles.closeButton}
                       aria-label="Cerrar más filtros"
-                      onClick={() => {
-                        setMoreOpen(false)
-                        summaryRef.current?.focus()
-                      }}
+                      onClick={() => closeMore(true)}
                       data-testid={`${testId}-mas-filtros-cerrar`}
                     >
                       <CloseOutlined aria-hidden="true" />

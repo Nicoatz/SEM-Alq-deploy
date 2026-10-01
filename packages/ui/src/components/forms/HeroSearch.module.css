@@ -526,6 +526,16 @@
     flex: 1;
   }
 
+  /* Cierre (`.closing`, HeroSearch.tsx): la hoja vuelve a bajar y el fondo se apaga, más rápido que la entrada. */
+  .enhanced .more[open].closing .backdrop {
+    opacity: 0;
+  }
+
+  .enhanced .more[open].closing .panel {
+    transform: translateY(100%);
+    transition-duration: var(--rentar-motion-duration-base);
+  }
+
   @starting-style {
     .enhanced .more[open] .backdrop {
       opacity: 0;
@@ -605,6 +615,13 @@
       opacity: 0;
       transform: translateY(calc(var(--rentar-spacing-xs) * -0.5)) scale(0.97);
     }
+  }
+
+  /* Cierre (`.closing`, HeroSearch.tsx): vuelve hacia su botón por el mismo camino, en 160 ms. */
+  .more[open].closing .panel {
+    opacity: 0;
+    transform: translateY(calc(var(--rentar-spacing-xs) * -0.5)) scale(0.97);
+    transition-duration: var(--rentar-motion-duration-fast);
   }
 }
 

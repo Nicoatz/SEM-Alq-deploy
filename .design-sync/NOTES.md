@@ -173,7 +173,8 @@ Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendie
   nativos con la piel de los campos de `/buscar`, dentro de un `<form method="get">` que funciona
   sin JS; con `onSearch`, el envío lo resuelve la app. "Más filtros" es un `<details>`: panel
   flotante desde 768 px y hoja desde abajo en móvil (con JS, diálogo modal con el foco atrapado y
-  `aria-expanded` en el resumen). Una columna en móvil, dos desde 768 px y una sola fila cuando el
+  `aria-expanded` en el resumen). Con JS, cierra animado por donde entró (la hoja baja en 240 ms; el
+  panel se desvanece hacia su botón en 160 ms); con "reducir movimiento", al instante. Una columna en móvil, dos desde 768 px y una sola fila cuando el
   buscador mide 70rem o más. NOTA: ese corte es un container query (con un corte por pantalla, en
   992 px, los selects se cortaban entre 992 y 1167 px y en `/design-system`). `data-testid` con el
   prefijo que se le pase (la landing usa `landing-buscador`). Al subir: sumar
