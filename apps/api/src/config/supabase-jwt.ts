@@ -1,8 +1,16 @@
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'jose';
+import type { JWTPayload } from 'jose' with { 'resolution-mode': 'import' };
 
-let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
+type JoseModule = typeof import('jose', { with: { 'resolution-mode': 'import' } });
 
-const getJwks = () => {
+let joseModule: Promise<JoseModule> | null = null;
+let jwks: ReturnType<JoseModule['createRemoteJWKSet']> | null = null;
+
+const loadJose = () => {
+  joseModule ??= import('jose');
+  return joseModule;
+};
+
+const getJwks = async () => {
   if (jwks) return jwks;
 
   const jwksUrl = process.env.SUPABASE_JWKS_URL;
@@ -12,6 +20,7 @@ const getJwks = () => {
     throw error;
   }
 
+  const { createRemoteJWKSet } = await loadJose();
   jwks = createRemoteJWKSet(new URL(jwksUrl));
   return jwks;
 };
@@ -24,7 +33,8 @@ export const verifySupabaseAccessToken = async (token: string): Promise<JWTPaylo
     throw error;
   }
 
-  const { payload } = await jwtVerify(token, getJwks(), {
+  const { jwtVerify } = await loadJose();
+  const { payload } = await jwtVerify(token, await getJwks(), {
     issuer: `${supabaseUrl}/auth/v1`,
     audience: 'authenticated'
   });
