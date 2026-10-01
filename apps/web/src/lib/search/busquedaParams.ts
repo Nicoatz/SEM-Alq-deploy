@@ -59,17 +59,24 @@ function permitidos<T extends string>(params: URLSearchParams, key: string, vali
   return [...new Set(params.getAll(key))].filter((valor): valor is T => (validos as readonly string[]).includes(valor))
 }
 
-/** Lee la búsqueda de los query params. Lo que falte o no sea válido queda en su valor inicial. */
+/**
+ * Lee la búsqueda de los query params. Lo que falte o no sea válido queda en su valor inicial.
+ *
+ * NOTA: un param vacío (`barrio=`, `provincia=`) cuenta como si no estuviera.
+ * Lo manda el buscador de la landing cuando se usa sin JS: un `<form>` nativo
+ * envía todos sus campos, también los que quedaron en "Todos". Sin este
+ * filtro, `barrio=` buscaba el barrio "" y no encontraba nada.
+ */
 export function leerBusqueda(params: URLSearchParams): EstadoBusqueda {
-  const provincia = params.get('provincia')
-  const ciudad = params.get('ciudad')
+  const provincia = params.get('provincia') || null
+  const ciudad = params.get('ciudad') || null
   const orden = params.get('orden')
   const indice = params.get('indice')
   return {
     filtros: {
       province: provincia === TODAS ? null : (provincia ?? FILTROS_INICIALES.province),
       city: ciudad === TODAS ? null : (ciudad ?? (provincia && provincia !== FILTROS_INICIALES.province ? null : FILTROS_INICIALES.city)),
-      neighborhoodSlugs: [...new Set(params.getAll('barrio'))],
+      neighborhoodSlugs: [...new Set(params.getAll('barrio'))].filter(Boolean),
       minPrice: numero(params, 'precioMin'),
       maxPrice: numero(params, 'precioMax'),
       types: permitidos(params, 'tipo', TIPOS),
