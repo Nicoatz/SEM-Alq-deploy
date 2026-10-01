@@ -21,13 +21,17 @@ import HowItWorks from '@/components/HowItWorks'
 import { Diferenciales } from '@/components/landing/Diferenciales'
 import { LandingHero } from '@/components/landing/LandingHero'
 import { RecientesSection } from '@/components/landing/RecientesSection'
+import styles from './page.module.css'
 
 /** La landing (`/`). El layout de `app/(public)/` pone el Header y el Footer. */
 export default function LandingPage() {
   return (
     <>
-      <LandingHero />
-      <Diferenciales />
+      {/* Hero + diferenciales: el primer viewport (ver page.module.css). */}
+      <div className={styles.primeraPantalla}>
+        <LandingHero />
+        <Diferenciales />
+      </div>
       <RecientesSection />
       {/* Provisorio: el "Cómo funciona" nuevo (motivo + timeline sincronizados) llega en el próximo paso. */}
       <HowItWorks />

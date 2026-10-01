@@ -1,6 +1,8 @@
 /* Diferenciales.module.css — franja tipográfica debajo del hero. */
 
+/* `width: 100%`: en la landing es ítem de un contenedor flex y, con margen auto, se encogería. */
 .section {
+  width: 100%;
   max-width: var(--rentar-container-max);
   margin: 0 auto;
   padding: var(--rentar-spacing-md) var(--rentar-spacing-sm);

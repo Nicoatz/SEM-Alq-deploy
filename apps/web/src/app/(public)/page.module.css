@@ -1,0 +1,35 @@
+/*
+ * page.module.css — el primer viewport de la landing.
+ *
+ * Desde 768 px (breakpoints.md), el hero y la franja de diferenciales ocupan
+ * el alto visible justo como para que de "Recién publicadas" asome solo el
+ * título al pie de la pantalla: las fotos empiezan debajo del pliegue. Así
+ * el elemento más grande del primer viewport (el LCP) es el titular, que
+ * sale en el primer envío del HTML, y no una foto que llega después por
+ * streaming. En pantallas más altas que el contenido, el aire extra queda
+ * entre los chips y la franja (que se apoya abajo).
+ */
+
+.primeraPantalla {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .primeraPantalla {
+    /* NOTA: alto del Header de @rentar/ui (Header.module.css): padding 0.75rem × 2 + logo 2.75rem + borde 1px. */
+    --landing-header: calc(4.25rem + 1px);
+    /*
+     * NOTA: lo que asoma de "Recién publicadas" antes de las fotos
+     * (Recientes.module.css): padding superior (2xl), la fila del título
+     * (2.75rem) y el espacio hasta la grilla (md).
+     */
+    --landing-asomo: calc(var(--rentar-spacing-2xl) + 2.75rem + var(--rentar-spacing-md));
+    min-height: calc(100svh - var(--landing-header) - var(--landing-asomo));
+  }
+
+  /* El hero crece (y su fondo con él); la franja queda abajo. */
+  .primeraPantalla > :first-child {
+    flex: 1;
+  }
+}
