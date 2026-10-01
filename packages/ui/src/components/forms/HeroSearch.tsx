@@ -263,6 +263,8 @@ export function HeroSearch({
   const detailsRef = useRef<HTMLDetailsElement>(null)
   const summaryRef = useRef<HTMLElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const panelSubmitRef = useRef<HTMLButtonElement>(null)
   const minPriceRef = useRef<HTMLSelectElement>(null)
   const maxPriceRef = useRef<HTMLSelectElement>(null)
 
@@ -274,16 +276,36 @@ export function HeroSearch({
   const [moreOpen, setMoreOpen] = useState(false)
 
   // ─── Efectos ────────────────────────────────────────────────────────
-  // Con "Más filtros" abierto: Escape y un clic afuera lo cierran. En móvil
-  // (hoja desde abajo) además se bloquea el scroll de la página y el foco
-  // pasa al panel.
+  // Con "Más filtros" abierto: Escape lo cierra (y el foco vuelve a "Más
+  // filtros") y un clic afuera también. En móvil la hoja es modal: el foco
+  // queda atrapado adentro (Tab y Shift+Tab dan la vuelta), se bloquea el
+  // scroll de la página y el foco pasa al panel.
   useEffect(() => {
     if (!moreOpen) return
     const details = detailsRef.current
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
-      setMoreOpen(false)
-      summaryRef.current?.focus()
+      if (event.key === 'Escape') {
+        setMoreOpen(false)
+        summaryRef.current?.focus()
+        return
+      }
+      if (event.key !== 'Tab' || isDesktop) return
+      // Trampa de foco: los bordes son la ✕ (primero) y "Buscar" (último).
+      const panel = panelRef.current
+      const first = closeButtonRef.current
+      const last = panelSubmitRef.current
+      if (!panel || !first || !last) return
+      const active = document.activeElement
+      if (!(active instanceof Node) || !panel.contains(active)) {
+        event.preventDefault()
+        first.focus()
+      } else if (event.shiftKey && (active === first || active === panel)) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
     const onPointerDown = (event: PointerEvent) => {
       if (details && event.target instanceof Node && !details.contains(event.target)) setMoreOpen(false)
@@ -364,9 +386,12 @@ export function HeroSearch({
     setMoreOpen(detailsRef.current?.open ?? false)
   }
 
-  /** Si el foco sale de "Más filtros" (Tab hasta el final, por ejemplo), se cierra. */
+  /**
+   * Escritorio: si el foco sale del panel flotante (Tab hasta el final, por
+   * ejemplo), se cierra. En móvil no pasa: la hoja retiene el foco.
+   */
   function handleDetailsBlur(event: FocusEvent<HTMLDetailsElement>) {
-    if (!hydrated || !moreOpen) return
+    if (!hydrated || !moreOpen || !isDesktop) return
     const next = event.relatedTarget
     if (next instanceof Node && detailsRef.current?.contains(next)) return
     // `relatedTarget` vacío = el foco fue a una parte no enfocable (o a otra ventana): se deja abierto.
@@ -375,6 +400,10 @@ export function HeroSearch({
 
   // ─── Render ─────────────────────────────────────────────────────────
   const activeCount = values ? countActive(values, isDesktop) : 0
+  const panelId = `${formId}-mas-filtros`
+  const panelTitleId = `${formId}-mas-filtros-titulo`
+  // En móvil (con JS) "Más filtros" es una hoja modal: se anuncia como diálogo.
+  const isSheet = hydrated && !isDesktop
 
   return (
     <form
@@ -470,7 +499,14 @@ export function HeroSearch({
               onToggle={handleToggle}
               onBlur={handleDetailsBlur}
             >
-              <summary ref={summaryRef} className={styles.summary} data-testid={`${testId}-mas-filtros`}>
+              {/* Sin JS, el <summary> ya anuncia "expandido/contraído" por su cuenta; con JS se explicita (y apunta al panel). */}
+              <summary
+                ref={summaryRef}
+                className={styles.summary}
+                aria-expanded={hydrated ? moreOpen : undefined}
+                aria-controls={hydrated ? panelId : undefined}
+                data-testid={`${testId}-mas-filtros`}
+              >
                 <FilterOutlined aria-hidden="true" />
                 Más filtros
                 <span className={`${styles.count} ${activeCount > 0 ? styles.countVisible : ''}`} aria-hidden="true" data-testid={`${testId}-mas-filtros-contador`}>
@@ -480,13 +516,33 @@ export function HeroSearch({
               </summary>
 
               {/* Fondo oscuro de la hoja móvil (solo con JS; ver el CSS). Tocarlo cierra "Más filtros". */}
-              <div className={styles.backdrop} aria-hidden="true" onClick={() => setMoreOpen(false)} />
+              <div
+              className={styles.backdrop}
+              aria-hidden="true"
+              onClick={() => {
+                setMoreOpen(false)
+                summaryRef.current?.focus()
+              }}
+            />
 
-              <div ref={panelRef} className={styles.panel} tabIndex={-1} role="group" aria-label="Más filtros" data-testid={`${testId}-mas-filtros-panel`}>
+              <div
+                ref={panelRef}
+                id={panelId}
+                className={styles.panel}
+                tabIndex={-1}
+                role={isSheet ? 'dialog' : 'group'}
+                aria-modal={isSheet ? true : undefined}
+                aria-labelledby={isSheet ? panelTitleId : undefined}
+                aria-label={isSheet ? undefined : 'Más filtros'}
+                data-testid={`${testId}-mas-filtros-panel`}
+              >
                 {hydrated && (
                   <div className={styles.panelHeader}>
-                    <span className={styles.panelTitle}>Más filtros</span>
+                    <span id={panelTitleId} className={styles.panelTitle}>
+                      Más filtros
+                    </span>
                     <button
+                      ref={closeButtonRef}
                       type="button"
                       className={styles.closeButton}
                       aria-label="Cerrar más filtros"
@@ -558,7 +614,7 @@ export function HeroSearch({
                       Limpiar
                     </Button>
                   )}
-                  <Button type="primary" htmlType="submit" className={styles.panelSubmit} data-testid={`${testId}-mas-filtros-buscar`}>
+                  <Button ref={panelSubmitRef} type="primary" htmlType="submit" className={styles.panelSubmit} data-testid={`${testId}-mas-filtros-buscar`}>
                     Buscar
                   </Button>
                 </div>
