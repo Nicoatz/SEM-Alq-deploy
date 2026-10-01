@@ -61,14 +61,14 @@
   opacity: 0;
 }
 
+/*
+ * El punto: dorado pleno con un borde celeste claro para despegarlo del azul.
+ * NOTA: no lleva brillo translúcido: el dorado al 30 % sobre el azul se veía gris.
+ */
 .dot {
   fill: var(--rentar-color-money);
-}
-
-/* Brillo del punto: un círculo más grande y transparente (un `filter` repintaría en cada cuadro). */
-.dotGlow {
-  fill: var(--rentar-color-money);
-  opacity: 0.3;
+  stroke: var(--rentar-color-sky-light);
+  stroke-width: 1.5;
 }
 
 /* Número de paso de cada nodo y su halo (lo usan los `animation-delay`). */

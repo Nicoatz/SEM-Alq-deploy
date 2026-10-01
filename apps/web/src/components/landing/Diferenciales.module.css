@@ -54,11 +54,17 @@
 /* 768 px (breakpoints.md): tres columnas separadas por hairlines verticales. */
 @media (min-width: 768px) {
   .section {
-    padding: var(--rentar-spacing-lg) var(--rentar-spacing-sm);
+    padding: 0 var(--rentar-spacing-sm) var(--rentar-spacing-lg);
   }
 
+  /*
+   * Una hairline arriba, del ancho del contenido: la franja se lee como el
+   * remate del hero (cierra el primer viewport).
+   */
   .list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-top: var(--rentar-spacing-lg);
+    border-top: 1px solid var(--rentar-color-border-hairline);
   }
 
   .item {

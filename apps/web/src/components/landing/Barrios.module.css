@@ -31,7 +31,7 @@
 
 .card {
   display: grid;
-  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-columns: 6rem minmax(0, 1fr);
   align-items: center;
   gap: var(--rentar-spacing-sm);
   padding: var(--rentar-spacing-sm) 0;

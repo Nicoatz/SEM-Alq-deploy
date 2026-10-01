@@ -48,8 +48,10 @@
 
 /* ─── Lista de pasos ──────────────────────────────────────────────────── */
 
+/* Ancho acotado: el resalte del paso activo abraza el texto en vez de estirarse a toda la columna. */
 .pasos {
   display: grid;
+  max-width: 34rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -77,15 +79,18 @@
   --n: 3;
 }
 
-/* Resalte del paso activo: una capa blanca que solo cambia de opacidad. */
+/*
+ * Resalte del paso activo: una capa blanca con hairline que solo cambia de
+ * opacidad. Sin sombra: el paso no se acciona ("regla de sombra ganada", docs/DESIGN.md).
+ */
 .paso::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
   border-radius: inherit;
+  border: 1px solid var(--rentar-color-border-hairline);
   background: var(--rentar-color-bg-surface);
-  box-shadow: var(--rentar-shadow-resting);
   opacity: 0;
 }
 
@@ -185,9 +190,10 @@
     padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
   }
 
+  /* Arriba en 768–991 (la lista es más alta que el motivo); centrados desde 992. */
   .body {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
-    align-items: center;
+    align-items: start;
     gap: var(--rentar-spacing-lg);
   }
 
@@ -206,6 +212,7 @@
   }
 
   .body {
+    align-items: center;
     gap: var(--rentar-spacing-xl);
   }
 }

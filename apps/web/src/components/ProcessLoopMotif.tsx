@@ -111,7 +111,6 @@ export default function ProcessLoopMotif({ className, estado = 'corriendo' }: Pr
          * centro. Va debajo de los nodos: pasa por detrás de cada uno.
          */}
         <g className={styles.orbit}>
-          <circle className={styles.dotGlow} cx="56.16" cy="56.16" r="9" />
           <circle className={styles.dot} cx="56.16" cy="56.16" r="5" />
         </g>
 

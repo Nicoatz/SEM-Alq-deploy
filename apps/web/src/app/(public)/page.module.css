@@ -2,17 +2,18 @@
  * page.module.css — el primer viewport de la landing.
  *
  * Desde 768 px (breakpoints.md), el hero y la franja de diferenciales ocupan
- * el alto visible justo como para que de "Recién publicadas" asome solo el
- * título al pie de la pantalla: las fotos empiezan debajo del pliegue. Así
- * el elemento más grande del primer viewport (el LCP) es el titular, que
- * sale en el primer envío del HTML, y no una foto que llega después por
- * streaming. El bloque del hero queda centrado verticalmente en ese alto
- * (LandingHero.module.css) y la franja se apoya abajo.
+ * el alto visible: la franja cierra el primer viewport (contrato de
+ * dirección) y "Recién publicadas", con sus fotos, empieza debajo del
+ * pliegue. Así el elemento más grande del primer viewport (el LCP) es el
+ * titular, que sale en el primer envío del HTML, y no una foto que llega
+ * después por streaming. El bloque del hero queda centrado verticalmente en
+ * ese alto (LandingHero.module.css) y la franja se apoya abajo.
  *
- * Con tope (49rem): en pantallas muy altas el hero no crece más, para que su
- * bloque no quede flotando en el medio. Hasta 1080 px de alto las fotos
- * siguen debajo del pliegue (o asoman unos pocos px, sin pasar a ser el LCP);
- * en pantallas más altas asoman: es el costo del tope.
+ * Con tope (52rem, 832 px): en pantallas muy altas el hero no crece más, para
+ * que su bloque no quede flotando en el medio. En 1440×900 el tope todavía
+ * no corta (la franja termina justo en el pliegue); hasta 1080 px de alto las
+ * fotos siguen debajo del pliegue o asoman unos pocos px, sin pasar a ser el
+ * LCP; en pantallas más altas asoman: es el costo del tope.
  */
 
 .primeraPantalla {
@@ -24,13 +25,7 @@
   .primeraPantalla {
     /* NOTA: alto del Header de @rentar/ui (Header.module.css): padding 0.75rem × 2 + logo 2.75rem + borde 1px. */
     --landing-header: calc(4.25rem + 1px);
-    /*
-     * NOTA: lo que asoma de "Recién publicadas" antes de las fotos
-     * (Recientes.module.css): padding superior (2xl), la fila del título
-     * (2.75rem) y el espacio hasta la grilla (md).
-     */
-    --landing-asomo: calc(var(--rentar-spacing-2xl) + 2.75rem + var(--rentar-spacing-md));
-    min-height: min(calc(100svh - var(--landing-header) - var(--landing-asomo)), 49rem);
+    min-height: min(calc(100svh - var(--landing-header)), 52rem);
   }
 
   /* El hero crece (y su fondo con él); la franja queda abajo. */

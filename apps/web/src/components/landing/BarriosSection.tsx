@@ -18,9 +18,9 @@ import styles from './Barrios.module.css'
 /**
  * Ancho con que se muestra cada ilustración (ver Barrios.module.css): un
  * sexto del contenedor desde 992 px, un tercio desde 768 y una miniatura de
- * 4.5 rem en móvil.
+ * 6 rem en móvil.
  */
-const TAMANIOS_IMAGEN = '(min-width: 992px) 180px, (min-width: 768px) 240px, 72px'
+const TAMANIOS_IMAGEN = '(min-width: 992px) 180px, (min-width: 768px) 240px, 96px'
 
 /** Franja de barrios: lista con miniatura en móvil, 3×2 desde 768 px y una fila de 6 desde 992 px. */
 export function BarriosSection() {
