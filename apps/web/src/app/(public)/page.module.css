@@ -6,8 +6,13 @@
  * título al pie de la pantalla: las fotos empiezan debajo del pliegue. Así
  * el elemento más grande del primer viewport (el LCP) es el titular, que
  * sale en el primer envío del HTML, y no una foto que llega después por
- * streaming. En pantallas más altas que el contenido, el aire extra queda
- * entre los chips y la franja (que se apoya abajo).
+ * streaming. El bloque del hero queda centrado verticalmente en ese alto
+ * (LandingHero.module.css) y la franja se apoya abajo.
+ *
+ * Con tope (49rem): en pantallas muy altas el hero no crece más, para que su
+ * bloque no quede flotando en el medio. Hasta 1080 px de alto las fotos
+ * siguen debajo del pliegue (o asoman unos pocos px, sin pasar a ser el LCP);
+ * en pantallas más altas asoman: es el costo del tope.
  */
 
 .primeraPantalla {
@@ -25,7 +30,7 @@
      * (2.75rem) y el espacio hasta la grilla (md).
      */
     --landing-asomo: calc(var(--rentar-spacing-2xl) + 2.75rem + var(--rentar-spacing-md));
-    min-height: calc(100svh - var(--landing-header) - var(--landing-asomo));
+    min-height: min(calc(100svh - var(--landing-header) - var(--landing-asomo)), 49rem);
   }
 
   /* El hero crece (y su fondo con él); la franja queda abajo. */

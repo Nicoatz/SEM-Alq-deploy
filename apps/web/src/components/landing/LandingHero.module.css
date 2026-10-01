@@ -124,7 +124,19 @@
 /* ─── 768 px (breakpoints.md) ─────────────────────────────────────────── */
 
 @media (min-width: 768px) {
+  /*
+   * El hero ocupa el alto que le deja `.primeraPantalla` (page.module.css) y
+   * su bloque (titular, buscador y chips) queda centrado verticalmente entre
+   * el Header y la franja de diferenciales.
+   */
+  .hero {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
   .inner {
+    width: 100%;
     padding: var(--rentar-spacing-xl) var(--rentar-spacing-md);
   }
 
@@ -141,14 +153,6 @@
     margin: 0;
     padding: 0;
     overflow: visible;
-  }
-}
-
-/* ─── 992 px (breakpoints.lg) ─────────────────────────────────────────── */
-
-@media (min-width: 992px) {
-  .inner {
-    padding-top: var(--rentar-spacing-2xl);
   }
 }
 
