@@ -7,17 +7,22 @@
   backdrop-filter: blur(8px);
 }
 
+/*
+ * El mismo ancho que el contenido de las páginas públicas: hasta 1200 px
+ * (--rentar-container-max) más el margen lateral, como /buscar. El margen es
+ * de 1rem y pasa a 1.5rem desde 992 px (breakpoints.lg), igual que /buscar y la landing.
+ */
 .inner {
   margin: 0 auto;
   display: flex;
-  max-width: 72rem;
+  max-width: calc(var(--rentar-container-max) + 2 * 1.5rem);
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.75rem 1rem;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 992px) {
   .inner {
     padding-left: 1.5rem;
     padding-right: 1.5rem;

@@ -3,13 +3,14 @@
   background: var(--rentar-color-bg-surface);
 }
 
+/* Mismo ancho y margen lateral que el Header (ver Header.module.css). */
 .inner {
   margin: 0 auto;
-  max-width: 72rem;
+  max-width: calc(var(--rentar-container-max) + 2 * 1.5rem);
   padding: 2.5rem 1rem;
 }
 
-@media (min-width: 640px) {
+@media (min-width: 992px) {
   .inner {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
@@ -23,7 +24,8 @@
   gap: 1.5rem;
 }
 
-@media (min-width: 640px) {
+/* Logo y links en una fila desde 768 px (breakpoints.md; antes 640, fuera de la escala de antd). */
+@media (min-width: 768px) {
   .top {
     flex-direction: row;
     align-items: center;

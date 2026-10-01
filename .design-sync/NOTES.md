@@ -192,9 +192,11 @@ Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendie
   (`components/landing/`), el motivo `ProcessLoopMotif` (mejorado: tokens, ícono de "Postulate",
   órbita circular y estados `quieto`/`corriendo`/`pausado`) y `RevealAlEntrar`. Se borraron
   `SearchBar`, la `PropertyCard` de la landing, `HowItWorks` y `useInView`.
-- **Observación, sin cambio:** el contenedor del `Header` y del `Footer` mide 72rem (1152 px) y el de
-  la landing y `/buscar`, 75rem (1200 px): en 1440 px el logo y el titular quedan desalineados
-  24 px. No se tocó (el Header queda como está); a resolver aparte, con el PO.
+- **`Header` y `Footer`: el mismo contenedor que las páginas públicas** (aprobado por el PO): contenido
+  de hasta 1200 px (`--rentar-container-max`) más el margen lateral, que pasa de 1rem a 1.5rem desde
+  992 px (antes 640), como `/buscar`. Antes medían 72rem con el margen adentro: en 1440 px el logo
+  quedaba 48 px corrido respecto de `/buscar` y 24 px respecto de la landing. El `Footer` pone logo y
+  links en fila desde 768 px (antes 640). La API no cambia.
 
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
