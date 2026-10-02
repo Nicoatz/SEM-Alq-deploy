@@ -465,3 +465,10 @@ Nuevos, sin equivalente anterior: `landing-buscador`, `landing-buscador-mas-filt
 - Recuperar contraseña (US-40) y perfil (US-20, US-21).
 - Panel del locatario (hoy un placeholder).
 - Cobros, reclamos, contratos y notificaciones de verdad.
+- **Accesibilidad, para `feature/vistas`** (las marcó Lighthouse el 02/10/2026; no son de la
+  landing):
+  - `/login`: el ícono de mostrar contraseña del `Input.Password` de antd es un objetivo táctil
+    chico (`target-size`).
+  - `/buscar`: el texto de la paginación (`paginationText` en `Buscar.module.css`) no llega al
+    contraste mínimo, y los links de la paginación de antd no son rastreables (`crawlable-anchors`,
+    SEO).
