@@ -140,6 +140,8 @@ body {
 
   /* Tipografía: los tamaños de `typography` (primitives.ts), para el CSS propio */
   --rentar-font-size-display: clamp(2.25rem, 4vw, 3rem);
+  /* El H1 de la landing desde 768 px (`typography.displayHero`); en móvil, display. */
+  --rentar-font-size-display-hero: clamp(2.25rem, 5vw, 4rem);
   --rentar-font-size-headline: clamp(1.5rem, 3vw, 2.25rem);
   --rentar-font-size-title: 1.125rem;
   --rentar-font-size-body: 1rem;

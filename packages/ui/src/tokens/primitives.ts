@@ -61,11 +61,25 @@ export const darkColorScales = {
   sky: toScale(generate(seed.sky, { theme: 'dark' })),
 } as const
 
-/** Tipografía: una sola familia (League Spartan) en 5 escalones, igual a docs/DESIGN.md. */
+/**
+ * Tipografía: una sola familia (League Spartan) en 5 escalones, igual a
+ * docs/DESIGN.md, más `displayHero` para el titular de la landing.
+ */
 export const typography = {
   fontFamily: "'League Spartan', system-ui, sans-serif",
   display: {
     fontSize: 'clamp(2.25rem, 4vw, 3rem)',
+    fontWeight: 700,
+    lineHeight: 1.05,
+    letterSpacing: '-0.025em',
+  },
+  /**
+   * El H1 de la landing desde 768 px (en móvil usa `display`): separa la
+   * promesa de los títulos de sección (revisión final de impeccable; aprobado
+   * por el PO el 02/10/2026). Hasta 4rem: entra en una línea desde 768 px.
+   */
+  displayHero: {
+    fontSize: 'clamp(2.25rem, 5vw, 4rem)',
     fontWeight: 700,
     lineHeight: 1.05,
     letterSpacing: '-0.025em',

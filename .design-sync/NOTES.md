@@ -166,7 +166,10 @@ Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendie
   `spacing['2xl']` (6rem), `breakpoints` (sm 576 · md 768 · lg 992 · xl 1200, los de antd),
   `layout.containerMax` (1200 px, `--rentar-container-max`), `motion` (duraciones de 160, 240 y
   400 ms, curvas `out`, `inOut` y `drawer`, escalonado de 60 ms; `--rentar-motion-*`) y los tamaños
-  de `typography` como variables (`--rentar-font-size-display|headline|title|body|label`).
+  de `typography` como variables (`--rentar-font-size-display|headline|title|body|label`). Además
+  (aprobado por el PO el 02/10/2026, a partir de la revisión final de impeccable) un escalón nuevo,
+  `typography.displayHero` / `--rentar-font-size-display-hero` (`clamp(2.25rem, 5vw, 4rem)`): el H1
+  de la landing desde 768 px; en móvil sigue en `display`.
   NOTA: `--rentar-color-sky-rgb` vale el celeste CLARO (#E3F2FB), no #A0D1EF. Quedó solo anotado
   en `css-vars.css`; no se cambió.
 - **Nuevo: `HeroSearch`** (`components/forms/`): el buscador del hero ("A · La consola"). Controles
