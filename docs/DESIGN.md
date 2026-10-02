@@ -26,6 +26,12 @@ typography:
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.025em"
+  display-hero:
+    fontFamily: "League Spartan, system-ui, sans-serif"
+    fontSize: "clamp(2.25rem, 5vw, 4rem)"
+    fontWeight: 700
+    lineHeight: 1.05
+    letterSpacing: "-0.025em"
   headline:
     fontFamily: "League Spartan, system-ui, sans-serif"
     fontSize: "clamp(1.5rem, 3vw, 2.25rem)"
@@ -241,7 +247,10 @@ del loop, y ninguna lleva información.
 **La regla de contraste.** Ningún texto sobre superficie clara baja de `ink/70` (≈6.1:1 sobre
 blanco/paper) o de `goldInk` para texto dorado (≈4.96:1). `ink/60`, `ink/50` y el dorado crudo son
 correctos para rellenos decorativos grandes, pero nunca para texto chico. Sobre el azul, el texto
-es celeste claro (a 85% o más para el texto de apoyo).
+es celeste: el celeste claro `#E3F2FB` da 7,3:1 sobre `#004D98` (títulos, botón y número del paso
+activo), al 85% da 5,7:1 (texto de apoyo del panel para locadores) y el Celeste Cordobés `#A0D1EF`
+da 5,1:1; los tres pasan AA para texto normal (4,5:1). Sobre el azul oscuro del degradé el
+contraste sube (celeste claro sobre `#003B74`: 9,8:1).
 
 ## Tipografía
 
@@ -254,9 +263,13 @@ segunda tipeface de display — la "voz única" es deliberada. Los números de p
 con `font-variant-numeric: tabular-nums`.
 
 ### Jerarquía
-Los cinco escalones están en `typography` (TS) y en `--rentar-font-size-*` (CSS), con los mismos
+Los escalones están en `typography` (TS) y en `--rentar-font-size-*` (CSS), con los mismos
 valores. En CSS propio se usa la variable, nunca el `clamp()` copiado.
-- **Display** (700, line-height 1.05, tracking -0.025em): el H1 del hero únicamente.
+- **Display hero** (`displayHero`, `--rentar-font-size-display-hero`: 700, line-height 1.05,
+  tracking -0.025em, hasta 4rem): el H1 de la landing desde 768 px, para que la promesa se separe
+  de los títulos de sección; entra en una línea desde 768 px. Aprobado por el PO (02/10/2026).
+- **Display** (700, line-height 1.05, tracking -0.025em): el H1 de la landing en móvil y cualquier
+  otro titular de pantalla.
 - **Headline** (700, line-height 1.2, tracking -0.015em): H2 de sección, con `text-wrap: balance`.
 - **Title** (600): títulos de tarjeta, de los diferenciales y de los pasos; el subtítulo del hero
   desde 768 px; el título de la hoja de "Más filtros".
