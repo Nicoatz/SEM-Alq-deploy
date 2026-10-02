@@ -231,6 +231,26 @@ chunks más grandes:
   deja en el bundle.
 - `react-dom`: ~64 KB (no se puede sacar).
 
+**Desglose del LCP de `/`** (Lighthouse 12, perfil móvil, mediana; build de producción en modo mock,
+02/10/2026). El LCP es el H1 ("Alquilá directo con el dueño"):
+- **Observado** (la traza sin estrangular): TTFB 26 ms + retraso de render 195 ms = LCP 221 ms, igual
+  al FCP. Sin "load delay" ni "load time": es texto.
+- **Simulado:** TTFB 456 ms + retraso de render 5.867 ms = LCP 6,3 s (FCP simulado: 1,2 s). El modelo
+  simulado de Lighthouse (Lantern) cuenta como dependencia del LCP todo pedido que no sea imagen y
+  que arranque antes del pintado observado: 26 pedidos y 823 KB (el documento, la fuente, 4 hojas de
+  estilo y 20 scripts, que empiezan a bajar entre los 35 y los 90 ms). El FCP solo cuenta lo que
+  bloquea el render, por eso da 1,2 s. Con estrangulamiento real (devtools) el LCP es 1,9 s y
+  coincide con el FCP.
+- **Qué no lo retrasa (verificado):** la fuente (League Spartan con `next/font`, `display: 'swap'`,
+  precargada por la cabecera HTTP `Link`: sale a los 29 ms con prioridad alta y llega a los 38 ms)
+  y la hidratación (el H1 y el buscador están en el HTML inicial, antes del primer límite de
+  `Suspense`, y el H1 se pinta antes del DOMContentLoaded; no tiene animación de entrada).
+- **Qué marca el piso del pintado:** 4 hojas de estilo que bloquean el render (21 KB; Lighthouse
+  estima 456 ms de ahorro) y el CSS de antd en línea que mete el registry SSR (`AntdRegistry`) en el
+  `<head>`, antes del titular: 55 KB en `/`, 183 KB en `/login` y 201 KB en `/buscar` (el HTML de
+  `/` pesa 183 KB sin comprimir).
+- **Conclusión:** la landing y `HeroSearch` no demoran el titular; lo que pesa es del armazón común.
+
 **Propuesta de arreglo** (una rama aparte, con mediciones antes y después; los comandos y opciones están en la documentación de Next 16 instalada, `node_modules/next/dist/docs/01-app/02-guides/package-bundling.md`):
 1. **Supabase solo cuando hace falta.** En `lib/auth/AuthProvider.tsx`, `services/auth.service.ts`
    y `services/propiedades.service.ts`, cambiar el import estático de `getSupabaseBrowserClient`
@@ -247,7 +267,13 @@ chunks más grandes:
    de `@rentar/ui` desde sus archivos (el barril, con sus CSS modules, impide descartar lo que no se
    usa), cargar el Drawer del menú móvil del Header recién al abrirlo y probar
    `experimental.optimizePackageImports` con `antd`, `@ant-design/icons` y `@rentar/ui`.
-4. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
+4. **CSS que bloquea el render.** Medir `experimental.inlineCss` (Next 16, documentado en
+   `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/inlineCss.md`):
+   cambia las 4 hojas por `<style>` en el `<head>`, a costa de que los que vuelven no las tengan en
+   caché. Y evaluar la extracción estática de los estilos de antd (`@ant-design/static-style-extract`,
+   documentada por antd 6) para servir un CSS cacheable de los componentes que usan las páginas
+   públicas, en vez de 55 a 201 KB de CSS en línea por página.
+5. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
    Performance simulado ≥ 90 en `/`, `/login` y `/buscar` (mediana de 3 corridas), sin romper la
    sesión real (login, `/me`, logout) ni el modo mock.
 
