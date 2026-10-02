@@ -191,8 +191,8 @@ hover, foco) y, sobre el azul, la tinta clara.
 - **Azul Escribanía** (`seed.blue` / `--rentar-color-blue`): el único color usado para botones
   primarios, links, estados activos de filtros y chips, foco, trazos de ícono del motivo y los
   números de los pasos de "Cómo funciona". Si es clicable e importante, es este azul. También es la
-  superficie de las dos piezas de peso de la landing: la baldosa del motivo (en degradé con el
-  oscuro) y el panel de cierre para locadores.
+  superficie de las tres piezas de peso de la landing: el hero (con la ciudad ilustrada en la base),
+  la baldosa del motivo (en degradé con el oscuro) y el panel de cierre para locadores.
 - **Azul Escribanía Oscuro** (`seed.blueDark`): hover/activo del azul de arriba, y el tono medio del
   degradé de la baldosa del motivo. Nunca en reposo sobre un control.
 - **Dorado Trámite** (`seed.gold`, tinta de texto `seed.goldInk`): reservado para dinero — la línea
@@ -200,11 +200,11 @@ hover, foco) y, sobre el azul, la tinta clara.
   contenido: el highlight de selección de texto (`::selection`) y el punto que recorre el loop de
   "Cómo funciona". `goldInk` es el único dorado apto para texto (≥4.5:1 sobre blanco/paper); el
   dorado crudo nunca lleva texto chico — ver la Regla de Contraste.
-- **Celeste Cordobés** (`seed.sky`, tinte `seed.skyLight`): atmósfera — el degradé del hero
-  (celeste claro → paper), la banda de "Cómo funciona", la celda con foco del buscador, "Más
+- **Celeste Cordobés** (`seed.sky`, tinte `seed.skyLight`): atmósfera — la banda de "Cómo funciona", la celda con foco del buscador, "Más
   filtros" abierto, la opción elegida del panel, el fondo de las fotos mientras cargan, el anillo y
   los nodos del motivo. Sobre superficie clara nunca es texto ni ícono. Sobre el azul es la tinta:
-  el titular y el botón del panel para locadores y el número del paso activo usan celeste claro.
+  el titular, el subtítulo y los chips del hero, el titular y el botón del panel para locadores y el
+  número del paso activo usan celeste claro.
 - **Ink** (`seed.ink`): todo el texto de cuerpo, siempre a 70% de opacidad o más (ver Regla de
   Contraste). También el casi-negro usado a baja opacidad para hairlines y para el fondo de la hoja
   móvil (`ink/45`).
@@ -251,6 +251,17 @@ es celeste: el celeste claro `#E3F2FB` da 7,3:1 sobre `#004D98` (títulos, botó
 activo), al 85% da 5,7:1 (texto de apoyo del panel para locadores) y el Celeste Cordobés `#A0D1EF`
 da 5,1:1; los tres pasan AA para texto normal (4,5:1). Sobre el azul oscuro del degradé el
 contraste sube (celeste claro sobre `#003B74`: 9,8:1).
+
+**Excepción: el hero en azul** (02/10/2026, junto a la del panel para locadores). El hero de la
+landing es azul y usa los mismos tonos que el panel, medidos sobre `#004D98`:
+- Titular en celeste claro: **7,3:1**.
+- Subtítulo y "Buscar en" en celeste claro al 85%: **5,7:1**.
+- Texto de los chips (celeste claro sobre su fondo, celeste claro al 8%): **6,1:1**.
+- Anillo de foco de los chips en celeste claro: **7,3:1** contra el azul (el mínimo para un
+  indicador de foco es 3:1). El anillo azul global no se vería; lo de adentro de la tarjeta blanca
+  del buscador sigue con el anillo azul.
+La ciudad ilustrada de la base no baja estos números: va multiplicada sobre el azul, así que solo
+lo oscurece, y queda debajo de los chips.
 
 ## Tipografía
 
@@ -310,9 +321,12 @@ cambien en el mismo ancho): `sm` 576, `md` 768, `lg` 992, `xl` 1200. Mobile-firs
 ### Primer viewport de la landing
 El bloque del hero (titular, buscador, chips "Buscar en") queda centrado verticalmente entre el
 Header y la franja de diferenciales, que cierra el viewport desde 768 px. El alto se calcula como
-`100svh` menos el Header y el respiro de la sección siguiente, con un tope de 52rem. El titular es
-el LCP: sale en el primer envío del HTML y no tiene animación de entrada; las fotos de "Recién
-publicadas" empiezan debajo del pliegue (en 1440×900).
+`100svh` menos el Header y el respiro de la sección siguiente, con un tope de 52rem. El hero es
+azul, con una ciudad ilustrada apoyada en su base: desde 768 px ocupa el hueco entre los chips y la
+franja, detrás del bloque; en móvil va debajo de los chips, así no empuja el buscador. El borde del
+azul cierra el hero (la franja no lleva hairline arriba). El LCP es la ilustración (en móviles
+bajos, el titular): va primera en el HTML con `fetchpriority="high"`. El titular no tiene animación
+de entrada y las fotos de "Recién publicadas" empiezan debajo del pliegue (en 1440×900).
 
 ## Elevación y profundidad
 
@@ -494,12 +508,14 @@ configurable en las acciones clave, y sin valores visuales hardcodeados.
 - **Secundario/ghost:** fondo blanco o transparente, texto `blue`, hover a `blueDark` o relleno
   `skyLight`. "Más filtros" es este botón: texto azul, y relleno celeste claro mientras está abierto.
 - **Sobre el azul** (panel para locadores): el botón invierte a celeste claro con texto azul y
-  hover a blanco; el outline de foco pasa a celeste claro, porque el azul no se vería.
+  hover a blanco; el outline de foco pasa a celeste claro, porque el azul no se vería. Lo mismo vale
+  para los chips del hero.
 
 ### Chips
-- **Atajos ("Buscar en" del hero):** links pill de 2.25rem, fondo blanco, hairline `ink/10`, texto
-  a escala label; hover (solo puntero fino) pasa borde y texto a `blue`. En móvil, una fila que se
-  desliza hasta el borde de la pantalla.
+- **Atajos ("Buscar en" del hero):** links pill de 2.25rem sobre el azul: fondo celeste claro al
+  8%, borde celeste claro al 40%, texto celeste claro a escala label; hover (solo puntero fino)
+  invierte a celeste claro con texto azul, y el foco es un anillo celeste claro. En móvil, una fila
+  que se desliza hasta el borde de la pantalla.
 - **Filtros (panel de "Más filtros"):** la misma pastilla sobre fondo `paper`; elegida, invierte a
   `blue` sólido con texto blanco. El control real es un radio/casilla nativo invisible encima de la
   pastilla, así el clic, el foco y el envío sin JS son suyos. Un solo lenguaje visual de chip en
@@ -569,6 +585,14 @@ en la paleta de dos hues de la marca (azules y paper, con toques dorados mínimo
 `radii.lg` y fondo celeste mientras cargan. Procedencia en `apps/web/public/landing/IMAGES.md`.
 Nunca se usan como fotos de propiedades ni de lugares reales.
 
+### Ciudad del hero
+Una ilustración panorámica generada con el mismo bloque de estilo que los barrios: un perfil de
+ciudad genérica (casas bajas, edificios medianos con balcones, árboles), sin texto ni edificios
+reales. Decorativa (`alt=""`). Va multiplicada (`mix-blend-mode: multiply`) al 55% sobre el azul:
+el cielo, aplanado a blanco, deja el azul igual y lo dibujado lo oscurece, así que se lee como una
+ciudad en azul oscuro. Arriba se funde con el fondo por una máscara. Estática: sin parallax ni
+animación. Procedencia en `apps/web/public/landing/IMAGES.md`.
+
 ### Movimiento (`motion`, `--rentar-motion-*`)
 Solo se animan `transform` y `opacity`.
 - **Duraciones:** `fast` (160 ms) presión, color, celdas, el contador de filtros y el cierre del
@@ -619,7 +643,8 @@ Solo se animan `transform` y `opacity`.
   de contraste 4.5:1 (la regla de contraste).
 - Sumar una segunda tipografía, un acento de borde de color, texto en degradé o una sombra dura
   tipo neobrutalista — ninguno de estos pertenece a este mundo.
-- Animar la entrada del titular del hero (es el LCP) o dejar contenido oculto hasta que cargue JS.
+- Animar la entrada del titular del hero (es el LCP en móviles bajos) o de la ciudad ilustrada (es
+  el LCP en el resto), o dejar contenido oculto hasta que cargue JS.
 - Re-animar una sección cada vez que entra y sale de pantalla.
 - Usar las ilustraciones de barrios como fotos de una propiedad o de un lugar real.
 - Hardcodear un hex/rgba en un `.module.css` cuando ya existe un token equivalente en

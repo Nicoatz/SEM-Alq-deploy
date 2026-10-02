@@ -1,7 +1,9 @@
 # Ilustraciones de la landing — procedencia
 
-Las seis ilustraciones de la franja "Buscá por barrio" de la landing (`/`), en
-`barrios/<slug>.webp`. Las usa `apps/web/src/lib/catalogs/barriosLanding.ts`.
+- Las seis ilustraciones de la franja "Buscá por barrio" de la landing (`/`), en
+  `barrios/<slug>.webp`. Las usa `apps/web/src/lib/catalogs/barriosLanding.ts`.
+- La ciudad del hero, en `hero/ciudad-*.webp`. La usa
+  `apps/web/src/components/landing/LandingHero.tsx`. Ver "Ciudad del hero", más abajo.
 
 - **Qué son:** ilustraciones generadas con IA, decorativas (`alt=""`: el nombre del barrio ya es el
   texto del link). Muestran escenas genéricas con la paleta de la marca: ningún edificio ni monumento
@@ -70,3 +72,89 @@ Todas con el mismo modelo, la semilla `2026` y 960 × 1200 px.
 Mismo modelo, semilla y tamaño, el bloque de estilo B y la escena del barrio, sin imagen de
 referencia. Después, el mismo post-proceso (480 × 600 px, WebP calidad 72) y actualizar esta tabla.
 Una ilustración nueva se muestra al PO antes de integrarla.
+
+---
+
+# Ciudad del hero
+
+Perfil de una ciudad genérica en la base del hero azul de la landing.
+
+- **Qué es:** una ilustración generada con IA, decorativa (`alt=""`). Muestra casas bajas, edificios
+  medianos con balcones y árboles: ningún edificio ni monumento real, sin texto y sin personas.
+- **Cómo se ve:** multiplicada (`mix-blend-mode: multiply`) al 55 % de opacidad sobre
+  `--rentar-color-blue`, así que se lee como una ciudad en azul oscuro. Arriba se funde con el fondo
+  por una máscara. Es estática.
+- **Aprobada por el PO:** 02/10/2026 (variante B, "hero en azul").
+
+## Cómo se generó
+
+| Dato | Valor |
+|---|---|
+| Servicio | Pollinations (`gen.pollinations.ai`, `POST /v1/images/generations`) |
+| Modelo | `black-forest-labs/flux.2-klein-4b` (el mismo de los barrios) |
+| Semilla | `2026` |
+| Tamaño pedido | 2400 × 600 px (el modelo devolvió 2400 × 592), JPEG |
+| Imagen de referencia | Ninguna |
+| Origen | Sin URL pública: se pidió la imagen en base64 desde la API, no desde la herramienta `generateImage` |
+| Fecha | 02/10/2026 |
+
+### Prompt
+
+Es el bloque de estilo B de los barrios con dos cambios: "No people" en lugar de las siluetas, y la
+última línea (la composición 4:5) reemplazada por una composición panorámica 4:1 con el cielo vacío
+arriba. Después va la escena. Tal como se mandó al modelo:
+
+> Editorial flat illustration with subtle risograph grain, crisp geometric shapes and thin navy
+> (#12202E) linework. Strict two-hue palette: everything is drawn only in blues and off-white. Deep
+> cobalt blue #004D98, sky blue #A0D1EF, pale sky #E3F2FB and off-white paper #F7F9FB; trees,
+> foliage and grass are rendered in these same blues (no green anywhere); building facades are
+> off-white paper and pale sky (no cream, no beige). Small warm gold #D7B15D accents only on a few
+> sunlit edges and windows. Soft late-afternoon light from the upper left, long gentle shadows, calm
+> and warm mood. Generic Argentine city neighborhood: no recognizable real buildings, landmarks or
+> monuments. No text, no letters, no numbers, no signs, no logos. No people. Very wide panoramic 4:1
+> banner composition: the city sits only in the lower half of the frame and rests on the bottom
+> edge; the upper half is plain, empty, flat pale sky #E3F2FB with no clouds, no sun and no birds.
+> Scene: a continuous low skyline of a generic city seen from street level, a gentle rhythm of two-
+> and three-story houses alternating with a few mid-rise apartment buildings of five to eight floors
+> with long balconies and potted plants, rounded blue trees between the buildings, flat rooftops
+> with small water tanks; the tallest buildings are near both ends and lower houses sit in the
+> middle.
+
+## Post-proceso
+
+Con `sharp`, en este orden:
+
+1. **Sin cielo.** El cielo salió gris claro (≈ `#E5E7E1`). Columna por columna, desde arriba hasta el
+   primer píxel que se aparta del color del cielo, ese tramo pasa a transparente (con borde suave
+   según cuánto se parece al cielo). Después se recorta el cielo vacío de arriba: queda una franja de
+   2400 × 386 px.
+2. **Aplanado sobre blanco, sin alfa.** Como la imagen va multiplicada sobre el azul, el blanco no
+   cambia el azul (blanco × azul = azul): el cielo transparente se aplana a blanco y el archivo queda
+   sin canal alfa. Pesa menos de la mitad que con alfa (con alfa, la de 1600 px pesaba 55 KB), sin
+   diferencia visible en la página (diferencia media de 0,1 sobre 255 en las capturas).
+3. **Recortes.** Escritorio (desde 768 px): el panorama entero. Móvil: el tramo derecho (x 1300–2400
+   del original: edificios medianos y casas), para que en 375–767 px no se vea una ciudad diminuta.
+4. **Filtro de mediana 3** (suaviza el grano de risografía, que es lo que más pesa) y **WebP** con
+   `effort` 6.
+
+| Archivo | Uso | Tamaño | Calidad WebP | Peso |
+|---|---|---|---|---|
+| `hero/ciudad-1600.webp` | escritorio (`srcset` 1600w) | 1600 × 257 | 50 | 27 KB |
+| `hero/ciudad-1200.webp` | escritorio (`srcset` 1200w) | 1200 × 193 | 55 | 19 KB |
+| `hero/ciudad-750.webp` | móvil (`srcset` 750w) | 750 × 263 | 55 | 16 KB |
+| `hero/ciudad-480.webp` | móvil (`srcset` 480w) | 480 × 168 | 55 | 9 KB |
+
+Las dos fuentes de `<picture>` van con `sizes="100vw"`: en 1440 px el navegador pide la de 1600; en
+768, la de 1200; en 390, la de 480.
+
+## Descartada
+
+- **Variante A, "ciudad en la base del hero claro"** (02/10/2026): la misma imagen, a todo color,
+  con el cielo transparente y sobre el degradé celeste del hero de entonces. El PO eligió la variante
+  B (hero azul). Era la misma generación, así que no hay otra imagen de origen: solo cambiaba el
+  tratamiento.
+
+## Si hay que regenerarla
+
+Mismo modelo, semilla y tamaño, y el prompt de arriba. Después, el mismo post-proceso y actualizar
+esta sección. Una ilustración nueva se muestra al PO antes de integrarla.

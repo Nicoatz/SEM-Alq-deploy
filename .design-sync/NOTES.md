@@ -273,7 +273,20 @@ chunks más grandes:
    caché. Y evaluar la extracción estática de los estilos de antd (`@ant-design/static-style-extract`,
    documentada por antd 6) para servir un CSS cacheable de los componentes que usan las páginas
    públicas, en vez de 55 a 201 KB de CSS en línea por página.
-5. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
+5. **Precarga de la ilustración del hero, solo en `/`** (sumado el 02/10/2026, decisión del PO).
+   Con el hero azul, el LCP de `/` pasó a ser la ciudad ilustrada (`LandingHero`, ver
+   `apps/web/public/landing/IMAGES.md`): 2,35 s con estrangulamiento real (mediana de 3; antes, con
+   el titular, 2,25 s). Desglose con estrangulamiento real: TTFB ~40 ms, **load delay ~630 ms**,
+   load time 1,3–1,5 s (16 KB, compitiendo por la red con el CSS y el JS del armazón) y render delay
+   200–400 ms. El load delay viene de dónde está la `<img>`: en el **byte 61 K** de un HTML de
+   150 KB, justo después de un `<head>` de ~59 KB (casi todo CSS de antd en línea del registry SSR),
+   así que el escáner la encuentra tarde. Probar un `<link rel="preload" as="image" imagesrcset
+   media fetchpriority="high">` (uno por recorte: 1200/1600 desde 768 px y 480/750 por debajo) al
+   principio del `<head>`, solo para `/`, sin tocar el layout común. `preload()` de `react-dom`
+   desde el componente **no sirve**: la página es dinámica y esa precarga sale solo en el payload
+   RSC, después del `<head>` (probado). Bajar el CSS en línea (punto 4) también acerca la `<img>`
+   al principio del HTML.
+6. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
    Performance simulado ≥ 90 en `/`, `/login` y `/buscar` (mediana de 3 corridas), sin romper la
    sesión real (login, `/me`, logout) ni el modo mock.
 
