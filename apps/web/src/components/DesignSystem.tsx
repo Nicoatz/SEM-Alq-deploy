@@ -203,11 +203,18 @@ interface TypeSpecimen {
 
 const typeSpecimens: TypeSpecimen[] = [
   {
+    name: 'Display hero',
+    sample: 'Alquilá directo con el dueño',
+    style: { fontSize: 'var(--rentar-font-size-display-hero)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.025em' },
+    spec: ['700', '36–64px', 'line-height 1.05', 'tracking -0.025em', '--rentar-font-size-display-hero'],
+    usage: 'H1 de la landing desde 768 px (en móvil usa Display).',
+  },
+  {
     name: 'Display',
     sample: 'Alquilá directo con el dueño',
     style: { fontSize: 'var(--rentar-font-size-display)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.025em' },
     spec: ['700', '36–48px', 'line-height 1.05', 'tracking -0.025em', '--rentar-font-size-display'],
-    usage: 'H1 de la landing únicamente.',
+    usage: 'H1 de la landing en móvil y titulares de pantalla.',
   },
   {
     name: 'Headline',

@@ -146,6 +146,11 @@
     padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
   }
 
+  /* El titular crece desde 768 px (token display-hero): la promesa se separa de los títulos de sección. */
+  .title {
+    font-size: var(--rentar-font-size-display-hero);
+  }
+
   .subtitle {
     font-size: var(--rentar-font-size-title);
   }
