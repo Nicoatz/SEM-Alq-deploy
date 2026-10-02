@@ -58,13 +58,13 @@
   }
 
   /*
-   * Una hairline arriba, del ancho del contenido: la franja se lee como el
-   * remate del hero (cierra el primer viewport).
+   * NOTA: sin hairline arriba. El borde del hero azul ya cierra el hero; una
+   * hairline del ancho del contenido, pegada a ese borde, se veía como una
+   * línea suelta.
    */
   .list {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     padding-top: var(--rentar-spacing-lg);
-    border-top: 1px solid var(--rentar-color-border-hairline);
   }
 
   .item {

@@ -11,7 +11,8 @@
  * llamado del lado del servidor dentro de `RecientesSection` (con `Suspense`).
  *
  * NOTA: la página no espera al back. El hero y los diferenciales salen en el
- * primer envío del HTML (el titular es el LCP) y las tarjetas llegan después
+ * primer envío del HTML (el LCP es la ilustración del hero o, en móviles
+ * bajos, el titular) y las tarjetas llegan después
  * por streaming. Antes la landing entera esperaba a `/inmuebles/disponibles`.
  * NOTA: del lado del servidor no hay `localStorage`, así que en modo mock la
  * landing muestra solo el elenco (no las propiedades creadas en el alta).

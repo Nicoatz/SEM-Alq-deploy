@@ -5,9 +5,9 @@
  * respiro superior de "Recién publicadas" ocupan el alto visible: la franja
  * es lo último que se ve (cierra el primer viewport, contrato de dirección)
  * y el título y las fotos de "Recién publicadas" empiezan debajo del
- * pliegue. Así el elemento más grande del primer viewport (el LCP) es el
- * titular, que sale en el primer envío del HTML, y no una foto que llega
- * después por streaming. El bloque del hero queda centrado verticalmente en
+ * pliegue. Así el elemento más grande del primer viewport (el LCP) es la
+ * ilustración del hero, que se pide desde el primer envío del HTML, y no
+ * una foto que llega después por streaming. El bloque del hero queda centrado verticalmente en
  * ese alto (LandingHero.module.css) y la franja se apoya abajo.
  * NOTA: el respiro se descuenta para que el hero no quede con demasiado aire
  * alrededor de su bloque (en 1440×900, ~160 px arriba y abajo; sin

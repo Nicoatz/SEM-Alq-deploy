@@ -10,9 +10,12 @@
  * De dónde saca los datos: el catálogo de barrios del piloto (`lib/catalogs/neighborhoods.ts`).
  * Quién lo usa: `app/(public)/page.tsx`.
  *
- * NOTA: es un Server Component: el titular (el LCP de la página) sale en el
+ * NOTA: es un Server Component: el titular y la ilustración salen en el
  * primer envío del HTML, sin esperar al back ni al JS. La única parte con JS
  * es el buscador (`BuscadorLanding`).
+ * NOTA: el fondo es azul con una ciudad ilustrada en la base (procedencia en
+ * `public/landing/IMAGES.md`). Desde 768 px y en móviles altos, la ilustración
+ * es el LCP: por eso va con `fetchPriority="high"` y primera en el HTML.
  */
 import Link from 'next/link'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
@@ -23,8 +26,32 @@ import styles from './LandingHero.module.css'
 export function LandingHero() {
   return (
     <section className={styles.hero} aria-labelledby="landing-titulo">
+      {/*
+        Ciudad ilustrada, decorativa (alt vacío). Va primera en el DOM y sin
+        z-index: el contenido, posicionado después, queda encima. Dos recortes:
+        el panorama entero desde 768 px y el tramo derecho en móvil.
+      */}
+      <picture className={styles.city}>
+        <source
+          media="(min-width: 768px)"
+          srcSet="/landing/hero/ciudad-1200.webp 1200w, /landing/hero/ciudad-1600.webp 1600w"
+          sizes="100vw"
+          width={1600}
+          height={257}
+        />
+        <img
+          src="/landing/hero/ciudad-750.webp"
+          srcSet="/landing/hero/ciudad-480.webp 480w, /landing/hero/ciudad-750.webp 750w"
+          sizes="100vw"
+          alt=""
+          width={750}
+          height={263}
+          fetchPriority="high"
+          className={styles.cityImg}
+        />
+      </picture>
       <div className={styles.inner}>
-        {/* NOTA: el titular no tiene animación de entrada: es el LCP y tiene que estar sólido desde el primer pintado. */}
+        {/* NOTA: el titular no tiene animación de entrada: es el LCP en móviles bajos y tiene que estar sólido desde el primer pintado. */}
         <h1 id="landing-titulo" className={styles.title}>
           Alquilá directo con el dueño
         </h1>
