@@ -55,9 +55,15 @@ export interface ApiRequestOptions {
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
-/** Arma la URL completa con sus query params. */
+/** SSR usa el binding privado; el navegador entra por el rewrite público de Vercel. */
 function buildUrl(path: string, query: ApiRequestOptions['query']): string {
-  const url = new URL(`${API_BASE_URL}${path}`)
+  const internalApiUrl = typeof window === 'undefined' ? process.env.API_INTERNAL_URL : undefined
+  const baseUrl = internalApiUrl
+    ? `${internalApiUrl.replace(/\/+$/, '')}/api/v1`
+    : API_BASE_URL
+  const url = typeof window === 'undefined'
+    ? new URL(`${baseUrl}${path}`)
+    : new URL(`${baseUrl}${path}`, window.location.origin)
   for (const [key, value] of Object.entries(query ?? {})) {
     if (value === undefined) continue
     if (Array.isArray(value)) {
