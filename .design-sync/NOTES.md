@@ -217,6 +217,13 @@ sin interfaz):
 
 Accesibilidad, buenas prácticas y SEO dan 100 en la landing.
 
+**En modo real** (06/10/2026, build de producción contra la API local, Lighthouse 12.8.2, perfil
+móvil, Edge sin interfaz, mediana de 3): `/` da Performance 70 (69, 71 y 70), FCP 1,2 s, LCP 6,4 s,
+TBT 340 ms y CLS 0; accesibilidad, buenas prácticas y SEO, 100. Con el hero azul, el LCP pasó a ser
+la ilustración de la ciudad (`/landing/hero/ciudad-750.webp`), no el titular. "Recién publicadas"
+no pesa en el LCP: llega por streaming dentro de `Suspense` (el esqueleto a ~140 ms; las tarjetas
+cuando responde `/disponibles`, 7–10 s).
+
 **Diagnóstico.** El LCP medido es el titular y coincide con el FCP (~0,2 s en local). La diferencia
 viene del método simulado: cuenta como dependencia del LCP todo pedido que no sea imagen y que haya
 empezado antes del pintado, y los ~750 KB de JS empiezan a bajar a los 35–90 ms. Ese JS es del

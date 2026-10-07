@@ -163,7 +163,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | Supabase Auth `signInWithPassword` / `signOut` | `/login`, UserMenu | **Conectado** |
 | `GET /usuarios/me` | Sesión (login y recarga) | **Conectado** |
 | `POST /registrar-usuario` | `/registro` | **Conectado** (sin `rol`: el back registra locatario) |
-| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: desde el 29/09 ignora casi todos los filtros, el orden y la paginación; el front trae todas y filtra, ordena y pagina en el cliente (sección 7) |
+| `GET /inmuebles/disponibles` | `/buscar`, landing | **Conectado**: desde ce677a4 (29/09) filtra, ordena y pagina (probado el 06/10). La landing pide `limit=6`; `/buscar` todavía trae todas y filtra en el cliente (sección 7). Tarda 7–10 s |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
 | `POST /inmuebles` | Alta | **Conectado** (29/09): alta real de punta a punta desde la pantalla, con fotos en Storage; cualquier rol, y suma el rol locador |
@@ -212,17 +212,20 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 ### US-34 Consultar propiedades a alquilar
 
-Desde el 29/09 (`develop` a00f099, "Emparejar inmueble service con repository") `/disponibles` usa
-un repositorio nuevo que ignora casi todos los filtros y la paginación. Por eso el front trae todas
-las disponibles y filtra, ordena y pagina en el cliente, con las mismas reglas que el modo mock
-(`propiedades.service.ts#buscarPropiedades`, con `TODO(backend)`). El mapeo de la URL de `/buscar` a
-los params del back (`consultaDeDisponibles`) se sacó; está en la historia (commit 60f8c63) para
-cuando el back vuelva a respetar los filtros.
+Desde ce677a4 (29/09) `/disponibles` vuelve a aplicar los filtros, el orden y la paginación
+(`page`/`limit`, tope 1000), con el id descendente como orden de base. Probado contra la API real el
+06/10/2026 con 11 disponibles: precio, dormitorios, ambientes, superficie, tags, índice, barrio,
+tipo, `orden=m2` y `page=2&limit=4` responden lo esperado. La landing ya lo usa ("Recién publicadas"
+pide `?page=1&limit=6`). `/buscar` todavía trae todas y filtra, ordena y pagina en el cliente
+(`propiedades.service.ts#buscarPropiedades`, con `TODO(backend)`); pasarla al back queda para
+`feature/vistas`, con el mapeo de la URL a los params (`consultaDeDisponibles`, commit 60f8c63).
 
 | Brecha | Dueño |
 |---|---|
-| **`/disponibles` ignora los filtros:** `buscarDisponibles` solo aplica `barrio` (igual exacto, antes "contiene") y `tipo`. Ignora `precioMin`/`precioMax`, `dormitorios`, `ambientes`, `superficieMin`/`superficieMax`, `tags`, `indiceAjuste`, `orden`/`direccion` y `page`/`limit`: siempre devuelve todas con `page: 1` y `limit` = cantidad. El controller los sigue leyendo y el Swagger los documenta. Probado el 29/09: `?dormitorios=1&page=2&limit=1` devuelve las 2 disponibles. | backend (Thiago) |
-| **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Con 2 propiedades, `/disponibles` tarda ~2,7 s. Con más, va a crecer lineal. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
+| ~~**`/disponibles` ignora los filtros**~~ **Resuelto (ce677a4, 29/09; probado el 06/10).** | — |
+| **`barrio` filtra por nombre exacto** (`General Paz`); con el slug que usa el front (`general-paz`) da 0. Propuesta: cuando `/buscar` filtre en el back, el front traduce el slug al nombre (el catálogo de barrios es del front). | front |
+| **"4 o más" dormitorios o ambientes:** `dormitorios` y `ambientes` son igual exacto. Sumar un filtro de mínimo (por ejemplo `dormitoriosMin` y `ambientesMin`). | backend |
+| **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Medido el 06/10: con `limit=6` tarda 7–10 s, y con las 11 disponibles, ~13 s. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
 | ~~Expensas sin contrato~~ **Resuelto (29/09, `develop` 8f9bf8c y ce677a4):** el detalle manda `null` sin contrato y el listado vuelve a pedir contrato, así que su `0` es real. El front muestra `0` como "Sin expensas" y `null` (o un `-1` viejo) vacío, nunca "$0". | — |
 | ~~Nombre del estado "alquilada con fecha"~~ **Resuelto (29/09, `develop` 2264372):** el back normalizó todo a `'publicado/alquilado'` (validación, `EstadoAlquiler`, `/disponibles`, `/mis-alquileres`, con migración). El alta manda `publicado/alquilado` para una alquilada con fecha y `alquilado` sin fecha; la lectura también acepta `alquilado` + fecha, por las viejas. | — |
 | El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
@@ -324,6 +327,8 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Archivos del bucket `fotos-propiedades` del inmueble 8 | los 3 de `foto_inmueble` 22 a 24 (carpeta `6ac3e808-…`, del usuario 20) | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
+| Inmuebles con datos que no son verosímiles (vistos en la prueba de la landing, 06/10): **17** ($ 1.000.000.000 por mes, 10 m²) y **13** (PH de 20 ambientes y 15 dormitorios, dirección "bispo Trejo al 1200"). Corregir o borrar | inmuebles **13 y 17** | `inmueble`, `contrato` y asociadas |
+| Fotos repetidas de personas reales: la misma foto (carpeta `3e12c119-…`) es la principal de los inmuebles **12, 13, 15, 16 y 17**. El repo es público y la landing las muestra: reemplazarlas por fotos de ambientes | `foto_inmueble` de esos 5 inmuebles | `foto_inmueble` y `storage.objects` |
 
 ## 10. Observaciones para backend
 
@@ -347,10 +352,14 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    `.gitignore`.
 7. **`.gitignore` no ignora `apps/api/node_modules`** (hoy no hay nada trackeado ahí, pero ya pasó
    una vez).
-8. **El `package.json` raíz vuelve a declarar dependencias** (`next ^16.3.6`, `@supabase/ssr` y
-   `@supabase/server`, commits 041bea0 y ead9eb8) sin actualizar `package-lock.json`. En el #3 se
-   sacaron de ahí para tener una sola copia de Next (la de `apps/web`, 16.3.5 exacta): el próximo
-   `npm install` puede volver a traer dos. No se tocó desde el front (lo habla el PO con Thiago).
+8. ~~**El `package.json` raíz vuelve a declarar dependencias**~~ **Resuelto (06/10, en
+   `feature/nuevo-landing`, a pedido de Thiago; commit 16f6bbc).** El raíz declaraba `next ^16.3.6`,
+   `@supabase/ssr` y `@supabase/server` (041bea0 y ead9eb8) sin actualizar el lock: `npm ci` fallaba
+   y un `npm install` traía Next 16.4.0 además de 16.3.5. Además, en la raíz convivían `react`
+   19.3.0 y `react-dom` 19.2.8 (500 en `/propiedad/[id]` con `next dev`). Se sacaron las tres del
+   raíz (cada paquete declara lo que usa; `@supabase/server` no lo importa nadie) y se fijaron
+   `react` y `react-dom` en 19.2.8 con `overrides`. **Después de traer el cambio: borrar
+   `node_modules` y correr `npm ci`.**
 
 ### Pendientes del front anotados en el QA de `develop` (30/09)
 
