@@ -26,7 +26,6 @@
 | - Se debe mostrar el prefijo internacional ("+"), pero no ser editable. |
 | - Se debe ingresar el correo electrónico en formato general "nombre@dominio.extension", admitiendo variaciones comunes tales como "nombre.apellido@dominio.extension", "nombre+var@dominio.extension.extension2", "nombre_apellido@dominio.extension", etc. |
 | - Se deben mostrar los datos de la propiedad a la que se enviará la solicitud (dirección, piso, barrio, cantidad de ambientes, metros cuadrados (reales), aceptación de mascotas, monto mensual y foto principal). | 
-
 | **Pruebas de usuario:** |
 | - Probar enviar una solicitud de alquiler sin haber iniciado sesión (falla). |
 | - Probar enviar una solicitud de alquiler sin adjuntar un mensaje (pasa). |
