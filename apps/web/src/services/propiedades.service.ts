@@ -96,8 +96,8 @@ const TOPE_DISPONIBLES_CLIENTE = 1000
 
 /**
  * Pide `/inmuebles/disponibles` con los params del back.
- * NOTA: hoy el back ignora `page` y `limit` y devuelve todas (ver el
- * TODO(backend) de {@link buscarPropiedades}); se mandan igual por si vuelve a paginar.
+ * NOTA: desde ce677a4 (29/09) el back respeta `page` y `limit` (tope 1000) y
+ * ordena por id descendente (probado contra la API real el 06/10/2026).
  */
 function pedirDisponibles(query: DisponiblesQuery): Promise<InmueblesDisponiblesResponse> {
   return apiRequest<InmueblesDisponiblesResponse>('/inmuebles/disponibles', { query: { ...query } })
@@ -136,10 +136,13 @@ export async function listarPropiedadesPublicadas(): Promise<PropiedadResumen[]>
  * se cargó, primero). En modo mock, por `publishedAt`.
  * TODO(db): la base no guarda la fecha de publicación; con ese dato, el back
  * podría ordenar por fecha de verdad (y el front, mostrarla).
+ * Probado contra la API real el 06/10/2026: `?page=1&limit=6` devuelve 6 de
+ * 11, ordenadas por id descendente, con foto, precio, barrio y los datos de
+ * la tarjeta de US-34 completos.
  * TODO(backend): `/disponibles` hace varias consultas por cada propiedad, una
- * atrás de otra (ver `HANDOFF-BACKEND.md` §7): pedir pocas (`limit`) acota la
- * espera, pero sigue siendo lenta. La landing la muestra con `Suspense`, así
- * el resto de la página no la espera.
+ * atrás de otra (ver `HANDOFF-BACKEND.md` §7): aun con `limit=6` tarda entre
+ * 7 y 10 s. La landing la muestra con `Suspense`, así el resto de la página
+ * no la espera (el esqueleto llega en ~150 ms).
  */
 export async function listarPropiedadesRecientes(cantidad: number): Promise<PropiedadResumen[]> {
   if (USE_MOCKS) {
@@ -156,15 +159,16 @@ export async function listarPropiedadesRecientes(cantidad: number): Promise<Prop
 /**
  * US-34 Consultar propiedades a alquilar — la búsqueda de `/buscar`: filtros,
  * orden y una página de 10 resultados.
- * @backend GET /api/v1/inmuebles/disponibles   (existe · hoy ignora casi todos los filtros y la paginación)
+ * @backend GET /api/v1/inmuebles/disponibles   (existe · filtra, ordena y pagina desde ce677a4)
  * @returns Paginado<PropiedadResumen>
  *
  * NOTA: se traen todas las disponibles y se filtra, ordena y pagina SIEMPRE en
  * el cliente, con las mismas reglas que el modo mock (`lib/search/busqueda.ts`).
- * TODO(backend): desde el 29/09 (`develop` a00f099), `/disponibles` solo
- * filtra por `barrio` (igual exacto) y `tipo`; ignora precio, dormitorios,
- * ambientes, superficie, tags, índice, orden y `page`/`limit` (responde todas
- * con `page: 1`). Cuando los respete, volver a mandar la búsqueda al servidor:
+ * TODO(backend): desde ce677a4 (29/09) `/disponibles` respeta precio,
+ * dormitorios, ambientes, superficie, tags, índice, orden y `page`/`limit`
+ * (probado el 06/10/2026). `barrio` es por nombre exacto ("General Paz", no
+ * el slug) y `dormitorios`/`ambientes` son igual exacto (el front usa "4 o
+ * más"). Falta volver a mandar la búsqueda al servidor (en `feature/vistas`):
  * el mapeo de la URL a sus params estaba en `propiedad.adapter.ts`
  * (`consultaDeDisponibles`, commit 60f8c63). Ver `HANDOFF-BACKEND.md` §7.
  */
