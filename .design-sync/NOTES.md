@@ -222,7 +222,8 @@ móvil, Edge sin interfaz, mediana de 3): `/` da Performance 70 (69, 71 y 70), F
 TBT 340 ms y CLS 0; accesibilidad, buenas prácticas y SEO, 100. Con el hero azul, el LCP pasó a ser
 la ilustración de la ciudad (`/landing/hero/ciudad-750.webp`), no el titular. "Recién publicadas"
 no pesa en el LCP: llega por streaming dentro de `Suspense` (el esqueleto a ~140 ms; las tarjetas
-cuando responde `/disponibles`, 7–10 s).
+cuando responde `/disponibles`, 7–10 s). Con estrangulamiento real (devtools, mismo día, mediana de
+3): Performance 87, FCP 2,07 s, LCP 2,08 s (la ilustración), TBT 412 ms y CLS 0.
 
 **Numeración de los RNF (para corregir aparte, 06/10/2026):** `docs/PRODUCT.md` no sigue la
 numeración del Estudio Inicial, que es la que manda para la cátedra. Por ejemplo, `PRODUCT.md` usa
