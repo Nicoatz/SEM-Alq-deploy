@@ -224,6 +224,13 @@ la ilustración de la ciudad (`/landing/hero/ciudad-750.webp`), no el titular. "
 no pesa en el LCP: llega por streaming dentro de `Suspense` (el esqueleto a ~140 ms; las tarjetas
 cuando responde `/disponibles`, 7–10 s).
 
+**Numeración de los RNF (para corregir aparte, 06/10/2026):** `docs/PRODUCT.md` no sigue la
+numeración del Estudio Inicial, que es la que manda para la cátedra. Por ejemplo, `PRODUCT.md` usa
+RNF-12 para "liviano en conexiones móviles" y RNF-10 para usabilidad, pero en el Estudio Inicial
+RNF-12 es "persistencia sobre Supabase" y RNF-10 es eficiencia de desempeño (búsqueda fluida en
+conexiones móviles estándar). El responsive es RNF-02 en los dos. Revisar todas las menciones de RNF
+en `PRODUCT.md` (y en `DESIGN.md`, si las hay) contra el Estudio Inicial.
+
 **Diagnóstico.** El LCP medido es el titular y coincide con el FCP (~0,2 s en local). La diferencia
 viene del método simulado: cuenta como dependencia del LCP todo pedido que no sea imagen y que haya
 empezado antes del pintado, y los ~750 KB de JS empiezan a bajar a los 35–90 ms. Ese JS es del
