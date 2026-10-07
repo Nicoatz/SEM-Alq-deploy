@@ -121,3 +121,4 @@ ds-bundle/
 # Exports de Claude Design descargados en modo lectura, para implementar
 # cada tanda. La fuente de verdad sigue siendo el proyecto de Claude Design.
 .design-exports/
+.env*
