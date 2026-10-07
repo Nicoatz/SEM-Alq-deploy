@@ -1,0 +1,101 @@
+/*
+ * CtaLocadores.module.css — panel azul de cierre para locadores.
+ *
+ * NOTA: sobre el azul, el texto y el botón usan el celeste claro (no cambia
+ * con el tema), igual que el motivo de "Cómo funciona".
+ * NOTA: el panel va sin sombra ("regla de sombra ganada", docs/DESIGN.md):
+ * no se acciona entero; la acción es el botón.
+ */
+
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
+.section {
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+}
+
+.panel {
+  display: grid;
+  gap: var(--rentar-spacing-md);
+  padding: var(--rentar-spacing-lg) var(--rentar-spacing-md);
+  border-radius: var(--rentar-radius-xl);
+  background: var(--rentar-color-blue);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--rentar-font-size-headline);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--rentar-color-sky-light);
+  text-wrap: balance;
+}
+
+.lead {
+  margin: var(--rentar-spacing-xs) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: rgba(var(--rentar-color-sky-rgb), 0.85);
+  text-wrap: pretty;
+}
+
+/* Botón pill sobre el azul, de 44 px de alto (el mínimo cómodo para tocar). */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0 var(--rentar-spacing-md);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-sky-light);
+  color: var(--rentar-color-blue);
+  font-size: var(--rentar-font-size-body);
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.button:active {
+  transform: scale(0.97);
+}
+
+/* El anillo de foco azul global no se vería sobre el panel azul. */
+.button:focus-visible {
+  outline-color: var(--rentar-color-sky-light);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .button:hover {
+    background: var(--rentar-color-bg-surface);
+  }
+}
+
+/* ─── 768 px (breakpoints.md): texto a la izquierda, botón a la derecha ── */
+
+@media (min-width: 768px) {
+  .section {
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm) var(--rentar-spacing-2xl);
+  }
+
+  .panel {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--rentar-spacing-lg);
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-lg);
+  }
+}
+
+/* 992 px (breakpoints.lg): margen lateral de escritorio. */
+@media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button:active {
+    transform: none;
+  }
+}

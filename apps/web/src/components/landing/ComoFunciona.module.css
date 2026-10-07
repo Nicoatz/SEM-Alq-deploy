@@ -1,0 +1,229 @@
+/*
+ * ComoFunciona.module.css — "Cómo funciona": banda celeste, motivo y lista
+ * de pasos sincronizados.
+ *
+ * NOTA: la sincronía sale de `--loop-duracion` (definida acá y leída por
+ * ProcessLoopMotif.module.css) y de la misma fórmula de `animation-delay`:
+ * el paso N (0 a 3) se activa a (1 + 2N)/8 del ciclo, cuando el punto llega
+ * a su nodo. Si se cambia una, hay que cambiar la otra.
+ */
+
+.section {
+  --loop-duracion: 8s;
+  /* NOTA: alto del Header sticky de @rentar/ui (Header.module.css), para que el ancla no quede tapada. */
+  scroll-margin-top: calc(4.25rem + 1px);
+  /* Celeste claro en la landing; en el tema oscuro de /design-system pasa a la superficie oscura. */
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
+.inner {
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+}
+
+.heading {
+  max-width: 36rem;
+  margin: 0 0 var(--rentar-spacing-lg);
+  font-size: var(--rentar-font-size-headline);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--rentar-color-text-primary);
+  text-wrap: balance;
+}
+
+.body {
+  display: grid;
+  gap: var(--rentar-spacing-lg);
+}
+
+/* Móvil: el motivo centrado, de 16 rem (256 px) como máximo. */
+.motif {
+  width: min(100%, 16rem);
+  aspect-ratio: 1;
+  justify-self: center;
+}
+
+/* ─── Lista de pasos ──────────────────────────────────────────────────── */
+
+/* Ancho acotado: el resalte del paso activo abraza el texto en vez de estirarse a toda la columna. */
+.pasos {
+  display: grid;
+  max-width: 34rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.paso {
+  --n: 0;
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  gap: var(--rentar-spacing-sm);
+  padding: var(--rentar-spacing-sm);
+  border-radius: var(--rentar-radius-lg);
+}
+
+.paso:nth-child(2) {
+  --n: 1;
+}
+
+.paso:nth-child(3) {
+  --n: 2;
+}
+
+.paso:nth-child(4) {
+  --n: 3;
+}
+
+/*
+ * Resalte del paso activo: una capa blanca con hairline que solo cambia de
+ * opacidad. Sin sombra: el paso no se acciona ("regla de sombra ganada", docs/DESIGN.md).
+ */
+.paso::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  border: 1px solid var(--rentar-color-border-hairline);
+  background: var(--rentar-color-bg-surface);
+  opacity: 0;
+}
+
+/* Conector vertical entre un número y el siguiente (2.25rem = padding + medio número). */
+.paso:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--rentar-spacing-sm) + 2.5rem);
+  bottom: calc(-1 * var(--rentar-spacing-sm));
+  left: calc(var(--rentar-spacing-sm) + 1.25rem);
+  z-index: -1;
+  width: 1px;
+  background: rgba(var(--rentar-color-blue-rgb), 0.15);
+}
+
+.numero {
+  position: relative;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(var(--rentar-color-blue-rgb), 0.25);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-bg-surface);
+  font-size: var(--rentar-font-size-body);
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+}
+
+/* El número activo, relleno de azul: otra capa encima que solo cambia de opacidad. */
+.numero::after {
+  content: attr(data-numero);
+  position: absolute;
+  inset: -1px;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-sky-light);
+  opacity: 0;
+}
+
+.pasoTitulo {
+  margin: 0;
+  font-size: var(--rentar-font-size-title);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--rentar-color-text-primary);
+}
+
+.pasoTexto {
+  max-width: 44ch;
+  margin: calc(var(--rentar-spacing-xs) / 2) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: var(--rentar-color-text-secondary);
+  text-wrap: pretty;
+}
+
+/* ─── Sincronía con el motivo ─────────────────────────────────────────── */
+
+/* Los mismos tiempos que el halo de cada nodo del motivo (ProcessLoopMotif.module.css). */
+@keyframes activo {
+  0% {
+    opacity: 0;
+  }
+
+  4%,
+  23% {
+    opacity: 1;
+  }
+
+  27%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.corriendo .paso::before,
+.pausado .paso::before,
+.corriendo .numero::after,
+.pausado .numero::after {
+  animation: activo var(--loop-duracion) ease infinite;
+  animation-delay: calc(var(--loop-duracion) * (1 + 2 * var(--n)) / 8);
+}
+
+.pausado .paso::before,
+.pausado .numero::after {
+  animation-play-state: paused;
+}
+
+/* ─── 768 px (breakpoints.md): motivo a la izquierda, pasos a la derecha ── */
+
+@media (min-width: 768px) {
+  .inner {
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+  }
+
+  /* Arriba en 768–991 (la lista es más alta que el motivo); centrados desde 992. */
+  .body {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+    align-items: start;
+    gap: var(--rentar-spacing-lg);
+  }
+
+  .motif {
+    width: 100%;
+    max-width: 26rem;
+    justify-self: start;
+  }
+}
+
+/* ─── 992 px (breakpoints.lg) ─────────────────────────────────────────── */
+
+@media (min-width: 992px) {
+  .inner {
+    padding: var(--rentar-spacing-2xl) var(--rentar-spacing-md);
+  }
+
+  .body {
+    align-items: center;
+    gap: var(--rentar-spacing-xl);
+  }
+}
+
+/* ─── Movimiento reducido: sin resaltes, los 4 pasos iguales ──────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .corriendo .paso::before,
+  .pausado .paso::before,
+  .corriendo .numero::after,
+  .pausado .numero::after {
+    animation: none;
+  }
+}

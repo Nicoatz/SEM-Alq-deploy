@@ -1,0 +1,236 @@
+/*
+ * LandingHero.module.css — hero de la landing ("A · La consola"), en azul.
+ *
+ * NOTA: el hero es una de las dos superficies azules con texto de la
+ * landing (la otra es el panel de CtaLocadores) y usa sus mismos tonos:
+ * titular celeste claro (7,3:1 sobre el azul), subtítulo y "Buscar en" al
+ * 85 % (5,7:1) y chips con texto celeste claro (6,1:1). Ver DESIGN.md.
+ *
+ * NOTA: este contenedor y los del buscador no llevan `overflow`, `z-index`
+ * ni `transform` permanentes: la hoja de "Más filtros" (móvil) es
+ * `position: fixed` y quedaría recortada o debajo del Header. La animación
+ * de entrada usa `transform` solo mientras dura (`animation-fill-mode:
+ * backwards`, no queda aplicada al terminar).
+ */
+
+.hero {
+  /* Alto de la ciudad ilustrada: en móvil va debajo de los chips (el hero suma ese alto abajo). */
+  --hero-city-height: calc(var(--rentar-spacing-2xl) + var(--rentar-spacing-md));
+  position: relative;
+  padding-bottom: var(--hero-city-height);
+  background: var(--rentar-color-blue);
+}
+
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
+.inner {
+  /* Posicionado para pintarse encima de la ilustración (que va antes en el DOM), sin z-index. */
+  position: relative;
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-md) var(--rentar-spacing-sm) var(--rentar-spacing-lg);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--rentar-font-size-display);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  color: var(--rentar-color-sky-light);
+  text-wrap: balance;
+}
+
+.subtitle {
+  margin: var(--rentar-spacing-xs) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: rgba(var(--rentar-color-sky-rgb), 0.85);
+  text-wrap: pretty;
+}
+
+.search {
+  margin-top: var(--rentar-spacing-md);
+}
+
+/* ─── Búsquedas rápidas por barrio ────────────────────────────────────── */
+
+.quick {
+  display: flex;
+  align-items: center;
+  gap: var(--rentar-spacing-xs);
+  margin-top: var(--rentar-spacing-sm);
+}
+
+.quickLabel {
+  flex-shrink: 0;
+  font-size: var(--rentar-font-size-label);
+  color: rgba(var(--rentar-color-sky-rgb), 0.85);
+}
+
+/* En móvil, una fila que se desliza hasta el borde de la pantalla. */
+.chips {
+  display: flex;
+  gap: var(--rentar-spacing-xs);
+  min-width: 0;
+  margin: 0 calc(-1 * var(--rentar-spacing-sm)) 0 0;
+  padding: calc(var(--rentar-spacing-xs) / 2) var(--rentar-spacing-sm) calc(var(--rentar-spacing-xs) / 2) calc(var(--rentar-spacing-xs) / 2);
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--rentar-spacing-sm);
+  border: 1px solid rgba(var(--rentar-color-sky-rgb), 0.4);
+  border-radius: var(--rentar-radius-pill);
+  background: rgba(var(--rentar-color-sky-rgb), 0.08);
+  color: var(--rentar-color-sky-light);
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  scroll-snap-align: start;
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+/* El anillo de foco azul global (globals.css) no se vería sobre el azul: celeste claro, 7,3:1. */
+.chip:focus-visible {
+  outline-color: var(--rentar-color-sky-light);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    border-color: var(--rentar-color-sky-light);
+    background: var(--rentar-color-sky-light);
+    color: var(--rentar-color-blue);
+  }
+}
+
+/*
+ * ─── Ciudad ilustrada ────────────────────────────────────────────────────
+ * Apoyada en el borde inferior del hero, detrás del bloque. Va multiplicada
+ * sobre el azul: el blanco de la imagen (el cielo, que se aplanó a blanco)
+ * deja el azul igual y lo dibujado lo oscurece, así que se ve como una
+ * ciudad en azul oscuro. Arriba se funde con el fondo (máscara).
+ */
+
+.city {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: var(--hero-city-height);
+  pointer-events: none;
+}
+
+.cityImg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+  /* NOTA: la máscara solo lee la opacidad: el color del degradé no se ve. */
+  mask-image: linear-gradient(to top, var(--rentar-color-blue) 40%, transparent 95%);
+}
+
+/*
+ * ─── Entrada: subtítulo, buscador y chips, escalonados (360 ms en total) ──
+ * NOTA: el titular queda afuera a propósito. Es el LCP en móviles bajos (en
+ * el resto lo es la ilustración) y tiene que estar
+ * sólido desde el primer pintado: con el fade desde opacidad 0, el LCP
+ * medido caía ~150 ms después del FCP; sin él, LCP = FCP.
+ */
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rentar-spacing-xs));
+  }
+}
+
+.enter {
+  animation: enter var(--rentar-motion-duration-base) var(--rentar-motion-ease-out) backwards;
+}
+
+.enterSecond {
+  animation-delay: var(--rentar-motion-stagger);
+}
+
+.enterThird {
+  animation-delay: calc(var(--rentar-motion-stagger) * 2);
+}
+
+/* ─── 768 px (breakpoints.md) ─────────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  /*
+   * El hero ocupa el alto que le deja `.primeraPantalla` (page.module.css) y
+   * su bloque (titular, buscador y chips) queda centrado verticalmente entre
+   * el Header y la franja de diferenciales.
+   */
+  .hero {
+    /* La ciudad ocupa el hueco entre los chips y la franja de diferenciales, detrás del bloque. */
+    --hero-city-height: clamp(calc(2 * var(--rentar-spacing-xl)), 11vw, calc(var(--rentar-spacing-2xl) + var(--rentar-spacing-xl)));
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-bottom: 0;
+  }
+
+  .inner {
+    width: 100%;
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+  }
+
+  /* El titular crece desde 768 px (token display-hero): la promesa se separa de los títulos de sección. */
+  .title {
+    font-size: var(--rentar-font-size-display-hero);
+  }
+
+  .subtitle {
+    font-size: var(--rentar-font-size-title);
+  }
+
+  .search {
+    margin-top: var(--rentar-spacing-lg);
+  }
+
+  .chips {
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+}
+
+/* ─── 992 px (breakpoints.lg): margen lateral de escritorio ───────────── */
+
+@media (min-width: 992px) {
+  .inner {
+    padding-inline: var(--rentar-spacing-md);
+  }
+}
+
+/* ─── Movimiento reducido: todo aparece sin desplazarse ───────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: none;
+  }
+
+  .chip:active {
+    transform: none;
+  }
+}

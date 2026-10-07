@@ -52,7 +52,7 @@ el navegador; el botón flotante de desarrollo "Reiniciar datos de prueba" lo bo
 
 | Ruta | Pantalla | US (Sprint 0) | Dónde está |
 |---|---|---|---|
-| `/` | Landing | — | `app/(public)/page.tsx` → `components/Landing.tsx` |
+| `/` | Landing: buscador, recién publicadas, barrios, "Cómo funciona" y cierre para locadores | US-34 (entrada a `/buscar`) | `app/(public)/page.tsx` → `components/landing/` |
 | `/buscar` | Búsqueda de propiedades | US-34 | `app/(public)/buscar/` → `components/buscar/` |
 | `/login` | Iniciar sesión | US-39 | `app/(auth)/login/` → `components/auth/LoginForm.tsx` |
 | `/registro` | Registro en un paso (sin rol) | US-19 | `app/(auth)/registro/` → `components/auth/RegistroForm.tsx` |
@@ -83,7 +83,7 @@ para cualquier usuario con sesión: al publicar la primera propiedad, la cuenta 
 | Carpeta | Qué hay |
 |---|---|
 | `app/` | Rutas. `(public)` con Header y Footer, `(auth)` con `AuthLayout`, `(app)/panel` con `AppShell`. |
-| `components/` | Pantallas y sus piezas, una carpeta por pantalla (`auth/`, `buscar/`, `panel/`, `mis-propiedades/`, `alta/`) más la landing. |
+| `components/` | Pantallas y sus piezas, una carpeta por pantalla (`auth/`, `buscar/`, `panel/`, `mis-propiedades/`, `alta/`, `landing/`). |
 | `services/` | **La única frontera con el backend.** Ver `services/README.md`. |
 | `lib/mocks/` | El elenco de datos de prueba. Solo lo usan los services. Ver su `README.md`. |
 | `lib/auth/` | Sesión: `AuthProvider`, cookie `rentar_session`, redirección después del login y `supabase/` (clientes de Supabase de navegador, servidor y proxy). |

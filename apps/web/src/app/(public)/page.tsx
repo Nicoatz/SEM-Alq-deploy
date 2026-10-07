@@ -1,29 +1,47 @@
 /**
- * / — landing pública (arquetipo A1). Sin vista de Claude Design: la landing
- * ya existía implementada y se migró tal cual.
+ * / — landing pública (arquetipo A1). Diseño: dirección "A · La consola"
+ * (la landing no tiene vista de Claude Design, ver `docs/MapaDePantallas.pdf`).
  *
- * De dónde saca los datos: `services/propiedades.service.ts#listarPropiedadesPublicadas`
- * (US-34), llamado acá, del lado del servidor.
+ * Qué es: el buscador como hero (entra completo en el primer viewport y
+ * funciona sin JS), los diferenciales, las publicaciones más recientes, los
+ * barrios del piloto, "Cómo funciona" y el cierre para locadores.
+ * Cubre: US-34 Consultar propiedades a alquilar (entrada a `/buscar`).
  *
- * NOTA: del lado del servidor no hay `localStorage`, así que la landing
- * muestra solo el elenco (no las propiedades creadas en el alta en modo
- * mock). `/buscar` sí las muestra, porque carga del lado del cliente.
+ * De dónde saca los datos: `services/propiedades.service.ts#listarPropiedadesRecientes`,
+ * llamado del lado del servidor dentro de `RecientesSection` (con `Suspense`).
+ *
+ * NOTA: la página no espera al back. El hero y los diferenciales salen en el
+ * primer envío del HTML (el LCP es la ilustración del hero o, en móviles
+ * bajos, el titular) y las tarjetas llegan después
+ * por streaming. Antes la landing entera esperaba a `/inmuebles/disponibles`.
+ * NOTA: del lado del servidor no hay `localStorage`, así que en modo mock la
+ * landing muestra solo el elenco (no las propiedades creadas en el alta).
+ * `/buscar` sí las muestra, porque carga del lado del cliente.
  */
-import type { PropiedadResumen } from '@rentar/shared-types'
-import Landing from '@/components/Landing'
-import { listarPropiedadesPublicadas } from '@/services/propiedades.service'
+import { BarriosSection } from '@/components/landing/BarriosSection'
+import { ComoFunciona } from '@/components/landing/ComoFunciona'
+import { CtaLocadores } from '@/components/landing/CtaLocadores'
+import { Diferenciales } from '@/components/landing/Diferenciales'
+import { LandingHero } from '@/components/landing/LandingHero'
+import { RecientesSection } from '@/components/landing/RecientesSection'
+import { RevealAlEntrar } from '@/components/landing/RevealAlEntrar'
+import styles from './page.module.css'
 
-export default async function LandingPage() {
-  let properties: PropiedadResumen[] = []
-  let loadError = false
-  try {
-    properties = await listarPropiedadesPublicadas()
-  } catch {
-    // NOTA: si el backend real no responde, la landing se muestra igual (Hero
-    // y "Cómo funciona"), y en lugar del grid va un error con "Reintentar".
-    // No se muestra "No encontramos propiedades con esos filtros": sería
-    // mentirle al usuario sobre los filtros.
-    loadError = true
-  }
-  return <Landing properties={properties} loadError={loadError} />
+/** La landing (`/`). El layout de `app/(public)/` pone el Header y el Footer. */
+export default function LandingPage() {
+  return (
+    <>
+      {/* Hero + diferenciales: el primer viewport (ver page.module.css). */}
+      <div className={styles.primeraPantalla}>
+        <LandingHero />
+        <Diferenciales />
+      </div>
+      <RecientesSection />
+      <BarriosSection />
+      <ComoFunciona />
+      <CtaLocadores />
+      {/* Hace aparecer al entrar en pantalla lo marcado con `data-reveal` (no renderiza nada). */}
+      <RevealAlEntrar />
+    </>
+  )
 }

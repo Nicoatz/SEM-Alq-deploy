@@ -452,6 +452,46 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Tablas de tokens (contenedor y cortes, movimiento): nombre, valor y uso. */
+.tokenTable {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.625rem 1.25rem;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.tokenTable code {
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.tokenValue {
+  color: var(--rentar-color-text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* En móvil, cada token en su propio bloque (nombre, valor y uso, uno debajo del otro). */
+@media (max-width: 767.98px) {
+  .tokenTable {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.125rem;
+  }
+
+  .tokenTable > :nth-child(3n) {
+    margin-bottom: 0.75rem;
+  }
+}
+
+/* Demo de HeroSearch: la URL a la que iría la landing. */
+.heroSearchResult {
+  margin: 1rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-tertiary);
+  overflow-wrap: anywhere;
+}
+
 /* Shadow & shape demo grids */
 .demoGrid {
   display: grid;

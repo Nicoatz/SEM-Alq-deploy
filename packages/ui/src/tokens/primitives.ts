@@ -61,11 +61,25 @@ export const darkColorScales = {
   sky: toScale(generate(seed.sky, { theme: 'dark' })),
 } as const
 
-/** Tipografía: una sola familia (League Spartan) en 5 escalones, igual a docs/DESIGN.md. */
+/**
+ * Tipografía: una sola familia (League Spartan) en 5 escalones, igual a
+ * docs/DESIGN.md, más `displayHero` para el titular de la landing.
+ */
 export const typography = {
   fontFamily: "'League Spartan', system-ui, sans-serif",
   display: {
     fontSize: 'clamp(2.25rem, 4vw, 3rem)',
+    fontWeight: 700,
+    lineHeight: 1.05,
+    letterSpacing: '-0.025em',
+  },
+  /**
+   * El H1 de la landing desde 768 px (en móvil usa `display`): separa la
+   * promesa de los títulos de sección (revisión final de impeccable; aprobado
+   * por el PO el 02/10/2026). Hasta 4rem: entra en una línea desde 768 px.
+   */
+  displayHero: {
+    fontSize: 'clamp(2.25rem, 5vw, 4rem)',
     fontWeight: 700,
     lineHeight: 1.05,
     letterSpacing: '-0.025em',
@@ -102,13 +116,62 @@ export const radii = {
   xl: 24,
 } as const
 
-/** Escala de espaciado (paddings, gaps, márgenes de sección). */
+/**
+ * Escala de espaciado (paddings, gaps, márgenes de sección). `2xl` es el
+ * ritmo entre secciones de la landing en escritorio.
+ */
 export const spacing = {
   xs: 8,
   sm: 16,
   md: 24,
   lg: 40,
   xl: 64,
+  '2xl': 96,
+} as const
+
+/**
+ * Breakpoints, en px: los mismos de la grilla de antd (`Col xs/sm/md/lg/xl`),
+ * para que el CSS propio y los componentes de antd cambien de layout en el
+ * mismo ancho.
+ *
+ * NOTA: las media queries no pueden leer variables CSS, así que en los
+ * `.module.css` estos valores se escriben como literal, con un comentario
+ * que nombra el breakpoint (por ejemplo `@media (min-width: 768px)` con el
+ * comentario `breakpoints.md`).
+ */
+export const breakpoints = {
+  sm: 576,
+  md: 768,
+  lg: 992,
+  xl: 1200,
+} as const
+
+/** Layout: ancho máximo del contenido centrado de la zona pública (arquetipo A1 del Mapa de pantallas: 1200 px). */
+export const layout = {
+  containerMax: 1200,
+} as const
+
+/**
+ * Movimiento: duraciones (ms) y curvas de las transiciones.
+ * - `fast`: respuesta al presionar y cambios de color.
+ * - `base`: popovers, chips, contadores.
+ * - `slow`: entradas y reveals (el tope de una entrada completa).
+ * - `ease.out`: entradas y feedback (arranca rápido). `ease.inOut`: algo que
+ *   se mueve dentro de la pantalla. `ease.drawer`: paneles que entran desde un borde.
+ * - `stagger`: desfase entre elementos que entran juntos.
+ */
+export const motion = {
+  duration: {
+    fast: 160,
+    base: 240,
+    slow: 400,
+  },
+  ease: {
+    out: 'cubic-bezier(0.23, 1, 0.32, 1)',
+    inOut: 'cubic-bezier(0.77, 0, 0.175, 1)',
+    drawer: 'cubic-bezier(0.32, 0.72, 0, 1)',
+  },
+  stagger: 60,
 } as const
 
 /**

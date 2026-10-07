@@ -8,7 +8,14 @@ web
 
 ## Stack
 
-Next.js (App Router) + React + TypeScript + Ant Design 6 (`ConfigProvider` theme tokens, see `packages/ui/src/theme.ts`), organized as an npm workspaces monorepo (`apps/web`, `packages/ui`, `packages/shared-types` — see the root `CLAUDE.md`). This is a stack migration of the original Vite + Tailwind prototype (still kept side-by-side in `../landing/`) onto Next.js/Ant Design — same scope, same content, same visual design, different implementation. Client-side filtering (no backend) is unchanged from the original.
+npm workspaces monorepo (see the root `CLAUDE.md`):
+
+- `apps/web`: Next.js 16 (App Router) + React 19 + TypeScript + Ant Design 6 (theme tokens in `packages/ui/src/theme.ts`), port 3001.
+- `apps/api`: Node.js + Express + Swagger, port 3000. It is the only path to the data.
+- `packages/ui` (`@rentar/ui`, the design system, synced with Claude Design) and `packages/shared-types`.
+- Supabase: Postgres (schema in `supabase/migrations/`) and Auth. The front uses Supabase only for the session; it never queries tables directly.
+
+The front runs in two modes (`NEXT_PUBLIC_USE_MOCKS`): mock (the shared cast in `apps/web/src/lib/mocks/`, no backend) and real (`apps/api` + Supabase Auth). It started as a Vite + Tailwind landing prototype, later migrated to Next.js/Ant Design; that earlier repo is kept only as history.
 
 ## Users
 
@@ -22,7 +29,7 @@ Three profiles, per the source academic study (RentAR — Estudio Inicial, UTN F
 
 RentAR centralizes the full lifecycle of a long-term residential rental agreed directly between landlord and tenant, with no real-estate agency: publish the property, search, apply, sign the contract electronically, calculate the periodic rent adjustment automatically, collect/register payments, handle claims, and close/republish the listing. Success = full traceability of the contract and payments for both parties, and a much lower cost/friction of remote contracting than the traditional agency path.
 
-This repository is the **landing/home page prototype** for that product: a visual and interactive proposal (mock data, no real backend) built for a university capstone deliverable, not the production app.
+This repository is the team's monorepo for that product, built for a university capstone (UTN FRC, Seminario Integrador 2026): the web front, the API and the Supabase schema. Sprint 1 covers the public landing and search, sign-up and login, the landlord panel, "Mis propiedades" and the listing wizard; the rest of the lifecycle arrives in later sprints.
 
 ## Positioning
 
@@ -34,15 +41,15 @@ Pilot market: Córdoba Capital, Argentina, with a strong seasonal student-driven
 
 ## Capabilities and Constraints
 
-- This build is a **front-end-only prototype**: the search bar and property grid filter a local mock dataset (`apps/web/src/lib/data/properties.mock.ts`) client-side; there is no Supabase connection and no real authentication, payments, or e-signature flow.
-- Header "Iniciar sesión" / "Publicar propiedad" buttons and the property grid's "Buscar más propiedades" button are intentional visual placeholders with no destination yet — the full search/listing experience and auth are explicitly meant to live on separate, not-yet-built pages; the landing only previews up to 8 filtered results.
-- Real product (out of scope here, per the source study): Supabase (persistence/auth), Vercel (hosting), MercadoPago (payments), Gemini (contract-analysis assistant), a to-be-defined e-signature mechanism.
+- Authentication (Supabase Auth) and persistence (`apps/api` + Postgres) are real. Payments, e-signature and the contract flows are not built yet; where they appear, they are shown as simulated (`SimulatedFeatureNotice`), never as working features.
+- Current routes: `/` (landing: search, recent listings, neighborhoods, how it works and a call to publish), `/buscar` (search with filters, US-34), `/login`, `/registro`, `/panel`, `/panel/propiedades` and `/panel/propiedades/nueva`. Other destinations (the public property page, contracts, payments, claims…) are "En construcción" placeholders until their sprint (see `apps/web/README.md`).
+- Still to come, per the source study: Vercel (hosting), MercadoPago (payments), Gemini (contract-analysis assistant) and a to-be-defined e-signature mechanism.
 - Only long-term unfurnished residential rentals are in scope; temporary/tourist rentals, furnished seasonal rentals, and corporate portfolios are explicitly out of scope.
 - Browsers: current Chrome, Firefox, Safari, desktop and mobile (RNF-01/02). Must stay responsive across mobile/tablet/desktop and lightweight on mobile connections (RNF-12).
 
 ## Brand Commitments
 
-- Name: **RentAR**. Logo: `apps/web/src/assets/logo-rentar.svg` (primary, house isotype + wordmark) used in header/footer; `apps/web/src/assets/logo-rentar-compact.svg` used as the favicon (`apps/web/src/app/icon.svg`).
+- Name: **RentAR**. Logo: `packages/ui/src/assets/logo-rentar.svg` (primary, house isotype + wordmark) used in header/footer; favicon in `apps/web/src/app/icon.svg`.
 - Palette (fixed, from the project's brand sheet): blue `#004D98` (primary), gold `#D7B15D` (accent), sky blue `#A0D1EF` (secondary).
 - Typeface: **League Spartan** (loaded via Google Fonts) for all UI text.
 - Voice: Rioplatense Spanish, clear, warm, trustworthy — not corporate/stiff. Copy already written throughout the shipped components.
@@ -63,4 +70,4 @@ Pilot market: Córdoba Capital, Argentina, with a strong seasonal student-driven
 
 ## Accessibility & Inclusion
 
-RNF-10 explicitly targets a non-technical landlord persona: forms and primary actions must be understandable without technical knowledge. Contrast verified ≥4.5:1 for all body/UI text, visible keyboard focus (brand-blue outline), semantic form structure (labels, fieldset/legend), `aria-live` result counter, and `prefers-reduced-motion` respected globally and in both custom motion pieces (hero loop, scroll-reveal timeline).
+RNF-10 explicitly targets a non-technical landlord persona: forms and primary actions must be understandable without technical knowledge. Contrast verified ≥4.5:1 for all body/UI text, visible keyboard focus (brand-blue outline), semantic form structure (labels, fieldset/legend), and `prefers-reduced-motion` respected globally and in the custom motion pieces (the "Cómo funciona" loop and the on-scroll reveals of the landing).

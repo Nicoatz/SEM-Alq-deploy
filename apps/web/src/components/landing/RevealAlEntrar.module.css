@@ -1,0 +1,17 @@
+/*
+ * RevealAlEntrar.module.css — las dos clases que RevealAlEntrar.tsx pone y
+ * saca de los elementos con `data-reveal`. Solo opacidad y transform.
+ */
+
+/* Fuera de pantalla, después de hidratar: oculto y 12 px más abajo. */
+.pendiente {
+  opacity: 0;
+  transform: translateY(0.75rem);
+}
+
+/* Al entrar en pantalla: vuelve a su lugar en 400 ms (la clase se saca al terminar). */
+.visible {
+  transition:
+    opacity var(--rentar-motion-duration-slow) var(--rentar-motion-ease-out),
+    transform var(--rentar-motion-duration-slow) var(--rentar-motion-ease-out);
+}

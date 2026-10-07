@@ -1,0 +1,40 @@
+/*
+ * page.module.css — el primer viewport de la landing.
+ *
+ * Desde 768 px (breakpoints.md), el hero, la franja de diferenciales y el
+ * respiro superior de "Recién publicadas" ocupan el alto visible: la franja
+ * es lo último que se ve (cierra el primer viewport, contrato de dirección)
+ * y el título y las fotos de "Recién publicadas" empiezan debajo del
+ * pliegue. Así el elemento más grande del primer viewport (el LCP) es la
+ * ilustración del hero, que se pide desde el primer envío del HTML, y no
+ * una foto que llega después por streaming. El bloque del hero queda centrado verticalmente en
+ * ese alto (LandingHero.module.css) y la franja se apoya abajo.
+ * NOTA: el respiro se descuenta para que el hero no quede con demasiado aire
+ * alrededor de su bloque (en 1440×900, ~160 px arriba y abajo; sin
+ * descontarlo eran ~208 px y el bloque flotaba).
+ *
+ * Con tope (52rem, 832 px): en pantallas muy altas el hero no crece más, para
+ * que su bloque no quede flotando en el medio. Hasta 1080 px de alto las
+ * fotos siguen debajo del pliegue o asoman unos pocos px, sin pasar a ser el
+ * LCP; en pantallas más altas asoman: es el costo del tope.
+ */
+
+.primeraPantalla {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 768px) {
+  .primeraPantalla {
+    /* NOTA: alto del Header de @rentar/ui (Header.module.css): padding 0.75rem × 2 + logo 2.75rem + borde 1px. */
+    --landing-header: calc(4.25rem + 1px);
+    /* NOTA: el padding superior de "Recién publicadas" desde 768 px (Recientes.module.css). */
+    --landing-respiro: var(--rentar-spacing-2xl);
+    min-height: min(calc(100svh - var(--landing-header) - var(--landing-respiro)), 52rem);
+  }
+
+  /* El hero crece (y su fondo con él); la franja queda abajo. */
+  .primeraPantalla > :first-child {
+    flex: 1;
+  }
+}
