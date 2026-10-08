@@ -9,7 +9,7 @@
  * muestra datos del elenco para que los ejemplos sean realistas.
  * Quién lo usa: `app/design-system/page.tsx`.
  */
-import { useEffect, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useState, type CSSProperties } from 'react'
 import Link from 'next/link'
 import { Button, ConfigProvider, Input, Segmented, Select, Slider, Switch, Tag } from 'antd'
 import {
@@ -29,6 +29,7 @@ import {
   FileDropzone,
   FilterBar,
   FormSection,
+  HeroSearch,
   IndexBadge,
   MoneyAmount,
   MoneyInput,
@@ -48,16 +49,17 @@ import {
   WizardLayout,
   antdTheme,
   antdThemeDark,
+  breakpoints,
   colorScales,
+  layout,
+  motion,
   type DataTableColumn,
   type NotificationItem,
   type UserMenuItem,
   type UserMenuRoleOption,
 } from '@rentar/ui'
-import PropertyCard from './PropertyCard'
-import SearchBar from './SearchBar'
 import ProcessLoopMotif from './ProcessLoopMotif'
-import HowItWorks from './HowItWorks'
+import { ComoFunciona } from './landing/ComoFunciona'
 import type { PropiedadResumen } from '@rentar/shared-types'
 import { characteristicOptions } from '@/lib/catalogs/characteristics'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
@@ -67,6 +69,13 @@ import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { propiedades } from '@/lib/mocks'
 import { fuerzaPassword, requisitosPassword } from '@/lib/validation/usuario.rules'
 import { FILTROS_INICIALES, ubicacionesDe } from '@/lib/search/busqueda'
+import {
+  AYUDA_INDICES,
+  BARRIOS_BUSCADOR,
+  CARACTERISTICAS_BUSCADOR,
+  PRECIOS_BUSCADOR,
+  hrefBuscarDesdeBuscador,
+} from '@/lib/search/buscadorLanding'
 import { isSearchable, propiedadMockToResumen } from '@/services/adapters/propiedad-mock.adapter'
 import { defaultFilters, MAX_PRICE_CEILING } from '@/lib/types/filters'
 import { formatMonthlyPrice } from '@/lib/utils/format'
@@ -83,8 +92,10 @@ const sections: SectionLink[] = [
   { id: 'colores', label: 'Colores' },
   { id: 'tipografia', label: 'Tipografía' },
   { id: 'espaciado', label: 'Espaciado' },
+  { id: 'contenedor', label: 'Contenedor y cortes' },
   { id: 'sombras', label: 'Sombras y elevación' },
   { id: 'formas', label: 'Formas y radios' },
+  { id: 'movimiento', label: 'Movimiento' },
   { id: 'estados', label: 'Estados de dominio' },
   { id: 'botones', label: 'Botones' },
   { id: 'dropdowns', label: 'Dropdowns' },
@@ -126,7 +137,7 @@ const colors: ColorSwatch[] = [
     name: 'Dorado Trámite',
     hex: '#D7B15D',
     text: '#12202E',
-    usage: 'Atmósfera: selección de texto, trazo del anillo guía del hero. Nunca para texto pequeño.',
+    usage: 'Atmósfera: selección de texto y el punto que recorre el loop de "Cómo funciona". Nunca para texto pequeño.',
   },
   {
     name: 'Dorado Trámite (texto)',
@@ -138,13 +149,13 @@ const colors: ColorSwatch[] = [
     name: 'Celeste Cordobés',
     hex: '#A0D1EF',
     text: '#12202E',
-    usage: 'Atmósfera: fondos de sección, degradé del buscador. Nunca para texto ni íconos.',
+    usage: 'Atmósfera: fondos de sección y el degradé del hero. Nunca para texto ni íconos.',
   },
   {
     name: 'Celeste Cordobés Claro',
     hex: '#E3F2FB',
     text: '#12202E',
-    usage: 'Hover de botones secundarios, chips y fondo de "Cómo funciona".',
+    usage: 'Hover de botones secundarios y chips, la celda con foco del buscador y el fondo de "Cómo funciona".',
   },
   {
     name: 'Ink',
@@ -192,38 +203,45 @@ interface TypeSpecimen {
 
 const typeSpecimens: TypeSpecimen[] = [
   {
+    name: 'Display hero',
+    sample: 'Alquilá directo con el dueño',
+    style: { fontSize: 'var(--rentar-font-size-display-hero)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.025em' },
+    spec: ['700', '36–64px', 'line-height 1.05', 'tracking -0.025em', '--rentar-font-size-display-hero'],
+    usage: 'H1 de la landing desde 768 px (en móvil usa Display).',
+  },
+  {
     name: 'Display',
-    sample: 'Alquilá directo, sin inmobiliaria',
-    style: { fontSize: 'clamp(2.25rem, 4vw, 3rem)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.025em' },
-    spec: ['700', '36–48px', 'line-height 1.05', 'tracking -0.025em'],
-    usage: 'H1 del hero únicamente.',
+    sample: 'Alquilá directo con el dueño',
+    style: { fontSize: 'var(--rentar-font-size-display)', fontWeight: 700, lineHeight: 1.05, letterSpacing: '-0.025em' },
+    spec: ['700', '36–48px', 'line-height 1.05', 'tracking -0.025em', '--rentar-font-size-display'],
+    usage: 'H1 de la landing en móvil y titulares de pantalla.',
   },
   {
     name: 'Headline',
     sample: 'De la búsqueda a las llaves, sin intermediarios',
-    style: { fontSize: 'clamp(1.5rem, 3vw, 2.25rem)', fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.015em' },
-    spec: ['700', '24–36px', 'line-height 1.2', 'tracking -0.015em'],
+    style: { fontSize: 'var(--rentar-font-size-headline)', fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.015em' },
+    spec: ['700', '24–36px', 'line-height 1.2', 'tracking -0.015em', '--rentar-font-size-headline'],
     usage: 'H2 de sección.',
   },
   {
     name: 'Title',
     sample: 'Monoambiente luminoso a metros de Plaza España',
-    style: { fontSize: '1.125rem', fontWeight: 600, lineHeight: 1.4 },
-    spec: ['600', '18px', 'line-height 1.4'],
-    usage: 'Títulos de tarjeta, H3 de pasos del timeline.',
+    style: { fontSize: 'var(--rentar-font-size-title)', fontWeight: 600, lineHeight: 1.4 },
+    spec: ['600', '18px', 'line-height 1.4', '--rentar-font-size-title'],
+    usage: 'Títulos de tarjeta, pasos de "Cómo funciona", nombres de barrio.',
   },
   {
     name: 'Body',
-    sample: 'Filtrá por zona, precio y tipología entre publicaciones directas de dueños.',
-    style: { fontSize: '1rem', fontWeight: 400, lineHeight: 1.5 },
-    spec: ['400', '16px', 'line-height 1.5'],
+    sample: 'Filtrá por barrio, precio y tipología entre publicaciones de dueños.',
+    style: { fontSize: 'var(--rentar-font-size-body)', fontWeight: 400, lineHeight: 1.5 },
+    spec: ['400', '16px', 'line-height 1.5', '--rentar-font-size-body'],
     usage: 'Párrafos cortos (2–3 líneas), no de artículo.',
   },
   {
     name: 'Label',
     sample: 'Dormitorios · m² · Ajuste por ICL',
-    style: { fontSize: '0.875rem', fontWeight: 600, lineHeight: 1.4 },
-    spec: ['600', '14px', 'line-height 1.4'],
+    style: { fontSize: 'var(--rentar-font-size-label)', fontWeight: 600, lineHeight: 1.4 },
+    spec: ['600', '14px', 'line-height 1.4', '--rentar-font-size-label'],
     usage: 'Nav, labels de formulario, texto de botón, metadatos de tarjeta.',
   },
 ]
@@ -240,6 +258,33 @@ const spacing: SpacingStep[] = [
   { name: 'md', value: '1.5rem', px: 24 },
   { name: 'lg', value: '2.5rem', px: 40 },
   { name: 'xl', value: '4rem', px: 64 },
+  { name: '2xl', value: '6rem', px: 96 },
+]
+
+/** Una fila de las tablas de tokens: nombre, valor y para qué se usa. */
+interface TokenRow {
+  token: string
+  value: string
+  usage: string
+}
+
+/** Los cortes de antd (`breakpoints` en TS), con lo que cambia en cada uno. */
+const breakpointRows: TokenRow[] = [
+  { token: 'sm', value: `${breakpoints.sm}px`, usage: 'Teléfonos grandes en horizontal (el corte sm de antd).' },
+  { token: 'md', value: `${breakpoints.md}px`, usage: 'Tablet: la landing pasa a 2 y 3 columnas y "Más filtros" a panel flotante.' },
+  { token: 'lg', value: `${breakpoints.lg}px`, usage: 'Escritorio: el buscador en una fila, la fila de 6 barrios y el nav completo del Header.' },
+  { token: 'xl', value: `${breakpoints.xl}px`, usage: 'El ancho del contenedor de las páginas públicas.' },
+]
+
+/** Los tokens de movimiento (`motion` en TS, `--rentar-motion-*` en CSS) y dónde se usan. */
+const motionRows: TokenRow[] = [
+  { token: '--rentar-motion-duration-fast', value: `${motion.duration.fast}ms`, usage: 'Respuesta al presionar (scale 0.97) y el foco de las celdas del buscador.' },
+  { token: '--rentar-motion-duration-base', value: `${motion.duration.base}ms`, usage: 'Entrada del hero, panel flotante de "Más filtros" y sombra de la tarjeta en hover.' },
+  { token: '--rentar-motion-duration-slow', value: `${motion.duration.slow}ms`, usage: 'Aparición al entrar en pantalla, zoom de la foto en hover y la hoja de "Más filtros".' },
+  { token: '--rentar-motion-ease-out', value: motion.ease.out, usage: 'Todo lo que entra o responde a una acción.' },
+  { token: '--rentar-motion-ease-in-out', value: motion.ease.inOut, usage: 'Lo que se mueve en pantalla: el latido de los nodos del loop.' },
+  { token: '--rentar-motion-ease-drawer', value: motion.ease.drawer, usage: 'La hoja de "Más filtros" en móvil.' },
+  { token: '--rentar-motion-stagger', value: `${motion.stagger}ms`, usage: 'Escalonado entre elementos que entran juntos (hero, tarjetas, barrios).' },
 ]
 
 const doList: string[] = [
@@ -247,6 +292,7 @@ const doList: string[] = [
   'Usar rounded-full en todo botón/badge/chip y rounded-2xl/rounded-3xl en contenedores — ningún otro radio.',
   'Consumir los componentes de @rentar/ui antes de escribir uno nuevo — si algo parecido ya existe, extenderlo en vez de duplicarlo.',
   'Tokenizar cualquier color/radio/sombra nuevo en packages/ui/src/tokens, nunca hardcodeado en un .module.css.',
+  'Animar solo transform y opacity, con los tokens --rentar-motion-*, y sin desplazamientos con "reducir movimiento".',
 ]
 
 const dontList: string[] = [
@@ -459,6 +505,7 @@ export default function DesignSystem() {
   const [demoPassword, setDemoPassword] = useState('Rentar2026')
   const [sidebarFilters, setSidebarFilters] = useState(FILTROS_INICIALES)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [heroSearchHref, setHeroSearchHref] = useState<string | null>(null)
 
   return (
     <ConfigProvider theme={isDark ? antdThemeDark : antdTheme}>
@@ -523,7 +570,7 @@ export default function DesignSystem() {
                   <li>Azul institucional profundo como único color &quot;fuerte&quot; para lo interactivo; dorado reservado para dinero/valor.</li>
                   <li>Redondeo grande y consistente — pill buttons, contenedores rounded-2xl/3xl — nunca esquinas rectas.</li>
                   <li>Tarjetas blancas suavemente elevadas sobre una página apenas fuera de blanco.</li>
-                  <li>Un solo momento de movimiento autoral por vista (loop del hero; timeline con scroll-reveal).</li>
+                  <li>Un solo momento de movimiento autoral por vista (el loop de &quot;Cómo funciona&quot;, sincronizado con sus pasos).</li>
                   <li>League Spartan en todo el sistema — nunca una tipografía secundaria.</li>
                 </ul>
               </div>
@@ -636,7 +683,9 @@ export default function DesignSystem() {
             <section id="espaciado" className={styles.section}>
               <h2 className={styles.sectionHeading}>Espaciado</h2>
               <p className={styles.sectionLead}>
-                Escala reducida de cinco pasos usada en paddings, gaps y márgenes de sección.
+                Escala reducida de seis pasos (<code>--rentar-spacing-xs</code> a{' '}
+                <code>--rentar-spacing-2xl</code>) usada en paddings, gaps y márgenes de sección. <code>2xl</code>{' '}
+                es el aire de las secciones de la landing en escritorio.
               </p>
               <div className={styles.spacingList}>
                 {spacing.map((s) => (
@@ -645,6 +694,25 @@ export default function DesignSystem() {
                     <div className={styles.spacingBar} style={{ width: `${s.px * 2}px` }} />
                     <span className={styles.spacingValue}>{s.value} · {s.px}px</span>
                   </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Contenedor y cortes */}
+            <section id="contenedor" className={styles.section}>
+              <h2 className={styles.sectionHeading}>Contenedor y cortes</h2>
+              <p className={styles.sectionLead}>
+                El contenido de las páginas públicas va en un contenedor de {layout.containerMax}px
+                (<code>--rentar-container-max</code>). Los cortes son los de antd (<code>breakpoints</code> en
+                TS); en CSS se escriben como <code>@media (min-width: …)</code> con esos mismos valores.
+              </p>
+              <div className={styles.tokenTable}>
+                {breakpointRows.map((row) => (
+                  <Fragment key={row.token}>
+                    <code>{row.token}</code>
+                    <span className={styles.tokenValue}>{row.value}</span>
+                    <span>{row.usage}</span>
+                  </Fragment>
                 ))}
               </div>
             </section>
@@ -661,27 +729,27 @@ export default function DesignSystem() {
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowResting}`} />
                   <span className={styles.demoCaption}>Tarjeta en reposo</span>
-                  <p className={styles.demoSub}>shadow-sm + ring-black/5</p>
+                  <p className={styles.demoSub}>--rentar-shadow-resting</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowLifted}`} />
                   <span className={styles.demoCaption}>Tarjeta en hover</span>
-                  <p className={styles.demoSub}>shadow-lg + -translate-y-1</p>
+                  <p className={styles.demoSub}>--rentar-shadow-lifted (solo con puntero fino)</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowButton}`} />
                   <span className={styles.demoCaption}>Sombra de botón</span>
-                  <p className={styles.demoSub}>shadow-brand-blue/20</p>
+                  <p className={styles.demoSub}>--rentar-shadow-button</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowDeep}`} />
                   <span className={styles.demoCaption}>Contenedor profundo</span>
-                  <p className={styles.demoSub}>shadow-2xl shadow-brand-blue/20</p>
+                  <p className={styles.demoSub}>--rentar-shadow-deep (el motivo del loop y la hoja móvil de &quot;Más filtros&quot;)</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.demoBox} ${styles.shadowForm}`} />
                   <span className={styles.demoCaption}>Panel de formulario</span>
-                  <p className={styles.demoSub}>shadow-2xl shadow-brand-blue/10 (SearchBar)</p>
+                  <p className={styles.demoSub}>--rentar-shadow-form (bandeja de HeroSearch)</p>
                 </div>
               </div>
             </section>
@@ -702,13 +770,32 @@ export default function DesignSystem() {
                 <div className={styles.demoCell}>
                   <div className={`${styles.radiusBox} ${styles.radiusMd}`} />
                   <span className={styles.demoCaption}>Medium · 1rem</span>
-                  <p className={styles.demoSub}>Tarjetas, panel del buscador</p>
+                  <p className={styles.demoSub}>Tarjetas, el interior del buscador</p>
                 </div>
                 <div className={styles.demoCell}>
                   <div className={`${styles.radiusBox} ${styles.radiusLg}`} />
                   <span className={styles.demoCaption}>Large · 1.5rem</span>
-                  <p className={styles.demoSub}>Motivo del hero, la superficie más grande</p>
+                  <p className={styles.demoSub}>Motivo del loop, bandeja del buscador, panel de cierre</p>
                 </div>
+              </div>
+            </section>
+
+            {/* Movimiento */}
+            <section id="movimiento" className={styles.section}>
+              <h2 className={styles.sectionHeading}>Movimiento</h2>
+              <p className={styles.sectionLead}>
+                Poco y con propósito. Solo se animan <code>transform</code> y <code>opacity</code>, siempre con
+                estos tokens; con &quot;reducir movimiento&quot; no hay desplazamientos. Lo que aparece al entrar en
+                pantalla lo hace una sola vez, y sin JS todo se ve.
+              </p>
+              <div className={styles.tokenTable}>
+                {motionRows.map((row) => (
+                  <Fragment key={row.token}>
+                    <code>{row.token}</code>
+                    <span className={styles.tokenValue}>{row.value}</span>
+                    <span>{row.usage}</span>
+                  </Fragment>
+                ))}
               </div>
             </section>
 
@@ -800,23 +887,10 @@ export default function DesignSystem() {
                 Fondo blanco sólido sobre la página paper, ring hairline en vez de borde visible,
                 elevación solo en hover.
               </p>
-              <div className={styles.liveFrame}>
-                <div className={styles.liveFrameLabel}>
-                  <span className={styles.liveFrameDot} />
-                  components/PropertyCard.tsx (ejemplo real, landing)
-                </div>
-                <div className={styles.liveFramePadded}>
-                  <div className={styles.cardDemoWrap}>
-                    <PropertyCard property={demoProperty} />
-                  </div>
-                </div>
-              </div>
-
               <p className={styles.subheading}>PropertyCard de @rentar/ui</p>
               <p className={styles.sectionLead} style={{ marginBottom: '0.75rem' }}>
-                Portado desde el de arriba, desacoplado de <code>PropiedadResumen</code>/
-                <code>StaticImageData</code> — props primitivas + <code>useNextBridge()</code> para
-                imagen/link. Es el que va a usar <code>/buscar</code> y el listado del locador.
+                Desacoplada de <code>PropiedadResumen</code>/<code>StaticImageData</code>: props primitivas +{' '}
+                <code>useNextBridge()</code> para imagen/link.
               </p>
               <div className={styles.liveFramePadded}>
                 <div className={styles.cardDemoWrap}>
@@ -838,7 +912,9 @@ export default function DesignSystem() {
               <p className={styles.sectionLead} style={{ marginBottom: '0.75rem' }}>
                 La tarjeta de <code>/buscar</code> (US-34): precio en dorado, expensas, dirección aproximada
                 (calle al centenar, por privacidad), descripción en 2 líneas, disponibilidad y chips. El
-                carrusel aparece solo con más de una foto.
+                carrusel aparece solo con más de una foto. Es también la tarjeta de &quot;Recién publicadas&quot; en
+                la landing. En hover (solo con puntero fino) la foto se acerca y la sombra pasa a{' '}
+                <code>lifted</code> con una capa de opacidad; con &quot;reducir movimiento&quot;, sin zoom.
               </p>
               <div className={styles.liveFramePadded}>
                 <div className={styles.cardDemoWrap}>
@@ -882,17 +958,26 @@ export default function DesignSystem() {
             <section id="campos" className={styles.section}>
               <h2 className={styles.sectionHeading}>Campos y buscador</h2>
               <p className={styles.sectionLead}>
-                Inputs sobre fondo paper (no blanco) para una sensación de inset dentro de la
-                tarjeta blanca del buscador; el foco cambia el borde a azul, sin glow.
+                <code>HeroSearch</code> (US-34), el buscador de la landing: una consola de una fila con controles
+                nativos con la piel de los campos de <code>/buscar</code> (40 px, radio sm, borde hairline); la
+                celda con foco se llena de celeste claro. Sin JS es un formulario GET a <code>/buscar</code>.
+                &quot;Más filtros&quot; es un <code>&lt;details&gt;</code>: panel flotante desde 768 px y hoja desde
+                abajo en móvil, con el foco atrapado.
               </p>
-              <div className={styles.liveFrame}>
-                <div className={styles.liveFrameLabel}>
-                  <span className={styles.liveFrameDot} />
-                  components/SearchBar.tsx (interactivo)
-                </div>
-                <div className={styles.liveFramePadded}>
-                  <SearchBar filters={defaultFilters} onChange={() => {}} resultCount={properties.length} />
-                </div>
+              {/* Sin `liveFrame`: su `overflow: hidden` recortaría el panel flotante de "Más filtros". */}
+              <div className={styles.liveFramePadded}>
+                <HeroSearch
+                  id="design-system-hero-search"
+                  neighborhoods={BARRIOS_BUSCADOR}
+                  priceSteps={PRECIOS_BUSCADOR}
+                  characteristics={CARACTERISTICAS_BUSCADOR}
+                  indexHelp={AYUDA_INDICES}
+                  onSearch={(valores) => setHeroSearchHref(hrefBuscarDesdeBuscador(valores))}
+                  data-testid="design-system-hero-search"
+                />
+                <p className={styles.heroSearchResult}>
+                  Al buscar, la landing iría a: <code>{heroSearchHref ?? '—'}</code>
+                </p>
               </div>
             </section>
 
@@ -901,7 +986,8 @@ export default function DesignSystem() {
               <h2 className={styles.sectionHeading}>Navegación</h2>
               <p className={styles.sectionLead}>
                 Links de texto a escala label, sin subrayado en reposo ni en hover. El header
-                colapsa a un menú hamburguesa por debajo de md.
+                colapsa a un menú hamburguesa por debajo de lg (992 px): entre 768 y 991 px los links
+                no entraban en una línea.
               </p>
               <div className={styles.navDemo}>
                 <a className={styles.navDemoLink} href="#campos">
@@ -945,20 +1031,21 @@ export default function DesignSystem() {
               <h2 className={styles.sectionHeading}>Componente insignia: el loop de proceso</h2>
               <p className={styles.sectionLead}>
                 Dos piezas hechas a medida llevan la única idea de movimiento autoral del sistema, y
-                deliberadamente reflejan la misma estructura de 4 etapas: buscar → contactar →
-                firmar → pagar.
+                deliberadamente reflejan la misma estructura de 4 etapas: buscar → postularse →
+                firmar → pagar. El punto dorado recorre el loop en 8 s; en &quot;Cómo funciona&quot;, el paso
+                que le toca se resalta al mismo tiempo, arranca al entrar en pantalla y se pausa al salir.
               </p>
               <div className={styles.loopFrame}>
                 <ProcessLoopMotif />
               </div>
 
-              <p className={styles.subheading}>HowItWorks (ejemplo real, con scroll-reveal)</p>
+              <p className={styles.subheading}>ComoFunciona (ejemplo real, sincronizado con el loop)</p>
               <div className={styles.liveFrame}>
                 <div className={styles.liveFrameLabel}>
                   <span className={styles.liveFrameDot} />
-                  components/HowItWorks.tsx
+                  components/landing/ComoFunciona.tsx
                 </div>
-                <HowItWorks />
+                <ComoFunciona />
               </div>
             </section>
 
@@ -1283,9 +1370,10 @@ export default function DesignSystem() {
 
               <p className={styles.subheading}>SearchFilters</p>
               <p className={styles.sectionLead} style={{ marginBottom: '0.75rem' }}>
-                Versión de <code>@rentar/ui</code> de <code>SearchBar</code> de la landing: recibe
-                barrios/características por props en vez de importar los mocks. Para{' '}
-                <code>/buscar</code> — achicá la ventana para ver el botón &quot;Filtros&quot; (Drawer) de
+                Filtros horizontales de <code>@rentar/ui</code>: reciben barrios y características por props.
+                NOTA: hoy no los usa ninguna pantalla (la landing usa <code>HeroSearch</code> y{' '}
+                <code>/buscar</code>, <code>SearchSidebarFilters</code>); candidatos a borrar, ver{' '}
+                <code>.design-sync/NOTES.md</code>. Achicá la ventana para ver el botón &quot;Filtros&quot; (Drawer) de
                 mobile.
               </p>
               <div className={styles.liveFramePadded}>

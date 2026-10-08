@@ -9,7 +9,7 @@
  * endpoint (propuesto: `GET /api/v1/catalogos`). Mientras tanto, los filtros
  * suman los barrios que traen los datos (`barriosConDatos`, más abajo).
  *
- * Quién lo usa: el `SearchBar` de la landing, `/buscar` (US-34), el filtro
+ * Quién lo usa: la landing (buscador, chips y franja de barrios), `/buscar` (US-34), el filtro
  * de `/panel/propiedades` (US-02) y el alta (US-01).
  */
 import type { Neighborhood } from '@rentar/shared-types'

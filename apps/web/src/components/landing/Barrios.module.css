@@ -1,0 +1,135 @@
+/* Barrios.module.css — franja "Buscá por barrio": lista en móvil, 3×2 desde 768 px, fila de 6 desde 992 px. */
+
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
+.section {
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+}
+
+.heading {
+  margin: 0 0 var(--rentar-spacing-md);
+  font-size: var(--rentar-font-size-headline);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--rentar-color-text-primary);
+  text-wrap: balance;
+}
+
+.grid {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Móvil: filas separadas por hairlines, como la franja de diferenciales. */
+.item + .item {
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+.card {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--rentar-spacing-sm);
+  padding: var(--rentar-spacing-sm) 0;
+  border-radius: var(--rentar-radius-lg);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* El recuadro de la ilustración (4:5). Sin ilustración, se ve este fondo celeste. */
+.media {
+  display: block;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  border-radius: var(--rentar-radius-lg);
+  background: linear-gradient(to bottom, var(--rentar-color-sky-light), rgba(var(--rentar-color-blue-rgb), 0.08));
+}
+
+.image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--rentar-motion-duration-slow) var(--rentar-motion-ease-out);
+}
+
+.text {
+  display: grid;
+  gap: calc(var(--rentar-spacing-xs) / 2);
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--rentar-font-size-title);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--rentar-color-text-primary);
+}
+
+.line {
+  margin: 0;
+  font-size: var(--rentar-font-size-label);
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+  text-wrap: pretty;
+}
+
+/* Hover solo con puntero fino: la ilustración se acerca un poco y el nombre pasa a azul. */
+@media (hover: hover) and (pointer: fine) {
+  .card:hover .image {
+    transform: scale(1.04);
+  }
+
+  .card:hover .name {
+    color: var(--rentar-color-blue);
+  }
+}
+
+/* ─── 768 px (breakpoints.md): grilla de 3×2, ilustración arriba ───────── */
+
+@media (min-width: 768px) {
+  .section {
+    padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--rentar-spacing-md);
+  }
+
+  .item + .item {
+    border-top: 0;
+  }
+
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: var(--rentar-spacing-sm);
+    padding: 0;
+  }
+}
+
+/* ─── 992 px (breakpoints.lg): una fila de 6 ──────────────────────────── */
+
+@media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
+  }
+
+  .grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* ─── Movimiento reducido: sin acercar la ilustración ─────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .card:hover .image {
+    transform: none;
+  }
+}

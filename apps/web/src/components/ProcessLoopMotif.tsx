@@ -1,10 +1,30 @@
 /**
- * ProcessLoopMotif.tsx — ilustración del ciclo del alquiler (buscar, firmar, pagar…) del Hero.
+ * ProcessLoopMotif.tsx — el motivo insignia del sistema: el ciclo del alquiler
+ * (buscá, postulate, firmá, pagá) como un loop con un punto dorado que lo recorre.
  *
- * Quién lo usa: `Hero.tsx` y el catálogo `/design-system`.
+ * Qué es: un diagrama circular animado y decorativo (`aria-hidden`): la
+ * explicación accesible es la lista de pasos que lo acompaña.
+ * Cubre: sin US en Sprint 0 (contenido de la landing).
+ * De dónde saca los datos: ninguno; los 4 pasos son fijos.
+ * Quién lo usa: `components/landing/ComoFunciona.tsx` y el catálogo `/design-system`.
+ *
+ * NOTA: cada nodo se envuelve en un `<g>` de posicionamiento estático + un
+ * `<g>` interno animado (ver `docs/DESIGN.md`, "Do's and Don'ts"): mezclar
+ * el atributo `transform` de posicionamiento con una animación CSS de
+ * `transform` en el mismo nodo SVG hace que el navegador descarte el atributo.
+ * NOTA: los colores salen de los tokens por CSS (clases), no de atributos del
+ * SVG: un atributo no puede leer una variable CSS. El punto dorado es la
+ * excepción documentada a "dorado solo para dinero" (`docs/DESIGN.md`,
+ * "Dorado Trámite").
  */
 import type { ReactNode } from 'react'
 import styles from './ProcessLoopMotif.module.css'
+
+/**
+ * `quieto`: sin animar (antes de entrar en pantalla, o sin JS).
+ * `corriendo`: anima. `pausado`: congelado donde estaba (salió de pantalla).
+ */
+export type EstadoLoop = 'quieto' | 'corriendo' | 'pausado'
 
 interface LoopNode {
   cx: number
@@ -12,97 +32,98 @@ interface LoopNode {
   icon: ReactNode
 }
 
+/**
+ * Los 4 pasos, en el sentido del punto (horario, desde arriba): Buscá,
+ * Postulate, Firmá y Pagá. Íconos de un solo trazo, dibujados en 24×24.
+ */
 const nodes: LoopNode[] = [
   {
-    // Buscar
     cx: 100,
     cy: 38,
+    // Lupa: buscar.
     icon: (
       <>
-        <circle cx="10" cy="10" r="6" stroke="#004D98" strokeWidth="2" fill="none" />
-        <path d="M14.5 14.5L20 20" stroke="#004D98" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="6" />
+        <path d="M14.5 14.5L20 20" />
       </>
     ),
   },
   {
-    // Contactar
     cx: 162,
     cy: 100,
-    icon: (
-      <path d="M4 5h16v11H9l-5 4V5z" stroke="#004D98" strokeWidth="2" strokeLinejoin="round" fill="none" />
-    ),
+    // Avión de papel: la solicitud que se le manda al dueño.
+    icon: <path d="M3 11.5L20 4l-6.5 16-2.5-6.5L3 11.5z M11 13.5l9-9.5" />,
   },
   {
-    // Firmar
     cx: 100,
     cy: 162,
-    icon: (
-      <path
-        d="M4 19l4-1 10-10-3-3L5 15l-1 4z M15 5l3 3"
-        stroke="#004D98"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-    ),
+    // Lapicera: firmar.
+    icon: <path d="M4 19l4-1 10-10-3-3L5 15l-1 4z M15 5l3 3" />,
   },
   {
-    // Pagar
     cx: 38,
     cy: 100,
+    // Recibo tildado: pagar.
     icon: (
       <>
-        <rect x="4" y="4" width="16" height="16" rx="2" stroke="#004D98" strokeWidth="2" fill="none" />
-        <path d="M8 12l2.5 2.5L16 9" stroke="#004D98" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <path d="M8 12l2.5 2.5L16 9" />
       </>
     ),
   },
 ]
 
-const nodeClasses = [styles.loopNode0, styles.loopNode1, styles.loopNode2, styles.loopNode3]
+const nodeClasses = [styles.node0, styles.node1, styles.node2, styles.node3]
 
 /** Props de {@link ProcessLoopMotif}. */
 interface ProcessLoopMotifProps {
-  /** Clases extra para posicionar el contenedor desde el componente padre (ej. Hero). */
+  /** Clases extra para posicionar el contenedor desde el componente padre. */
   className?: string
+  /**
+   * Si anima. Por defecto `corriendo`. "Cómo funciona" lo arranca cuando la
+   * sección entra en pantalla y lo pausa cuando sale; así queda sincronizado
+   * con la lista de pasos, que usa los mismos tiempos (`--loop-duracion`).
+   */
+  estado?: EstadoLoop
 }
 
 /**
- * Pieza insignia del sistema de diseño: diagrama circular animado de las 4
- * etapas del proceso (buscar → contactar → firmar → pagar), con un punto
- * dorado que recorre el círculo y pulsa cada nodo al llegar. Cada nodo se
- * envuelve en un `<g>` de posicionamiento estático + un `<g>` interno
- * animado (ver DESIGN.md, "Do's and Don'ts") porque mezclar el atributo
- * `transform` de posicionamiento con una animación CSS de `transform` en el
- * mismo nodo SVG hace que el navegador descarte el atributo.
+ * Pieza insignia del sistema de diseño: diagrama circular de las 4 etapas
+ * del proceso (buscá → postulate → firmá → pagá). Un punto dorado recorre el
+ * círculo en 8 s; al pasar por cada nodo, el nodo late y queda marcado
+ * hasta que el punto llega al siguiente.
  */
-export default function ProcessLoopMotif({ className }: ProcessLoopMotifProps) {
+export default function ProcessLoopMotif({ className, estado = 'corriendo' }: ProcessLoopMotifProps) {
+  // `quieto` no tiene clase: sin `.corriendo` ni `.pausado` no hay animaciones.
+  const claseEstado = estado === 'quieto' ? '' : styles[estado]
   return (
-    <div className={`${styles.container} ${className ?? ''}`} aria-hidden="true">
+    <div className={`${styles.container} ${claseEstado} ${className ?? ''}`} aria-hidden="true">
       <svg viewBox="0 0 200 200" className={styles.svg}>
-        <circle
-          cx="100"
-          cy="100"
-          r="62"
-          fill="none"
-          stroke="#ffffff"
-          strokeOpacity="0.25"
-          strokeWidth="2"
-          strokeDasharray="3 7"
-          strokeLinecap="round"
-        />
+        <circle className={styles.ring} cx="100" cy="100" r="62" />
+
+        {/* Halo del paso activo: detrás del nodo, se enciende mientras el punto está en ese tramo. */}
+        {nodes.map((node, index) => (
+          <circle key={`halo-${index}`} className={`${styles.halo} ${nodeClasses[index]}`} cx={node.cx} cy={node.cy} r="27" />
+        ))}
+
+        {/*
+         * El punto arranca a -45° (entre Pagá y Buscá) y gira alrededor del
+         * centro. Va debajo de los nodos: pasa por detrás de cada uno.
+         */}
+        <g className={styles.orbit}>
+          <circle className={styles.dot} cx="56.16" cy="56.16" r="5" />
+        </g>
 
         {nodes.map((node, index) => (
-          <g key={index} transform={`translate(${node.cx} ${node.cy})`}>
-            <g className={`${styles.loopNode} ${nodeClasses[index]}`}>
-              <circle r="19" fill="#ffffff" />
-              <g transform="translate(-9 -9) scale(0.75)">{node.icon}</g>
+          <g key={`nodo-${index}`} transform={`translate(${node.cx} ${node.cy})`}>
+            <g className={`${styles.node} ${nodeClasses[index]}`}>
+              <circle className={styles.nodeCircle} r="19" />
+              <g className={styles.icon} transform="translate(-9 -9) scale(0.75)">
+                {node.icon}
+              </g>
             </g>
           </g>
         ))}
-
-        <circle className={styles.loopDot} r="5" fill="#D7B15D" />
       </svg>
     </div>
   )

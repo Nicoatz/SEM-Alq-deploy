@@ -1,0 +1,89 @@
+/* Diferenciales.module.css — franja tipográfica debajo del hero. */
+
+/* `width: 100%`: en la landing es ítem de un contenedor flex y, con margen auto, se encogería. */
+.section {
+  width: 100%;
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-md) var(--rentar-spacing-sm);
+}
+
+.list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Móvil: una debajo de la otra, separadas por hairlines horizontales. */
+.item {
+  padding: var(--rentar-spacing-sm) 0;
+}
+
+.item + .item {
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+.itemTitle {
+  margin: 0;
+  font-size: var(--rentar-font-size-title);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--rentar-color-text-primary);
+}
+
+.itemText {
+  margin: calc(var(--rentar-spacing-xs) / 4) 0 0;
+  font-size: var(--rentar-font-size-body);
+  line-height: 1.5;
+  color: var(--rentar-color-text-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* 768 px (breakpoints.md): tres columnas separadas por hairlines verticales. */
+@media (min-width: 768px) {
+  .section {
+    padding: 0 var(--rentar-spacing-sm) var(--rentar-spacing-lg);
+  }
+
+  /*
+   * NOTA: sin hairline arriba. El borde del hero azul ya cierra el hero; una
+   * hairline del ancho del contenido, pegada a ese borde, se veía como una
+   * línea suelta.
+   */
+  .list {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    padding-top: var(--rentar-spacing-lg);
+  }
+
+  .item {
+    padding: 0 var(--rentar-spacing-md);
+  }
+
+  .item:first-child {
+    padding-left: 0;
+  }
+
+  .item + .item {
+    border-top: 0;
+    border-left: 1px solid var(--rentar-color-border-hairline);
+  }
+}
+
+/* 992 px (breakpoints.lg): margen lateral de escritorio (como el Header y /buscar). */
+@media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
+  }
+}

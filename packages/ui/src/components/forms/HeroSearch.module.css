@@ -1,0 +1,696 @@
+/*
+ * HeroSearch.module.css — "La consola": bandeja de doble borde, celdas con
+ * hairlines y "Más filtros".
+ *
+ * "Más filtros" según el ancho:
+ * - Móvil sin JS: se despliega en el lugar. Móvil con JS: hoja desde abajo
+ *   con fondo oscuro (`.enhanced`; necesita JS para cerrarse con el fondo).
+ * - Desde 768 px: panel flotante debajo del botón, con o sin JS (se cierra
+ *   con el mismo botón; con JS, también con Escape o un clic afuera).
+ *
+ * Las celdas: una columna en móvil, dos desde 768 px y una sola fila cuando
+ * el buscador mide 70rem o más. NOTA: ese último corte mira el ancho del
+ * buscador (container query), no el de la pantalla: con la pantalla (992 px)
+ * los selects se cortaban entre 992 y 1167 px y en el catálogo /design-system.
+ *
+ * NOTA: debajo de 768 px ningún contenedor de "Más filtros" (formulario,
+ * bandeja, núcleo, celdas) lleva `overflow`, `transform`, `filter`,
+ * `z-index` ni `container`: cualquiera de esos haría que la hoja móvil
+ * (`position: fixed`) quede recortada o debajo del Header.
+ */
+
+.form {
+  /* Alto de los campos: el mismo de los selects de /buscar (SearchSidebarFilters, 2.5rem). */
+  --hero-search-control: 2.5rem;
+  margin: 0;
+}
+
+/* ─── Bandeja y núcleo (doble borde: radios xl y lg, concéntricos) ───── */
+
+.tray {
+  padding: var(--rentar-spacing-xs);
+  border: 1px solid rgba(var(--rentar-color-blue-rgb), 0.08);
+  border-radius: var(--rentar-radius-xl);
+  background: rgba(var(--rentar-color-blue-rgb), 0.05);
+}
+
+.core {
+  padding: calc(var(--rentar-spacing-xs) / 2);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  box-shadow: var(--rentar-shadow-form);
+}
+
+/* ─── Celdas: una columna en móvil ────────────────────────────────────── */
+
+.cells {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.cell {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rentar-spacing-xs) * 0.75);
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--rentar-spacing-xs) / 2) var(--rentar-spacing-xs);
+  border: 0;
+}
+
+/*
+ * Interacción insignia: la celda con foco se llena de celeste claro. Es una
+ * capa aparte que solo cambia de opacidad (no se anima el color de fondo).
+ */
+.cell::before {
+  content: '';
+  position: absolute;
+  inset: calc(var(--rentar-spacing-xs) / 4);
+  z-index: -1;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-sky-light);
+  opacity: 0;
+  transition: opacity var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.cell:focus-within::before {
+  opacity: 1;
+}
+
+.label {
+  padding: 0;
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--rentar-color-text-primary);
+}
+
+/*
+ * El fieldset de Precio: la leyenda hace de label de los dos selects. Una
+ * leyenda se dibuja sobre el borde del fieldset (ignora el padding); con
+ * `float` vuelve al flujo y queda alineada con los demás labels.
+ */
+.cellPrice {
+  display: block;
+}
+
+.cellPrice .label {
+  float: left;
+  width: 100%;
+  margin-bottom: calc(var(--rentar-spacing-xs) * 0.75);
+}
+
+.cellPrice .pair {
+  clear: both;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--rentar-spacing-xs);
+}
+
+/* Dormitorios va en "Más filtros" en móvil. */
+.cellBedrooms {
+  display: none;
+}
+
+.cellAction {
+  display: flex;
+  align-items: flex-end;
+  padding: calc(var(--rentar-spacing-xs) / 2) var(--rentar-spacing-xs);
+}
+
+/* ─── Select nativo con la piel de /buscar ────────────────────────────── */
+
+.selectWrap {
+  position: relative;
+  display: block;
+}
+
+.select {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: var(--hero-search-control);
+  padding: 0 calc(var(--rentar-spacing-sm) * 2) 0 calc(var(--rentar-spacing-xs) * 1.5);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-sm);
+  background: var(--rentar-color-bg-page);
+  color: var(--rentar-color-text-primary);
+  font: inherit;
+  font-size: var(--rentar-font-size-body);
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--rentar-color-blue);
+}
+
+/* El anillo de foco global (globals.css) queda para el teclado; con el mouse alcanza el borde azul. */
+.select:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.selectIcon {
+  position: absolute;
+  top: 50%;
+  right: calc(var(--rentar-spacing-xs) * 1.5);
+  font-size: var(--rentar-font-size-label);
+  color: var(--rentar-color-text-secondary);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .select:hover {
+    border-color: var(--rentar-color-blue);
+  }
+}
+
+/* ─── Botones ─────────────────────────────────────────────────────────── */
+
+.submit {
+  width: 100%;
+  transition-property: transform, background, border-color, box-shadow;
+  transition-duration: var(--rentar-motion-duration-fast);
+  transition-timing-function: var(--rentar-motion-ease-out);
+}
+
+.submit:active,
+.panelSubmit:active {
+  transform: scale(0.97);
+}
+
+/* ─── "Más filtros": la celda, el resumen (botón) y el contador ───────── */
+
+.more {
+  position: relative;
+  min-width: 0;
+  padding: calc(var(--rentar-spacing-xs) / 2) var(--rentar-spacing-xs);
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--rentar-spacing-xs);
+  min-height: var(--hero-search-control);
+  padding: 0 var(--rentar-spacing-sm);
+  border-radius: var(--rentar-radius-pill);
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--rentar-color-blue);
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.more[open] > .summary {
+  background: var(--rentar-color-sky-light);
+}
+
+.summary::-webkit-details-marker {
+  display: none;
+}
+
+.summary:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .summary:hover {
+    color: var(--rentar-color-blue-dark);
+  }
+}
+
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.375rem;
+  height: 1.375rem;
+  padding: 0 calc(var(--rentar-spacing-xs) * 0.75);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+  /* El paso más chico de la escala (label): un número suelto se lee igual a 14 px. */
+  font-size: var(--rentar-font-size-label);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transform: scale(0.9);
+  transition:
+    opacity var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out),
+    transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.countVisible {
+  opacity: 1;
+  transform: none;
+}
+
+/* ─── Panel de "Más filtros" (base: se despliega en el lugar) ─────────── */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+
+.panelHeader,
+.backdrop {
+  display: none;
+}
+
+.panelBody {
+  display: grid;
+  gap: var(--rentar-spacing-md);
+  padding: var(--rentar-spacing-sm) var(--rentar-spacing-xs);
+}
+
+.panelFooter {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--rentar-spacing-xs);
+  padding: var(--rentar-spacing-sm) var(--rentar-spacing-xs) var(--rentar-spacing-xs);
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+/* Doble clase para ganarle al color del botón de texto de antd. */
+.panelFooter .clearButton {
+  margin-inline-end: auto;
+  color: var(--rentar-color-blue);
+  font-weight: 600;
+}
+
+.mobileOnly {
+  display: block;
+}
+
+.panelTitle {
+  font-size: var(--rentar-font-size-title);
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.closeButton {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: var(--rentar-radius-pill);
+  background: none;
+  color: var(--rentar-color-text-primary);
+  cursor: pointer;
+}
+
+/* ─── Campos del panel ────────────────────────────────────────────────── */
+
+.group {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.groupLegend {
+  float: left;
+  width: 100%;
+  margin-bottom: var(--rentar-spacing-xs);
+  padding: 0;
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.groupLegend + * {
+  clear: both;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rentar-spacing-xs);
+}
+
+.pill {
+  position: relative;
+  display: inline-flex;
+}
+
+/* El radio/casilla real queda encima de la pastilla, invisible: el clic y el foco son suyos. */
+.pillInput,
+.choiceInput {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pillText {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 var(--rentar-spacing-sm);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-bg-page);
+  color: var(--rentar-color-text-primary);
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  user-select: none;
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.pillInput:checked + .pillText {
+  border-color: var(--rentar-color-blue);
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+}
+
+.pillInput:focus-visible + .pillText {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+.pill:active .pillText {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pill:hover .pillText {
+    border-color: var(--rentar-color-blue);
+  }
+}
+
+.inlineField {
+  display: grid;
+  gap: calc(var(--rentar-spacing-xs) * 0.75);
+}
+
+.inlineLabel {
+  font-size: var(--rentar-font-size-label);
+  color: var(--rentar-color-text-secondary);
+}
+
+.input {
+  width: 100%;
+  height: var(--hero-search-control);
+  padding: 0 var(--rentar-spacing-sm);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-sm);
+  background: var(--rentar-color-bg-page);
+  color: var(--rentar-color-text-primary);
+  caret-color: var(--rentar-color-blue);
+  font: inherit;
+  font-size: var(--rentar-font-size-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.input:focus {
+  border-color: var(--rentar-color-blue);
+}
+
+.input:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.choices {
+  display: grid;
+  gap: var(--rentar-spacing-xs);
+}
+
+.choice {
+  position: relative;
+  display: grid;
+  gap: calc(var(--rentar-spacing-xs) / 4);
+  padding: var(--rentar-spacing-xs) var(--rentar-spacing-sm);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+}
+
+.choice:has(.choiceInput:checked) {
+  border-color: var(--rentar-color-blue);
+  background: var(--rentar-color-sky-light);
+}
+
+.choice:has(.choiceInput:focus-visible) {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+.choiceTitle {
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.choiceHelp {
+  font-size: var(--rentar-font-size-label);
+  line-height: 1.4;
+  color: var(--rentar-color-text-secondary);
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ─── Móvil con JS (hasta 767 px): hoja desde abajo con fondo oscuro ─── */
+
+@media (max-width: 767.98px) {
+  .enhanced .more[open] .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--rentar-z-sticky) + 1);
+    display: block;
+    background: rgba(var(--rentar-color-ink-rgb), 0.45);
+    opacity: 1;
+    transition: opacity var(--rentar-motion-duration-base) var(--rentar-motion-ease-out);
+  }
+
+  .enhanced .more[open] .panel {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: calc(var(--rentar-z-sticky) + 2);
+    max-height: 85dvh;
+    border-radius: var(--rentar-radius-xl) var(--rentar-radius-xl) 0 0;
+    background: var(--rentar-color-bg-surface);
+    box-shadow: var(--rentar-shadow-deep);
+    transform: none;
+    transition: transform var(--rentar-motion-duration-slow) var(--rentar-motion-ease-drawer);
+  }
+
+  .enhanced .panelHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--rentar-spacing-xs) var(--rentar-spacing-xs) var(--rentar-spacing-xs) var(--rentar-spacing-md);
+    border-bottom: 1px solid var(--rentar-color-border-hairline);
+  }
+
+  .enhanced .panelBody {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: var(--rentar-spacing-md);
+  }
+
+  .enhanced .panelFooter {
+    padding: var(--rentar-spacing-sm) var(--rentar-spacing-md) calc(var(--rentar-spacing-sm) + env(safe-area-inset-bottom));
+  }
+
+  .enhanced .panelSubmit {
+    flex: 1;
+  }
+
+  /* Cierre (`.closing`, HeroSearch.tsx): la hoja vuelve a bajar y el fondo se apaga, más rápido que la entrada. */
+  .enhanced .more[open].closing .backdrop {
+    opacity: 0;
+  }
+
+  .enhanced .more[open].closing .panel {
+    transform: translateY(100%);
+    transition-duration: var(--rentar-motion-duration-base);
+  }
+
+  @starting-style {
+    .enhanced .more[open] .backdrop {
+      opacity: 0;
+    }
+
+    .enhanced .more[open] .panel {
+      transform: translateY(100%);
+    }
+  }
+}
+
+/* ─── 768 px (breakpoints.md): dos columnas y panel flotante ──────────── */
+
+@media (min-width: 768px) {
+  /*
+   * El formulario pasa a ser el contenedor de la fila única (ver abajo) y
+   * queda por encima del contenido que sigue, para que el panel flotante no
+   * quede debajo de las tarjetas. Desde acá no hay hoja fija (ver la NOTA de arriba).
+   */
+  .form {
+    container: hero-search / inline-size;
+    position: relative;
+    z-index: var(--rentar-z-decorative);
+  }
+
+  .cells {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cellBedrooms {
+    display: flex;
+  }
+
+  .mobileOnly {
+    display: none;
+  }
+
+  .summary {
+    width: max-content;
+  }
+
+  /* Panel flotante (con o sin JS): debajo del botón, alineado a su izquierda. */
+  .more[open] .panel {
+    position: absolute;
+    top: calc(100% + var(--rentar-spacing-xs));
+    left: 0;
+    z-index: var(--rentar-z-decorative);
+    width: min(44rem, calc(100vw - 2 * var(--rentar-spacing-md)));
+    max-height: min(70vh, 38rem);
+    border: 1px solid var(--rentar-color-border-hairline);
+    border-radius: var(--rentar-radius-lg);
+    background: var(--rentar-color-bg-surface);
+    box-shadow: var(--rentar-shadow-lifted);
+    opacity: 1;
+    transform: none;
+    transform-origin: top left;
+    transition:
+      opacity var(--rentar-motion-duration-base) var(--rentar-motion-ease-out),
+      transform var(--rentar-motion-duration-base) var(--rentar-motion-ease-out);
+  }
+
+  /* Dos columnas: Ambientes y Características arriba; Superficie e Índice abajo. */
+  .panelBody {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--rentar-spacing-md) var(--rentar-spacing-lg);
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--rentar-spacing-md);
+  }
+
+  .panelFooter {
+    padding: var(--rentar-spacing-sm) var(--rentar-spacing-md);
+  }
+
+  @starting-style {
+    .more[open] .panel {
+      opacity: 0;
+      transform: translateY(calc(var(--rentar-spacing-xs) * -0.5)) scale(0.97);
+    }
+  }
+
+  /* Cierre (`.closing`, HeroSearch.tsx): vuelve hacia su botón por el mismo camino, en 160 ms. */
+  .more[open].closing .panel {
+    opacity: 0;
+    transform: translateY(calc(var(--rentar-spacing-xs) * -0.5)) scale(0.97);
+    transition-duration: var(--rentar-motion-duration-fast);
+  }
+}
+
+/*
+ * ─── Una sola fila con hairlines, con el buscador de 70rem o más ────────
+ * En la landing: desde 1168 px de pantalla (el contenedor de 1200 px menos
+ * los márgenes). Con menos, los textos de los selects no entraban.
+ */
+
+@container hero-search (min-width: 70rem) {
+  .cells {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1.05fr) minmax(0, 1.8fr) minmax(0, 0.85fr) auto auto;
+    align-items: end;
+  }
+
+  .cell,
+  .more,
+  .cellAction {
+    padding: var(--rentar-spacing-xs);
+  }
+
+  .cell + .cell,
+  .more {
+    border-inline-start: 1px solid var(--rentar-color-border-hairline);
+  }
+
+  .more {
+    padding-inline: var(--rentar-spacing-xs);
+  }
+
+  .cellAction {
+    padding-inline-start: 0;
+  }
+
+  /* El botón queda a la altura de los selects (las celdas tienen label arriba). */
+  .submit {
+    width: auto;
+    height: var(--hero-search-control);
+  }
+
+  /* Acá "Más filtros" está cerca del borde derecho: el panel se abre hacia la izquierda. */
+  .more[open] .panel {
+    right: 0;
+    left: auto;
+    transform-origin: top right;
+  }
+}
+
+/* ─── Movimiento reducido: sin escalas ni deslizamientos ─────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .submit:active,
+  .panelSubmit:active,
+  .summary:active,
+  .pill:active .pillText {
+    transform: none;
+  }
+
+  .more[open] .panel,
+  .enhanced .more[open] .panel {
+    transition: opacity var(--rentar-motion-duration-fast) linear;
+  }
+
+  @starting-style {
+    .more[open] .panel,
+    .enhanced .more[open] .panel {
+      transform: none;
+      opacity: 0;
+    }
+  }
+}

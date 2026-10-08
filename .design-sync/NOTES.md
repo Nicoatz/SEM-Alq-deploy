@@ -160,6 +160,151 @@ el PO: no cambian nada visual):
 - **`SearchSidebarFilters`: nombre en español del botón de borrar** de Provincia, Ciudad y Barrio
   (`allowClear={{ label: 'Borrar la provincia' }}`, etc.). antd lo dejaba en inglés ("Clear").
 
+Cambios de la landing nueva (2026-10-01, rama `feature/nuevo-landing`), **pendientes de subir**
+(aprobados por el PO en el plan de la landing):
+- **Tokens nuevos** (`tokens/primitives.ts` y `css-vars.css`; `design-sync-fonts.css` regenerado):
+  `spacing['2xl']` (6rem), `breakpoints` (sm 576 · md 768 · lg 992 · xl 1200, los de antd),
+  `layout.containerMax` (1200 px, `--rentar-container-max`), `motion` (duraciones de 160, 240 y
+  400 ms, curvas `out`, `inOut` y `drawer`, escalonado de 60 ms; `--rentar-motion-*`) y los tamaños
+  de `typography` como variables (`--rentar-font-size-display|headline|title|body|label`). Además
+  (aprobado por el PO el 02/10/2026, a partir de la revisión final de impeccable) un escalón nuevo,
+  `typography.displayHero` / `--rentar-font-size-display-hero` (`clamp(2.25rem, 5vw, 4rem)`): el H1
+  de la landing desde 768 px; en móvil sigue en `display`.
+  NOTA: `--rentar-color-sky-rgb` vale el celeste CLARO (#E3F2FB), no #A0D1EF. Quedó solo anotado
+  en `css-vars.css`; no se cambió.
+- **Nuevo: `HeroSearch`** (`components/forms/`): el buscador del hero ("A · La consola"). Controles
+  nativos con la piel de los campos de `/buscar`, dentro de un `<form method="get">` que funciona
+  sin JS; con `onSearch`, el envío lo resuelve la app. "Más filtros" es un `<details>`: panel
+  flotante desde 768 px y hoja desde abajo en móvil (con JS, diálogo modal con el foco atrapado y
+  `aria-expanded` en el resumen). Con JS, cierra animado por donde entró (la hoja baja en 240 ms; el
+  panel se desvanece hacia su botón en 160 ms); con "reducir movimiento", al instante. Una columna en móvil, dos desde 768 px y una sola fila cuando el
+  buscador mide 70rem o más. NOTA: ese corte es un container query (con un corte por pantalla, en
+  992 px, los selects se cortaban entre 992 y 1167 px y en `/design-system`). `data-testid` con el
+  prefijo que se le pase (la landing usa `landing-buscador`). Al subir: sumar
+  `previews/HeroSearch.tsx` con historias de escritorio, de 768 px y de móvil con la hoja abierta.
+- **`PropertyCardBusqueda`: hover nuevo** (también en `/buscar`, decisión del PO): solo con
+  puntero fino, la foto se acerca (`scale(1.04)`) y la sombra pasa a `lifted` con una capa de
+  opacidad. Con "reducir movimiento", sin zoom. La API no cambia.
+- **`Header`: el nav completo aparece desde 992 px** (antes 768) y los links van con `nowrap`:
+  entre 768 y 991 px se partían en dos líneas. En ese rango queda el menú hamburguesa. La API no
+  cambia.
+- **`SearchFilters` (la barra horizontal) quedó sin uso:** la landing usa `HeroSearch` y `/buscar`
+  usa `SearchSidebarFilters`. Candidato a borrar de `@rentar/ui` y de Claude Design en el próximo
+  sync (consultarlo con el PO). Sigue en `/design-system` con esa nota.
+- Quedan en `apps/web` (no en `@rentar/ui`): las secciones de la landing
+  (`components/landing/`), el motivo `ProcessLoopMotif` (mejorado: tokens, ícono de "Postulate",
+  órbita circular y estados `quieto`/`corriendo`/`pausado`) y `RevealAlEntrar`. Se borraron
+  `SearchBar`, la `PropertyCard` de la landing, `HowItWorks` y `useInView`.
+- **`Header` y `Footer`: el mismo contenedor que las páginas públicas** (aprobado por el PO): contenido
+  de hasta 1200 px (`--rentar-container-max`) más el margen lateral, que pasa de 1rem a 1.5rem desde
+  992 px (antes 640), como `/buscar`. Antes medían 72rem con el margen adentro: en 1440 px el logo
+  quedaba 48 px corrido respecto de `/buscar` y 24 px respecto de la landing. El `Footer` pone logo y
+  links en fila desde 768 px (antes 640). La API no cambia.
+
+## Tarea aparte: peso del JS común (Lighthouse móvil), para después del merge de la landing
+
+Decisión del PO (01/10/2026): no se resuelve en `feature/nuevo-landing`. Queda acá y en la
+descripción del PR de la landing.
+
+**Números** (build de producción en modo mock, Lighthouse 12 con el perfil móvil por defecto, Edge
+sin interfaz):
+
+| Página | Performance (simulado) | LCP simulado | Performance (estrangulamiento real) | JS transferido |
+|---|---|---|---|---|
+| `/` (landing) | 76–77 (3 corridas) | 6,0 s | 94 (LCP 1,8 s, CLS 0) | ~750 KB en 20 archivos |
+| `/login` | 76 | 5,9 s | — | ~746 KB |
+| `/buscar` | 72 | 6,9 s | — | ~757 KB |
+
+Accesibilidad, buenas prácticas y SEO dan 100 en la landing.
+
+**En modo real** (06/10/2026, build de producción contra la API local, Lighthouse 12.8.2, perfil
+móvil, Edge sin interfaz, mediana de 3): `/` da Performance 70 (69, 71 y 70), FCP 1,2 s, LCP 6,4 s,
+TBT 340 ms y CLS 0; accesibilidad, buenas prácticas y SEO, 100. Con el hero azul, el LCP pasó a ser
+la ilustración de la ciudad (`/landing/hero/ciudad-750.webp`), no el titular. "Recién publicadas"
+no pesa en el LCP: llega por streaming dentro de `Suspense` (el esqueleto a ~140 ms; las tarjetas
+cuando responde `/disponibles`, 7–10 s). Con estrangulamiento real (devtools, mismo día, mediana de
+3): Performance 87, FCP 2,07 s, LCP 2,08 s (la ilustración), TBT 412 ms y CLS 0.
+
+**Numeración de los RNF (para corregir aparte, 06/10/2026):** `docs/PRODUCT.md` no sigue la
+numeración del Estudio Inicial, que es la que manda para la cátedra. Por ejemplo, `PRODUCT.md` usa
+RNF-12 para "liviano en conexiones móviles" y RNF-10 para usabilidad, pero en el Estudio Inicial
+RNF-12 es "persistencia sobre Supabase" y RNF-10 es eficiencia de desempeño (búsqueda fluida en
+conexiones móviles estándar). El responsive es RNF-02 en los dos. Revisar todas las menciones de RNF
+en `PRODUCT.md` (y en `DESIGN.md`, si las hay) contra el Estudio Inicial.
+
+**Diagnóstico.** El LCP medido es el titular y coincide con el FCP (~0,2 s en local). La diferencia
+viene del método simulado: cuenta como dependencia del LCP todo pedido que no sea imagen y que haya
+empezado antes del pintado, y los ~750 KB de JS empiezan a bajar a los 35–90 ms. Ese JS es del
+armazón común (layout raíz, providers y Header), no de la landing: `/login` pesa lo mismo. Los
+chunks más grandes:
+- antd y sus dependencias (`@ant-design/cssinjs`, `@rc-component/*`, `rc-util`): ~205 KB
+  transferidos en el chunk principal más otros ~100 KB.
+- El cliente de Supabase (`@supabase/ssr`, GoTrueClient, realtime) junto con el store de mocks:
+  ~69 KB transferidos (262 KB sin comprimir). Se carga en todas las páginas, también en modo mock.
+- Las herramientas de desarrollo (`DevTools` → `RoleSwitcher` importado del barril de
+  `@rentar/ui`): ~32 KB. `DevTools` devuelve `null` en producción, pero el import estático lo
+  deja en el bundle.
+- `react-dom`: ~64 KB (no se puede sacar).
+
+**Desglose del LCP de `/`** (Lighthouse 12, perfil móvil, mediana; build de producción en modo mock,
+02/10/2026). El LCP es el H1 ("Alquilá directo con el dueño"):
+- **Observado** (la traza sin estrangular): TTFB 26 ms + retraso de render 195 ms = LCP 221 ms, igual
+  al FCP. Sin "load delay" ni "load time": es texto.
+- **Simulado:** TTFB 456 ms + retraso de render 5.867 ms = LCP 6,3 s (FCP simulado: 1,2 s). El modelo
+  simulado de Lighthouse (Lantern) cuenta como dependencia del LCP todo pedido que no sea imagen y
+  que arranque antes del pintado observado: 26 pedidos y 823 KB (el documento, la fuente, 4 hojas de
+  estilo y 20 scripts, que empiezan a bajar entre los 35 y los 90 ms). El FCP solo cuenta lo que
+  bloquea el render, por eso da 1,2 s. Con estrangulamiento real (devtools) el LCP es 1,9 s y
+  coincide con el FCP.
+- **Qué no lo retrasa (verificado):** la fuente (League Spartan con `next/font`, `display: 'swap'`,
+  precargada por la cabecera HTTP `Link`: sale a los 29 ms con prioridad alta y llega a los 38 ms)
+  y la hidratación (el H1 y el buscador están en el HTML inicial, antes del primer límite de
+  `Suspense`, y el H1 se pinta antes del DOMContentLoaded; no tiene animación de entrada).
+- **Qué marca el piso del pintado:** 4 hojas de estilo que bloquean el render (21 KB; Lighthouse
+  estima 456 ms de ahorro) y el CSS de antd en línea que mete el registry SSR (`AntdRegistry`) en el
+  `<head>`, antes del titular: 55 KB en `/`, 183 KB en `/login` y 201 KB en `/buscar` (el HTML de
+  `/` pesa 183 KB sin comprimir).
+- **Conclusión:** la landing y `HeroSearch` no demoran el titular; lo que pesa es del armazón común.
+
+**Propuesta de arreglo** (una rama aparte, con mediciones antes y después; los comandos y opciones están en la documentación de Next 16 instalada, `node_modules/next/dist/docs/01-app/02-guides/package-bundling.md`):
+1. **Supabase solo cuando hace falta.** En `lib/auth/AuthProvider.tsx`, `services/auth.service.ts`
+   y `services/propiedades.service.ts`, cambiar el import estático de `getSupabaseBrowserClient`
+   (y el de `isAuthApiError`/`isAuthRetryableFetchError` de `@supabase/supabase-js`) por
+   `await import('@/lib/auth/supabase/client')` dentro de las ramas reales (`USE_MOCKS === false`).
+   En modo mock no se baja nunca; en modo real sale del bundle inicial y llega después de hidratar.
+   Ahorro esperado: ~69 KB por página.
+2. **Herramientas de desarrollo fuera del bundle de producción.** En `lib/AppProviders.tsx`,
+   montar `DevTools` con `next/dynamic(() => import('@/components/dev/DevTools'), { ssr: false })`
+   y solo si `process.env.NODE_ENV !== 'production'`. En `DevTools.tsx`, importar `RoleSwitcher`
+   desde su archivo y no desde el barril. Ahorro esperado: ~32 KB.
+3. **antd en las páginas públicas.** Medir con el analizador de bundles (`next experimental-analyze`
+   en Next 16, o `@next/bundle-analyzer`). Después: en las páginas públicas, importar los componentes
+   de `@rentar/ui` desde sus archivos (el barril, con sus CSS modules, impide descartar lo que no se
+   usa), cargar el Drawer del menú móvil del Header recién al abrirlo y probar
+   `experimental.optimizePackageImports` con `antd`, `@ant-design/icons` y `@rentar/ui`.
+4. **CSS que bloquea el render.** Medir `experimental.inlineCss` (Next 16, documentado en
+   `node_modules/next/dist/docs/01-app/03-api-reference/05-config/01-next-config-js/inlineCss.md`):
+   cambia las 4 hojas por `<style>` en el `<head>`, a costa de que los que vuelven no las tengan en
+   caché. Y evaluar la extracción estática de los estilos de antd (`@ant-design/static-style-extract`,
+   documentada por antd 6) para servir un CSS cacheable de los componentes que usan las páginas
+   públicas, en vez de 55 a 201 KB de CSS en línea por página.
+5. **Precarga de la ilustración del hero, solo en `/`** (sumado el 02/10/2026, decisión del PO).
+   Con el hero azul, el LCP de `/` pasó a ser la ciudad ilustrada (`LandingHero`, ver
+   `apps/web/public/landing/IMAGES.md`): 2,35 s con estrangulamiento real (mediana de 3; antes, con
+   el titular, 2,25 s). Desglose con estrangulamiento real: TTFB ~40 ms, **load delay ~630 ms**,
+   load time 1,3–1,5 s (16 KB, compitiendo por la red con el CSS y el JS del armazón) y render delay
+   200–400 ms. El load delay viene de dónde está la `<img>`: en el **byte 61 K** de un HTML de
+   150 KB, justo después de un `<head>` de ~59 KB (casi todo CSS de antd en línea del registry SSR),
+   así que el escáner la encuentra tarde. Probar un `<link rel="preload" as="image" imagesrcset
+   media fetchpriority="high">` (uno por recorte: 1200/1600 desde 768 px y 480/750 por debajo) al
+   principio del `<head>`, solo para `/`, sin tocar el layout común. `preload()` de `react-dom`
+   desde el componente **no sirve**: la página es dinámica y esa precarga sale solo en el payload
+   RSC, después del `<head>` (probado). Bajar el CSS en línea (punto 4) también acerca la `<img>`
+   al principio del HTML.
+6. **Objetivo y verificación:** bajar el JS común de ~750 KB a menos de 450 KB transferidos, y
+   Performance simulado ≥ 90 en `/`, `/login` y `/buscar` (mediana de 3 corridas), sin romper la
+   sesión real (login, `/me`, logout) ni el modo mock.
+
 ## Re-sync del Sprint 1 desde SEM-Alq (2026-09-24)
 
 Primer re-sync desde este repo (camino atómico, anclado en el `_ds_sync.json` del proyecto).

@@ -1,4 +1,4 @@
-export { seed, colorScales, darkColorScales, typography, radii, spacing, shadows, zIndex } from './primitives'
+export { seed, colorScales, darkColorScales, typography, radii, spacing, shadows, zIndex, breakpoints, layout, motion } from './primitives'
 export type { ColorScale } from './primitives'
 export { light, dark } from './semantic'
 export type { SemanticColorKey, SemanticColors } from './semantic'

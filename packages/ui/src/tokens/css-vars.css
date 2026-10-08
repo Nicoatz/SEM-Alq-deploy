@@ -80,6 +80,12 @@
    * (ej. `rgba(var(--rentar-color-ink-rgb), 0.055)`). El color en sí queda
    * tokenizado; el número de opacidad es un valor de diseño legítimo, no
    * un color hardcodeado.
+   *
+   * NOTA: `--rentar-color-sky-rgb` vale 227, 242, 251, que es el celeste
+   * CLARO (`--rentar-color-sky-light`, #E3F2FB), no el celeste (#A0D1EF =
+   * 160, 209, 239). Corregirlo cambiaría el color de lo que ya lo usa
+   * ("Cómo funciona", el anillo de sus nodos y otras pantallas), así que
+   * queda como está: leelo como "celeste claro".
    */
   --rentar-color-ink-rgb: 18, 32, 46;
   --rentar-color-blue-rgb: 0, 77, 152;
@@ -94,12 +100,38 @@
   --rentar-radius-lg: 16px;
   --rentar-radius-xl: 24px;
 
-  /* Espaciado */
+  /* Espaciado (`2xl`: ritmo entre secciones de la landing en escritorio) */
   --rentar-spacing-xs: 0.5rem;
   --rentar-spacing-sm: 1rem;
   --rentar-spacing-md: 1.5rem;
   --rentar-spacing-lg: 2.5rem;
   --rentar-spacing-xl: 4rem;
+  --rentar-spacing-2xl: 6rem;
+
+  /* Tipografía: los tamaños de `typography` (primitives.ts), para el CSS propio */
+  --rentar-font-size-display: clamp(2.25rem, 4vw, 3rem);
+  /* El H1 de la landing desde 768 px (`typography.displayHero`); en móvil, display. */
+  --rentar-font-size-display-hero: clamp(2.25rem, 5vw, 4rem);
+  --rentar-font-size-headline: clamp(1.5rem, 3vw, 2.25rem);
+  --rentar-font-size-title: 1.125rem;
+  --rentar-font-size-body: 1rem;
+  --rentar-font-size-label: 0.875rem;
+
+  /* Layout: ancho máximo del contenido de la zona pública (arquetipo A1: 1200 px) */
+  --rentar-container-max: 75rem;
+
+  /*
+   * Movimiento (`motion` en primitives.ts). Solo se animan `transform` y
+   * `opacity`; con `prefers-reduced-motion` las animaciones se apagan o
+   * quedan en un fade corto (ver `apps/web/src/app/globals.css`).
+   */
+  --rentar-motion-duration-fast: 160ms;
+  --rentar-motion-duration-base: 240ms;
+  --rentar-motion-duration-slow: 400ms;
+  --rentar-motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --rentar-motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --rentar-motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --rentar-motion-stagger: 60ms;
 
   /* Sombras con nombre */
   --rentar-shadow-resting: 0 1px 2px 0 rgba(18, 32, 46, 0.05), 0 1px 3px 0 rgba(18, 32, 46, 0.06);

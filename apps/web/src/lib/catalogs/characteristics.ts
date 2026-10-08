@@ -6,7 +6,7 @@
  * TODO(backend): hoy el back tiene la tabla `tag_inmueble`; la equivalencia
  * id ↔ clave vive en `services/adapters/propiedad.adapter.ts`.
  *
- * Quién lo usa: el `SearchBar` de la landing, `/buscar` y el alta.
+ * Quién lo usa: el buscador de la landing (`lib/search/buscadorLanding.ts`), `/buscar` y el alta.
  */
 import type { CharacteristicKey, CharacteristicOption } from '@rentar/shared-types'
 

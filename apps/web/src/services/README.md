@@ -10,7 +10,7 @@ mocks ni llama a `fetch` directo**: llaman a una función de un service y recibe
 |---|---|---|
 | `auth.service.ts` | `login`, `logout` (Supabase Auth, no pasan por la API), `registrarUsuario` | US-39, US-19 |
 | `usuarios.service.ts` | `getUsuarioActual` (`GET /usuarios/me`: nombre y roles del usuario del token) | US-39 |
-| `propiedades.service.ts` | `listarPropiedadesPublicadas`, `buscarPropiedades`, `contarPropiedades`, `listarUbicaciones` | US-34 |
+| `propiedades.service.ts` | `listarPropiedadesPublicadas`, `listarPropiedadesRecientes` (landing), `buscarPropiedades`, `contarPropiedades`, `listarUbicaciones` | US-34 |
 | | `listarMisPropiedades` | US-02 |
 | | `registrarPropiedad`, `subirFotoPropiedad` (Supabase Storage, bucket `fotos-propiedades`) | US-01 |
 | | `cambiarEstadoPublicacion` (lista pero sin usar: es del sprint del detalle) | — |

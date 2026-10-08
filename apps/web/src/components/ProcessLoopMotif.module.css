@@ -1,4 +1,19 @@
+/*
+ * ProcessLoopMotif.module.css — el loop de 4 pasos con el punto dorado.
+ *
+ * Tiempos: un ciclo dura `--loop-duracion` (8 s si nadie lo define; "Cómo
+ * funciona" lo define en la sección para que la lista de pasos use el mismo
+ * valor). El punto arranca a -45° y llega a "Buscá" a 1/8 del ciclo; después
+ * llega a un nodo cada 1/4 de ciclo. El paso N (0 a 3) se activa a
+ * (1 + 2N)/8 del ciclo y queda activo 1/4 de ciclo, hasta el siguiente.
+ *
+ * Solo se animan `transform` y `opacity`. Las animaciones existen solo con
+ * `.corriendo` o `.pausado`: en `.quieto` (sin JS o antes de entrar en
+ * pantalla) el motivo queda quieto, con el punto entre Pagá y Buscá.
+ */
+
 .container {
+  --loop-duracion-motivo: var(--loop-duracion, 8s);
   position: relative;
   overflow: hidden;
   border-radius: var(--rentar-radius-xl);
@@ -12,83 +27,150 @@
 }
 
 .svg {
-  height: 100%;
+  display: block;
   width: 100%;
-  padding: 2rem;
+  height: 100%;
+  padding: var(--rentar-spacing-md);
 }
 
-.loopDot {
-  animation: loop-travel 8s linear infinite;
-  filter: drop-shadow(0 0 4px rgba(var(--rentar-color-gold-rgb), 0.9));
+/* ─── Piezas ──────────────────────────────────────────────────────────── */
+
+/* El celeste no cambia con el tema oscuro de /design-system: el motivo se ve igual en los dos. */
+.ring {
+  fill: none;
+  stroke: rgba(var(--rentar-color-sky-rgb), 0.35);
+  stroke-width: 2;
+  stroke-dasharray: 3 7;
+  stroke-linecap: round;
 }
 
-.loopNode {
+.nodeCircle {
+  fill: var(--rentar-color-sky-light);
+}
+
+.icon {
+  fill: none;
+  stroke: var(--rentar-color-blue);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.halo {
+  fill: rgba(var(--rentar-color-sky-rgb), 0.22);
+  opacity: 0;
+}
+
+/*
+ * El punto: dorado pleno con un borde celeste claro para despegarlo del azul.
+ * NOTA: no lleva brillo translúcido: el dorado al 30 % sobre el azul se veía gris.
+ */
+.dot {
+  fill: var(--rentar-color-money);
+  stroke: var(--rentar-color-sky-light);
+  stroke-width: 1.5;
+}
+
+/* Número de paso de cada nodo y su halo (lo usan los `animation-delay`). */
+.node0 {
+  --n: 0;
+}
+
+.node1 {
+  --n: 1;
+}
+
+.node2 {
+  --n: 2;
+}
+
+.node3 {
+  --n: 3;
+}
+
+/* El punto gira alrededor del centro del círculo (100, 100 en el viewBox). */
+.orbit {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+}
+
+.node {
   transform-box: fill-box;
   transform-origin: center;
-  animation: loop-pulse 8s ease-in-out infinite;
-}
-.loopNode0 {
-  animation-delay: 0s;
-}
-.loopNode1 {
-  animation-delay: 2s;
-}
-.loopNode2 {
-  animation-delay: 4s;
-}
-.loopNode3 {
-  animation-delay: 6s;
 }
 
-@keyframes loop-travel {
-  0% {
-    transform: translate(100px, 38px);
-  }
-  12.5% {
-    transform: translate(143.84px, 56.16px);
-  }
-  25% {
-    transform: translate(162px, 100px);
-  }
-  37.5% {
-    transform: translate(143.84px, 143.84px);
-  }
-  50% {
-    transform: translate(100px, 162px);
-  }
-  62.5% {
-    transform: translate(56.16px, 143.84px);
-  }
-  75% {
-    transform: translate(38px, 100px);
-  }
-  87.5% {
-    transform: translate(56.16px, 56.16px);
-  }
-  100% {
-    transform: translate(100px, 38px);
+/* ─── Animación ───────────────────────────────────────────────────────── */
+
+@keyframes recorrido {
+  to {
+    transform: rotate(360deg);
   }
 }
 
-@keyframes loop-pulse {
+/* El nodo late mientras el punto pasa por detrás: el pico cae justo en la llegada. */
+@keyframes latido {
   0%,
+  12%,
   100% {
     transform: scale(1);
   }
+
   6% {
-    transform: scale(1.16);
-  }
-  14% {
-    transform: scale(1);
+    transform: scale(1.12);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .loopDot {
-    animation: none;
-    transform: translate(100px, 38px);
+/* El halo se enciende cuando llega el punto y se apaga cuando llega al nodo siguiente. */
+@keyframes activo {
+  0% {
+    opacity: 0;
   }
-  .loopNode {
+
+  4%,
+  23% {
+    opacity: 1;
+  }
+
+  27%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.corriendo .orbit,
+.pausado .orbit {
+  /* Movimiento constante: `linear` (es un recorrido continuo, no una transición). */
+  animation: recorrido var(--loop-duracion-motivo) linear infinite;
+}
+
+.corriendo .node,
+.pausado .node {
+  animation: latido var(--loop-duracion-motivo) var(--rentar-motion-ease-in-out) infinite;
+  /* Arranca 6 % de ciclo antes de la llegada del punto, así el pico cae en la llegada. */
+  animation-delay: calc(var(--loop-duracion-motivo) * ((1 + 2 * var(--n)) / 8 - 0.06));
+}
+
+.corriendo .halo,
+.pausado .halo {
+  animation: activo var(--loop-duracion-motivo) ease infinite;
+  animation-delay: calc(var(--loop-duracion-motivo) * (1 + 2 * var(--n)) / 8);
+}
+
+/* Fuera de pantalla: todo congelado donde estaba (al volver, sigue desde ahí). */
+.pausado .orbit,
+.pausado .node,
+.pausado .halo {
+  animation-play-state: paused;
+}
+
+/* Movimiento reducido: sin loop; el punto queda quieto entre Pagá y Buscá. */
+@media (prefers-reduced-motion: reduce) {
+  .corriendo .orbit,
+  .pausado .orbit,
+  .corriendo .node,
+  .pausado .node,
+  .corriendo .halo,
+  .pausado .halo {
     animation: none;
   }
 }

@@ -163,7 +163,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | Supabase Auth `signInWithPassword` / `signOut` | `/login`, UserMenu | **Conectado** |
 | `GET /usuarios/me` | Sesión (login y recarga) | **Conectado** |
 | `POST /registrar-usuario` | `/registro` | **Conectado** (sin `rol`: el back registra locatario) |
-| `GET /inmuebles/disponibles` | `/buscar`, landing | **Parcial**: desde el 29/09 ignora casi todos los filtros, el orden y la paginación; el front trae todas y filtra, ordena y pagina en el cliente (sección 7) |
+| `GET /inmuebles/disponibles` | `/buscar`, landing | **Conectado**: desde ce677a4 (29/09) filtra, ordena y pagina (probado el 06/10). La landing pide `limit=6`; `/buscar` todavía trae todas y filtra en el cliente (sección 7). Tarda 7–10 s |
 | `GET /inmuebles/disponibles/:id` | — | Existe (antes `GET /inmuebles/:id`); el front ya no la usa: el listado trae lo que muestra la tarjeta |
 | `GET /mis-alquileres` | `/panel/propiedades`, conteos de `/panel` | **Parcial**: desde el 29/09 trae locatario, próximo ajuste y si tiene reclamos sin resolver (el front los suma en el próximo PR); siguen faltando pagos y fecha de alta |
 | `POST /inmuebles` | Alta | **Conectado** (29/09): alta real de punta a punta desde la pantalla, con fotos en Storage; cualquier rol, y suma el rol locador |
@@ -212,17 +212,20 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 ### US-34 Consultar propiedades a alquilar
 
-Desde el 29/09 (`develop` a00f099, "Emparejar inmueble service con repository") `/disponibles` usa
-un repositorio nuevo que ignora casi todos los filtros y la paginación. Por eso el front trae todas
-las disponibles y filtra, ordena y pagina en el cliente, con las mismas reglas que el modo mock
-(`propiedades.service.ts#buscarPropiedades`, con `TODO(backend)`). El mapeo de la URL de `/buscar` a
-los params del back (`consultaDeDisponibles`) se sacó; está en la historia (commit 60f8c63) para
-cuando el back vuelva a respetar los filtros.
+Desde ce677a4 (29/09) `/disponibles` vuelve a aplicar los filtros, el orden y la paginación
+(`page`/`limit`, tope 1000), con el id descendente como orden de base. Probado contra la API real el
+06/10/2026 con 11 disponibles: precio, dormitorios, ambientes, superficie, tags, índice, barrio,
+tipo, `orden=m2` y `page=2&limit=4` responden lo esperado. La landing ya lo usa ("Recién publicadas"
+pide `?page=1&limit=6`). `/buscar` todavía trae todas y filtra, ordena y pagina en el cliente
+(`propiedades.service.ts#buscarPropiedades`, con `TODO(backend)`); pasarla al back queda para
+`feature/vistas`, con el mapeo de la URL a los params (`consultaDeDisponibles`, commit 60f8c63).
 
 | Brecha | Dueño |
 |---|---|
-| **`/disponibles` ignora los filtros:** `buscarDisponibles` solo aplica `barrio` (igual exacto, antes "contiene") y `tipo`. Ignora `precioMin`/`precioMax`, `dormitorios`, `ambientes`, `superficieMin`/`superficieMax`, `tags`, `indiceAjuste`, `orden`/`direccion` y `page`/`limit`: siempre devuelve todas con `page: 1` y `limit` = cantidad. El controller los sigue leyendo y el Swagger los documenta. Probado el 29/09: `?dormitorios=1&page=2&limit=1` devuelve las 2 disponibles. | backend (Thiago) |
-| **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Con 2 propiedades, `/disponibles` tarda ~2,7 s. Con más, va a crecer lineal. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
+| ~~**`/disponibles` ignora los filtros**~~ **Resuelto (ce677a4, 29/09; probado el 06/10).** | — |
+| **`barrio` filtra por nombre exacto** (`General Paz`); con el slug que usa el front (`general-paz`) da 0. Propuesta: cuando `/buscar` filtre en el back, el front traduce el slug al nombre (el catálogo de barrios es del front). | front |
+| **"4 o más" dormitorios o ambientes:** `dormitorios` y `ambientes` son igual exacto. Sumar un filtro de mínimo (por ejemplo `dormitoriosMin` y `ambientesMin`). | backend |
+| **Consultas por item:** `getInmueblesDisponibles` (y `/mis-alquileres`) hacen, por cada inmueble y una atrás de otra, consultas de tipo, contrato, índice, tags y fotos. Medido el 06/10: con `limit=6` tarda 7–10 s, y con las 11 disponibles, ~13 s. Traerlo en una consulta con los embebidos (como el repositorio del 26/09). | backend |
 | ~~Expensas sin contrato~~ **Resuelto (29/09, `develop` 8f9bf8c y ce677a4):** el detalle manda `null` sin contrato y el listado vuelve a pedir contrato, así que su `0` es real. El front muestra `0` como "Sin expensas" y `null` (o un `-1` viejo) vacío, nunca "$0". | — |
 | ~~Nombre del estado "alquilada con fecha"~~ **Resuelto (29/09, `develop` 2264372):** el back normalizó todo a `'publicado/alquilado'` (validación, `EstadoAlquiler`, `/disponibles`, `/mis-alquileres`, con migración). El alta manda `publicado/alquilado` para una alquilada con fecha y `alquilado` sin fecha; la lectura también acepta `alquilado` + fecha, por las viejas. | — |
 | El item no trae `estado_alquiler`: el front muestra "Disponible desde" si tiene `fecha_disponible`. | backend |
@@ -324,6 +327,8 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Archivos del bucket `fotos-propiedades` del inmueble 8 | los 3 de `foto_inmueble` 22 a 24 (carpeta `6ac3e808-…`, del usuario 20) | `storage.objects` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
+| Inmuebles con datos que no son verosímiles (vistos en la prueba de la landing, 06/10): **17** ($ 1.000.000.000 por mes, 10 m²) y **13** (PH de 20 ambientes y 15 dormitorios, dirección "bispo Trejo al 1200"). Corregir o borrar | inmuebles **13 y 17** | `inmueble`, `contrato` y asociadas |
+| Fotos repetidas de personas reales: la misma foto (carpeta `3e12c119-…`) es la principal de los inmuebles **12, 13, 15, 16 y 17**. El repo es público y la landing las muestra: reemplazarlas por fotos de ambientes | `foto_inmueble` de esos 5 inmuebles | `foto_inmueble` y `storage.objects` |
 
 ## 10. Observaciones para backend
 
@@ -347,10 +352,14 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    `.gitignore`.
 7. **`.gitignore` no ignora `apps/api/node_modules`** (hoy no hay nada trackeado ahí, pero ya pasó
    una vez).
-8. **El `package.json` raíz vuelve a declarar dependencias** (`next ^16.3.6`, `@supabase/ssr` y
-   `@supabase/server`, commits 041bea0 y ead9eb8) sin actualizar `package-lock.json`. En el #3 se
-   sacaron de ahí para tener una sola copia de Next (la de `apps/web`, 16.3.5 exacta): el próximo
-   `npm install` puede volver a traer dos. No se tocó desde el front (lo habla el PO con Thiago).
+8. ~~**El `package.json` raíz vuelve a declarar dependencias**~~ **Resuelto (06/10, en
+   `feature/nuevo-landing`, a pedido de Thiago; commit 16f6bbc).** El raíz declaraba `next ^16.3.6`,
+   `@supabase/ssr` y `@supabase/server` (041bea0 y ead9eb8) sin actualizar el lock: `npm ci` fallaba
+   y un `npm install` traía Next 16.4.0 además de 16.3.5. Además, en la raíz convivían `react`
+   19.3.0 y `react-dom` 19.2.8 (500 en `/propiedad/[id]` con `next dev`). Se sacaron las tres del
+   raíz (cada paquete declara lo que usa; `@supabase/server` no lo importa nadie) y se fijaron
+   `react` y `react-dom` en 19.2.8 con `overrides`. **Después de traer el cambio: borrar
+   `node_modules` y correr `npm ci`.**
 
 ### Pendientes del front anotados en el QA de `develop` (30/09)
 
@@ -405,7 +414,8 @@ sesión dura hasta cerrarla).
 
 | Pantalla | `data-testid` |
 |---|---|
-| Header y landing | Sin sesión: `header-login-button`, `header-publish-button`, `header-drawer-login-button`, `header-drawer-publish-button`. Con sesión (29/09): `header-panel-button`, `header-user-menu` (adentro, `user-menu-item-panel`, `user-menu-item-publicar`, `user-menu-item-perfil` y `user-menu-logout`), `header-drawer-panel`, `header-drawer-publish-button`, `header-drawer-logout`; mientras se confirma la sesión, `header-session-pending`. Con sesión NO están `header-login-button`, `header-publish-button` ni `header-drawer-login-button`. Siempre: `header-menu-toggle`, `hero-search-cta`, `search-*` (buscador), `search-result-count`, `landing-more-properties-button`, `property-card-detail-button` |
+| Header y landing | Sin sesión: `header-login-button`, `header-publish-button`, `header-drawer-login-button`, `header-drawer-publish-button`. Con sesión (29/09): `header-panel-button`, `header-user-menu` (adentro, `user-menu-item-panel`, `user-menu-item-publicar`, `user-menu-item-perfil` y `user-menu-logout`), `header-drawer-panel`, `header-drawer-publish-button`, `header-drawer-logout`; mientras se confirma la sesión, `header-session-pending`. Con sesión NO están `header-login-button`, `header-publish-button` ni `header-drawer-login-button`. Siempre: `header-menu-toggle` |
+| Landing (`/`) | Buscador: `landing-buscador` (el formulario), `landing-buscador-barrio`, `landing-buscador-tipo`, `landing-buscador-precio-min`, `landing-buscador-precio-max`, `landing-buscador-dorm` (desde 768 px), `landing-buscador-submit`, `landing-buscador-mas-filtros` (abre y cierra), `landing-buscador-mas-filtros-contador`, `landing-buscador-mas-filtros-panel`, `landing-buscador-mas-filtros-cerrar` (móvil), `landing-buscador-dorm-movil-<todos\|1\|2\|3\|4>` (móvil), `landing-buscador-amb-<todos\|1\|2\|3\|4>`, `landing-buscador-tag-<clave>`, `landing-buscador-m2-min`, `landing-buscador-m2-max`, `landing-buscador-indice-<todos\|IPC\|ICL>`, `landing-buscador-limpiar`, `landing-buscador-mas-filtros-buscar`, `landing-buscador-chip-<barrio>`. Recién publicadas: `landing-recientes`, `landing-ver-todas`, `landing-tarjeta`, `landing-cargando`, `landing-sin-propiedades`, `landing-sin-propiedades-publicar`, `landing-error`, `landing-reintentar`. Resto: `landing-barrios`, `landing-barrio-<barrio>`, `landing-como-funciona`, `landing-como-funciona-paso-<1..4>`, `landing-publicar` |
 | `/login` | `auth-revisando-sesion` (con sesión, mientras redirige; también en `/registro`), `login-email-input`, `login-password-input`, `login-submit-button`, `login-error-alert`, `login-register-link`, `login-forgot-link`, `login-forgot-link-mobile`, `auth-server-error`, `auth-retry-button` |
 | `/registro` | `registro-login-link`, `registro-<campo>-input`, `registro-terminos-checkbox`, `registro-submit-button`, `registro-email-taken-alert`, `registro-error-alert`, `registro-success`, `registro-success-buscar`, `registro-success-publicar`, `registro-email-simulado`, `auth-server-error`, `auth-retry-button`. Borrados el 27/09 (registro en un paso, sin rol): `registro-rol-locador`, `registro-rol-locatario`, `registro-continuar-button`, `registro-back-button`, `registro-success-cta`, `registro-success-panel-link` |
 | `/buscar` | `buscar-resultados`, `buscar-tarjeta`, `buscar-conteo`, `buscar-orden`, `buscar-paginacion`, `buscar-mostrando`, `buscar-sin-resultados`, `buscar-error`, `buscar-reintentar`, `buscar-abrir-filtros`, `buscar-drawer-ver`, `search-sidebar-*` / `search-drawer-*` (filtros) |
@@ -417,6 +427,31 @@ sesión dura hasta cerrarla).
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
+
+### Landing nueva: testids viejos → nuevos (01/10/2026)
+
+La landing se rehízo (rama `feature/nuevo-landing`) y sus testids pasaron a un set nuevo en español
+con el prefijo `landing-` (decisión del PO). `<barrio>` es el slug del catálogo (`nueva-cordoba`,
+`guemes`, `centro`, `general-paz`, `cofico`, `alta-cordoba`).
+
+| Antes | Ahora |
+|---|---|
+| `hero-search-cta` | `landing-buscador-submit` |
+| `hero-how-it-works-cta` | Se sacó: "Cómo funciona" está en el Header y el Footer (`/#como-funciona`). La sección es `landing-como-funciona`. |
+| `search-neighborhood-select` | `landing-buscador-barrio` (select nativo). Los atajos de barrio: `landing-buscador-chip-<barrio>`. |
+| `search-type-select` | `landing-buscador-tipo` |
+| `search-price-min-input`, `search-price-max-input`, `search-price-slider` | `landing-buscador-precio-min`, `landing-buscador-precio-max` (selects con montos fijos; ya no hay slider) |
+| `search-bedrooms-select` | `landing-buscador-dorm` (desde 768 px); en móvil, `landing-buscador-dorm-movil-<valor>` dentro de "Más filtros" |
+| `search-characteristics-chips` | `landing-buscador-tag-<clave>` (casillas dentro de "Más filtros") |
+| `search-result-count` | Se sacó: la landing ya no filtra ni cuenta, lleva a `/buscar` (`buscar-conteo`). |
+| `landing-more-properties-button` | `landing-ver-todas` |
+| `property-card-detail-button` | `landing-tarjeta` (la tarjeta de `/buscar`: la tarjeta entera es el link) |
+| `landing-error`, `landing-reintentar` | Sin cambios |
+
+Nuevos, sin equivalente anterior: `landing-buscador`, `landing-buscador-mas-filtros*`,
+`landing-buscador-amb-<valor>`, `landing-buscador-m2-min` / `-max`, `landing-buscador-indice-<valor>`,
+`landing-buscador-limpiar`, `landing-recientes`, `landing-cargando`, `landing-sin-propiedades*`,
+`landing-barrios`, `landing-barrio-<barrio>`, `landing-como-funciona-paso-<n>` y `landing-publicar`.
 
 ## 13. Tipos compartidos
 
@@ -439,3 +474,10 @@ Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
 - Recuperar contraseña (US-40) y perfil (US-20, US-21).
 - Panel del locatario (hoy un placeholder).
 - Cobros, reclamos, contratos y notificaciones de verdad.
+- **Accesibilidad, para `feature/vistas`** (las marcó Lighthouse el 02/10/2026; no son de la
+  landing):
+  - `/login`: el ícono de mostrar contraseña del `Input.Password` de antd es un objetivo táctil
+    chico (`target-size`).
+  - `/buscar`: el texto de la paginación (`paginationText` en `Buscar.module.css`) no llega al
+    contraste mínimo, y los links de la paginación de antd no son rastreables (`crawlable-anchors`,
+    SEO).

@@ -1,0 +1,233 @@
+/* Recientes.module.css — "Recién publicadas": encabezado, carril/grilla, esqueleto y estados. */
+
+/* Contenido de hasta 1200 px más el margen lateral (el mismo contenedor que el Header y /buscar). */
+.section {
+  max-width: calc(var(--rentar-container-max) + 2 * var(--rentar-spacing-md));
+  margin: 0 auto;
+  padding: var(--rentar-spacing-xl) var(--rentar-spacing-sm);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rentar-spacing-sm);
+  margin-bottom: var(--rentar-spacing-md);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--rentar-font-size-headline);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+  color: var(--rentar-color-text-primary);
+  text-wrap: balance;
+}
+
+.verTodas {
+  flex-shrink: 0;
+  font-size: var(--rentar-font-size-label);
+  font-weight: 600;
+  color: var(--rentar-color-blue);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.25em;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .verTodas:hover {
+    color: var(--rentar-color-blue-dark);
+  }
+}
+
+/* ─── Carril (móvil) y grilla (desde 768 px) ──────────────────────────── */
+
+/*
+ * En móvil, un carril que se desliza de costado (la página no se alarga con
+ * 6 tarjetas apiladas). El padding deja lugar al anillo de foco de la tarjeta.
+ */
+.grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 85%;
+  gap: var(--rentar-spacing-sm);
+  margin: 0 calc(-1 * var(--rentar-spacing-sm));
+  padding: var(--rentar-spacing-xs) var(--rentar-spacing-sm) var(--rentar-spacing-sm);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--rentar-spacing-sm);
+  list-style: none;
+}
+
+.item,
+.skeletonCard {
+  min-width: 0;
+  scroll-snap-align: start;
+}
+
+/* Las tarjetas de una fila quedan del mismo alto. */
+.item > * {
+  height: 100%;
+}
+
+/* Las tarjetas aparecen con un fade corto cuando llegan (reemplazan al esqueleto). */
+@keyframes cardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rentar-spacing-xs));
+  }
+}
+
+.item {
+  animation: cardEnter var(--rentar-motion-duration-slow) var(--rentar-motion-ease-out) backwards;
+}
+
+.item:nth-child(2) {
+  animation-delay: var(--rentar-motion-stagger);
+}
+
+.item:nth-child(3) {
+  animation-delay: calc(var(--rentar-motion-stagger) * 2);
+}
+
+.item:nth-child(4) {
+  animation-delay: calc(var(--rentar-motion-stagger) * 3);
+}
+
+.item:nth-child(5) {
+  animation-delay: calc(var(--rentar-motion-stagger) * 4);
+}
+
+.item:nth-child(6) {
+  animation-delay: calc(var(--rentar-motion-stagger) * 5);
+}
+
+/* ─── Esqueleto ───────────────────────────────────────────────────────── */
+
+@keyframes pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.skeletonCard {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.skeletonImage {
+  aspect-ratio: 4 / 3;
+  border-radius: calc(var(--rentar-radius-lg) - 1px) calc(var(--rentar-radius-lg) - 1px) 0 0;
+  background: rgba(var(--rentar-color-ink-rgb), 0.06);
+}
+
+/* Alto reservado: el mismo que el cuerpo de la tarjeta real (CLS). */
+.skeletonBody {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--rentar-spacing-xs) * 1.25);
+  min-height: 15rem;
+  padding: var(--rentar-spacing-sm);
+}
+
+.skeletonLine {
+  display: block;
+  width: 60%;
+  height: 0.75rem;
+  border-radius: var(--rentar-radius-pill);
+  background: rgba(var(--rentar-color-ink-rgb), 0.06);
+}
+
+.skeletonPrice {
+  width: 45%;
+  height: 1.5rem;
+}
+
+.skeletonWide {
+  width: 85%;
+}
+
+.skeletonShort {
+  width: 35%;
+}
+
+/* ─── Error ───────────────────────────────────────────────────────────── */
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--rentar-spacing-xs);
+  padding: var(--rentar-spacing-lg) var(--rentar-spacing-md);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+  text-align: center;
+}
+
+.errorIcon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-status-error-bg);
+  color: var(--rentar-color-error);
+  font-size: var(--rentar-font-size-title);
+}
+
+.errorTitle {
+  font-size: var(--rentar-font-size-title);
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  max-width: 22rem;
+  margin-bottom: calc(var(--rentar-spacing-xs) / 2);
+  font-size: var(--rentar-font-size-label);
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── 768 px (breakpoints.md): grilla de 2; 992 px (breakpoints.lg): de 3 ── */
+
+@media (min-width: 768px) {
+  .section {
+    padding: var(--rentar-spacing-2xl) var(--rentar-spacing-sm);
+  }
+
+  .grid {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--rentar-spacing-md);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+}
+
+@media (min-width: 992px) {
+  .section {
+    padding-inline: var(--rentar-spacing-md);
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ─── Movimiento reducido: sin entradas ni pulso ──────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .item,
+  .skeletonCard {
+    animation: none;
+  }
+}
