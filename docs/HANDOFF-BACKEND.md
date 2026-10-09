@@ -17,6 +17,7 @@ respuesta: [`api-endpoints.md`](api-endpoints.md).
 | US-34 Consultar propiedades a alquilar | Búsqueda con filtros, orden y paginación, y la landing | `/buscar`, `/` | Parcial (faltan datos en `/disponibles`) |
 | US-02 Consultar mis propiedades | Listado del locador | `/panel/propiedades` | Parcial (faltan locatario, pagos, reclamos) |
 | US-01 Registrar mis propiedades | Alta en 5 pasos, para cualquier usuario con sesión | `/panel/propiedades/nueva` | Parcial (espera el bucket de fotos y el cambio de roles de Thiago) |
+| US-04 Eliminar mis propiedades | Baja lógica de una propiedad (solo back; falta el botón en el detalle) | — | Back sin probar |
 | — (inicio del locador) | Panel de inicio | `/panel` | Parcial (conteos reales; el resto, vacío) |
 | — (inicio del locatario) | Versión mínima: buscar o publicar | `/panel` | No usa datos del back (solo el nombre) |
 
@@ -172,6 +173,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
 | `GET /panel/cobros`, `/panel/reclamos`, `/panel/contratos`, `/solicitudes` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
+| `DELETE /inmuebles/:id` | Detalle (sprint 2, US-04) | **Existe en el back (09/10, sin probar)**: baja lógica (`activo = false`) del inmueble y de sus contratos; 409 si está alquilado. El front no lo usa todavía |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 
 ## 6. Status HTTP y errores
@@ -246,7 +248,26 @@ pide `?page=1&limit=6`). `/buscar` todavía trae todas y filtra, ordena y pagina
 | En el inmueble 1, `precio_publicado` es $360.000 y `contrato.monto_alquiler`, $350.000. El front muestra el publicado para las no alquiladas y el del contrato para las alquiladas: confirmar cuál manda. | backend / db |
 | ~~**`/mis-alquileres` de `locador@rentar.com` responde 400**~~ **Arreglado en código (30/09, sin probar contra la API; falta confirmar en `develop`):** el error era "JSON object requested, multiple (or no) rows returned". `contrato.repository#getLocatarioByContratoId` usaba `maybeSingle()` sobre `contrato_x_usuario` (`tipo_firmante = 2`) y, con los firmantes duplicados del contrato 2, traía dos filas y fallaba **toda la lista**. Ahora usa `limit(1)`. Además, `contrato.repository#findByInmuebleId` tenía el mismo problema con `maybeSingle()` si un inmueble tenía más de un contrato: ahora trae todos y devuelve el más reciente que no esté finalizado (estado 3) o, si no hay, el último. Esto también alcanza a `/inmuebles/disponibles` y su detalle, que usan la misma función. | — |
 | El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario`. Ya no rompe la API, pero son datos sucios: borrar las filas repetidas. | db |
-| `contrato.repository#deleteByInmuebleId` (al borrar un inmueble) borra solo un contrato si el inmueble tiene varios: antes fallaba sin borrar ninguno. Decidir si debe borrarlos todos. | backend |
+| ~~`contrato.repository#deleteByInmuebleId` borra solo un contrato si el inmueble tiene varios~~ **Ya no aplica (09/10):** eliminar un inmueble es una baja lógica (`eliminar_inmueble_logico`) que finaliza e inactiva **todos** sus contratos; `inmueble.service#delete` ya no llama a `deleteByInmuebleId`. | — |
+
+### US-04 Eliminar mis propiedades
+
+Cambio del back del 09/10 (sin probar contra la API; el front todavía no tiene el botón).
+
+| Qué hace | Detalle |
+|---|---|
+| `DELETE /inmuebles/:id` | Bearer + rol `locador`. Llama a la función SQL `eliminar_inmueble_logico(p_id_inmueble, p_id_locador)` (migración `20261009000000_us04_eliminacion_logica_inmueble.sql`), que bloquea la fila, valida y actualiza en una sola transacción. |
+| Baja lógica | El inmueble queda `activo = false` y sus contratos `estado = 3` (finalizado) y `activo = false`. No se borra ninguna fila (fotos, tags y reclamos se conservan). |
+| Regla de negocio | Solo se elimina un inmueble `publicado` o `pausado`. Uno `alquilado` o `publicado/alquilado` da 409: "No se puede eliminar un inmueble que está alquilado." |
+| Respuestas | 200 éxito, 400 id inválido, 401 sin sesión, 403 si el inmueble es de otro locador, 404 si no existe o ya estaba inactivo, 409 por el estado. El front las trata según la sección 6 (el 409 es `conflict`). |
+| Qué ocultan los listados | Con `activo = false` el inmueble sale de `/inmuebles/disponibles`, del detalle público, de `/mis-alquileres` y de los barrios del locador; y `/inmuebles/disponibles` también descarta inmuebles con contrato inactivo o finalizado. |
+
+| Brecha | Dueño |
+|---|---|
+| ~~Faltaba la columna `activo`~~ **Resuelto (09/10):** la migración `20261009000000_us04_eliminacion_logica_inmueble.sql` ahora agrega `activo BOOLEAN NOT NULL DEFAULT TRUE` a `inmueble` y a `contrato` (con `IF NOT EXISTS`). En la base real las columnas se crearon a mano en el SQL Editor y se verificó con `information_schema.columns`. | — |
+| ~~Un inmueble dado de baja se podía leer y editar~~ **Resuelto (09/10, sin probar):** `inmueble.repository#findById`, `findAll` y `contrato.repository#findByInmuebleId` filtran por `activo`, y `inmueble.service#update` responde 404 si el inmueble no existe o está inactivo. Falta que `PUT /inmuebles/:id` valide que el inmueble sea del locador que lo edita. | backend |
+| El comentario Swagger de `DELETE /inmuebles/:id` en `inmuebles.routes.ts` tiene el formato roto (restos de ``` en cada línea) y no se va a renderizar en `/api/v1/docs`. | backend |
+| La US-04 no tiene archivo en `Documentación/md/US/` (solo está en el Sprint 0): faltan los criterios de aceptación para confirmar la regla de "no eliminar si está alquilado". | PO / backend |
 
 ### US-01 Registrar mis propiedades
 
@@ -344,7 +365,8 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    manda `x-user-id`, que el middleware ya no lee (todos sus pedidos dan 401), y escribe en la base.
 4. **El manejador de errores responde 400 por defecto** (`errorHandler`), también para errores de
    la base o de Supabase que no son culpa del usuario. Debería ser 500 salvo que el error traiga su
-   status. Y el texto de `error` se muestra tal cual: tiene que estar en español.
+   status. Ojo: los `throw new Error(...)` de los services sin `statusCode` (p. ej. `validarReglasUS01`)
+   dependen de ese 400; ponerles el status antes de cambiar el default. Pendiente para otra tarea. Y el texto de `error` se muestra tal cual: tiene que estar en español.
 5. **Lockfile (resuelto en esta rama):** `package-lock.json` traía solo `@esbuild/linux-x64` y
    `dev:api` no arrancaba en Windows; se rearmó con los binarios de todas las plataformas (tsx pasó
    de 4.23.13 a 4.23.15, patch). También quedó una sola copia de Next (16.3.5) y de `react-dom`.
@@ -389,7 +411,7 @@ Equivalencias:
 
 | Mapa de diseño | Sprint 0 |
 |---|---|
-| US-01, US-02, US-19, US-34 | iguales |
+| US-01, US-02, US-04, US-19, US-34 | iguales |
 | US-35 Consultar detalle de publicación | sin US en Sprint 0 (`/propiedad/[id]`, placeholder) |
 | US-36 a US-39 (solicitudes) | US-35 a US-38 |
 | US-40 Publicar o pausar propiedad | sin US en Sprint 0 |
@@ -469,7 +491,7 @@ Nuevos, sin equivalente anterior: `landing-buscador`, `landing-buscador-mas-filt
 
 - Subida de fotos al bucket y alta completa desde la pantalla (sección 8).
 - Detalle de la propiedad del locador (`/panel/propiedades/[id]`) con editar (US-03), eliminar
-  (US-04) y publicar/pausar (`cambiarEstadoPublicacion` ya está en el service, sin usar).
+  (US-04; el back ya tiene `DELETE /inmuebles/:id`) y publicar/pausar (`cambiarEstadoPublicacion` ya está en el service, sin usar).
 - Detalle público (`/propiedad/[id]`) y solicitudes (US-35 a US-38).
 - Recuperar contraseña (US-40) y perfil (US-20, US-21).
 - Panel del locatario (hoy un placeholder).

@@ -178,9 +178,14 @@ export class InmuebleController {
     }
   }
 
-  async delete(req: Request, res: Response<ApiResponse<null>>, next: NextFunction): Promise<void> {
+  async delete(
+    req: Request,
+    res: Response<ApiResponse<null>>,
+    next: NextFunction
+  ): Promise<void> {
     try {
       const id = parseInt(req.params.id, 10);
+  
       if (isNaN(id)) {
         res.status(400).json({
           success: false,
@@ -188,8 +193,19 @@ export class InmuebleController {
         });
         return;
       }
-
-      const eliminado = await inmuebleService.delete(id);
+  
+      const user = (req as any).user;
+  
+      if (!user) {
+        res.status(401).json({
+          success: false,
+          error: 'No autorizado.'
+        });
+        return;
+      }
+  
+      const eliminado = await inmuebleService.delete(id, user.id);
+  
       if (!eliminado) {
         res.status(404).json({
           success: false,
@@ -197,7 +213,7 @@ export class InmuebleController {
         });
         return;
       }
-
+  
       res.status(200).json({
         success: true,
         message: 'Inmueble eliminado correctamente.'
@@ -206,6 +222,7 @@ export class InmuebleController {
       next(error);
     }
   }
+
 }
 
 export const inmuebleController = new InmuebleController();

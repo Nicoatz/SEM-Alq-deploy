@@ -8,7 +8,6 @@ export interface IContratoRepository {
   getMediosPagoByContratoId(contratoId: number): Promise<MedioPagoDTO[]>;
   getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null>;
   delete(id: number): Promise<boolean>;
-  deleteByInmuebleId(inmuebleId: number): Promise<boolean>;
 }
 
 export class ContratoRepository implements IContratoRepository {
@@ -23,6 +22,7 @@ export class ContratoRepository implements IContratoRepository {
       .from('contrato')
       .select('*')
       .eq('id_inmueble', inmuebleId)
+      .eq('activo', true)
       .order('id', { ascending: false });
     if (error) throw error;
 
@@ -32,6 +32,8 @@ export class ContratoRepository implements IContratoRepository {
     const contratos = (data ?? []) as ContratoDTO[];
     return contratos.find(c => c.estado !== 3) ?? contratos[0] ?? null;
   }
+
+  
 
   async create(
     data: Omit<ContratoDTO, 'id'>,
@@ -81,11 +83,6 @@ export class ContratoRepository implements IContratoRepository {
       .eq('id', id);
     if (error) throw error;
     return (count ?? 0) > 0;
-  }
-
-  async deleteByInmuebleId(inmuebleId: number): Promise<boolean> {
-    const contrato = await this.findByInmuebleId(inmuebleId);
-    return contrato ? this.delete(contrato.id) : false;
   }
 }
 

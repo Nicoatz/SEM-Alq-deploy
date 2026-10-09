@@ -193,20 +193,27 @@ export class InmuebleService {
   }
 
   async update(id: number, data: UpdateInmuebleDTO): Promise<InmuebleDTO | null> {
+    // US-03: solo se modifica un inmueble que existe y está activo. `findById` ya excluye
+    // los dados de baja (US-04), así que uno eliminado se informa como inexistente (404).
     const existing = await this.inmRepo.findById(id);
     if (!existing) {
-      throw new Error(`Inmueble con ID ${id} no encontrado.`);
+      const error = new Error(`Inmueble con ID ${id} no encontrado.`);
+      Object.assign(error, { statusCode: 404 });
+      throw error;
     }
     return await this.inmRepo.update(id, data);
   }
 
-  async delete(id: number): Promise<boolean> {
-    const existing = await this.inmRepo.findById(id);
-    if (!existing) {
-      throw new Error(`Inmueble con ID ${id} no encontrado.`);
+  async delete(id: number, idLocador: number): Promise<boolean> {
+    const resultado = await this.inmRepo.eliminarLogicamente(id, idLocador);
+  
+    if (!resultado.success) {
+      const error = new Error(resultado.message);
+      Object.assign(error, { statusCode: resultado.statusCode });
+      throw error;
     }
-    await this.contRepo.deleteByInmuebleId(id);
-    return await this.inmRepo.delete(id);
+  
+    return true;
   }
 
   /**

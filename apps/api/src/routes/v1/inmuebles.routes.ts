@@ -158,6 +158,55 @@ router.put(
   inmuebleController.update.bind(inmuebleController)
 );
 
+/**
+ * @openapi
+ * /api/v1/inmuebles/{id}:
+ *   delete:
+ *     summary: Eliminar lógicamente un inmueble (US-04)
+ *     description: |
+ *       Inactiva un inmueble sin eliminarlo físicamente de la base de datos.
+ *       Los contratos asociados se marcan como finalizados (estado 3) e inactivos.
+ *       Solo puede realizar esta operación el locador propietario del inmueble.
+ *       No se permite eliminar inmuebles en estado alquilado o publicado/alquilado.
+ *     tags:
+ *       - Inmuebles
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Identificador del inmueble.
+ *     responses:
+ *       200:
+ *         description: Inmueble eliminado correctamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Inmueble eliminado correctamente.
+ *       400:
+ *         description: ID inválido.
+ *       401:
+ *         description: No autorizado. Se requiere un token válido.
+ *       403:
+ *         description: El usuario no tiene permiso para eliminar este inmueble o no posee el rol locador.
+ *       404:
+ *         description: Inmueble inexistente o inactivo.
+ *       409:
+ *         description: No se permite eliminar el inmueble debido a su estado actual.
+ *       500:
+ *         description: Error interno del servidor.
+ */
+
 router.delete(
   "/:id",
   authenticateGateway,

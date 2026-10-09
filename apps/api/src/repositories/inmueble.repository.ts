@@ -19,7 +19,10 @@ export interface IInmuebleRepository {
   findBarriosByLocadorId(locadorId: number): Promise<string[]>;
   create(data: Omit<InmuebleDTO, 'id' | 'created_at'>): Promise<InmuebleDTO>;
   update(id: number, data: Partial<InmuebleDTO>): Promise<InmuebleDTO | null>;
-  delete(id: number): Promise<boolean>;
+  eliminarLogicamente(
+    idInmueble: number,
+    idLocador: number
+  ): Promise<{ success: boolean; statusCode: number; message: string }>;
   addFotos(idInmueble: number, fotos: CreateFotoDTO[]): Promise<FotoInmuebleDTO[]>;
   getFotosByInmuebleId(idInmueble: number): Promise<FotoInmuebleDTO[]>;
   addTags(idInmueble: number, tagIds: number[]): Promise<void>;
@@ -59,10 +62,10 @@ export class InmuebleRepository implements IInmuebleRepository {
     const { data, error } = await getSupabaseAdmin()
       .from('inmueble')
       .select('*')
+      .eq('activo', true)
       .order('id');
-
+  
     if (error) throw error;
-
     return (data ?? []) as InmuebleDTO[];
   }
 
@@ -71,6 +74,7 @@ export class InmuebleRepository implements IInmuebleRepository {
       .from('inmueble')
       .select('*')
       .eq('id', id)
+      .eq('activo', true)
       .maybeSingle();
 
     if (error) throw error;
@@ -79,10 +83,12 @@ export class InmuebleRepository implements IInmuebleRepository {
   }
 
   async findByLocadorId(locadorId: number, filtros?: FiltrosMisAlquileresDTO): Promise<InmuebleDTO[]> {
+    
     let query = getSupabaseAdmin()
       .from('inmueble')
       .select('*')
-      .eq('id_locador', locadorId);
+      .eq('id_locador', locadorId)
+      .eq('activo', true);
 
     if (filtros?.barrio) query = query.eq('barrio', filtros.barrio);
     if (filtros?.tipo !== undefined) query = query.eq('tipo', filtros.tipo);
@@ -96,10 +102,12 @@ export class InmuebleRepository implements IInmuebleRepository {
   }
 
   async findBarriosByLocadorId(locadorId: number): Promise<string[]> {
+        
     const { data, error } = await getSupabaseAdmin()
       .from('inmueble')
       .select('barrio')
-      .eq('id_locador', locadorId);
+      .eq('id_locador', locadorId)
+      .eq('activo', true);
 
     if (error) throw error;
 
@@ -139,19 +147,33 @@ export class InmuebleRepository implements IInmuebleRepository {
     return updated as InmuebleDTO;
   }
 
-  async delete(id: number): Promise<boolean> {
-    const { data, error } = await getSupabaseAdmin()
-      .from('inmueble')
-      .delete()
-      .eq('id', id)
-      .select()
-      .single();
+  
 
-    if (error) throw error;
+  
+async eliminarLogicamente(
+  idInmueble: number,
+  idLocador: number
+): Promise<{ success: boolean; statusCode: number; message: string }> {
+  const { data, error } = await getSupabaseAdmin().rpc(
+    'eliminar_inmueble_logico',
+    {
+      p_id_inmueble: idInmueble,
+      p_id_locador: idLocador,
+    }
+  );
 
-    return !!data;
+  if (error) {
+    throw error;
   }
 
+  return data as {
+    success: boolean;
+    statusCode: number;
+    message: string;
+  };
+}
+
+  
   /**
    * Agrega fotos al inmueble aplicando la regla de foto principal y orden
    */
@@ -249,14 +271,17 @@ export class InmuebleRepository implements IInmuebleRepository {
       .from('inmueble')
       .select('*')
       .eq('id', id)
+      .eq('activo', true)
       .in('estado_alquiler', [
         'publicado',
         'publicado/alquilado'
       ])
       .maybeSingle();
-
-    if (error) { throw error;}
-
+  
+    if (error) {
+      throw error;
+    }
+  
     return data as InmuebleDTO | null;
   }
 
@@ -290,9 +315,14 @@ export class InmuebleRepository implements IInmuebleRepository {
       }
     }
 
+    
+    
     let query = supabase
       .from('inmueble')
       .select('*, contrato!inner(monto_alquiler, indice_aumento)', { count: 'exact' })
+      .eq('activo', true)
+      .eq('contrato.activo', true)
+      .neq('contrato.estado', 3)
       .in('estado_alquiler', [
         'publicado',
         'publicado/alquilado'
