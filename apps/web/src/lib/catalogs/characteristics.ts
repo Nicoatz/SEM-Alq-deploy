@@ -6,7 +6,7 @@
  * TODO(backend): hoy el back tiene la tabla `tag_inmueble`; la equivalencia
  * id ↔ clave vive en `services/adapters/propiedad.adapter.ts`.
  *
- * Quién lo usa: el buscador de la landing (`lib/search/buscadorLanding.ts`), `/buscar` y el alta.
+ * Quién lo usa: el buscador de la landing (`lib/search/buscadorLanding.ts`), `/buscar`, el alta y la edición.
  */
 import type { CharacteristicKey, CharacteristicOption } from '@rentar/shared-types'
 
@@ -18,6 +18,18 @@ export const characteristicOptions: CharacteristicOption[] = [
   { key: 'balcon', label: 'Balcón' },
   { key: 'apto-profesional', label: 'Apto profesional' },
 ]
+
+/**
+ * Las características que se pueden marcar al publicar (US-01) y al editar
+ * (US-03): sin "Apto profesional".
+ * NOTA: ese tag no existe en `tags_inmueble`; en modo real, el alta lo
+ * descartaba sin avisar (`propiedad.adapter.ts#tagIdFromCharacteristic` da
+ * `null`) y la edición no lo puede guardar. Se vuelve a ofrecer cuando la base
+ * lo tenga. TODO(db): crear el tag "Apto profesional" (HANDOFF §10).
+ * Las propiedades del elenco mock que ya lo tienen lo conservan (ver
+ * `components/alta/CamposAlta.tsx#CaracteristicasField`).
+ */
+export const characteristicOptionsCarga: CharacteristicOption[] = characteristicOptions.filter((option) => option.key !== 'apto-profesional')
 
 /**
  * Texto corto de cada característica, para los chips de la tarjeta de

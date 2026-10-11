@@ -16,7 +16,7 @@ import { Checkbox, InputNumber, Radio } from 'antd'
 import { MinusOutlined, PlusOutlined } from '@ant-design/icons'
 import type { AdjustmentIndex, CharacteristicKey, MedioPagoConRecargo, MedioPagoPreferido } from '@rentar/shared-types'
 import { IndexBadge } from '@rentar/ui'
-import { characteristicOptions } from '@/lib/catalogs/characteristics'
+import { characteristicOptionsCarga } from '@/lib/catalogs/characteristics'
 import { INDICE_INFO, MEDIOS_PAGO, RECARGO_MAXIMO_PCT } from '@/lib/catalogs/propiedad'
 import styles from './Alta.module.css'
 
@@ -72,17 +72,25 @@ interface CaracteristicasFieldProps {
   onChange?: (value: CharacteristicKey[]) => void
 }
 
+/** Las claves que el campo ofrece (sin "Apto profesional", ver `characteristicOptionsCarga`). */
+const CLAVES_OFRECIDAS = new Set<CharacteristicKey>(characteristicOptionsCarga.map((option) => option.key))
+
 /**
- * US-01: "Se pueden indicar tags de la propiedad". Las 5 del catálogo (las
- * mismas que filtra `/buscar`), como `Checkbox` de antd con forma de chip.
+ * US-01: "Se pueden indicar tags de la propiedad". Las del catálogo que
+ * existen en la base (`characteristicOptionsCarga`), como `Checkbox` de antd
+ * con forma de chip. También lo usa la edición (US-03).
+ * NOTA: si el valor trae una clave que no se ofrece (una propiedad del elenco
+ * mock con "Apto profesional"), se conserva al marcar o desmarcar otra:
+ * `Checkbox.Group` solo devuelve las opciones que muestra.
  */
 export function CaracteristicasField({ value = [], onChange }: CaracteristicasFieldProps) {
+  const ocultas = value.filter((key) => !CLAVES_OFRECIDAS.has(key))
   return (
     <Checkbox.Group
       className={styles.chips}
       value={value}
-      onChange={(next) => onChange?.(next as CharacteristicKey[])}
-      options={characteristicOptions.map((option) => ({ value: option.key, label: option.label }))}
+      onChange={(next) => onChange?.([...(next as CharacteristicKey[]), ...ocultas])}
+      options={characteristicOptionsCarga.map((option) => ({ value: option.key, label: option.label }))}
       data-testid="alta-caracteristicas"
     />
   )

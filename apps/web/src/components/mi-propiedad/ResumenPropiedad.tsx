@@ -35,7 +35,8 @@ interface ResumenPropiedadProps {
   detalle: PropiedadLocadorDetalle
   /** Link a la publicación pública, o `null` si no se ve en la búsqueda. */
   hrefPublica: string | null
-  hrefEditar: string
+  /** Link a la edición, o `null` si no se puede editar (alquilada, US-03): sin "Editar fotos". */
+  hrefEditar: string | null
   onEliminar: () => void
 }
 
@@ -72,9 +73,11 @@ export function ResumenPropiedad({ detalle, hrefPublica, hrefEditar, onEliminar 
         <section className={styles.card} data-testid="mi-propiedad-fotos">
           <div className={styles.cardHead}>
             <h3 className={styles.cardTitle}>Fotos · {fotos.length}</h3>
-            <Link href={`${hrefEditar}#fotos`} className={styles.link} data-testid="mi-propiedad-editar-fotos">
-              Editar fotos
-            </Link>
+            {hrefEditar && (
+              <Link href={`${hrefEditar}#fotos`} className={styles.link} data-testid="mi-propiedad-editar-fotos">
+                Editar fotos
+              </Link>
+            )}
           </div>
           <div className={styles.thumbs}>
             {fotos.slice(0, MINIATURAS).map((foto, index) => (

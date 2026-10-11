@@ -372,8 +372,10 @@ export function MisPropiedades() {
                   menu={{
                     items: [
                       { key: 'detalle', label: 'Ver detalle', onClick: () => abrirDetalle(propiedad) },
-                      // US-03: atajo a la edición, sin pasar por el detalle.
-                      { key: 'editar', label: <span data-testid="mis-propiedades-editar">Editar</span>, onClick: () => router.push(`/panel/propiedades/${encodeURIComponent(propiedad.id)}/editar`) },
+                      // US-03: atajo a la edición, sin pasar por el detalle. Una alquilada no se edita (el back responde 409).
+                      ...(propiedad.status === 'alquilada' || propiedad.status === 'alquilada_publicada'
+                        ? []
+                        : [{ key: 'editar', label: <span data-testid="mis-propiedades-editar">Editar</span>, onClick: () => router.push(`/panel/propiedades/${encodeURIComponent(propiedad.id)}/editar`) }]),
                     ],
                   }}
                 >
