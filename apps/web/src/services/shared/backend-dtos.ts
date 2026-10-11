@@ -263,8 +263,8 @@ type NumericDto = number | string
  * `GET /api/v1/mis-alquileres/:id` (no existe — propuesto): una propiedad
  * del locador del token, con todo lo que cargó el alta. 404 si no es suya.
  * Los nombres son los mismos que el cuerpo de `POST /inmuebles`
- * (`CreateInmuebleCompletoPayload`), así el detalle y el `PUT` ampliado
- * hablan el mismo idioma.
+ * (`CreateInmuebleCompletoPayload`), así el detalle y el alta hablan el
+ * mismo idioma.
  */
 export interface MisAlquileresDetalleResponse {
   id_inmueble: number
