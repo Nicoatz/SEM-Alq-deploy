@@ -39,7 +39,7 @@ import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import type { AltaValues } from '@/lib/validation/propiedad.rules'
 import { PasoCaracteristicas, PasoCondiciones, PasoFotos, PasoUbicacion } from '@/components/alta/PasosAlta'
 import { fecha } from '@/components/mi-propiedad/textosPropiedad'
-import { actualizarPropiedad, getMiPropiedad, PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE } from '@/services/propiedades.service'
+import { actualizarPropiedad, getMiPropiedad } from '@/services/propiedades.service'
 import { ServiceError } from '@/services/shared/errors'
 import styles from './EditarPropiedad.module.css'
 
@@ -392,7 +392,7 @@ function EdicionBloqueada({ detalle }: { detalle: PropiedadLocadorDetalle }) {
       <PageHeader title="Editar publicación" subtitle={detalle.address} breadcrumb={miga(detalle.id, detalle.address)} />
       <div className={styles.emptyBlock} data-testid="editar-propiedad-bloqueada">
         <EmptyState
-          title={PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE}
+          title="No podés editar una propiedad alquilada"
           description={`${detalle.address} está alquilada${aQuien}${hasta}. Para editarla, primero tiene que terminar el contrato.`}
           action={
             <Button type="primary" onClick={() => router.push(`/panel/propiedades/${encodeURIComponent(detalle.id)}`)} data-testid="editar-propiedad-bloqueada-volver">
