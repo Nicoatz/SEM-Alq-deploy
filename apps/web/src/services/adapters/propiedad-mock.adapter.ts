@@ -19,7 +19,6 @@ import type {
   PropiedadLocador,
   PropiedadNueva,
   PropiedadResumen,
-  CambiosPropiedad,
   PropiedadLocadorDetalle,
 } from '@rentar/shared-types'
 import type { CobroMock, PropiedadMock } from '@/lib/mocks'
@@ -337,14 +336,29 @@ export function propiedadMockToDetalleLocador(propiedad: PropiedadMock): Propied
 }
 
 /**
- * Aplica los cambios de la edición (US-03) sobre una propiedad del elenco.
- * Se arma la propiedad completa (lo que había + lo que cambió) con las mismas
- * reglas que el alta (`propiedadNuevaToMock`) y se conservan lo que el alta
- * no maneja: id, dueño, fecha de alta, título y alquiler.
+ * Los datos del inmueble que deja cambiar `/editar` (US-03): los mismos que
+ * guarda `PUT /inmuebles/:id` en real. Quedan afuera el estado y las
+ * condiciones del contrato (solo lectura).
+ */
+const CAMPOS_EDITABLES: (keyof PropiedadNueva)[] = [
+  'type', 'street', 'streetNumber', 'floor', 'unit', 'neighborhoodSlug', 'city', 'province',
+  'rooms', 'bedrooms', 'bathrooms', 'ageYears', 'totalAreaM2', 'coveredAreaM2', 'characteristics',
+  'description', 'availableFrom', 'photos', 'mainPhotoIndex', 'priceMonthly',
+]
+
+/**
+ * Aplica la edición (US-03) sobre una propiedad del elenco, con las mismas
+ * reglas que el `PUT` real: de `editada` se toman solo los campos del inmueble
+ * que cambiaron respecto de `guardada` (la precarga de la pantalla); el
+ * estado, las condiciones y lo que no se tocó quedan como estaban guardados.
+ * Se arma la propiedad completa con las reglas del alta (`propiedadNuevaToMock`)
+ * y se conserva lo que el alta no maneja: id, dueño, fecha de alta, título y alquiler.
  * NOTA: el título no se recalcula: los del elenco son descriptivos ("1
  * dormitorio en planta baja con cochera") y no salen de los campos.
  */
-export function aplicarCambiosMock(propiedad: PropiedadMock, cambios: CambiosPropiedad): PropiedadMock {
+export function aplicarCambiosMock(propiedad: PropiedadMock, guardada: PropiedadNueva, editada: PropiedadNueva): PropiedadMock {
+  const cambiados = CAMPOS_EDITABLES.filter((campo) => JSON.stringify(guardada[campo]) !== JSON.stringify(editada[campo]))
+  const cambios: Partial<PropiedadNueva> = Object.fromEntries(cambiados.map((campo) => [campo, editada[campo]]))
   const completa: PropiedadNueva = { ...valoresDeAlta(propiedad), ...cambios }
   const actualizada = propiedadNuevaToMock(completa, { id: propiedad.id, ownerId: propiedad.ownerId, publishedAt: propiedad.publishedAt })
   return { ...actualizada, title: propiedad.title, rental: propiedad.rental }

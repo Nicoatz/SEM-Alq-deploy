@@ -267,7 +267,6 @@ export type {
   EstadoPublicacionAlta,
   FotoNueva,
   PropiedadNueva,
-  CambiosPropiedad,
   ContratoVigenteResumen,
   PropiedadLocadorDetalle,
 } from './propiedad';

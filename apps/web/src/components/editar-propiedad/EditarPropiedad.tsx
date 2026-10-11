@@ -122,6 +122,8 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<ServiceError | null>(null)
   const [guardado, setGuardado] = useState(false)
+  /** Se tocó "Guardar" pero no había nada que mandar: no se guardó nada. */
+  const [sinCambios, setSinCambios] = useState(false)
 
   const cambios = valores ? contarCambios(original, valores) : 0
   const salida = useAvisoSalida(cambios > 0 && !guardando)
@@ -144,9 +146,15 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
     setGuardando(true)
     setErrorGuardar(null)
     setGuardado(false)
+    setSinCambios(false)
     try {
-      // La pantalla manda el formulario completo (decisión del PO).
-      const actualizada = await actualizarPropiedad(detalle.id, altaValuesToPropiedadNueva(validos))
+      // Se compara contra lo guardado (la precarga): solo viaja lo que cambió.
+      const actualizada = await actualizarPropiedad(detalle.id, altaValuesToPropiedadNueva(original), altaValuesToPropiedadNueva(validos))
+      if (!actualizada) {
+        // No había nada para el back (por ejemplo, solo una característica que la base no tiene): no se guardó nada.
+        setSinCambios(true)
+        return
+      }
       const nuevos = propiedadNuevaToAltaValues(actualizada.values)
       form.setFieldsValue(nuevos)
       setOriginal(nuevos)
@@ -209,6 +217,17 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
         />
       )}
 
+      {sinCambios && (
+        <Alert
+          type="info"
+          showIcon
+          closable={{ 'aria-label': 'Cerrar el aviso' }}
+          onClose={() => setSinCambios(false)}
+          title="No hay cambios para guardar."
+          data-testid="editar-propiedad-sin-cambios"
+        />
+      )}
+
       {errorGuardar && (
         <Alert
           type="error"
@@ -240,6 +259,7 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
             if (cambiados.type === 'monoambiente') form.setFieldsValue({ rooms: 1, bedrooms: 0 })
             else if (cambiados.type && form.getFieldValue('rooms') === 1) form.setFieldsValue({ rooms: 2, bedrooms: 1 })
             setErrores((actual) => actual.filter((error) => !(error.name in cambiados)))
+            setSinCambios(false)
           }}
           disabled={guardando}
           className={styles.form}

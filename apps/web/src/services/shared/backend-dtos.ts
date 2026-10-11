@@ -12,7 +12,7 @@
  *
  * Quién lo usa: la rama real de los services y los adaptadores.
  */
-import type { EstadoAlquiler } from '@rentar/shared-types'
+import type { CreateFotoPayload, EstadoAlquiler } from '@rentar/shared-types'
 
 /**
 /**
@@ -290,8 +290,11 @@ export interface MisAlquileresDetalleResponse {
   fecha_publicacion: string | null
   /** Ids de `tags_inmueble`. */
   tags: number[]
-  /** Fotos en orden, con la principal marcada. */
-  fotos: { url: string; es_principal: boolean; orden: number }[]
+  /**
+   * Fotos en orden, con la principal marcada. El peso y el formato hacen
+   * falta para reenviarlas en la edición (US-03, `PUT /inmuebles/:id`).
+   */
+  fotos: { url: string; es_principal: boolean; orden: number; peso_kb: number; formato: string }[]
   /** Las condiciones que cargó el alta (fila de `contrato` + medios de pago). */
   condiciones_contrato: {
     monto_alquiler: NumericDto
@@ -321,4 +324,37 @@ export interface MisAlquileresDetalleResponse {
     proximo_ajuste: string | null
     monto_actual: NumericDto | null
   } | null
+}
+
+/**
+ * Cuerpo de `PUT /api/v1/inmuebles/:id` (US-03 Modificar mis propiedades).
+ * Existe desde el 10/10 (`develop` b5acfa7): es el `UpdateInmuebleDTO` del back
+ * y lo procesa la función SQL `actualizar_propiedad_completa`.
+ *
+ * - Actualización PARCIAL: la clave que no se manda conserva su valor. El
+ *   front manda solo lo que cambió (`propiedad.adapter.ts#cambiosToUpdateInmueble`).
+ * - `fotos` y `tags`, si se mandan, REEMPLAZAN la lista completa. `fotos`
+ *   pide de 3 a 50, con URL, formato y peso mayor que 0; `tags: []` borra todos.
+ * - No acepta `estado_alquiler` ni ningún dato del contrato (400).
+ * - `servicios` existe en el back, pero el formulario no lo pide: no se manda.
+ */
+export interface UpdateInmueblePayload {
+  tipo?: number
+  descripcion?: string | null
+  provincia?: string
+  ciudad?: string
+  barrio?: string
+  direccion?: string
+  numero?: number
+  piso?: string | null
+  m2_totales?: number
+  m2_cubiertos?: number
+  ambientes?: number
+  dormitorios?: number
+  banos?: number
+  antiguedad?: number | null
+  precio_publicado?: number
+  fecha_disponible?: string | null
+  fotos?: CreateFotoPayload[]
+  tags?: number[]
 }

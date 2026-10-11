@@ -31,7 +31,6 @@ import type {
   PropiedadNueva,
   PropiedadResumen,
   UbicacionOpciones,
-  CambiosPropiedad,
   PropiedadLocadorDetalle,
 } from '@rentar/shared-types'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
@@ -55,12 +54,15 @@ import {
   inmuebleDisponibleToPropiedadResumen,
   misAlquileresItemToPropiedadLocador,
   propiedadNuevaToCreateInmueble,
-  cambiosCompletos,
   cambiosToUpdateInmueble,
+  errorDeActualizarPropiedad,
+  fotosCambiaron,
+  hayCambiosEnElInmueble,
   misAlquileresDetalleToPropiedadLocadorDetalle,
   misAlquileresItemToDetalleResponse,
   errorDeEliminarPropiedad,
   MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE,
+  PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
 } from './adapters/propiedad.adapter'
 import { apiRequest } from './shared/apiClient'
@@ -571,13 +573,10 @@ export async function cambiarEstadoPublicacion(propiedadId: string, estado: 'pub
 
 // ─── Detalle, modificar y eliminar (US-03, US-04) ───────────────────────
 
-// NOTA: los mensajes del detalle y de eliminar viven en el adaptador (los usa
-// `errorDeEliminarPropiedad`); se re-exportan acá para que las pantallas los
-// sigan tomando del service.
-export { MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE, PROPIEDAD_CON_CONTRATO_MESSAGE }
-
-/** Se intentó cambiar el precio o el ajuste de una propiedad con contrato vigente. */
-export const CAMPOS_FIJADOS_POR_CONTRATO_MESSAGE = 'Con un contrato vigente, el precio y el ajuste los fija el contrato.'
+// NOTA: los mensajes del detalle, de editar y de eliminar viven en el adaptador
+// (los usan `errorDeActualizarPropiedad` y `errorDeEliminarPropiedad`); se
+// re-exportan acá para que las pantallas los sigan tomando del service.
+export { MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE, PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE, PROPIEDAD_CON_CONTRATO_MESSAGE }
 
 /** Rama mock: una propiedad vigente del locador en sesión, o `not_found`. */
 function miPropiedadMock(propiedadId: string): PropiedadMock {
@@ -624,28 +623,13 @@ export async function getMiPropiedad(propiedadId: string): Promise<PropiedadLoca
 }
 
 /**
- * `true` si los cambios tocan algo que fija el contrato vigente (precio,
- * índice o frecuencia de ajuste), comparando con lo guardado.
+ * Sube a Storage las fotos nuevas de la edición (data URL del formulario), en
+ * el orden en que aparecen, como en el alta. Las que ya estaban no se tocan.
+ * NOTA: si falla alguna, se borran las que sí subieron y se tira el error: o
+ * suben todas o no queda ninguna.
  */
-function tocaCamposDelContrato(actual: PropiedadLocadorDetalle['values'], cambios: CambiosPropiedad): boolean {
-  return (
-    (cambios.priceMonthly !== undefined && cambios.priceMonthly !== actual.priceMonthly) ||
-    (cambios.adjustmentIndex !== undefined && cambios.adjustmentIndex !== actual.adjustmentIndex) ||
-    (cambios.adjustmentEveryMonths !== undefined && cambios.adjustmentEveryMonths !== actual.adjustmentEveryMonths)
-  )
-}
-
-/**
- * Fotos de la edición para el back: las que ya estaban viajan con su URL; las
- * nuevas (data URL del formulario) se suben antes a Storage, como en el alta.
- * Devuelve también las rutas de las recién subidas, para borrarlas si el
- * `PUT` falla.
- * NOTA: de las fotos que ya estaban no se conoce el peso: van con `peso_kb: 0`
- * y el formato según la extensión de la URL.
- * TODO(backend): que el `PUT` ampliado acepte las fotos existentes solo con su URL.
- */
-async function fotosParaEditar(cambios: PropiedadNueva): Promise<{ fotos: CreateFotoPayload[]; subidas: string[] }> {
-  const nuevas = cambios.photos.filter((foto) => foto.src.startsWith('data:'))
+async function subirFotosNuevas(editada: PropiedadNueva): Promise<FotoSubida[]> {
+  const nuevas = editada.photos.filter((foto) => foto.src.startsWith('data:'))
   const resultados = await Promise.allSettled(nuevas.map(subirFotoPropiedad))
   const subidas = resultados.flatMap((resultado) => (resultado.status === 'fulfilled' ? [resultado.value] : []))
   const fallo = resultados.find((resultado): resultado is PromiseRejectedResult => resultado.status === 'rejected')
@@ -653,64 +637,67 @@ async function fotosParaEditar(cambios: PropiedadNueva): Promise<{ fotos: Create
     await borrarFotosSubidas(subidas.map((foto) => foto.path))
     throw fallo.reason instanceof ServiceError ? fallo.reason : new ServiceError('server', FOTOS_NO_SUBIDAS_MESSAGE)
   }
-  let siguienteNueva = 0
-  const fotos = cambios.photos.map((foto, index): CreateFotoPayload => {
-    const es_principal = index === cambios.mainPhotoIndex
-    if (foto.src.startsWith('data:')) {
-      const subida = subidas[siguienteNueva++]
-      return { url: subida?.url ?? '', peso_kb: subida?.peso_kb ?? 0, formato: subida?.formato ?? 'jpg', es_principal }
-    }
-    const formato = /\.png($|\?)/i.test(foto.src) ? 'png' : 'jpg'
-    return { url: foto.src, peso_kb: 0, formato, es_principal }
-  })
-  return { fotos, subidas: subidas.map((foto) => foto.path) }
+  return subidas
 }
 
 /**
- * US-03 Modificar mis propiedades — guarda los cambios de una propiedad del
- * locador en sesión.
- * @backend PUT /api/v1/inmuebles/:id   (existe · token + rol locador; propuesto AMPLIADO:
- *          el mismo cuerpo que POST /inmuebles) → la propiedad actualizada
- * @returns PropiedadLocadorDetalle (la propiedad como quedó)
- * @throws {ServiceError} `not_found` si no es suya; `validation` si con
- *   contrato vigente cambia el precio o el ajuste
- *   ({@link CAMPOS_FIJADOS_POR_CONTRATO_MESSAGE}) o si una foto no es válida;
- *   `server` si las fotos nuevas no se pueden subir.
+ * US-03 Modificar mis propiedades — guarda lo que cambió en una propiedad del
+ * locador en sesión. Solo datos del inmueble (decisión confirmada con
+ * backend): las condiciones del alquiler no se editan acá.
+ * @backend PUT /api/v1/inmuebles/:id   (existe · `develop` b5acfa7, 10/10 · token + rol
+ *          locador; dueño y estado se validan en la función SQL
+ *          `actualizar_propiedad_completa`) → la fila de `inmueble` actualizada.
+ *          Cuerpo PARCIAL (`UpdateInmueblePayload`): solo lo que cambió.
+ *          400 datos inválidos o claves del contrato; 403 si no es suya; 404
+ *          si no existe o está dada de baja; 409 si está `alquilado` o
+ *          `publicado/alquilado`.
+ * @param guardada Lo que mostró la precarga de la pantalla (contra esto se compara).
+ * @param editada El formulario al guardar.
+ * @returns PropiedadLocadorDetalle (la propiedad como quedó), o `null` si no
+ *   había nada para mandar (no se llamó al back).
+ * @throws {ServiceError} `not_found` con {@link MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE}
+ *   si no es suya o ya no existe; `conflict` con
+ *   {@link PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE} si está alquilada;
+ *   `validation` con el texto del back (o si una foto nueva no es válida);
+ *   `server` si las fotos nuevas no se pueden subir. Ver
+ *   `propiedad.adapter.ts#errorDeActualizarPropiedad`.
  *
- * NOTA: la pantalla manda el formulario completo. Si llegaran cambios
- * parciales, la rama real los completa con lo guardado (`getMiPropiedad`).
- * NOTA: la rama real manda el cuerpo completo aunque hoy el `PUT` ignore
- * parte (tags, fotos, condiciones): no se parte el formulario según lo que
- * soporta el back (decisión del PO).
- * TODO(backend): ampliar el `PUT` al cuerpo del alta y chequear que el
- * inmueble sea del que llama (hoy no lo hace: HANDOFF §10).
- * TODO(backend): hasta que el `PUT` guarde las fotos, cada edición con fotos
- * nuevas deja archivos huérfanos en el bucket (HANDOFF §10).
+ * NOTA: se compara contra la precarga y no contra la base (decisión del PO):
+ * así solo viaja lo que la persona cambió, y un cambio hecho en otra pestaña
+ * en un campo que acá no se tocó no se pisa.
+ * TODO(backend): las fotos que se sacan quedan en el bucket público
+ * (`fotos-propiedades`); falta definir quién las borra (HANDOFF §10).
+ * TODO(backend): el precio editado (`precio_publicado`) no se ve en `/buscar`
+ * ni en el detalle público, que muestran `contrato.monto_alquiler` (HANDOFF §10).
  */
-export async function actualizarPropiedad(propiedadId: string, cambios: CambiosPropiedad): Promise<PropiedadLocadorDetalle> {
+export async function actualizarPropiedad(
+  propiedadId: string,
+  guardada: PropiedadNueva,
+  editada: PropiedadNueva,
+): Promise<PropiedadLocadorDetalle | null> {
   if (USE_MOCKS) {
     await delay(800)
+    // Mismo orden que la rama real: sin cambios no hay "llamada"; después, las reglas del back.
+    if (!hayCambiosEnElInmueble(guardada, editada)) return null
     const propiedad = miPropiedadMock(propiedadId)
-    const actual = propiedadMockToDetalleLocador(propiedad)
-    if (actual.activeContract && tocaCamposDelContrato(actual.values, cambios)) {
-      throw new ServiceError('validation', CAMPOS_FIJADOS_POR_CONTRATO_MESSAGE)
-    }
-    const actualizada = aplicarCambiosMock(propiedad, cambios)
+    // Una alquilada no se edita (el 409 del back).
+    if (propiedadMockToDetalleLocador(propiedad).activeContract) throw new ServiceError('conflict', PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE)
+    const actualizada = aplicarCambiosMock(propiedad, guardada, editada)
     if (!saveMockRecord('propiedades', actualizada)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     return propiedadMockToDetalleLocador(actualizada)
   }
 
-  const completos: PropiedadNueva = cambiosCompletos(cambios) ? cambios : { ...(await getMiPropiedad(propiedadId)).values, ...cambios }
-  const { fotos, subidas } = await fotosParaEditar(completos)
+  if (!hayCambiosEnElInmueble(guardada, editada)) return null
+  const subidas = fotosCambiaron(guardada, editada) ? await subirFotosNuevas(editada) : []
   try {
-    await apiRequest<unknown>(`/inmuebles/${encodeURIComponent(propiedadId)}`, { method: 'PUT', body: cambiosToUpdateInmueble(completos, fotos) })
+    await apiRequest<unknown>(`/inmuebles/${encodeURIComponent(propiedadId)}`, { method: 'PUT', body: cambiosToUpdateInmueble(guardada, editada, subidas) })
   } catch (error) {
     // Como en el alta: si no se guardó, las fotos recién subidas sobran.
-    await borrarFotosSubidas(subidas)
-    throw error
+    await borrarFotosSubidas(subidas.map((foto) => foto.path))
+    throw errorDeActualizarPropiedad(error)
   }
-  // TODO(backend): el PUT de hoy ignora las fotos: las recién subidas quedan huérfanas en el bucket (HANDOFF §10).
-  // NOTA: el PUT devuelve solo la fila de `inmueble`; la vista completa se vuelve a pedir.
+  // NOTA: el PUT devuelve solo la fila de `inmueble`; la vista completa (con las
+  // fotos nuevas ya como URL, peso y formato) se vuelve a pedir.
   return getMiPropiedad(propiedadId)
 }
 
