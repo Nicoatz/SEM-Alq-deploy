@@ -192,16 +192,45 @@ export class InmuebleService {
     };
   }
 
-  async update(id: number, data: UpdateInmuebleDTO): Promise<InmuebleDTO | null> {
-    // US-03: solo se modifica un inmueble que existe y está activo. `findById` ya excluye
-    // los dados de baja (US-04), así que uno eliminado se informa como inexistente (404).
+  async update(
+    id: number,
+    idLocador: number,
+    data: UpdateInmuebleDTO
+  ): Promise<InmuebleDTO | null> {
     const existing = await this.inmRepo.findById(id);
+
     if (!existing) {
       const error = new Error(`Inmueble con ID ${id} no encontrado.`);
       Object.assign(error, { statusCode: 404 });
       throw error;
     }
-    return await this.inmRepo.update(id, data);
+
+    if (existing.id_locador !== idLocador) {
+      const error = new Error(
+        'No tenés permiso para modificar este inmueble.'
+      );
+      Object.assign(error, { statusCode: 403 });
+      throw error;
+    }
+
+    if (
+      existing.estado_alquiler === 'alquilado' ||
+      existing.estado_alquiler === 'publicado/alquilado'
+    ) {
+      const error = new Error(
+        'No se puede modificar una propiedad que está alquilada.'
+      );
+      Object.assign(error, { statusCode: 409 });
+      throw error;
+    }
+
+    const datosActualizables = data;
+
+    return await this.inmRepo.actualizarPropiedadCompleta(
+      id,
+      idLocador,
+      datosActualizables
+    );
   }
 
   async delete(id: number, idLocador: number): Promise<boolean> {
