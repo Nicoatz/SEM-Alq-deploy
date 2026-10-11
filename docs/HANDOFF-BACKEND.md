@@ -176,7 +176,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `POST /solicitudes`, `GET /solicitudes/mias`, `GET /solicitudes/recibidas`, `PATCH /solicitudes/:id/{aceptar,rechazar,cancelar}` | `/propiedad/[id]` (US-35), `/panel/mis-solicitudes` y `/panel/solicitudes` (US-36 a US-38) | **Pendiente** (propuesto, Sprint 2; las tres pantallas están completas en modo mock, con la rama real lista en el service) |
 | `GET /mis-alquileres/:id` | Detalle y edición del locador (US-03, US-04) | **Pendiente** (propuesto, tanda 3 del Sprint 2). Desde el 09/10 el detalle y la precarga de la edición **cargan en modo real con un puente**: `getMiPropiedad` pide `GET /mis-alquileres` y busca el id (sección 7, US-03 y US-04) |
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
-| `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en modo mock, el recorrido en real está pendiente, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
+| `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 
 ## 6. Status HTTP y errores
@@ -347,8 +347,29 @@ ofrece "Editar publicación" ni "Editar fotos", y Mis propiedades saca "Editar" 
 | Cambio que no llega al back (un espacio al final del piso) | "No hay cambios para guardar."; no se actualiza lo guardado (el contador sigue en 1) |
 | Alquilada (Obispo Trejo 1250) | Aviso de bloqueo sin formulario; en el detalle no están `mi-propiedad-editar-button`, `-editar-movil` ni `-editar-fotos` |
 
-**Pendiente: recorrido en real** contra `dev:api` local, con una propiedad de prueba propia de
-`locador@rentar.com` (se anota en §9), y capturas a 390 y 1440 px. Va en un commit aparte.
+**Probado en real el 11/10** (`locador@rentar.com`, `dev:api` local contra la base, 390 y 1440 px,
+`feature/conexion-editar`). Con una propiedad de prueba propia, dada de alta desde la app como
+pausada (inmueble 25, §9):
+
+| Caso | Cuerpo del `PUT /inmuebles/25` | Resultado |
+|---|---|---|
+| Precio y descripción | `{"descripcion": "…", "precio_publicado": 320000}` | 200, "Guardamos los cambios.", el contador vuelve a "Sin cambios". En la base: `precio_publicado` 320.000 y la descripción nueva; el contrato 22 **sin tocar** (`monto_alquiler` 300.000, expensas, índice, frecuencia, depósito y duración iguales) |
+| Sumar Cochera y Balcón | `{"tags": [2, 4]}` | 200; la precarga vuelve con las dos marcadas |
+| Sacar las dos | `{"tags": []}` | 200; en la base, sin filas en `inmueble_x_tag` |
+| Fotos: agregar una, marcarla principal y sacar otra | `{"fotos": [3 fotos]}`: las 2 guardadas con su URL, `peso_kb` y `formato`, y la nueva (subida antes a Storage, `POST …/fotos-propiedades/…` 200) con `es_principal: true` | 200. En la base: `foto_inmueble` 79, 80 y 81 (las filas 76 a 78 se reemplazaron), la nueva como principal y con `orden` 3. La foto sacada **sigue en el bucket** (§10, punto 27) |
+| Cambio que no llega al back (un espacio al final del piso) | — (ningún `PUT`) | "No hay cambios para guardar."; el contador sigue en 1 |
+| Alquilada (inmueble 2) | — (ningún `PUT`) | `/editar`: "No podés editar una propiedad alquilada · Bv. Chacabuco 720, 2A está alquilada a Ana Inquilina. Para editarla, primero tiene que terminar el contrato.", sin formulario. Detalle: sin `mi-propiedad-editar-button`, `-editar-movil` ni `-editar-fotos`. Mis propiedades (390): el menú de la alquilada solo tiene "Ver detalle"; el de la 25, "Ver detalle" y "Editar" |
+| Id que no es del dueño (999999) | — | "No encontramos esta propiedad" (no está en `/mis-alquileres`) |
+| Campos a 390 | — | Estado y condiciones deshabilitados, precio editable, sin scroll horizontal |
+
+Todos los pedidos llevan `Authorization: Bearer …`. Consola sin errores. No se forzaron el 409
+(habría que alquilar la propiedad entre que se abre la pantalla y se guarda), el 403/404 del `PUT`
+(habría que dar de baja o cambiar de dueño la propiedad con la pantalla abierta) ni un 400 del back
+(el front valida lo mismo antes); el mapeo está en `errorDeActualizarPropiedad`. La propiedad de
+prueba quedó pausada a propósito: no aparece en `/buscar`, así que el punto 25 (precio editado que
+no se ve en la búsqueda) se confirmó en la base (`precio_publicado` 320.000 contra `monto_alquiler`
+300.000) y en el código, no en pantalla. Capturas en
+`Desktop/RentAR/Capturas vistas/Sprint2/implementado/editar-real/`.
 
 Lo que hace el back:
 
@@ -563,6 +584,8 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Fotos repetidas de personas reales: la misma foto (carpeta `3e12c119-…`) es la principal de los inmuebles **12, 13, 15, 16 y 17**. El repo es público y la landing las muestra: reemplazarlas por fotos de ambientes | `foto_inmueble` de esos 5 inmuebles | `foto_inmueble` y `storage.objects` |
 | Inmueble "[TEST] Prueba de eliminar (US-04, 09/10) - no usar" ("Calle de Prueba Eliminar 999", Güemes, monoambiente, `locador@rentar.com`). **Ya eliminado (baja lógica, `activo = false`)** en el recorrido de US-04 | inmueble **24**; `foto_inmueble` **70, 71 y 72**; `contrato` **21** (`estado = 3`, `activo = false`); `medio_pago_x_contrato` **38**; sin tags | cada tabla |
 | Archivos del bucket `fotos-propiedades` del inmueble 24: 3 PNG grises de 1×1 px (67 bytes), sin nada identificable. Siguen públicos después de la baja (§10, punto 20) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/3a0620ed-b680-412d-bf4a-560df0d8c48c.png`, `3e12c119-0702-46ec-a9a2-597c2f5c884f/032451de-b9a9-4d97-a2ce-3a24a3883570.png` y `3e12c119-0702-46ec-a9a2-597c2f5c884f/178df7bc-bfcf-4b76-a186-69e0898f4992.png` | `storage.objects` |
+| Inmueble "[TEST] Prueba de editar (US-03, 11/10) - no usar" ("Calle de Prueba Editar 777, 2° A", Güemes, departamento, **pausado**, `locador@rentar.com`). Editado en el recorrido de US-03: precio 320.000 (el contrato quedó en 300.000), sin tags | inmueble **25**; `foto_inmueble` **79, 80 y 81** (las 76 a 78 las reemplazó el `PUT`); `contrato` **22**; `medio_pago_x_contrato` **39** | cada tabla |
+| Archivos del bucket `fotos-propiedades` del inmueble 25: 4 PNG de color liso de 64×48 px, sin nada identificable. Uno (`8b74d05b-…`) ya no está en `foto_inmueble`: se sacó en la edición y quedó en el bucket (§10, punto 27) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/c6d06f89-6e92-45ef-be07-991e923a4299.png`, `…/1800e362-9907-4700-800b-9973d62b8d4e.png`, `…/8fac0b62-1476-41f3-aa21-61a62c43fa36.png` y `…/8b74d05b-db0e-43af-b924-388002d47a2d.png` | `storage.objects` |
 
 ## 10. Observaciones para backend
 
