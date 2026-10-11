@@ -288,7 +288,8 @@ export function PasoFotos({ fotosOriginales }: PasoFotosProps = {}) {
 /** Props de {@link PasoCondiciones}. */
 interface PasoCondicionesProps {
   /**
-   * Solo la edición (US-03): todo menos el precio queda deshabilitado. El
+   * Solo la edición (US-03): todo menos el precio queda deshabilitado y sin
+   * texto de ayuda (no hay nada que completar). El
    * precio es del inmueble (`precio_publicado`); lo demás vive en el contrato
    * y `PUT /inmuebles/:id` no lo modifica (decisión confirmada con backend).
    * El alta no lo pasa.
@@ -310,6 +311,8 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
   const interes = Form.useWatch('dailyInterestPct', form)
   const precio = Form.useWatch('priceMonthly', form)
   const deposito = Form.useWatch('depositMonths', form)
+  /** Texto de ayuda de un campo de condiciones: en la edición son de solo lectura y no llevan ayuda (decisión del PO). */
+  const ayuda = (texto: string): string | undefined => (soloLectura ? undefined : texto)
 
   return (
     <div className={styles.step}>
@@ -334,7 +337,7 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
             />
           </Form.Item>
           <SoloLectura activo={soloLectura}>
-          <Form.Item name="expenses" label="Expensas" rules={reglasExpensas} extra="Si la propiedad no paga expensas, dejá 0.">
+          <Form.Item name="expenses" label="Expensas" rules={reglasExpensas} extra={ayuda('Si la propiedad no paga expensas, dejá 0.')}>
             <InputNumber<number>
               size="large"
               min={0}
@@ -358,7 +361,7 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
         description="Qué se cobra si el alquiler se paga después del vencimiento. Se copia al contrato y el locatario lo ve antes de firmar."
       >
         <div className={styles.gridTwo}>
-          <Form.Item name="dailyInterestPct" label={<Opcional>Interés por día de atraso</Opcional>} extra="Sobre el monto impago. Dejalo vacío si no cobrás recargo.">
+          <Form.Item name="dailyInterestPct" label={<Opcional>Interés por día de atraso</Opcional>} extra={ayuda('Sobre el monto impago. Dejalo vacío si no cobrás recargo.')}>
             <InputNumber
               size="large"
               min={0}
@@ -375,7 +378,7 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
             label={(interes ?? 0) > 0 ? 'Días de gracia' : <Opcional>Días de gracia</Opcional>}
             rules={reglasDiasGracia(interes)}
             dependencies={['dailyInterestPct']}
-            extra="Antes de que empiece a correr el interés."
+            extra={ayuda('Antes de que empiece a correr el interés.')}
           >
             <InputNumber size="large" min={0} max={31} precision={0} suffix="días" className={styles.fullWidth} data-testid="alta-dias-gracia" />
           </Form.Item>
@@ -389,10 +392,12 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
         <Form.Item name="paymentMethods" rules={reglasMediosPago} className={styles.noLabel}>
           <MediosPagoField />
         </Form.Item>
-        <p className={styles.infoNote}>
-          El recargo se aplica sobre el total del período y se muestra aparte al pagar, nunca escondido dentro del alquiler. Tope del 3 %; con 0, el medio se ofrece
-          sin costo extra. Al menos un medio tiene que quedar habilitado.
-        </p>
+        {!soloLectura && (
+          <p className={styles.infoNote}>
+            El recargo se aplica sobre el total del período y se muestra aparte al pagar, nunca escondido dentro del alquiler. Tope del 3 %; con 0, el medio se ofrece
+            sin costo extra. Al menos un medio tiene que quedar habilitado.
+          </p>
+        )}
       </FormSection>
 
       <FormSection
@@ -403,7 +408,7 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
           <Form.Item
             name="adjustmentEveryMonths"
             label={<Opcional>Cada cuánto se actualiza</Opcional>}
-            extra="De 1 a 12 meses. El alquiler queda igual durante ese período y después se ajusta una vez."
+            extra={ayuda('De 1 a 12 meses. El alquiler queda igual durante ese período y después se ajusta una vez.')}
           >
             <Select size="large" allowClear placeholder="Elegí cada cuánto" options={AJUSTE_MESES_OPTIONS} data-testid="alta-ajuste-meses" />
           </Form.Item>
@@ -419,16 +424,15 @@ export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = 
           <Form.Item
             name="depositMonths"
             label={<Opcional>Depósito</Opcional>}
-            extra={
-              // En la edición el depósito es del contrato (un MONTO guardado): no se recalcula con el precio editado.
-              deposito && precio && !soloLectura
+            extra={ayuda(
+              deposito && precio
                 ? `Se devuelve al final si no hay daños. Hoy son ${formatARS(deposito * precio)}.`
-                : 'En meses de alquiler. Se devuelve al final si no hay daños.'
-            }
+                : 'En meses de alquiler. Se devuelve al final si no hay daños.',
+            )}
           >
             <InputNumber size="large" min={0} max={12} precision={0} suffix={deposito === 1 ? 'mes' : 'meses'} className={styles.fullWidth} data-testid="alta-deposito" />
           </Form.Item>
-          <Form.Item name="contractMonths" label={<Opcional>Duración del contrato</Opcional>} extra="Lo habitual en vivienda son 36 meses.">
+          <Form.Item name="contractMonths" label={<Opcional>Duración del contrato</Opcional>} extra={ayuda('Lo habitual en vivienda son 36 meses.')}>
             <InputNumber size="large" min={1} max={120} precision={0} suffix="meses" className={styles.fullWidth} data-testid="alta-duracion" />
           </Form.Item>
         </div>
