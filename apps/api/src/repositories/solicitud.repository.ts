@@ -24,6 +24,7 @@ export interface ISolicitudRepository {
   findSolicitudesPendientesByLocatario(idLocatario: number): Promise<Solicitud[]>;
   create(data: CreateSolicitudEntity): Promise<Solicitud>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
+  findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantia[]>;
   getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantia[]>;
   getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitud | null>;
   getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacional | null>;
@@ -114,6 +115,21 @@ export class SolicitudRepository implements ISolicitudRepository {
       .insert(rows);
 
     if (error) throw error;
+  }
+
+  async findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantia[]> {
+    if (!garantiaIds.length) {
+      return [];
+    }
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('tipo_garantia')
+      .select('*')
+      .in('id', garantiaIds);
+
+    if (error) throw error;
+
+    return (data ?? []) as TipoGarantia[];
   }
 
   async getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantia[]> {
