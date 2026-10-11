@@ -29,3 +29,4 @@ export * from './catalogos.dto';
 export * from './foto-inmueble.dto';
 export * from './contrato.dto';
 export * from './inmueble.dto';
+export * from './solicitud.dto';
