@@ -215,7 +215,7 @@ export class InmuebleService {
 
     if (
       existing.estado_alquiler === 'alquilado' ||
-      existing.estado_alquiler === 'publicado/alquilado'
+      existing.estado_alquiler === 'alquilada/publicada'
     ) {
       const error = new Error(
         'No se puede modificar una propiedad que está alquilada.'
