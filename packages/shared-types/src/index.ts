@@ -145,6 +145,61 @@ export interface Contrato {
   estado?: number | null;
 }
 
+export interface EstadoSolicitud {
+  id: number;
+  nombre: string;
+  mensaje?: string | null;
+}
+
+export interface SituacionOcupacional {
+  id: number;
+  nombre: string;
+}
+
+export interface TipoGarantia {
+  id: number;
+  nombre: string;
+}
+
+export interface Solicitud {
+  id: number;
+  id_inmueble: number;
+  id_locador: number;
+  id_locatario: number;
+  id_estado_solicitud: number;
+  id_situacion_ocupacional: number;
+  mensaje?: string | null;
+  telefono: string;
+  email: string;
+  ingresos_aprox: number;
+  cantidad_personas: number;
+  posee_mascotas: boolean;
+  detalles_mascotas?: string | null;
+  acepta_condiciones: boolean;
+  fecha_creacion: string;
+  fecha_actualizacion: string;
+}
+
+export interface CrearSolicitudRequest {
+  id_inmueble: number;
+  mensaje?: string;
+  telefono: string;
+  email: string;
+  id_situacion_ocupacional: number;
+  ingresos_aprox: number;
+  cantidad_personas: number;
+  posee_mascotas: boolean;
+  detalles_mascotas?: string;
+  garantias: number[];
+  acepta_condiciones: boolean;
+}
+
+export interface SolicitudResponse extends Solicitud {
+  estado_solicitud: EstadoSolicitud;
+  situacion_ocupacional: SituacionOcupacional;
+  garantias: TipoGarantia[];
+}
+
 /**
  * Payload completo para el registro atómico de propiedad (US-01)
  */
