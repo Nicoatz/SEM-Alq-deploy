@@ -93,7 +93,8 @@ detalle y propuesta en `HANDOFF-BACKEND.md` §10 (y el texto del issue, que abre
 | 🟠 Media | `DELETE` (lógico desde el 09/10) **bloquea por `estado_alquiler` y no por contrato vigente**, **no cancela solicitudes** y **deja las fotos en el bucket público**. Responde 403 (no 404) para un inmueble ajeno. | `supabase/migrations/20261009000000_us04_eliminacion_logica_inmueble.sql` (`eliminar_inmueble_logico`) |
 | 🔴 Alta | `GET /inmuebles/disponibles` y `/disponibles/:id` (públicas) devuelven **calle, altura y piso sin token**: la regla "sin sesión, la aproximada" del front es solo cosmética. Sin token, mandar la calle y la cuadra, nunca el piso. | `routes/v1/inmuebles.routes.ts`, `InmuebleDisponibleResponse` / `InmuebleDetalleResponse` |
 | ~~🟡 Baja~~ | ~~`PUT` responde 400 en lugar de 404~~ **Resuelto (10/10, b5acfa7):** 404 si no existe o está inactivo. | — |
-| 🟠 Media | `PUT` cambia `precio_publicado`, pero `/disponibles` y `/disponibles/:id` muestran (y filtran por) `contrato.monto_alquiler`: el precio editado no se ve en la búsqueda (HANDOFF §10, punto 25). Las fotos que se sacan en una edición quedan en el bucket (punto 27). | `services/inmueble.service.ts`, función `actualizar_propiedad_completa` |
+| 🔴 Alta | `PUT` cambia `precio_publicado`, pero `/disponibles` y `/disponibles/:id` muestran (y filtran por) `contrato.monto_alquiler`: el precio editado no se ve en la búsqueda, que es lo que ven los inquilinos (HANDOFF §10, punto 25). | `services/inmueble.service.ts`, función `actualizar_propiedad_completa` |
+| 🟠 Media | Las fotos que se sacan en una edición quedan en el bucket público (HANDOFF §10, punto 27). | `services/inmueble.service.ts`, función `actualizar_propiedad_completa` |
 | 🔴 Alta | El default de `error.middleware` pasó a 500: las validaciones del alta sin `statusCode` ahora salen como 500 (HANDOFF §10, punto 24). | `gateway/middlewares/error.middleware.ts`, `services/inmueble.service.ts` |
 
 ## Solicitudes (Sprint 2)

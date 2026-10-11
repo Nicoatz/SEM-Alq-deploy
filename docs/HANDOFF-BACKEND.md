@@ -359,12 +359,13 @@ pausada (inmueble 25, §9):
 | Fotos: agregar una, marcarla principal y sacar otra | `{"fotos": [3 fotos]}`: las 2 guardadas con su URL, `peso_kb` y `formato`, y la nueva (subida antes a Storage, `POST …/fotos-propiedades/…` 200) con `es_principal: true` | 200. En la base: `foto_inmueble` 79, 80 y 81 (las filas 76 a 78 se reemplazaron), la nueva como principal y con `orden` 3. La foto sacada **sigue en el bucket** (§10, punto 27) |
 | Cambio que no llega al back (un espacio al final del piso) | — (ningún `PUT`) | "No hay cambios para guardar."; el contador sigue en 1 |
 | Alquilada (inmueble 2) | — (ningún `PUT`) | `/editar`: "No podés editar una propiedad alquilada · Bv. Chacabuco 720, 2A está alquilada a Ana Inquilina. Para editarla, primero tiene que terminar el contrato.", sin formulario. Detalle: sin `mi-propiedad-editar-button`, `-editar-movil` ni `-editar-fotos`. Mis propiedades (390): el menú de la alquilada solo tiene "Ver detalle"; el de la 25, "Ver detalle" y "Editar" |
-| Id que no es del dueño (999999) | — | "No encontramos esta propiedad" (no está en `/mis-alquileres`) |
+| Id inexistente (999999) | — | "No encontramos esta propiedad" (no está en `/mis-alquileres`) |
 | Campos a 390 | — | Estado y condiciones deshabilitados, precio editable, sin scroll horizontal |
 
 Todos los pedidos llevan `Authorization: Bearer …`. Consola sin errores. No se forzaron el 409
-(habría que alquilar la propiedad entre que se abre la pantalla y se guarda), el 403/404 del `PUT`
-(habría que dar de baja o cambiar de dueño la propiedad con la pantalla abierta) ni un 400 del back
+(habría que alquilar la propiedad entre que se abre la pantalla y se guarda), el 404 del `PUT`
+(habría que dar de baja la propiedad con la pantalla abierta), el 403 de una propiedad de otro
+locador (no se llega al `PUT`: la precarga ya da "No encontramos esta propiedad") ni un 400 del back
 (el front valida lo mismo antes); el mapeo está en `errorDeActualizarPropiedad`. La propiedad de
 prueba quedó pausada a propósito: no aparece en `/buscar`, así que el punto 25 (precio editado que
 no se ve en la búsqueda) se confirmó en la base (`precio_publicado` 320.000 contra `monto_alquiler`
@@ -693,7 +694,8 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
     porque el front valida lo mismo antes de mandar. Propuesta: ponerles `statusCode: 400` a esas
     validaciones (o una clase `ValidationError`). También un NOT NULL de la base (`23502`) sale
     como 500. No se corrigió en el front.
-25. **🟠 Medio · El precio editado no se ve en la búsqueda.** El `PUT` cambia `precio_publicado`, pero
+25. **🔴 Alto · El precio editado no se ve en la búsqueda.** Es lo único de la edición que ven los
+    inquilinos: el precio viejo en `/buscar` y el filtro por precio sobre el valor equivocado. El `PUT` cambia `precio_publicado`, pero
     `/inmuebles/disponibles` (y su filtro de precio) y `/inmuebles/disponibles/:id` muestran
     `contrato.monto_alquiler` (`inmueble.service`, `precio: contrato?.monto_alquiler ?? …`). Un
     locador edita el precio en `/editar`, lo ve en Mis propiedades y en su detalle, y `/buscar` y el
