@@ -12,10 +12,10 @@
 | - Se puede indicar la cantidad de personas a residir en la propiedad a alquilar, siendo una (1) la cantidad mínima. |
 | - Se puede indicar si el locatario posee mascotas o no. |
 | - Se debe indicar por defecto que el locatario no posee mascotas. |
-| - Por defecto el monto de ingresos aproximados debe ser cero (0). |
+| - Por defecto el monto de ingresos aproximados debe estar vacío. |
 | - Por defecto la cantidad de personas a residir en la propiedad debe ser una (1). |
 | - Por defecto la relación de dependencia debe ser "-" (que indica "prefiero no decirlo"). |
-| - Se puede adjuntar un mensaje detallando información de las mascotas en caso de haber indicado que sí posee mascotas. |
+| - Se puede adjuntar un mensaje detallando información de las mascotas en caso de haber indicado que sí posee mascotas, de hasta 300 caracteres. |
 | - Se pueden indicar múltiples garantías a ofrecer (garantía propietaria, seguro de caución, otra). |
 | - Se deben marcar las garantías solicitadas explícitamente por el locador para la propiedad, si las hubiera. | 
 | - Se debe aceptar lo que implica el envío de la solicitud. |
@@ -25,7 +25,7 @@
 | - Se deben ingresar únicamente caracteres numéricos en el campo de número de teléfono. |
 | - Se debe mostrar el prefijo internacional ("+"), pero no ser editable. |
 | - Se debe ingresar el correo electrónico en formato general "nombre@dominio.extension", admitiendo variaciones comunes tales como "nombre.apellido@dominio.extension", "nombre+var@dominio.extension.extension2", "nombre_apellido@dominio.extension", etc. |
-| - Se deben mostrar los datos de la propiedad a la que se enviará la solicitud (dirección, piso, barrio, cantidad de ambientes, metros cuadrados (reales), aceptación de mascotas, monto mensual y foto principal). | 
+| - Se deben mostrar los datos de la propiedad a la que se enviará la solicitud (dirección, piso, barrio, cantidad de ambientes, metros cuadrados (superficie cubierta), aceptación de mascotas, monto mensual y foto principal). | 
 | **Pruebas de usuario:** |
 | - Probar enviar una solicitud de alquiler sin haber iniciado sesión (falla). |
 | - Probar enviar una solicitud de alquiler sin adjuntar un mensaje (pasa). |
@@ -38,14 +38,15 @@
 | - Probar enviar una solicitud de alquiler después de modificar el teléfono y el correo electrónico (pasa). |
 | - Probar enviar una solicitud de alquiler seleccionando cada situación ocupacional disponible (pasa). |
 | - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario superior a 0 (pasa). |
-| - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto negativo (falla). |
+| - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto negativo o igual a cero (falla). |
 | - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto con números decimales (falla). |
 | - Probar enviar una solicitud de alquiler indicando menos de una persona a residir en la propiedad (falla). |
 | - Probar enviar una solicitud de alquiler indicando una o más personas a residir en la propiedad (pasa). |
 | - Probar enviar una solicitud de alquiler y verificar que la opción predeterminada para las mascotas sea "No" (pasa). |
 | - Probar enviar una solicitud de alquiler indicando que no se poseen mascotas y verificar que no aparezca el campo para detallar información sobre ellas (pasa). |
 | - Probar enviar una solicitud de alquiler indicando que se poseen mascotas y se hace visible el campo para ingresar información adicional (pasa). |
-| - Probar enviar una solicitud de alquiler indicando que se poseen mascotas e ingresando información sobre ellas (pasa). |
+| - Probar enviar una solicitud de alquiler indicando que se poseen mascotas e ingresando información sobre ellas con menos de 300 caracteres (pasa). |
+| - Probar enviar una solicitud de alquiler indicando que se poseen mascotas e ingresando información sobre ellas con más de 300 caracteres (falla). |
 | - Probar enviar una solicitud de alquiler seleccionando más de un tipo de garantía (pasa). |
 | - Probar enviar una solicitud de alquiler sin indicar garantías para una propiedad que no las exige (pasa). |
 | - Probar enviar una solicitud de alquiler sin indicar las garantías exigidas por el locador para la propiedad (falla). |
@@ -62,5 +63,5 @@
 | - Probar enviar una solicitud de alquiler con un teléfono válido y verificar que se muestre con «+» y espacios, sin alterar su representación canónica E.164 (pasa). |
 | - Probar enviar una solicitud de alquiler con un correo válido en los formatos admitidos, incluidos puntos, «+» y guiones bajos en el nombre (pasa). |
 | - Probar enviar una solicitud de alquiler con un correo electrónico de formato inválido (falla). |
-| - Probar enviar una solicitud de alquiler y verificar que se muestren los datos de la propiedad seleccionada: dirección, piso, barrio, ambientes, metros cuadrados reales, aceptación de mascotas, monto mensual y foto principal (pasa). |
+| - Probar enviar una solicitud de alquiler y verificar que se muestren los datos de la propiedad seleccionada: dirección, piso, barrio, ambientes, metros cuadrados (superficie cubierta), aceptación de mascotas, monto mensual y foto principal (pasa). |
 | - Probar enviar una solicitud de alquiler y verificar que quede asociada a la propiedad seleccionada e incluya los datos y opciones ingresados (pasa). |
