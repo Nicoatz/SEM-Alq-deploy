@@ -26,11 +26,11 @@ export class InmuebleService {
 
   async getById(id: number): Promise<InmuebleDetalleDTO | null> {
     const inmueble = await this.inmRepo.findDisponibleById(id);
-  
+
     if (!inmueble) return null;
-  
+
     const tipoObj = await lookupRepository.getTipoById(inmueble.tipo);
-  
+
     const servicioObj = inmueble.servicios ? await lookupRepository.getServicioById(inmueble.servicios): null;
 
     const contrato = await this.contRepo.findByInmuebleId(inmueble.id);
@@ -38,8 +38,8 @@ export class InmuebleService {
     const tags = await this.inmRepo.getTagsByInmuebleId(inmueble.id);
 
     const indiceAjuste = contrato?.indice_aumento ? await lookupRepository.getTipoIndiceById(contrato.indice_aumento): null;
-   
-  
+
+
     return {
       id: inmueble.id,
 
@@ -215,7 +215,7 @@ export class InmuebleService {
 
     if (
       existing.estado_alquiler === 'alquilado' ||
-      existing.estado_alquiler === 'alquilada/publicada'
+      existing.estado_alquiler === 'publicado/alquilado'
     ) {
       const error = new Error(
         'No se puede modificar una propiedad que está alquilada.'
@@ -235,13 +235,13 @@ export class InmuebleService {
 
   async delete(id: number, idLocador: number): Promise<boolean> {
     const resultado = await this.inmRepo.eliminarLogicamente(id, idLocador);
-  
+
     if (!resultado.success) {
       const error = new Error(resultado.message);
       Object.assign(error, { statusCode: resultado.statusCode });
       throw error;
     }
-  
+
     return true;
   }
 
