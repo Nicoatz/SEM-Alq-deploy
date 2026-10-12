@@ -86,7 +86,7 @@ export const authenticateGateway = async (
       email: usuario.email,
       numero_documento: usuario.numero_documento,
       telefono: usuario.telefono,
-      roles: roles.map(role => role.descripcion),
+      roles: (roles ?? []).map(role => role.descripcion),
       authUserId: payload.sub
     } as AuthenticatedUser;
 
