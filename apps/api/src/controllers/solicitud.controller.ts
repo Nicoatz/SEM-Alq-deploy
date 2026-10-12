@@ -11,38 +11,67 @@ import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { solicitudService } from '../services/solicitud.service';
 
 export class SolicitudController {
+  private parseFiltros(
+    req: Request,
+    res: Response<ApiResponse<SolicitudResponse[]>>
+  ): FiltrosMisSolicitudesDTO | null {
+    const rawEstado = req.query.estado;
+    const rawInmueble = req.query.inmueble;
+    const estados: FiltrosMisSolicitudesDTO['estado'][] = [
+      'pendiente',
+      'aceptada',
+      'rechazada',
+      'cancelada'
+    ];
+
+    if (rawEstado !== undefined && (typeof rawEstado !== 'string' || !estados.includes(rawEstado as FiltrosMisSolicitudesDTO['estado']))) {
+      res.status(400).json({
+        success: false,
+        error: 'El filtro estado no es válido.'
+      });
+      return null;
+    }
+
+    return {
+      estado: rawEstado as FiltrosMisSolicitudesDTO['estado'] | undefined,
+      inmueble: rawInmueble === undefined
+        ? undefined
+        : typeof rawInmueble === 'string' ? Number(rawInmueble) : NaN
+    };
+  }
+
+  async getSolicitudesRecibidas(
+    req: Request,
+    res: Response<ApiResponse<SolicitudResponse[]>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const filtros = this.parseFiltros(req, res);
+      if (!filtros) return;
+
+      const user = (req as any).user as AuthenticatedUser;
+      const solicitudes = await solicitudService.getSolicitudesRecibidas(user, filtros);
+
+      res.status(200).json({
+        success: true,
+        data: solicitudes
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async getMisSolicitudes(
     req: Request,
     res: Response<ApiResponse<SolicitudResponse[]>>,
     next: NextFunction
   ): Promise<void> {
     try {
-      const rawEstado = req.query.estado;
-      const rawInmueble = req.query.inmueble;
-      const estados: FiltrosMisSolicitudesDTO['estado'][] = [
-        'pendiente',
-        'aceptada',
-        'rechazada',
-        'cancelada'
-      ];
-
-      if (rawEstado !== undefined && (typeof rawEstado !== 'string' || !estados.includes(rawEstado as FiltrosMisSolicitudesDTO['estado']))) {
-        res.status(400).json({
-          success: false,
-          error: 'El filtro estado no es válido.'
-        });
-        return;
-      }
-
-      const inmueble = rawInmueble === undefined
-        ? undefined
-        : typeof rawInmueble === 'string' ? Number(rawInmueble) : NaN;
+      const filtros = this.parseFiltros(req, res);
+      if (!filtros) return;
 
       const user = (req as any).user as AuthenticatedUser;
-      const solicitudes = await solicitudService.getMisSolicitudes(user, {
-        estado: rawEstado as FiltrosMisSolicitudesDTO['estado'] | undefined,
-        inmueble
-      });
+      const solicitudes = await solicitudService.getMisSolicitudes(user, filtros);
 
       res.status(200).json({
         success: true,

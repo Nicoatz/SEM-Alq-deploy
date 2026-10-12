@@ -258,6 +258,25 @@ export class SolicitudService {
 
     return this.solicitudRepo.findByLocatarioId(user.id, filtros);
   }
+
+  async getSolicitudesRecibidas(
+    user: AuthenticatedUser,
+    filtros: FiltrosMisSolicitudesDTO = {}
+  ): Promise<SolicitudResponse[]> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para consultar las solicitudes recibidas.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwValidationError('Se requiere el rol locador para consultar las solicitudes recibidas.', 403);
+    }
+
+    if (filtros.inmueble !== undefined && (!Number.isInteger(filtros.inmueble) || filtros.inmueble < 1)) {
+      this.throwValidationError('El filtro inmueble debe ser un entero positivo.', 400);
+    }
+
+    return this.solicitudRepo.findByLocadorId(user.id, filtros);
+  }
 }
 
 export const solicitudService = new SolicitudService();

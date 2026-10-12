@@ -26,6 +26,10 @@ export interface ISolicitudRepository {
     idLocatario: number,
     filtros?: FiltrosMisSolicitudesDTO
   ): Promise<SolicitudResponse[]>;
+  findByLocadorId(
+    idLocador: number,
+    filtros?: FiltrosMisSolicitudesDTO
+  ): Promise<SolicitudResponse[]>;
   create(data: CreateSolicitudEntity): Promise<SolicitudDTO>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
   findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]>;
@@ -104,6 +108,43 @@ export class SolicitudRepository implements ISolicitudRepository {
       .from('solicitud')
       .select('id, id_estado_solicitud')
       .eq('id_locatario', idLocatario)
+      .order('fecha_creacion', { ascending: false });
+
+    if (filtros.inmueble !== undefined) {
+      query = query.eq('id_inmueble', filtros.inmueble);
+    }
+
+    if (filtros.estado) {
+      const estados: Record<NonNullable<FiltrosMisSolicitudesDTO['estado']>, number> = {
+        pendiente: 1,
+        aceptada: 2,
+        rechazada: 3,
+        cancelada: 4
+      };
+      query = query.eq('id_estado_solicitud', estados[filtros.estado]);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const respuestas = await Promise.all(
+      (data ?? []).map(row => this.findByIdWithRelations(row.id))
+    );
+
+    return respuestas.filter(
+      (respuesta): respuesta is SolicitudResponse => respuesta !== null
+    );
+  }
+
+  async findByLocadorId(
+    idLocador: number,
+    filtros: FiltrosMisSolicitudesDTO = {}
+  ): Promise<SolicitudResponse[]> {
+    let query = getSupabaseAdmin()
+      .from('solicitud')
+      .select('id, id_estado_solicitud')
+      .eq('id_locador', idLocador)
       .order('fecha_creacion', { ascending: false });
 
     if (filtros.inmueble !== undefined) {

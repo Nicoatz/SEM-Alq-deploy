@@ -27,6 +27,14 @@ const usuario: AuthenticatedUser = {
   authUserId: 'auth-user-test'
 };
 
+const locador: AuthenticatedUser = {
+  ...usuario,
+  id: 30,
+  nombre: 'Locador',
+  apellido: 'De Prueba',
+  roles: ['locador']
+};
+
 const inmueble: InmuebleDTO = {
   id: 22,
   id_locador: 30,
@@ -79,7 +87,9 @@ class FakeSolicitudRepository implements ISolicitudRepository {
   active: SolicitudDTO | null = null;
   created: CreateSolicitudEntity | null = null;
   misSolicitudes: SolicitudResponse[] = [];
+  recibidas: SolicitudResponse[] = [];
   lastLocatarioId: number | null = null;
+  lastLocadorId: number | null = null;
   lastFiltros: FiltrosMisSolicitudesDTO | undefined;
   readonly createdResponse: SolicitudResponse = {
     id: 100,
@@ -121,6 +131,12 @@ class FakeSolicitudRepository implements ISolicitudRepository {
     this.lastLocatarioId = idLocatario;
     this.lastFiltros = filtros;
     return this.misSolicitudes;
+  }
+
+  async findByLocadorId(idLocador: number, filtros?: FiltrosMisSolicitudesDTO): Promise<SolicitudResponse[]> {
+    this.lastLocadorId = idLocador;
+    this.lastFiltros = filtros;
+    return this.recibidas;
   }
 
   async create(data: CreateSolicitudEntity): Promise<SolicitudDTO> {
@@ -333,5 +349,45 @@ describe('SolicitudService.getMisSolicitudes - US-36', () => {
       service.getMisSolicitudes(usuario, { inmueble: 0 }),
       400
     );
+  });
+});
+
+describe('SolicitudService.getSolicitudesRecibidas - US-36', () => {
+  it('rechaza la consulta sin sesión', async () => {
+    const { service } = serviceFixture();
+
+    await expectStatus(
+      service.getSolicitudesRecibidas(null as unknown as AuthenticatedUser),
+      401
+    );
+  });
+
+  it('rechaza la consulta de un usuario sin rol locador', async () => {
+    const { service } = serviceFixture();
+
+    await expectStatus(service.getSolicitudesRecibidas(usuario), 403);
+  });
+
+  it('consulta las solicitudes recibidas del locador autenticado', async () => {
+    const fixture = serviceFixture();
+    fixture.solicitudRepository.recibidas = [fixture.solicitudRepository.createdResponse];
+
+    const resultado = await fixture.service.getSolicitudesRecibidas(locador);
+
+    expect(resultado).toEqual(fixture.solicitudRepository.recibidas);
+    expect(fixture.solicitudRepository.lastLocadorId).toBe(locador.id);
+  });
+
+  it('propaga los filtros estado e inmueble al repository', async () => {
+    const fixture = serviceFixture();
+    const filtros: FiltrosMisSolicitudesDTO = {
+      estado: 'rechazada',
+      inmueble: inmueble.id
+    };
+
+    await fixture.service.getSolicitudesRecibidas(locador, filtros);
+
+    expect(fixture.solicitudRepository.lastLocadorId).toBe(locador.id);
+    expect(fixture.solicitudRepository.lastFiltros).toEqual(filtros);
   });
 });

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 
 import { solicitudController } from '../../controllers/solicitud.controller';
-import { authenticateGateway } from '../../gateway/middlewares/auth.middleware';
+import { authenticateGateway, requireRole } from '../../gateway/middlewares/auth.middleware';
 
 const router = Router();
 
@@ -51,6 +51,57 @@ router.get(
   '/mias',
   authenticateGateway,
   solicitudController.getMisSolicitudes.bind(solicitudController)
+);
+
+/**
+ * @openapi
+ * /api/v1/solicitudes/recibidas:
+ *   get:
+ *     summary: Consultar solicitudes recibidas por el locador
+ *     description: Devuelve las solicitudes de las propiedades del locador autenticado, ordenadas de la más nueva a la más antigua.
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [pendiente, aceptada, rechazada, cancelada]
+ *         description: Filtra las solicitudes por estado.
+ *       - in: query
+ *         name: inmueble
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Filtra las solicitudes de una propiedad propia.
+ *     responses:
+ *       200:
+ *         description: Solicitudes recibidas por el locador autenticado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SolicitudResponse'
+ *       400:
+ *         description: Filtros inválidos.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ */
+router.get(
+  '/recibidas',
+  authenticateGateway,
+  requireRole('locador'),
+  solicitudController.getSolicitudesRecibidas.bind(solicitudController)
 );
 
 /**
