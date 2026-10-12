@@ -6,7 +6,8 @@ import type {
   SolicitudResponse,
   TipoGarantiaDTO,
   CrearSolicitudRequest,
-  InmuebleDTO
+  InmuebleDTO,
+  FiltrosMisSolicitudesDTO
 } from '../../src/dtos';
 import type {
   CreateSolicitudEntity,
@@ -77,6 +78,9 @@ class FakeInmuebleRepository implements Pick<IInmuebleRepository, 'findById'> {
 class FakeSolicitudRepository implements ISolicitudRepository {
   active: SolicitudDTO | null = null;
   created: CreateSolicitudEntity | null = null;
+  misSolicitudes: SolicitudResponse[] = [];
+  lastLocatarioId: number | null = null;
+  lastFiltros: FiltrosMisSolicitudesDTO | undefined;
   readonly createdResponse: SolicitudResponse = {
     id: 100,
     estado: 'pendiente',
@@ -113,6 +117,11 @@ class FakeSolicitudRepository implements ISolicitudRepository {
   async findByInmuebleId(): Promise<SolicitudDTO[]> { return []; }
   async findActiveByInmuebleAndLocatario(): Promise<SolicitudDTO | null> { return this.active; }
   async findSolicitudesPendientesByLocatario(): Promise<SolicitudDTO[]> { return []; }
+  async findByLocatarioId(idLocatario: number, filtros?: FiltrosMisSolicitudesDTO): Promise<SolicitudResponse[]> {
+    this.lastLocatarioId = idLocatario;
+    this.lastFiltros = filtros;
+    return this.misSolicitudes;
+  }
 
   async create(data: CreateSolicitudEntity): Promise<SolicitudDTO> {
     this.created = data;
@@ -281,5 +290,48 @@ describe('SolicitudService.create - US-35', () => {
       posee_mascotas: true,
       detalles_mascotas: 'Un perro'
     });
+  });
+});
+
+describe('SolicitudService.getMisSolicitudes - US-36', () => {
+  it('rechaza la consulta sin sesión', async () => {
+    const { service } = serviceFixture();
+
+    await expectStatus(
+      service.getMisSolicitudes(null as unknown as AuthenticatedUser),
+      401
+    );
+  });
+
+  it('consulta únicamente las solicitudes del usuario autenticado', async () => {
+    const fixture = serviceFixture();
+    fixture.solicitudRepository.misSolicitudes = [fixture.solicitudRepository.createdResponse];
+
+    const resultado = await fixture.service.getMisSolicitudes(usuario);
+
+    expect(resultado).toEqual(fixture.solicitudRepository.misSolicitudes);
+    expect(fixture.solicitudRepository.lastLocatarioId).toBe(usuario.id);
+  });
+
+  it('propaga los filtros estado e inmueble al repository', async () => {
+    const fixture = serviceFixture();
+    const filtros: FiltrosMisSolicitudesDTO = {
+      estado: 'pendiente',
+      inmueble: inmueble.id
+    };
+
+    await fixture.service.getMisSolicitudes(usuario, filtros);
+
+    expect(fixture.solicitudRepository.lastLocatarioId).toBe(usuario.id);
+    expect(fixture.solicitudRepository.lastFiltros).toEqual(filtros);
+  });
+
+  it('rechaza un filtro de inmueble inválido', async () => {
+    const { service } = serviceFixture();
+
+    await expectStatus(
+      service.getMisSolicitudes(usuario, { inmueble: 0 }),
+      400
+    );
   });
 });

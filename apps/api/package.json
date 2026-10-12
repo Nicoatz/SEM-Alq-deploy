@@ -9,7 +9,7 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "test": "jest --config jest.config.cjs --runInBand",
-    "test:us35": "jest --config jest.config.cjs tests/api/us35-enviar-solicitud.test.ts --runInBand",
+    "test:solicitudes": "jest --config jest.config.cjs tests/api/solicitudes.test.ts --runInBand",
     "test:legacy:us01": "tsx tests/api/us01-registrar-propiedades.test.ts"
   },
   "dependencies": {
