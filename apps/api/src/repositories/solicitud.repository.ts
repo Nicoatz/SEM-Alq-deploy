@@ -29,6 +29,8 @@ export interface ISolicitudRepository {
   getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitudDTO | null>;
   getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacionalDTO | null>;
   getSituacionByNombre(nombre: string): Promise<SituacionOcupacionalDTO | null>;
+  getSituaciones(): Promise<SituacionOcupacionalDTO[]>;
+  getGarantias(): Promise<TipoGarantiaDTO[]>;
   findByIdWithRelations(id: number): Promise<SolicitudResponse | null>;
 }
 
@@ -195,6 +197,28 @@ export class SolicitudRepository implements ISolicitudRepository {
     if (error) throw error;
 
     return (data as SituacionOcupacionalDTO | null) ?? null;
+  }
+
+  async getSituaciones(): Promise<SituacionOcupacionalDTO[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('situacion_ocupacional')
+      .select('id, nombre')
+      .order('id');
+
+    if (error) throw error;
+
+    return (data ?? []) as SituacionOcupacionalDTO[];
+  }
+
+  async getGarantias(): Promise<TipoGarantiaDTO[]> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('tipo_garantia')
+      .select('id, nombre')
+      .order('id');
+
+    if (error) throw error;
+
+    return (data ?? []) as TipoGarantiaDTO[];
   }
 
   async findByIdWithRelations(id: number): Promise<SolicitudResponse | null> {

@@ -1,5 +1,6 @@
 import type {
   CrearSolicitudRequest,
+  SolicitudPreparacionResponse,
   SolicitudResponse
 } from '../dtos';
 
@@ -9,6 +10,7 @@ import {
   ISolicitudRepository,
   solicitudRepository
 } from '../repositories/solicitud.repository';
+import { lookupRepository } from '../repositories/lookup.repository';
 
 export class SolicitudService {
   constructor(
@@ -20,6 +22,87 @@ export class SolicitudService {
     const error = new Error(message);
     (error as any).statusCode = statusCode;
     throw error;
+  }
+
+  async prepare(
+    user: AuthenticatedUser,
+    idInmueble: number
+  ): Promise<SolicitudPreparacionResponse> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para solicitar una propiedad.', 401);
+    }
+
+    const inmueble = await this.inmuebleRepo.findById(idInmueble);
+
+    if (!inmueble) {
+      this.throwValidationError('La propiedad indicada no existe.', 404);
+    }
+
+    if (inmueble.id_locador === user.id) {
+      this.throwValidationError('No puedes solicitar una propiedad propia.', 403);
+    }
+
+    if (!['publicado', 'publicado/alquilado'].includes(inmueble.estado_alquiler)) {
+      this.throwValidationError('Esta propiedad ya no recibe solicitudes.', 409);
+    }
+
+    const [usuario, situaciones, garantias] = await Promise.all([
+      lookupRepository.getUsuarioById(user.id),
+      this.solicitudRepo.getSituaciones(),
+      this.solicitudRepo.getGarantias()
+    ]);
+
+    if (!usuario) {
+      this.throwValidationError('No se encontró el perfil del usuario autenticado.', 401);
+    }
+
+    const ocupacionCodigo: Record<string, SolicitudPreparacionResponse['situaciones_ocupacionales'][number]['codigo']> = {
+      '-': 'sin_informar',
+      'relación de dependencia': 'relacion_dependencia',
+      monotributista: 'monotributista',
+      autónoma: 'autonoma',
+      estudiante: 'estudiante',
+      jubilada: 'jubilada'
+    };
+    const garantiaCodigo: Record<string, SolicitudPreparacionResponse['garantias'][number]['codigo']> = {
+      'garantía propietaria': 'propietaria',
+      'seguro de caución': 'caucion',
+      otra: 'otra'
+    };
+
+    return {
+      usuario: {
+        id: usuario.id,
+        nombre: usuario.nombre,
+        apellido: usuario.apellido,
+        dni: usuario.numero_documento,
+        telefono: usuario.telefono,
+        email: usuario.email
+      },
+      situaciones_ocupacionales: situaciones.map(situacion => ({
+        id: situacion.id,
+        codigo: ocupacionCodigo[situacion.nombre] ?? 'sin_informar',
+        nombre: situacion.nombre
+      })),
+      garantias: garantias.map(garantia => ({
+        id: garantia.id,
+        codigo: garantiaCodigo[garantia.nombre] ?? 'otra',
+        nombre: garantia.nombre
+      })),
+      // NOTA: el esquema actual todavía no persiste garantías exigidas por inmueble.
+      garantias_exigidas: [],
+      valores_iniciales: {
+        telefono: usuario.telefono ?? '',
+        email: usuario.email,
+        ocupacion: 'sin_informar',
+        ingresos: null,
+        convivientes: 1,
+        mascotas: false,
+        detalle_mascotas: null,
+        garantias: [],
+        acepto: false
+      }
+    };
   }
 
   async create(

@@ -79,3 +79,36 @@ export interface SolicitudResponse {
     garantias: ('propietaria' | 'caucion' | 'otra')[];
   } | null;
 }
+
+export interface SolicitudPreparacionResponse {
+  usuario: {
+    id: number;
+    nombre: string;
+    apellido?: string | null;
+    dni?: string | null;
+    telefono?: string | null;
+    email: string;
+  };
+  situaciones_ocupacionales: Array<{
+    id: number;
+    codigo: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada';
+    nombre: string;
+  }>;
+  garantias: Array<{
+    id: number;
+    codigo: 'propietaria' | 'caucion' | 'otra';
+    nombre: string;
+  }>;
+  garantias_exigidas: number[];
+  valores_iniciales: {
+    telefono: string;
+    email: string;
+    ocupacion: 'sin_informar';
+    ingresos: null;
+    convivientes: 1;
+    mascotas: false;
+    detalle_mascotas: null;
+    garantias: [];
+    acepto: false;
+  };
+}

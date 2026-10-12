@@ -7,6 +7,44 @@ const router = Router();
 
 /**
  * @openapi
+ * /api/v1/solicitudes/preparar:
+ *   get:
+ *     summary: Obtener datos para preparar una solicitud de alquiler
+ *     description: Devuelve el perfil del locatario, catálogos y valores iniciales del formulario.
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: id_inmueble
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Identificador de la propiedad a solicitar.
+ *     responses:
+ *       200:
+ *         description: Datos iniciales de la solicitud.
+ *       400:
+ *         description: El identificador es inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario es propietario de la propiedad.
+ *       404:
+ *         description: La propiedad no existe.
+ *       409:
+ *         description: La propiedad no recibe solicitudes.
+ */
+router.get(
+  '/preparar',
+  authenticateGateway,
+  solicitudController.prepare.bind(solicitudController)
+);
+
+/**
+ * @openapi
  * /api/v1/solicitudes:
  *   post:
  *     summary: Enviar una solicitud de alquiler
