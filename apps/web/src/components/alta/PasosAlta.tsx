@@ -10,12 +10,13 @@
  *
  * NOTA: diferencias con el diseño, pedidas por producto: los tipos son los 4
  * de RentAR (sin Local ni Cochera: es residencial); las características son
- * las 5 del catálogo de `/buscar`; el estado es "Publicada / Pausada /
+ * las del catálogo de `/buscar` que existen en la base (sin "Apto profesional"); el estado es "Publicada / Pausada /
  * Alquilada" (alquilada con fecha → alquilada/publicada); no hay mapa; la antigüedad, el depósito y la duración van en
  * números (años y meses); la actualización es "cada N meses" (1 a 12).
- * Quién lo usa: `AltaPropiedad.tsx`.
+ * Quién lo usa: `AltaPropiedad.tsx` y, con el estado y las condiciones de
+ * solo lectura, `EditarPropiedad.tsx` (US-03).
  */
-import { DatePicker, Form, Grid, Input, InputNumber, Select } from 'antd'
+import { ConfigProvider, DatePicker, Form, Grid, Input, InputNumber, Select } from 'antd'
 import dayjs from 'dayjs'
 import type { ReactNode } from 'react'
 import type { FotoNueva } from '@rentar/shared-types'
@@ -138,14 +139,15 @@ export function PasoUbicacion() {
 /** Props de {@link PasoCaracteristicas}. */
 interface PasoCaracteristicasProps {
   /**
-   * Solo la edición (US-03): id del contrato vigente. Con contrato, el
-   * estado queda en "Alquilada" (lo fija el contrato); la fecha de
-   * disponibilidad sigue editable, para publicarla para el próximo inquilino.
+   * Solo la edición (US-03): el estado de la publicación se muestra
+   * deshabilitado. `PUT /inmuebles/:id` no acepta `estado_alquiler` (400);
+   * publicar y pausar van por otra ruta (`PATCH /inmuebles/:id/publicacion`,
+   * propuesta). "Disponible desde" sigue editable: es del inmueble.
    */
-  estadoFijadoPorContrato?: string
+  estadoSoloLectura?: boolean
 }
 
-export function PasoCaracteristicas({ estadoFijadoPorContrato }: PasoCaracteristicasProps = {}) {
+export function PasoCaracteristicas({ estadoSoloLectura = false }: PasoCaracteristicasProps = {}) {
   const form = Form.useFormInstance<AltaValues>()
   const tipo = Form.useWatch('type', form)
   const ambientes = Form.useWatch('rooms', form) ?? 2
@@ -222,15 +224,9 @@ export function PasoCaracteristicas({ estadoFijadoPorContrato }: PasoCaracterist
             name="status"
             label="Estado de la publicación"
             rules={reglasEstado}
-            extra={
-              estadoFijadoPorContrato ? (
-                <span data-testid="editar-propiedad-bloqueado-status">🔒 Lo fija el contrato {estadoFijadoPorContrato}.</span>
-              ) : (
-                'Publicada se ve en la búsqueda. Pausada no. Alquilada, solo si cargás desde cuándo vuelve a estar disponible.'
-              )
-            }
+            extra={estadoSoloLectura ? undefined : 'Publicada se ve en la búsqueda. Pausada no. Alquilada, solo si cargás desde cuándo vuelve a estar disponible.'}
           >
-            <Select size="large" placeholder="Elegí el estado" options={ESTADO_ALTA_OPTIONS} disabled={Boolean(estadoFijadoPorContrato)} data-testid="alta-estado" />
+            <Select size="large" placeholder="Elegí el estado" options={ESTADO_ALTA_OPTIONS} disabled={estadoSoloLectura} data-testid="alta-estado" />
           </Form.Item>
           <Form.Item
             name="availableFrom"
@@ -292,23 +288,31 @@ export function PasoFotos({ fotosOriginales }: PasoFotosProps = {}) {
 /** Props de {@link PasoCondiciones}. */
 interface PasoCondicionesProps {
   /**
-   * Solo la edición (US-03): id del contrato vigente. Con contrato, el
-   * precio, el índice y la frecuencia de ajuste quedan bloqueados ("Detalle
-   * de propiedad del locador" · 06: "eso vive en el contrato"). El alta no lo pasa.
+   * Solo la edición (US-03): todo menos el precio queda deshabilitado y sin
+   * texto de ayuda (no hay nada que completar). El
+   * precio es del inmueble (`precio_publicado`); lo demás vive en el contrato
+   * y `PUT /inmuebles/:id` no lo modifica (decisión confirmada con backend).
+   * El alta no lo pasa.
    */
-  fijadosPorContrato?: string
+  soloLectura?: boolean
 }
 
-/** "🔒 Lo fija el contrato CT-2026-0148." con su `data-testid`. */
-function LoFijaElContrato({ contrato, campo }: { contrato: string; campo: string }) {
-  return <span data-testid={`editar-propiedad-bloqueado-${campo}`}>🔒 Lo fija el contrato {contrato}.</span>
+/**
+ * Deshabilita todo lo que tiene adentro (inputs de antd y campos propios
+ * armados con ellos) cuando `activo`. Sin `activo` no pisa nada: si el
+ * formulario está deshabilitado mientras guarda, sigue deshabilitado.
+ */
+function SoloLectura({ activo, children }: { activo: boolean; children: ReactNode }) {
+  return <ConfigProvider componentDisabled={activo ? true : undefined}>{children}</ConfigProvider>
 }
 
-export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {}) {
+export function PasoCondiciones({ soloLectura = false }: PasoCondicionesProps = {}) {
   const form = Form.useFormInstance<AltaValues>()
   const interes = Form.useWatch('dailyInterestPct', form)
   const precio = Form.useWatch('priceMonthly', form)
   const deposito = Form.useWatch('depositMonths', form)
+  /** Texto de ayuda de un campo de condiciones: en la edición son de solo lectura y no llevan ayuda (decisión del PO). */
+  const ayuda = (texto: string): string | undefined => (soloLectura ? undefined : texto)
 
   return (
     <div className={styles.step}>
@@ -318,11 +322,10 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
             name="priceMonthly"
             label="Precio mensual"
             rules={reglasPrecio}
-            extra={fijadosPorContrato ? <LoFijaElContrato contrato={fijadosPorContrato} campo="priceMonthly" /> : 'Por mes, sin expensas.'}
+            extra="Por mes, sin expensas."
           >
             <InputNumber<number>
               size="large"
-              disabled={Boolean(fijadosPorContrato)}
               min={0}
               step={5000}
               controls={false}
@@ -333,7 +336,8 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
               data-testid="alta-precio"
             />
           </Form.Item>
-          <Form.Item name="expenses" label="Expensas" rules={reglasExpensas} extra="Si la propiedad no paga expensas, dejá 0.">
+          <SoloLectura activo={soloLectura}>
+          <Form.Item name="expenses" label="Expensas" rules={reglasExpensas} extra={ayuda('Si la propiedad no paga expensas, dejá 0.')}>
             <InputNumber<number>
               size="large"
               min={0}
@@ -346,15 +350,18 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
               data-testid="alta-expensas"
             />
           </Form.Item>
+          </SoloLectura>
         </div>
       </FormSection>
+
+      <SoloLectura activo={soloLectura}>
 
       <FormSection
         title="Penalización por mora"
         description="Qué se cobra si el alquiler se paga después del vencimiento. Se copia al contrato y el locatario lo ve antes de firmar."
       >
         <div className={styles.gridTwo}>
-          <Form.Item name="dailyInterestPct" label={<Opcional>Interés por día de atraso</Opcional>} extra="Sobre el monto impago. Dejalo vacío si no cobrás recargo.">
+          <Form.Item name="dailyInterestPct" label={<Opcional>Interés por día de atraso</Opcional>} extra={ayuda('Sobre el monto impago. Dejalo vacío si no cobrás recargo.')}>
             <InputNumber
               size="large"
               min={0}
@@ -371,7 +378,7 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
             label={(interes ?? 0) > 0 ? 'Días de gracia' : <Opcional>Días de gracia</Opcional>}
             rules={reglasDiasGracia(interes)}
             dependencies={['dailyInterestPct']}
-            extra="Antes de que empiece a correr el interés."
+            extra={ayuda('Antes de que empiece a correr el interés.')}
           >
             <InputNumber size="large" min={0} max={31} precision={0} suffix="días" className={styles.fullWidth} data-testid="alta-dias-gracia" />
           </Form.Item>
@@ -385,10 +392,12 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
         <Form.Item name="paymentMethods" rules={reglasMediosPago} className={styles.noLabel}>
           <MediosPagoField />
         </Form.Item>
-        <p className={styles.infoNote}>
-          El recargo se aplica sobre el total del período y se muestra aparte al pagar, nunca escondido dentro del alquiler. Tope del 3 %; con 0, el medio se ofrece
-          sin costo extra. Al menos un medio tiene que quedar habilitado.
-        </p>
+        {!soloLectura && (
+          <p className={styles.infoNote}>
+            El recargo se aplica sobre el total del período y se muestra aparte al pagar, nunca escondido dentro del alquiler. Tope del 3 %; con 0, el medio se ofrece
+            sin costo extra. Al menos un medio tiene que quedar habilitado.
+          </p>
+        )}
       </FormSection>
 
       <FormSection
@@ -399,22 +408,13 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
           <Form.Item
             name="adjustmentEveryMonths"
             label={<Opcional>Cada cuánto se actualiza</Opcional>}
-            extra={
-              fijadosPorContrato ? (
-                <LoFijaElContrato contrato={fijadosPorContrato} campo="adjustmentEveryMonths" />
-              ) : (
-                'De 1 a 12 meses. El alquiler queda igual durante ese período y después se ajusta una vez.'
-              )
-            }
+            extra={ayuda('De 1 a 12 meses. El alquiler queda igual durante ese período y después se ajusta una vez.')}
           >
-            <Select size="large" allowClear placeholder="Elegí cada cuánto" options={AJUSTE_MESES_OPTIONS} disabled={Boolean(fijadosPorContrato)} data-testid="alta-ajuste-meses" />
+            <Select size="large" allowClear placeholder="Elegí cada cuánto" options={AJUSTE_MESES_OPTIONS} data-testid="alta-ajuste-meses" />
           </Form.Item>
-          <Form.Item
-            name="adjustmentIndex"
-            label={<Opcional>Índice de ajuste</Opcional>}
-            extra={fijadosPorContrato ? <LoFijaElContrato contrato={fijadosPorContrato} campo="adjustmentIndex" /> : undefined}
-          >
-            <IndiceField disabled={Boolean(fijadosPorContrato)} />
+          <Form.Item name="adjustmentIndex" label={<Opcional>Índice de ajuste</Opcional>}>
+            {/* NOTA: `Radio.Group` con `disabled={false}` explícito pisaría el `SoloLectura`: se pasa el valor. */}
+            <IndiceField disabled={soloLectura} />
           </Form.Item>
         </div>
       </FormSection>
@@ -424,19 +424,20 @@ export function PasoCondiciones({ fijadosPorContrato }: PasoCondicionesProps = {
           <Form.Item
             name="depositMonths"
             label={<Opcional>Depósito</Opcional>}
-            extra={
+            extra={ayuda(
               deposito && precio
                 ? `Se devuelve al final si no hay daños. Hoy son ${formatARS(deposito * precio)}.`
-                : 'En meses de alquiler. Se devuelve al final si no hay daños.'
-            }
+                : 'En meses de alquiler. Se devuelve al final si no hay daños.',
+            )}
           >
             <InputNumber size="large" min={0} max={12} precision={0} suffix={deposito === 1 ? 'mes' : 'meses'} className={styles.fullWidth} data-testid="alta-deposito" />
           </Form.Item>
-          <Form.Item name="contractMonths" label={<Opcional>Duración del contrato</Opcional>} extra="Lo habitual en vivienda son 36 meses.">
+          <Form.Item name="contractMonths" label={<Opcional>Duración del contrato</Opcional>} extra={ayuda('Lo habitual en vivienda son 36 meses.')}>
             <InputNumber size="large" min={1} max={120} precision={0} suffix="meses" className={styles.fullWidth} data-testid="alta-duracion" />
           </Form.Item>
         </div>
       </FormSection>
+      </SoloLectura>
     </div>
   )
 }

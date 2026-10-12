@@ -296,12 +296,15 @@ export const ETIQUETA_CAMPO: Partial<Record<keyof AltaValues, string>> = {
 // ─── Detalle y edición del locador (US-03, US-04) ───────────────────────
 
 /**
- * Campos que fija el contrato vigente: con contrato, no se modifican desde
- * la edición (Detalle de propiedad del locador · 06: "Con contrato vigente
- * no se puede cambiar el precio ni el índice: eso vive en el contrato"; la
- * frecuencia va con el índice).
+ * `true` si la propiedad se puede editar (US-03): no tiene contrato vigente.
+ * `PUT /inmuebles/:id` rechaza con 409 cualquier cambio de un inmueble
+ * `alquilado` o `publicado/alquilado`, la misma regla con la que se arma
+ * `activeContract`. Con contrato, se esconden "Editar publicación" y "Editar
+ * fotos", y `/editar` muestra el aviso de bloqueo.
  */
-export const CAMPOS_FIJADOS_POR_CONTRATO = ['priceMonthly', 'adjustmentIndex', 'adjustmentEveryMonths'] as const satisfies readonly (keyof AltaValues)[]
+export function puedeEditar(detalle: { activeContract: unknown }): boolean {
+  return detalle.activeContract === null
+}
 
 /**
  * `true` si la propiedad se puede eliminar (US-04): no tiene contrato

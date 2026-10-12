@@ -10,7 +10,8 @@
  * Cubre: US-34 (`PropiedadResumen`), US-41 (`PropiedadDetalle`), US-02
  * (`PropiedadLocador`), US-01 (`PropiedadNueva` → cuerpo de `POST /inmuebles`)
  * y US-03/US-04 (`PropiedadLocadorDetalle`, por ahora con el puente desde
- * `/mis-alquileres`, y los errores de `DELETE /inmuebles/:id`).
+ * `/mis-alquileres`; la edición → cuerpo PARCIAL de `PUT /inmuebles/:id`, y
+ * los errores de ese `PUT` y de `DELETE /inmuebles/:id`).
  * Quién lo usa: la rama real de `services/propiedades.service.ts`.
  */
 import type {
@@ -27,14 +28,13 @@ import type {
   PropiedadDetalle,
   PropiedadNueva,
   PropiedadResumen,
-  CambiosPropiedad,
   PropiedadLocadorDetalle,
   FotoNueva,
   MedioPagoConRecargo,
 } from '@rentar/shared-types'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
-import type { InmuebleDetalleResponse, InmuebleDisponibleResponse, MisAlquileresDetalleResponse } from '../shared/backend-dtos'
+import type { InmuebleDetalleResponse, InmuebleDisponibleResponse, MisAlquileresDetalleResponse, UpdateInmueblePayload } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
 import { formatApproxAddress, formatExactAddress, formatFloorUnit, separarPisoDepto } from './direccion'
 import { tituloDePublicacion } from './titulo'
@@ -704,7 +704,7 @@ export function misAlquileresItemToDetalleResponse(item: MisAlquileresItem): Mis
     fecha_disponible: item.fecha_disponible ?? null,
     fecha_publicacion: null,
     tags: [...new Set(tags)],
-    fotos: item.fotos.map((foto) => ({ url: foto.url, es_principal: foto.es_principal, orden: foto.orden })),
+    fotos: item.fotos.map((foto) => ({ url: foto.url, es_principal: foto.es_principal, orden: foto.orden, peso_kb: foto.peso_kb, formato: foto.formato })),
     condiciones_contrato: {
       monto_alquiler: contrato.monto_alquiler,
       expensas: contrato.expensas,
@@ -739,29 +739,40 @@ export function misAlquileresItemToDetalleResponse(item: MisAlquileresItem): Mis
  *   ficha y para el formulario de edición. `piso` se separa en piso y depto
  *   (`separarPisoDepto`); los tags vuelven a características; el depósito
  *   vuelve a meses (el back guarda el MONTO, ver `propiedadNuevaToCreateInmueble`).
- * - Fotos: en orden; cada una con un id local (`foto-<n>`) para el formulario.
+ * - `priceMonthly`: `precio_publicado`, la columna del inmueble que guarda la
+ *   edición (US-03). NOTA: no sale de `condiciones_contrato.monto_alquiler`:
+ *   si saliera de ahí, un precio editado volvería con el valor viejo. El
+ *   depósito se pasa a meses sobre `monto_alquiler`, porque es del contrato.
+ *   TODO(backend): `/buscar` y el detalle público siguen mostrando
+ *   `contrato.monto_alquiler`: el precio editado no se ve ahí (HANDOFF §10).
+ * - Fotos: en orden; cada una con un id local (`foto-<n>`) para el formulario,
+ *   y con su peso y formato (`sizeKb`, `format`), que la edición reenvía.
  * - `activeContract`: el contrato vigente, si hay. Si no viene, `null`. El
  *   locatario y la fecha de fin pueden venir en `null` (la pantalla los omite).
  *
- * NOTA: la precarga de `/editar` (US-03) PIERDE dos datos que el front no
+ * NOTA: la precarga de `/editar` (US-03) no muestra dos datos que el front no
  * ofrece: el medio de pago "Débito automático" (`medio_pago.id` 4,
  * {@link medioPagoFromId} lo descarta) y el índice CAC (`tipo_indice.id` 3,
- * {@link adjustmentIndexFromId} lo deja en `null`). El formulario los muestra
- * vacíos y, al guardar, el cuerpo del `PUT` ya no los lleva.
- * TODO(backend): hoy el `PUT /inmuebles/:id` ignora `condiciones_contrato`, así
- * que no se borra nada; cuando se conecte el `PUT` ampliado, guardar la
- * edición BORRARÍA esos datos reales. Antes de conectarlo, o el front suma
- * los dos al catálogo, o el back conserva lo que el cuerpo no trae (ver
- * HANDOFF §7, US-03).
+ * {@link adjustmentIndexFromId} lo deja en `null`). Ya NO hay riesgo de
+ * borrarlos: en `/editar` las condiciones son de solo lectura y el
+ * `PUT /inmuebles/:id` no toca el contrato (la función SQL rechaza esas claves
+ * con 400). Ver {@link cambiosToUpdateInmueble}.
  * TODO(backend): crear la ruta (`GET /mis-alquileres/:id`, 404 si no es del que llama).
  */
 export function misAlquileresDetalleToPropiedadLocadorDetalle(dto: MisAlquileresDetalleResponse): PropiedadLocadorDetalle {
   const barrio = barrioDe(dto.barrio)
   const { floor, unit } = separarPisoDepto(dto.piso)
   const condiciones = dto.condiciones_contrato
-  const precio = aNumero(condiciones.monto_alquiler ?? dto.precio_publicado)
+  const precio = aNumero(dto.precio_publicado)
+  const montoContrato = aNumero(condiciones.monto_alquiler ?? dto.precio_publicado)
   const fotos = [...dto.fotos].sort((a, b) => a.orden - b.orden)
-  const photos: FotoNueva[] = fotos.map((foto, index) => ({ id: `foto-${index + 1}`, src: foto.url, name: `Foto ${index + 1}` }))
+  const photos: FotoNueva[] = fotos.map((foto, index) => ({
+    id: `foto-${index + 1}`,
+    src: foto.url,
+    name: `Foto ${index + 1}`,
+    sizeKb: foto.peso_kb,
+    format: foto.formato,
+  }))
   const deposito = numeroONull(condiciones.deposito)
   const mediosPago = [...new Set(condiciones.medios_pago)].map(medioPagoFromId).filter((medio): medio is MedioPagoConRecargo => medio !== null)
   const type = propertyTypeFromTipoId(dto.tipo)
@@ -794,7 +805,7 @@ export function misAlquileresDetalleToPropiedadLocadorDetalle(dto: MisAlquileres
     paymentMethods: mediosPago,
     adjustmentIndex: condiciones.indice_aumento ? adjustmentIndexFromId(condiciones.indice_aumento) : null,
     adjustmentEveryMonths: mesesDeFrecuencia(condiciones.frecuencia_ajuste),
-    depositMonths: deposito && precio ? Math.round(deposito / precio) : null,
+    depositMonths: deposito && montoContrato ? Math.round(deposito / montoContrato) : null,
     contractMonths: condiciones.duracion_meses,
   }
 
@@ -819,28 +830,156 @@ export function misAlquileresDetalleToPropiedadLocadorDetalle(dto: MisAlquileres
   }
 }
 
+// ─── Modificar (US-03) ──────────────────────────────────────────────────
+
 /**
- * Los cambios de la edición (US-03), ya completos, → cuerpo del `PUT
- * /inmuebles/:id` AMPLIADO (propuesto): el mismo cuerpo que `POST
- * /inmuebles` (`CreateInmuebleCompletoPayload`), con las mismas
- * traducciones que el alta ({@link propiedadNuevaToCreateInmueble}).
- * @param fotos Las fotos en el orden final: las que ya estaban (con su URL)
- *   y las nuevas, recién subidas a Storage.
- * TODO(backend): hoy el `PUT` actualiza solo las columnas de `inmueble` e
- * ignora `tags`, `fotos` y `condiciones_contrato` (ver HANDOFF §7, US-03).
+ * Las columnas de `inmueble` que guarda `PUT /inmuebles/:id` y que `/editar`
+ * deja cambiar. Quedan afuera `estado_alquiler` y las condiciones del
+ * contrato (el `PUT` las rechaza con 400; en `/editar` son de solo lectura) y
+ * `servicios` (el formulario no lo pide).
+ * NOTA: ciudad y provincia están, pero el formulario las tiene fijas (Córdoba
+ * Capital): nunca salen como cambio.
  */
-export function cambiosToUpdateInmueble(cambios: PropiedadNueva, fotos: CreateFotoPayload[]): CreateInmuebleCompletoPayload {
-  return propiedadNuevaToCreateInmueble(cambios, fotos)
+type CampoDelInmueble = Exclude<keyof UpdateInmueblePayload, 'fotos' | 'tags'>
+
+/**
+ * Los datos del inmueble de una propiedad, con la forma del back y las mismas
+ * traducciones que el alta ({@link propiedadNuevaToCreateInmueble}). Se arma
+ * para lo guardado y para lo editado, y se comparan.
+ */
+function inmuebleEditableDe(values: PropiedadNueva): Required<Pick<UpdateInmueblePayload, CampoDelInmueble>> {
+  const completo = propiedadNuevaToCreateInmueble(values, [])
+  return {
+    tipo: completo.tipo,
+    descripcion: completo.descripcion ?? null,
+    provincia: completo.provincia,
+    ciudad: completo.ciudad,
+    barrio: completo.barrio,
+    direccion: completo.direccion,
+    numero: completo.numero,
+    piso: completo.piso ?? null,
+    m2_totales: completo.m2_totales,
+    m2_cubiertos: completo.m2_cubiertos,
+    ambientes: completo.ambientes,
+    dormitorios: completo.dormitorios,
+    banos: completo.banos,
+    antiguedad: completo.antiguedad ?? null,
+    precio_publicado: completo.precio_publicado,
+    fecha_disponible: completo.fecha_disponible ?? null,
+  }
 }
 
-/** `true` si los cambios traen todos los datos del alta (la pantalla de edición siempre manda el formulario completo). */
-export function cambiosCompletos(cambios: CambiosPropiedad): cambios is PropiedadNueva {
-  const requeridos: (keyof PropiedadNueva)[] = [
-    'type', 'street', 'streetNumber', 'neighborhoodSlug', 'city', 'province', 'rooms', 'bedrooms', 'bathrooms',
-    'totalAreaM2', 'coveredAreaM2', 'characteristics', 'description', 'status', 'photos', 'mainPhotoIndex',
-    'priceMonthly', 'expenses', 'paymentMethods',
-  ]
-  return requeridos.every((campo) => cambios[campo] !== undefined)
+/** Ids de `tags_inmueble` de una propiedad, sin repetir y ordenados (para comparar como conjunto). */
+function tagsDe(values: PropiedadNueva): number[] {
+  const ids = values.characteristics.map(tagIdFromCharacteristic).filter((id): id is number => id !== null)
+  return [...new Set(ids)].sort((a, b) => a - b)
+}
+
+/** Las fotos como las ve el back: la lista ordenada de URLs y cuál es la principal. */
+function firmaDeFotos(values: PropiedadNueva): string {
+  return `${values.photos.map((foto) => foto.src).join('|')}#${values.mainPhotoIndex}`
+}
+
+/**
+ * `true` si la edición cambió las fotos: agregó, sacó o reordenó, o cambió la
+ * principal. Solo entonces se suben las nuevas y se manda `fotos`.
+ */
+export function fotosCambiaron(guardada: PropiedadNueva, editada: PropiedadNueva): boolean {
+  return firmaDeFotos(guardada) !== firmaDeFotos(editada)
+}
+
+/** Los campos del inmueble y los tags que cambiaron (sin las fotos), ya con la forma del back. */
+function camposCambiados(guardada: PropiedadNueva, editada: PropiedadNueva): Omit<UpdateInmueblePayload, 'fotos'> {
+  const antes = inmuebleEditableDe(guardada)
+  const despues = inmuebleEditableDe(editada)
+  const campos = Object.keys(despues) as CampoDelInmueble[]
+  // NOTA: todos los valores son primitivos (texto, número o null): alcanza con `!==`.
+  const distintos = campos.filter((campo) => antes[campo] !== despues[campo])
+  // `Object.fromEntries` pierde el tipo de cada clave; cada valor sale de `despues[campo]`.
+  const cambiados = Object.fromEntries(distintos.map((campo) => [campo, despues[campo]])) as Omit<UpdateInmueblePayload, 'fotos' | 'tags'>
+  const tagsAntes = tagsDe(guardada)
+  const tagsDespues = tagsDe(editada)
+  return tagsAntes.join(',') === tagsDespues.join(',') ? cambiados : { ...cambiados, tags: tagsDespues }
+}
+
+/**
+ * `true` si la edición tiene algo para mandar al back. Si no (por ejemplo, solo
+ * se tocó una característica que el back no tiene), no se llama al `PUT`.
+ */
+export function hayCambiosEnElInmueble(guardada: PropiedadNueva, editada: PropiedadNueva): boolean {
+  return Object.keys(camposCambiados(guardada, editada)).length > 0 || fotosCambiaron(guardada, editada)
+}
+
+/**
+ * La edición (US-03) → cuerpo PARCIAL de `PUT /api/v1/inmuebles/:id`: solo lo
+ * que cambió entre lo guardado (la precarga de la pantalla) y lo editado.
+ *
+ * Por qué contra la precarga y no contra la base (decisión del PO): si otra
+ * pestaña cambió un campo que acá no se tocó, el formulario tiene el valor
+ * viejo; comparado contra la base saldría distinto y el `PUT` lo pisaría.
+ *
+ * - Campos del inmueble: se traducen los dos lados con las reglas del alta
+ *   ({@link inmuebleEditableDe}) y van solo los distintos. Así un dato que pasa
+ *   por una transformación (piso + depto, barrio) no sale como cambio si no se tocó.
+ * - `tags`: se comparan como conjunto de ids. "Apto profesional" no tiene id en
+ *   la base y no cuenta. Si cambió, va la lista completa (el back la
+ *   reemplaza; `[]` borra todos).
+ * - `fotos`: si cambió la lista o la principal ({@link fotosCambiaron}), va la
+ *   lista COMPLETA en el orden final (el back la reemplaza). Las ya guardadas
+ *   viajan con su URL, peso y formato (`sizeKb`, `format`); las nuevas (data
+ *   URL), con lo que devolvió la subida a Storage.
+ * - Nunca van `estado_alquiler` ni condiciones del contrato: el `PUT` las
+ *   rechaza con 400 y en `/editar` son de solo lectura.
+ * @param subidas Las fotos nuevas ya subidas, en el orden en que aparecen en
+ *   `editada.photos`. Vacío si las fotos no cambiaron.
+ * NOTA: una foto guardada sin peso (no debería pasar: en la base todas tienen
+ * `peso_kb` > 0) iría con 0, y el back respondería 400 ("Cada foto debe tener
+ * URL, formato y peso válido.").
+ */
+export function cambiosToUpdateInmueble(
+  guardada: PropiedadNueva,
+  editada: PropiedadNueva,
+  subidas: Omit<CreateFotoPayload, 'es_principal'>[],
+): UpdateInmueblePayload {
+  const cambios: UpdateInmueblePayload = camposCambiados(guardada, editada)
+  if (!fotosCambiaron(guardada, editada)) return cambios
+
+  let siguienteNueva = 0
+  const fotos = editada.photos.map((foto, index): CreateFotoPayload => {
+    const es_principal = index === editada.mainPhotoIndex
+    if (foto.src.startsWith('data:')) {
+      const subida = subidas[siguienteNueva++]
+      return { url: subida?.url ?? '', peso_kb: subida?.peso_kb ?? 0, formato: subida?.formato ?? 'jpg', es_principal }
+    }
+    const formato = foto.format ?? (/\.png($|\?)/i.test(foto.src) ? 'png' : 'jpg')
+    return { url: foto.src, peso_kb: foto.sizeKb ?? 0, formato, es_principal }
+  })
+  return { ...cambios, fotos }
+}
+
+/** 409 de editar: el inmueble está `alquilado` o `publicado/alquilado` (US-03). */
+export const PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE = 'No podés editar una propiedad alquilada.'
+
+/**
+ * Error de `PUT /api/v1/inmuebles/:id` → el error que muestra `/editar`
+ * (US-03). Mismo criterio que {@link errorDeEliminarPropiedad}:
+ *
+ * - 403 (es de otro locador o no tiene el rol) y 404 (no existe o está dada de
+ *   baja) → `not_found` con {@link MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE}, para no
+ *   revelar que una propiedad ajena existe.
+ * - 409 → `conflict` con {@link PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE}. Solo
+ *   llega si la pantalla quedó vieja: con contrato vigente, `/editar` no
+ *   muestra el formulario.
+ * - El resto pasa sin cambios. El 400 lleva el texto del back: los mensajes de
+ *   la función SQL `actualizar_propiedad_completa` ya vienen en español ("La
+ *   propiedad debe tener entre 3 y 50 fotos."), y un error de la base (de tipo
+ *   o de clave foránea) llega con el texto de Postgres, que no se disfraza.
+ */
+export function errorDeActualizarPropiedad(error: unknown): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE)
+  if (error.code === 'conflict') return new ServiceError('conflict', PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE)
+  return error
 }
 
 // ─── Eliminar (US-04) ───────────────────────────────────────────────────

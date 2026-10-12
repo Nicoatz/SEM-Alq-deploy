@@ -11,9 +11,12 @@
  * (`lib/validation/propiedad.rules.ts`), que corren al guardar.
  * - Reutiliza `PasoUbicacion`, `PasoCaracteristicas`, `PasoFotos` y
  *   `PasoCondiciones` del alta (y con ellos `CamposAlta` y `FotosField`).
- * - Con contrato vigente, el precio, el índice y la frecuencia de ajuste
- *   quedan bloqueados ("Lo fija el contrato"), y el estado queda en
- *   "Alquilada".
+ * - Solo se editan datos del inmueble (decisión confirmada con backend): el
+ *   estado de la publicación y las condiciones del alquiler (todo menos el
+ *   precio) se muestran deshabilitados y no se mandan. Al guardar viaja solo
+ *   lo que cambió respecto de la precarga (`actualizarPropiedad`).
+ * - Con contrato vigente (alquilada) no hay formulario: un aviso de bloqueo,
+ *   sin llamar al back, como en eliminar (`PUT /inmuebles/:id` responde 409).
  * - Si se sale con cambios sin guardar, se pregunta antes: con los botones
  *   de la pantalla, con cualquier link interno y al cerrar o recargar la
  *   pestaña (`beforeunload`).
@@ -35,6 +38,7 @@ import { contarCambios, erroresDeFormulario, esErrorDeValidacion, altaValuesToPr
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import type { AltaValues } from '@/lib/validation/propiedad.rules'
 import { PasoCaracteristicas, PasoCondiciones, PasoFotos, PasoUbicacion } from '@/components/alta/PasosAlta'
+import { fecha } from '@/components/mi-propiedad/textosPropiedad'
 import { actualizarPropiedad, getMiPropiedad } from '@/services/propiedades.service'
 import { ServiceError } from '@/services/shared/errors'
 import styles from './EditarPropiedad.module.css'
@@ -113,7 +117,6 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
   const [form] = Form.useForm<AltaValues>()
   const valores = Form.useWatch([], form) as AltaValues | undefined
   const hrefDetalle = `/panel/propiedades/${encodeURIComponent(detalle.id)}`
-  const contrato = detalle.activeContract?.id
 
   // ─── Estado local ───────────────────────────────────────────────────
   /** Lo guardado: contra esto se cuentan los cambios. Se actualiza al guardar. */
@@ -122,6 +125,8 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
   const [guardando, setGuardando] = useState(false)
   const [errorGuardar, setErrorGuardar] = useState<ServiceError | null>(null)
   const [guardado, setGuardado] = useState(false)
+  /** Se tocó "Guardar" pero no había nada que mandar: no se guardó nada. */
+  const [sinCambios, setSinCambios] = useState(false)
 
   const cambios = valores ? contarCambios(original, valores) : 0
   const salida = useAvisoSalida(cambios > 0 && !guardando)
@@ -144,9 +149,15 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
     setGuardando(true)
     setErrorGuardar(null)
     setGuardado(false)
+    setSinCambios(false)
     try {
-      // La pantalla manda el formulario completo (decisión del PO).
-      const actualizada = await actualizarPropiedad(detalle.id, altaValuesToPropiedadNueva(validos))
+      // Se compara contra lo guardado (la precarga): solo viaja lo que cambió.
+      const actualizada = await actualizarPropiedad(detalle.id, altaValuesToPropiedadNueva(original), altaValuesToPropiedadNueva(validos))
+      if (!actualizada) {
+        // No había nada para el back (por ejemplo, solo una característica que la base no tiene): no se guardó nada.
+        setSinCambios(true)
+        return
+      }
       const nuevos = propiedadNuevaToAltaValues(actualizada.values)
       form.setFieldsValue(nuevos)
       setOriginal(nuevos)
@@ -181,14 +192,12 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
       <PageHeader title="Editar publicación" subtitle={detalle.address} breadcrumb={miga(detalle.id, detalle.address)} />
 
       <Alert
-        type={contrato ? 'warning' : 'info'}
+        type="info"
         showIcon
         title={
-          contrato
-            ? `Alquilada · con el contrato ${contrato} vigente no se puede cambiar el precio ni el ajuste: eso lo fija el contrato.`
-            : publicada
-              ? 'Estás editando una propiedad publicada: los cambios se ven en la búsqueda al guardar.'
-              : 'Esta propiedad no está publicada: los cambios no se ven en la búsqueda.'
+          publicada
+            ? 'Estás editando una propiedad publicada: los cambios se ven en la búsqueda al guardar.'
+            : 'Esta propiedad no está publicada: los cambios no se ven en la búsqueda.'
         }
         data-testid="editar-propiedad-aviso"
       />
@@ -206,6 +215,17 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
             </Link>
           }
           data-testid="editar-propiedad-exito"
+        />
+      )}
+
+      {sinCambios && (
+        <Alert
+          type="info"
+          showIcon
+          closable={{ 'aria-label': 'Cerrar el aviso' }}
+          onClose={() => setSinCambios(false)}
+          title="No hay cambios para guardar."
+          data-testid="editar-propiedad-sin-cambios"
         />
       )}
 
@@ -240,6 +260,7 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
             if (cambiados.type === 'monoambiente') form.setFieldsValue({ rooms: 1, bedrooms: 0 })
             else if (cambiados.type && form.getFieldValue('rooms') === 1) form.setFieldsValue({ rooms: 2, bedrooms: 1 })
             setErrores((actual) => actual.filter((error) => !(error.name in cambiados)))
+            setSinCambios(false)
           }}
           disabled={guardando}
           className={styles.form}
@@ -263,14 +284,14 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
             <PasoUbicacion />
           </section>
           <section id="caracteristicas" className={styles.seccion}>
-            <PasoCaracteristicas estadoFijadoPorContrato={contrato} />
+            <PasoCaracteristicas estadoSoloLectura />
           </section>
           <section id="fotos" className={styles.seccion}>
             {/* El mínimo de 3 fotos se pide solo si se cambian las fotos (ver `reglasFotosEdicion`). */}
             <PasoFotos fotosOriginales={original.photos} />
           </section>
           <section id="condiciones" className={styles.seccion}>
-            <PasoCondiciones fijadosPorContrato={contrato} />
+            <PasoCondiciones soloLectura />
           </section>
         </Form>
       </div>
@@ -346,5 +367,40 @@ export function EditarPropiedad({ id }: EditarPropiedadProps) {
       </div>
     )
   }
+  if (carga.data.activeContract) return <EdicionBloqueada detalle={carga.data} />
   return <FormularioEdicion detalle={carga.data} />
+}
+
+// ─── Bloqueo ────────────────────────────────────────────────────────────
+
+/**
+ * Aviso de bloqueo de una propiedad alquilada (US-03): sin formulario y sin
+ * llamar al back. `PUT /inmuebles/:id` rechaza con 409 cualquier cambio de un
+ * inmueble `alquilado` o `publicado/alquilado`.
+ * NOTA: el contrato vigente se deduce igual que en eliminar
+ * (`activeContract`, que el puente arma con `estado_alquiler`): es la misma
+ * regla que usa el back para el 409.
+ */
+function EdicionBloqueada({ detalle }: { detalle: PropiedadLocadorDetalle }) {
+  const router = useRouter()
+  const contrato = detalle.activeContract
+  // El locatario y la fecha de fin van solo si el back los informa (como en el aviso de eliminar).
+  const aQuien = contrato?.tenantName ? ` a ${contrato.tenantName}` : ''
+  const hasta = contrato?.endDate ? ` hasta el ${fecha(contrato.endDate)}` : ''
+  return (
+    <div className={styles.page}>
+      <PageHeader title="Editar publicación" subtitle={detalle.address} breadcrumb={miga(detalle.id, detalle.address)} />
+      <div className={styles.emptyBlock} data-testid="editar-propiedad-bloqueada">
+        <EmptyState
+          title="No podés editar una propiedad alquilada"
+          description={`${detalle.address} está alquilada${aQuien}${hasta}. Para editarla, primero tiene que terminar el contrato.`}
+          action={
+            <Button type="primary" onClick={() => router.push(`/panel/propiedades/${encodeURIComponent(detalle.id)}`)} data-testid="editar-propiedad-bloqueada-volver">
+              Volver al detalle
+            </Button>
+          }
+        />
+      </div>
+    </div>
+  )
 }

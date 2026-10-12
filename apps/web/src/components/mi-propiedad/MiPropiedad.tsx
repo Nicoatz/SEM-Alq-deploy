@@ -16,6 +16,8 @@
  *   contrato y próximo ajuste; el alquiler y las expensas. Acción primaria
  *   "Editar publicación" y, en el "⋯", "Ver la publicación pública" y
  *   "Eliminar propiedad".
+ * - Con contrato vigente no hay "Editar publicación" (ni "Editar fotos"): el
+ *   back no deja editar una alquilada (409, `puedeEditar`).
  * - El Resumen (`ResumenPropiedad`).
  * - Eliminar (`ModalEliminar`): con contrato vigente, el botón NO se
  *   deshabilita: abre el aviso de bloqueo (decisión del PO, ver NOTES.md).
@@ -38,7 +40,7 @@ import { tipoCorto } from '@/lib/catalogs/propiedad'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { hrefTrasEliminar } from '@/lib/mis-propiedades/eliminada'
-import { puedeEliminar } from '@/lib/validation/propiedad.rules'
+import { puedeEditar, puedeEliminar } from '@/lib/validation/propiedad.rules'
 import { getMiPropiedad } from '@/services/propiedades.service'
 import { ModalEliminar } from './ModalEliminar'
 import { ResumenPropiedad } from './ResumenPropiedad'
@@ -150,6 +152,7 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
   const detalle = carga.data
   const { values, activeContract } = detalle
   const hrefEditar = `/panel/propiedades/${encodeURIComponent(detalle.id)}/editar`
+  const editable = puedeEditar(detalle)
   const hrefPublica = seVePublicada(detalle.status) ? `/propiedad/${encodeURIComponent(detalle.id)}` : null
   const alquiler = activeContract?.currentAmount ?? values.priceMonthly
 
@@ -179,9 +182,11 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
         breadcrumb={miga(detalle.address)}
         actions={
           <span className={styles.desktopActions}>
-            <Button type="primary" size="large" icon={<EditOutlined />} onClick={irAEditar} data-testid="mi-propiedad-editar-button">
-              Editar publicación
-            </Button>
+            {editable && (
+              <Button type="primary" size="large" icon={<EditOutlined />} onClick={irAEditar} data-testid="mi-propiedad-editar-button">
+                Editar publicación
+              </Button>
+            )}
             <Dropdown trigger={['click']} menu={{ items: menuItems }}>
               <Button size="large" icon={<EllipsisOutlined />} aria-label="Más acciones" data-testid="mi-propiedad-mas" />
             </Dropdown>
@@ -225,23 +230,28 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
         </div>
       </section>
 
-      <ResumenPropiedad detalle={detalle} hrefPublica={hrefPublica} hrefEditar={hrefEditar} onEliminar={() => setEliminarAbierto(true)} />
+      <ResumenPropiedad detalle={detalle} hrefPublica={hrefPublica} hrefEditar={editable ? hrefEditar : null} onEliminar={() => setEliminarAbierto(true)} />
 
       {/* Móvil (· 07): barra fija con la primaria y "Acciones". */}
       <div className={styles.mobileBar}>
-        <Button type="primary" size="large" icon={<EditOutlined />} onClick={irAEditar} className={styles.mobileBarMain} data-testid="mi-propiedad-editar-movil">
-          Editar publicación
-        </Button>
-        <Button size="large" onClick={() => setAccionesAbiertas(true)} data-testid="mi-propiedad-acciones-button">
+        {editable && (
+          <Button type="primary" size="large" icon={<EditOutlined />} onClick={irAEditar} className={styles.mobileBarMain} data-testid="mi-propiedad-editar-movil">
+            Editar publicación
+          </Button>
+        )}
+        {/* Sin "Editar publicación" (alquilada), "Acciones" ocupa toda la barra. */}
+        <Button size="large" onClick={() => setAccionesAbiertas(true)} className={editable ? undefined : styles.mobileBarMain} data-testid="mi-propiedad-acciones-button">
           Acciones
         </Button>
       </div>
 
       <Drawer placement="bottom" size="auto" open={accionesAbiertas} onClose={() => setAccionesAbiertas(false)} title={detalle.address} data-testid="mi-propiedad-acciones-movil">
         <div className={styles.sheet}>
-          <button type="button" className={styles.sheetItem} onClick={irAEditar}>
-            Editar publicación
-          </button>
+          {editable && (
+            <button type="button" className={styles.sheetItem} onClick={irAEditar}>
+              Editar publicación
+            </button>
+          )}
           {hrefPublica && (
             <button type="button" className={styles.sheetItem} onClick={() => router.push(hrefPublica)}>
               Ver la publicación pública

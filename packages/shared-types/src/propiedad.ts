@@ -283,6 +283,14 @@ export interface FotoNueva {
   src: string
   /** Nombre del archivo original, para el texto alternativo y la revisión. */
   name: string
+  /**
+   * Peso en KB, solo en las fotos ya guardadas (vienen del back). La edición
+   * (US-03) lo reenvía tal cual si cambia la lista de fotos: el `PUT` exige
+   * peso mayor que 0. Las fotos nuevas no lo traen (lo da la subida).
+   */
+  sizeKb?: number
+  /** Formato (`jpg` o `png`), solo en las fotos ya guardadas; ver {@link FotoNueva.sizeKb}. */
+  format?: string
 }
 
 /**
@@ -341,16 +349,6 @@ export interface PropiedadNueva {
   /** Duración del contrato en meses; `null` si no se cargó. */
   contractMonths: number | null
 }
-
-/**
- * Lo que se puede modificar de una propiedad (US-03 Modificar mis
- * propiedades): cualquier dato del alta. La pantalla de edición manda el
- * formulario completo; el tipo es `Partial` para que el service no exija lo
- * que no cambió.
- * Adaptador: `propiedad.adapter.ts#cambiosToUpdateInmueble` (rama real) y
- * `propiedad-mock.adapter.ts#aplicarCambiosMock` (elenco).
- */
-export type CambiosPropiedad = Partial<PropiedadNueva>
 
 /** El contrato vigente de una propiedad, para el encabezado del detalle del locador. */
 export interface ContratoVigenteResumen {

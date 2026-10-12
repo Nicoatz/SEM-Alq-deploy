@@ -176,7 +176,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `POST /solicitudes`, `GET /solicitudes/mias`, `GET /solicitudes/recibidas`, `PATCH /solicitudes/:id/{aceptar,rechazar,cancelar}` | `/propiedad/[id]` (US-35), `/panel/mis-solicitudes` y `/panel/solicitudes` (US-36 a US-38) | **Pendiente** (propuesto, Sprint 2; las tres pantallas están completas en modo mock, con la rama real lista en el service) |
 | `GET /mis-alquileres/:id` | Detalle y edición del locador (US-03, US-04) | **Pendiente** (propuesto, tanda 3 del Sprint 2). Desde el 09/10 el detalle y la precarga de la edición **cargan en modo real con un puente**: `getMiPropiedad` pide `GET /mis-alquileres` y busca el id (sección 7, US-03 y US-04) |
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
-| `PUT /inmuebles/:id` | Detalle (sprint 2, US-03) | **Existe en el back (10/10, `develop` b5acfa7)**: modifica datos, fotos y tags del inmueble; 409 si está alquilado. El front no lo usa todavía |
+| `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 
 ## 6. Status HTTP y errores
@@ -253,12 +253,12 @@ criterio, igual que con US-41. El PO tiene una propuesta de criterios para carga
 | **Contratos vigentes sin locatario** en los datos de prueba (inmueble 3: contrato 3 vigente, sin fila de locatario en `contrato_x_usuario`). El front muestra "—" en "Locatario". `ContratoVigenteResumen.tenantName` y `endDate` pasaron a admitir `null` (`@rentar/shared-types`). | db |
 | **Catálogos por texto:** `/mis-alquileres` manda tipo, tags, índice y medios de pago como descripción, no como id. El puente los vuelve a ids con los mapeos del Sprint 1 (CAC → sin índice; "Débito automático" no se ofrece en el front y se descarta). La ruta nueva debería mandar ids, como el cuerpo de `POST /inmuebles`. | backend |
 | No hay fecha de publicación (`publishedAt` va en `null`: el encabezado no dice "publicada el…"). | db |
-| **`PUT /inmuebles/:id` ampliado:** el mismo cuerpo que `POST /inmuebles`. Hoy actualiza solo las columnas de `inmueble` e ignora `tags`, `fotos` y `condiciones_contrato`. El front ya manda el cuerpo completo (decisión del PO: no se parte el formulario según lo que soporta el back). | backend |
-| **Con contrato vigente, el precio, el índice y la frecuencia de ajuste no se modifican** (los fija el contrato): el back debería rechazarlo con 400. El front los muestra bloqueados. | backend |
+| ~~**`PUT /inmuebles/:id` ampliado**~~ **Ya no aplica (11/10):** el `PUT` real (`develop` b5acfa7) es parcial y solo modifica el inmueble, sus fotos y sus tags. Las condiciones del alquiler no se editan en este endpoint ni en este sprint (decisión confirmada con backend). Ver US-03 más abajo. | — |
+| ~~**Con contrato vigente, el precio y el ajuste no se modifican**~~ **Resuelto (10/10):** con el inmueble `alquilado` o `publicado/alquilado`, el `PUT` rechaza **cualquier** cambio con 409. El front no muestra el formulario (aviso de bloqueo, §7 US-03). | — |
 | ~~**`DELETE /inmuebles/:id` lógico**~~ **Hecho (09/10, `develop` b7ebf48):** baja lógica con `activo = false` (booleano, no un estado nuevo: el inmueble sigue `publicado` o `pausado`). El 409 sale de `estado_alquiler`, **no del contrato vigente**: ver la sección US-04 de abajo y §10. | — |
 | **Al eliminar, las solicitudes `pendiente` y `aceptada` del inmueble pasan a `cancelada`**, con un mail a cada postulante (decisión del PO). El back no lo hace (no tiene el módulo de solicitudes). En mock el modal avisa "Las N solicitudes de esta propiedad se van a cancelar"; **en real no dice nada** (`contarSolicitudesQueSeCancelan` devuelve 0). | backend |
-| **Fotos de la edición:** el front sube las nuevas a Storage antes del `PUT`; si el `PUT` falla, las borra (como el alta). Mientras el `PUT` no guarde fotos, ver §10. | backend |
-| **La precarga de `/editar` pierde "Débito automático" y el índice CAC.** El front no los ofrece: el medio de pago 4 se descarta y CAC (`tipo_indice` 3) queda sin índice, así que el formulario los muestra vacíos y el cuerpo del `PUT` ya no los lleva. Hoy no pasa nada porque el `PUT` ignora `condiciones_contrato`, pero **cuando se conecte el `PUT` ampliado, guardar la edición borraría esos datos reales**. Antes de conectarlo: o el front suma los dos al catálogo (decisión del PO), o el back conserva lo que el cuerpo no trae. `TODO(backend)` en `propiedad.adapter.ts#misAlquileresDetalleToPropiedadLocadorDetalle`. | backend / PO |
+| **Fotos de la edición:** el front sube las nuevas a Storage solo si cambiaron las fotos, antes del `PUT`; si el `PUT` falla, las borra (como el alta). Las que se **sacan** quedan en el bucket: §10, punto 27. | backend |
+| ~~**La precarga de `/editar` pierde "Débito automático" y el índice CAC**~~ **Ya no es un riesgo de borrado (11/10, confirmado en el código):** la precarga sigue sin mostrarlos (el front no los ofrece), pero en `/editar` las condiciones son de solo lectura y no viajan en el `PUT`, y la función SQL `actualizar_propiedad_completa` solo actualiza columnas de `inmueble`, `foto_inmueble` e `inmueble_x_tag` (rechaza con 400 cualquier clave del contrato). Nota actualizada en `propiedad.adapter.ts#misAlquileresDetalleToPropiedadLocadorDetalle`. | — |
 | **Fotos del seed que no existen:** las del inmueble 1 (y otras cargadas a mano) apuntan a `https://rentar.com/fotos/...`, que da 404. El front muestra la foto de respaldo, pero el navegador registra el 404 en la consola. Reemplazarlas por fotos del bucket o borrarlas. | db |
 | **Decidido (tanda 3):** solo la pestaña Resumen; sin "Pausar" (no tiene US ni endpoint); "Eliminar" con contrato vigente queda habilitado y abre el aviso de bloqueo. | — |
 
@@ -286,7 +286,93 @@ y la pantalla "Esta publicación ya no está disponible". Con sesión, todos los
 
 ### US-03 Modificar mis propiedades
 
-Cambio del back del 10/10 (sin probar contra la API; el front todavía no tiene la pantalla de edición).
+Cambio del back del 10/10 (`develop` a68f44b y b5acfa7). **Conectado en el front el 11/10**
+(`feature/conexion-editar`): `propiedades.service#actualizarPropiedad` llama al `PUT` con un cuerpo
+parcial y `propiedad.adapter.ts#errorDeActualizarPropiedad` traduce los errores. La función SQL
+está aplicada en la base (revisado el 11/10 con una consulta de solo lectura: coincide con la migración).
+
+**Decisión (confirmada con backend):** el `PUT` solo modifica datos del inmueble. Las condiciones del
+alquiler (plazo, índice, medios de pago, días de gracia, depósito y cualquier otro dato del contrato)
+no se editan en este endpoint ni en este sprint. Ninguna US cubre editarlas: §10, punto 29.
+
+Campos del formulario de `/editar`:
+
+| Campo | Columna | En `/editar` |
+|---|---|---|
+| Tipo, calle, número, barrio | `tipo`, `direccion`, `numero`, `barrio` | Editable |
+| Piso y departamento | `piso` (van juntos: "7° B") | Editable |
+| Ambientes, dormitorios, baños, antigüedad, superficie total y cubierta | columnas homónimas | Editable |
+| Características | `tags` (ids; el `PUT` reemplaza la lista) | Editable. "Apto profesional" ya no se ofrece (no existe en la base, §10 punto 28) |
+| Descripción | `descripcion` | Editable |
+| Disponible desde | `fecha_disponible` | Editable |
+| Fotos y principal | `fotos` (el `PUT` reemplaza la lista) | Editable |
+| Precio mensual | `precio_publicado` | Editable (ver §10, punto 25) |
+| Ciudad y provincia | `ciudad`, `provincia` | Fijas (Córdoba Capital), como en el alta: nunca salen como cambio |
+| Estado de la publicación | `estado_alquiler` | Solo lectura: el `PUT` lo rechaza (400); publicar y pausar van por `PATCH /inmuebles/:id/publicacion` (propuesto) |
+| Expensas, interés por día, días de gracia, medios de pago, índice, frecuencia, depósito y duración | contrato | Solo lectura (deshabilitados, sin textos extra) |
+| — (no está en el formulario) | `servicios` | No se manda: se conserva |
+
+Cómo se arma el cuerpo (`propiedad.adapter.ts#cambiosToUpdateInmueble`):
+
+- Se compara **contra la precarga de la pantalla**, no contra la base (decisión del PO): si otra pestaña
+  cambió un campo que acá no se tocó, comparar contra la base lo mandaría con el valor viejo y lo pisaría.
+- Los dos lados se traducen a la forma del back con las reglas del alta y van solo las claves distintas
+  (así piso + depto o el barrio no salen como cambio si no se tocaron).
+- `tags`: se comparan como conjunto de ids; si cambió, va la lista completa (`[]` borra todos).
+- `fotos`: si cambió la lista, el orden o la principal, va la lista **completa** en el orden final. Las
+  guardadas viajan con su `url`, `peso_kb` y `formato` (la precarga los conserva desde `/mis-alquileres`;
+  en la base todas tienen peso mayor que 0); las nuevas se suben antes a Storage.
+- Si no hay nada para el back, no se llama al `PUT` y la pantalla muestra "No hay cambios para guardar.".
+- La precarga toma el precio de `precio_publicado` (antes salía de `contrato.monto_alquiler`, y un precio
+  editado habría vuelto con el valor viejo). El depósito se sigue pasando a meses sobre el monto del contrato.
+
+| Status del back | Lo que ve el locador (arriba del formulario) |
+|---|---|
+| 403 (no es el dueño o no tiene el rol) y 404 (no existe o está dada de baja) | "No encontramos esta propiedad." (mismo mensaje, para no revelar que una propiedad ajena existe) |
+| 409 (alquilada) | "No podés editar una propiedad alquilada." Solo llega si la pantalla quedó vieja |
+| 400 | El texto del back, sin traducir: los mensajes de la función SQL ya están en español; un error de la base (tipo o clave foránea) llega con el texto de Postgres y no se disfraza |
+| 401, 5xx, sin red | Sin traducir |
+
+**Alquilada (`alquilado` o `publicado/alquilado`):** `/editar` muestra el aviso "No podés editar una
+propiedad alquilada" ("<dirección> está alquilada a <locatario>. Para editarla, primero tiene que
+terminar el contrato.") sin formulario y sin llamar al back, como el aviso de eliminar. El detalle no
+ofrece "Editar publicación" ni "Editar fotos", y Mis propiedades saca "Editar" del menú.
+
+**Probado en modo mock el 11/10** (cuenta del elenco del locador, 1440 px):
+
+| Caso | Resultado |
+|---|---|
+| Campos | Estado, expensas, interés, días de gracia, medios de pago, índice, frecuencia, depósito y duración deshabilitados; precio editable; sin "Apto profesional" |
+| Guardar precio y descripción | "Guardamos los cambios."; el contador vuelve a "Sin cambios" y el elenco guardado tiene los dos valores nuevos |
+| Cambio que no llega al back (un espacio al final del piso) | "No hay cambios para guardar."; no se actualiza lo guardado (el contador sigue en 1) |
+| Alquilada (Obispo Trejo 1250) | Aviso de bloqueo sin formulario; en el detalle no están `mi-propiedad-editar-button`, `-editar-movil` ni `-editar-fotos` |
+
+**Probado en real el 11/10** (`locador@rentar.com`, `dev:api` local contra la base, 390 y 1440 px,
+`feature/conexion-editar`). Con una propiedad de prueba propia, dada de alta desde la app como
+pausada (inmueble 25, §9):
+
+| Caso | Cuerpo del `PUT /inmuebles/25` | Resultado |
+|---|---|---|
+| Precio y descripción | `{"descripcion": "…", "precio_publicado": 320000}` | 200, "Guardamos los cambios.", el contador vuelve a "Sin cambios". En la base: `precio_publicado` 320.000 y la descripción nueva; el contrato 22 **sin tocar** (`monto_alquiler` 300.000, expensas, índice, frecuencia, depósito y duración iguales) |
+| Sumar Cochera y Balcón | `{"tags": [2, 4]}` | 200; la precarga vuelve con las dos marcadas |
+| Sacar las dos | `{"tags": []}` | 200; en la base, sin filas en `inmueble_x_tag` |
+| Fotos: agregar una, marcarla principal y sacar otra | `{"fotos": [3 fotos]}`: las 2 guardadas con su URL, `peso_kb` y `formato`, y la nueva (subida antes a Storage, `POST …/fotos-propiedades/…` 200) con `es_principal: true` | 200. En la base: `foto_inmueble` 79, 80 y 81 (las filas 76 a 78 se reemplazaron), la nueva como principal y con `orden` 3. La foto sacada **sigue en el bucket** (§10, punto 27) |
+| Cambio que no llega al back (un espacio al final del piso) | — (ningún `PUT`) | "No hay cambios para guardar."; el contador sigue en 1 |
+| Alquilada (inmueble 2) | — (ningún `PUT`) | `/editar`: "No podés editar una propiedad alquilada · Bv. Chacabuco 720, 2A está alquilada a Ana Inquilina. Para editarla, primero tiene que terminar el contrato.", sin formulario. Detalle: sin `mi-propiedad-editar-button`, `-editar-movil` ni `-editar-fotos`. Mis propiedades (390): el menú de la alquilada solo tiene "Ver detalle"; el de la 25, "Ver detalle" y "Editar" |
+| Id inexistente (999999) | — | "No encontramos esta propiedad" (no está en `/mis-alquileres`) |
+| Campos a 390 | — | Estado y condiciones deshabilitados, precio editable, sin scroll horizontal |
+
+Todos los pedidos llevan `Authorization: Bearer …`. Consola sin errores. No se forzaron el 409
+(habría que alquilar la propiedad entre que se abre la pantalla y se guarda), el 404 del `PUT`
+(habría que dar de baja la propiedad con la pantalla abierta), el 403 de una propiedad de otro
+locador (no se llega al `PUT`: la precarga ya da "No encontramos esta propiedad") ni un 400 del back
+(el front valida lo mismo antes); el mapeo está en `errorDeActualizarPropiedad`. La propiedad de
+prueba quedó pausada a propósito: no aparece en `/buscar`, así que el punto 25 (precio editado que
+no se ve en la búsqueda) se confirmó en la base (`precio_publicado` 320.000 contra `monto_alquiler`
+300.000) y en el código, no en pantalla. Capturas en
+`Desktop/RentAR/Capturas vistas/Sprint2/implementado/editar-real/`.
+
+Lo que hace el back:
 
 | Qué hace | Detalle |
 |---|---|
@@ -300,7 +386,7 @@ Cambio del back del 10/10 (sin probar contra la API; el front todavía no tiene 
 
 | Brecha | Dueño |
 |---|---|
-| `inmuebles.routes.ts` registra dos veces `router.put("/:id")`: el nuevo (con Swagger y `requireRole("locador")`) y el viejo, que quedó debajo y nunca se ejecuta. Borrar el viejo. | backend |
+| ~~`inmuebles.routes.ts` registra dos veces `router.put("/:id")`~~ **Ya no pasa en `develop` b5acfa7** (revisado el 11/10: hay un solo `router.put`). | — |
 | La US-03 no tiene archivo en `Documentación/md/US/` (solo está en el Sprint 0): faltan los criterios de aceptación para confirmar los campos editables y las validaciones. | PO / backend |
 | El service valida dueño y estado, y la función SQL lo vuelve a validar (doble chequeo; el de SQL es el que protege ante concurrencia). | — |
 
@@ -367,7 +453,7 @@ existe, y `favicon.ico`). Capturas en `Desktop/RentAR/Capturas vistas/Sprint2/im
 | Medios de pago: el front tiene transferencia, MercadoPago débito, MercadoPago crédito y efectivo, cada uno con recargo (0 a 3 %); la base tiene 4 sin recargo. Los dos de MercadoPago van al mismo id (3) y **el recargo se pierde**. | db (a la planning) |
 | `frecuencia_ajuste` es texto ("Semestral"); el front la maneja en meses. Se manda el nombre ("Mensual", "Trimestral", "Semestral", "Anual"…) o "N meses". | db |
 | `deposito` es un monto; el front lo pide en meses. Se manda meses × precio. | db |
-| El tag "Apto profesional" no existe: no se manda. | db |
+| El tag "Apto profesional" no existe: el alta lo descartaba sin avisar. Desde el 11/10 el alta y la edición no lo ofrecen (§10, punto 28). | db |
 | El back tiene un solo campo `piso`: piso y departamento viajan juntos ("3° B"). | db |
 | "Pausada" la acepta la validación del back y la base no la restringe (se guardaría `pausado`); hoy la base solo usa `publicado` y `alquilado`. | — (informativo) |
 
@@ -499,6 +585,8 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Fotos repetidas de personas reales: la misma foto (carpeta `3e12c119-…`) es la principal de los inmuebles **12, 13, 15, 16 y 17**. El repo es público y la landing las muestra: reemplazarlas por fotos de ambientes | `foto_inmueble` de esos 5 inmuebles | `foto_inmueble` y `storage.objects` |
 | Inmueble "[TEST] Prueba de eliminar (US-04, 09/10) - no usar" ("Calle de Prueba Eliminar 999", Güemes, monoambiente, `locador@rentar.com`). **Ya eliminado (baja lógica, `activo = false`)** en el recorrido de US-04 | inmueble **24**; `foto_inmueble` **70, 71 y 72**; `contrato` **21** (`estado = 3`, `activo = false`); `medio_pago_x_contrato` **38**; sin tags | cada tabla |
 | Archivos del bucket `fotos-propiedades` del inmueble 24: 3 PNG grises de 1×1 px (67 bytes), sin nada identificable. Siguen públicos después de la baja (§10, punto 20) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/3a0620ed-b680-412d-bf4a-560df0d8c48c.png`, `3e12c119-0702-46ec-a9a2-597c2f5c884f/032451de-b9a9-4d97-a2ce-3a24a3883570.png` y `3e12c119-0702-46ec-a9a2-597c2f5c884f/178df7bc-bfcf-4b76-a186-69e0898f4992.png` | `storage.objects` |
+| Inmueble "[TEST] Prueba de editar (US-03, 11/10) - no usar" ("Calle de Prueba Editar 777, 2° A", Güemes, departamento, **pausado**, `locador@rentar.com`). Editado en el recorrido de US-03: precio 320.000 (el contrato quedó en 300.000), sin tags | inmueble **25**; `foto_inmueble` **79, 80 y 81** (las 76 a 78 las reemplazó el `PUT`); `contrato` **22**; `medio_pago_x_contrato` **39** | cada tabla |
+| Archivos del bucket `fotos-propiedades` del inmueble 25: 4 PNG de color liso de 64×48 px, sin nada identificable. Uno (`8b74d05b-…`) ya no está en `foto_inmueble`: se sacó en la edición y quedó en el bucket (§10, punto 27) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/c6d06f89-6e92-45ef-be07-991e923a4299.png`, `…/1800e362-9907-4700-800b-9973d62b8d4e.png`, `…/8fac0b62-1476-41f3-aa21-61a62c43fa36.png` y `…/8b74d05b-db0e-43af-b924-388002d47a2d.png` | `storage.objects` |
 
 ## 10. Observaciones para backend
 
@@ -512,10 +600,10 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    commitea el `dist`. Definir si se sigue commiteando o si la API lo compila en su build.
 3. **El test de la API está desactualizado:** `apps/api/tests/api/us01-registrar-propiedades.test.ts`
    manda `x-user-id`, que el middleware ya no lee (todos sus pedidos dan 401), y escribe en la base.
-4. **El manejador de errores responde 400 por defecto** (`errorHandler`), también para errores de
-   la base o de Supabase que no son culpa del usuario. Debería ser 500 salvo que el error traiga su
-   status. Ojo: los `throw new Error(...)` de los services sin `statusCode` (p. ej. `validarReglasUS01`)
-   dependen de ese 400; ponerles el status antes de cambiar el default. Pendiente para otra tarea. Y el texto de `error` se muestra tal cual: tiene que estar en español.
+4. ~~**El manejador de errores responde 400 por defecto**~~ **Cambiado el 10/10 (`develop` b5acfa7):**
+   el default pasó a 500, pero sin ponerles antes el status a los `throw new Error(...)` de los
+   services, que era lo que pedía este punto. Ver el punto 24. El texto de `error` se sigue
+   mostrando tal cual: tiene que estar en español.
 5. **Lockfile (resuelto en esta rama):** `package-lock.json` traía solo `@esbuild/linux-x64` y
    `dev:api` no arrancaba en Windows; se rearmó con los binarios de todas las plataformas (tsx pasó
    de 4.23.13 a 4.23.15, patch). También quedó una sola copia de Next (16.3.5) y de `react-dom`.
@@ -532,22 +620,19 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
    `react` y `react-dom` en 19.2.8 con `overrides`. **Después de traer el cambio: borrar
    `node_modules` y correr `npm ci`.**
 
-9. **🔴 Crítico · `PUT /inmuebles/:id` no chequea que el inmueble sea del que llama** (el `DELETE` sí,
-   desde el 09/10)
-   (tanda 3 del Sprint 2). Piden token y rol `locador`, pero el controller no lee el usuario y el
-   repositorio usa la clave secreta: cualquier locador puede modificar o borrar el inmueble de otro.
-   Además, `PUT` pasa el body entero a `.update()`. Filtrar por `id_locador` del token y responder
-   404 si no es suyo.
+9. ~~**🔴 Crítico · `PUT /inmuebles/:id` no chequea que el inmueble sea del que llama**~~ **Resuelto
+   (10/10, `develop` b5acfa7):** el service y la función SQL `actualizar_propiedad_completa` validan
+   el dueño (403) y la función actualiza solo columnas editables (ya no pasa el body a `.update()`).
 10. **🔴 Alto · `GET /inmuebles` está abierto** (sin token) y devuelve todos los inmuebles con la
     dirección exacta y el `id_locador`. El front no la usa: sacarla o protegerla con rol administrador.
 11. ~~**`DELETE /inmuebles/:id` borra en duro y en cascada**~~ **Resuelto en parte (09/10, b7ebf48):**
     es una baja lógica y valida el dueño. Sigue sin mirar el contrato vigente, sin cancelar solicitudes
     y sin limpiar Storage (puntos 17 a 20).
-12. **🟡 Bajo · 400 en lugar de 404** en `PUT` (el `DELETE` ya responde 404 desde el 09/10) cuando el inmueble no existe: el service
-    tira un `Error` sin status antes del chequeo del controller (y `errorHandler` usa 400, punto 4).
-13. **🟠 Fotos huérfanas en el bucket al editar:** hasta que el `PUT` guarde las fotos, cada edición
-    con fotos nuevas las sube a `fotos-propiedades` y quedan sin referencia (si el `PUT` falla, el
-    front sí las borra). Se resuelve con el `PUT` ampliado (§7, US-03).
+12. ~~**🟡 Bajo · 400 en lugar de 404** en `PUT`~~ **Resuelto (10/10, `develop` b5acfa7):** el service
+    responde 404 si el inmueble no existe o está inactivo.
+13. ~~**🟠 Fotos huérfanas en el bucket al editar**~~ **Resuelto en parte (10/10):** el `PUT` ya guarda
+    las fotos, así que las nuevas quedan referenciadas (si el `PUT` falla, el front las borra). Las que
+    se **sacan** en una edición siguen en el bucket: punto 27.
 
 14. **🔴 Alto · `GET /inmuebles/disponibles` y `/disponibles/:id` devuelven calle, altura y piso sin
     token.** La regla de producto (US-35 actualizada) es que un visitante sin sesión vea la dirección
@@ -581,7 +666,8 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
 21. **🟡 Bajo · Inactiva también los contratos históricos:** todos los del inmueble pasan a
     `estado = 3` y `activo = false`, y las lecturas filtran por `activo`: el historial no se borra,
     pero queda oculto. Confirmar con el PO ("se conservan contratos y reclamos"). Para Camila.
-22. **🟡 Bajo · Detalles del `DELETE`:** un error de la RPC cae al 400 por defecto (punto 4); el
+22. **🟡 Bajo · Detalles del `DELETE`:** un error de la RPC caía al 400 por defecto (punto 4; desde el
+    10/10, al 500, salvo los `P0001`, que van a 400); el
     `if (!eliminado) 404` del controller nunca se ejecuta (el service tira o devuelve `true`); el 403
     por rol tiene un texto técnico ("Acceso denegado: Se requiere el rol 'locador'…"). Para Camila.
 
@@ -594,6 +680,42 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
     contrato vigente.", que no es la causa. Propuesta: un CHECK con los cuatro valores (o un enum) y
     validar el estado en el `PUT`. Además, con `estado_alquiler` en `NULL` la función lo deja
     eliminar (`NOT IN` con `NULL` no entra al `IF`). No se corrigió en el front. Para Camila.
+
+**Anotados al conectar `PUT /inmuebles/:id` (US-03, 11/10). Para Camila, en orden de prioridad:**
+
+24. **🔴 Alto · El default 500 de `error.middleware` cambia el código de las validaciones del alta
+    (US-01).** Los 23 `throw new Error(...)` de `inmueble.service` sin `statusCode` (por ejemplo,
+    "Se deben cargar al menos tres fotos de la propiedad.", "Las fotos no deben superar los 350kb
+    de peso.") antes salían como 400 y ahora salen como **500**. Qué pasa en el front (revisado en
+    el código, sin cambios): el `apiClient` toma igual el texto de `error`, así que el formulario de
+    publicar muestra "No pudimos publicarla · <texto del back> Tus datos siguen acá: no perdiste
+    nada.", pero el error queda como `server` en vez de `validation`, y **el alta ofrece "Intentar de
+    nuevo" en errores que van a volver a fallar** (son datos inválidos, no una caída). Casi no se ve
+    porque el front valida lo mismo antes de mandar. Propuesta: ponerles `statusCode: 400` a esas
+    validaciones (o una clase `ValidationError`). También un NOT NULL de la base (`23502`) sale
+    como 500. No se corrigió en el front.
+25. **🔴 Alto · El precio editado no se ve en la búsqueda.** Es lo único de la edición que ven los
+    inquilinos: el precio viejo en `/buscar` y el filtro por precio sobre el valor equivocado. El `PUT` cambia `precio_publicado`, pero
+    `/inmuebles/disponibles` (y su filtro de precio) y `/inmuebles/disponibles/:id` muestran
+    `contrato.monto_alquiler` (`inmueble.service`, `precio: contrato?.monto_alquiler ?? …`). Un
+    locador edita el precio en `/editar`, lo ve en Mis propiedades y en su detalle, y `/buscar` y el
+    detalle público siguen con el viejo. Propuesta: que el `PUT` actualice también el monto del
+    contrato cuando no hay uno vigente, o que las vistas públicas lean `precio_publicado`.
+26. **🟡 Bajo · Línea suelta en la migración.** `supabase/migrations/20261010000000_actualizar_propiedad_atomica.sql`
+    empieza con una línea `sql` (resto de un bloque de código): `supabase db push` falla. En la base la
+    función está aplicada (se cargó a mano). Borrar esa línea.
+27. **🟠 Medio · Fotos sacadas en una edición quedan en el bucket.** El `PUT` reemplaza las filas de
+    `foto_inmueble`, pero los archivos que dejaron de estar en la lista siguen en `fotos-propiedades`,
+    con su URL pública. El front no los borra (decisión del PO). Definir quién los borra (el back
+    después del `PUT`, o un proceso de limpieza), junto con el punto 20.
+28. **🟡 Bajo · Falta crear el tag "Apto profesional"** en `tags_inmueble` (`TODO(db)`). Hasta ahora el
+    alta real lo descartaba sin avisar; desde el 11/10 el alta y la edición no lo ofrecen
+    (`lib/catalogs/characteristics.ts#characteristicOptionsCarga`). Cuando exista, sumar su id en
+    `propiedad.adapter.ts#CHARACTERISTIC_BY_TAG_ID` y volver a ofrecerlo.
+29. **PO · Ninguna US cubre editar las condiciones de una publicación** (precio del contrato, expensas,
+    plazo, índice, medios de pago, días de gracia, depósito). La US-06 es para el contrato de una
+    solicitud aceptada, no para la publicación. Hoy esos datos se cargan en el alta y no se pueden
+    cambiar después.
 
 Los puntos 9 a 12 y 14 tienen un texto de issue para GitHub (lo abre el PO).
 
@@ -663,9 +785,9 @@ sesión dura hasta cerrarla).
 | AppShell y UserMenu | `app-shell-logo-link`, `app-shell-menu-toggle`, `app-shell-role-chip`, `app-shell-publicar` ("Publicar propiedad" del encabezado), `app-shell-publicar-drawer` (el mismo, en el menú hamburguesa), `user-menu-trigger`, `user-menu-item-<key>` (`user-menu-item-header-action`: "Publicar propiedad" en la hoja móvil), `user-menu-role-<rol>`, `user-menu-logout`, `role-context-switcher` |
 | `/panel` (locatario) | `panel-locatario`, `panel-locatario-buscar`, `panel-locatario-publicar` |
 | `/panel` (locador) | `panel-publicar`, `panel-registrar-pago`, `panel-pendientes`, `panel-stat-<cifra>`, `panel-cobro`, `panel-reclamo`, `panel-contrato`, `panel-error-<bloque>`, `panel-onboarding`, `panel-onboarding-publicar` |
-| `/panel/propiedades` | `mis-propiedades-tab-<estado>`, `mis-propiedades-buscar`, `mis-propiedades-filtro-<barrio\|tipo\|reclamos>`, `mis-propiedades-orden`, `data-table-row` (escritorio), `data-table-card` (móvil), `mis-propiedades-ver-detalle`, `mis-propiedades-mas` (adentro, `mis-propiedades-editar`, US-03), `mis-propiedades-eliminada` (aviso "Eliminaste <dirección>." que llega con `?eliminada=<id>`), `mis-propiedades-abrir-filtros`, `mis-propiedades-drawer-aplicar`, `mis-propiedades-limpiar`, `mis-propiedades-vacio`, `mis-propiedades-sin-resultados`, `mis-propiedades-error`, `mis-propiedades-reintentar` |
-| `/panel/propiedades/[id]` (US-03, US-04, Sprint 2) | `mi-propiedad`, `mi-propiedad-cargando`, `mi-propiedad-error`, `mi-propiedad-reintentar`, `mi-propiedad-no-encontrada`. Encabezado: `mi-propiedad-ver-fotos` (abre `mi-propiedad-fotos-modal`), `mi-propiedad-editar-button`, `mi-propiedad-mas` (adentro, `mi-propiedad-ver-publica` y `mi-propiedad-menu-eliminar`), `mi-propiedad-precio`, `mi-propiedad-contrato`. Resumen: `mi-propiedad-ficha`, `mi-propiedad-condiciones`, `mi-propiedad-fotos`, `mi-propiedad-editar-fotos`, `mi-propiedad-lo-que-sigue`, `mi-propiedad-ver-publica-acceso`, `mi-propiedad-zona-sensible`, `mi-propiedad-eliminar-button`. Eliminar: `mi-propiedad-eliminar-modal` (con `mi-propiedad-eliminar-solicitudes` y, si falla, `mi-propiedad-eliminar-error`), `mi-propiedad-eliminar-bloqueado-modal` (un solo botón, `confirm-action-ok`). Móvil: `mi-propiedad-editar-movil`, `mi-propiedad-acciones-button`, `mi-propiedad-acciones-movil`, `mi-propiedad-acciones-eliminar` |
-| `/panel/propiedades/[id]/editar` (US-03, Sprint 2) | `editar-propiedad`, `editar-propiedad-cargando`, `editar-propiedad-no-encontrada`, `editar-propiedad-error-carga`, `editar-propiedad-aviso`, `editar-propiedad-indice-<ubicacion\|caracteristicas\|fotos\|condiciones>`, `editar-propiedad-errores`, `editar-propiedad-cambios`, `editar-propiedad-descartar`, `editar-propiedad-guardar`, `editar-propiedad-exito`, `editar-propiedad-error`, `editar-propiedad-salir-modal`, `editar-propiedad-bloqueado-<priceMonthly\|adjustmentIndex\|adjustmentEveryMonths\|status>` (con contrato vigente). Los campos conservan los `data-testid` del alta (`alta-calle`, `alta-precio`, `alta-fotos-dropzone`…), porque son los mismos componentes |
+| `/panel/propiedades` | `mis-propiedades-tab-<estado>`, `mis-propiedades-buscar`, `mis-propiedades-filtro-<barrio\|tipo\|reclamos>`, `mis-propiedades-orden`, `data-table-row` (escritorio), `data-table-card` (móvil), `mis-propiedades-ver-detalle`, `mis-propiedades-mas` (adentro, `mis-propiedades-editar`, US-03; no está en las alquiladas), `mis-propiedades-eliminada` (aviso "Eliminaste <dirección>." que llega con `?eliminada=<id>`), `mis-propiedades-abrir-filtros`, `mis-propiedades-drawer-aplicar`, `mis-propiedades-limpiar`, `mis-propiedades-vacio`, `mis-propiedades-sin-resultados`, `mis-propiedades-error`, `mis-propiedades-reintentar` |
+| `/panel/propiedades/[id]` (US-03, US-04, Sprint 2) | `mi-propiedad`, `mi-propiedad-cargando`, `mi-propiedad-error`, `mi-propiedad-reintentar`, `mi-propiedad-no-encontrada`. Encabezado: `mi-propiedad-ver-fotos` (abre `mi-propiedad-fotos-modal`), `mi-propiedad-editar-button` (no está si la propiedad está alquilada, US-03), `mi-propiedad-mas` (adentro, `mi-propiedad-ver-publica` y `mi-propiedad-menu-eliminar`), `mi-propiedad-precio`, `mi-propiedad-contrato`. Resumen: `mi-propiedad-ficha`, `mi-propiedad-condiciones`, `mi-propiedad-fotos`, `mi-propiedad-editar-fotos` (no está si está alquilada), `mi-propiedad-lo-que-sigue`, `mi-propiedad-ver-publica-acceso`, `mi-propiedad-zona-sensible`, `mi-propiedad-eliminar-button`. Eliminar: `mi-propiedad-eliminar-modal` (con `mi-propiedad-eliminar-solicitudes` y, si falla, `mi-propiedad-eliminar-error`), `mi-propiedad-eliminar-bloqueado-modal` (un solo botón, `confirm-action-ok`). Móvil: `mi-propiedad-editar-movil` (no está si está alquilada), `mi-propiedad-acciones-button`, `mi-propiedad-acciones-movil`, `mi-propiedad-acciones-eliminar` |
+| `/panel/propiedades/[id]/editar` (US-03, Sprint 2) | `editar-propiedad`, `editar-propiedad-cargando`, `editar-propiedad-no-encontrada`, `editar-propiedad-error-carga`, `editar-propiedad-aviso`, `editar-propiedad-indice-<ubicacion\|caracteristicas\|fotos\|condiciones>`, `editar-propiedad-errores`, `editar-propiedad-cambios`, `editar-propiedad-descartar`, `editar-propiedad-guardar`, `editar-propiedad-exito`, `editar-propiedad-sin-cambios` ("No hay cambios para guardar."), `editar-propiedad-error`, `editar-propiedad-salir-modal`, `editar-propiedad-bloqueada` y `editar-propiedad-bloqueada-volver` (alquilada: aviso sin formulario). **Se fueron (11/10):** `editar-propiedad-bloqueado-<priceMonthly\|adjustmentIndex\|adjustmentEveryMonths\|status>` (una alquilada ya no llega al formulario). Los campos conservan los `data-testid` del alta (`alta-calle`, `alta-precio`, `alta-fotos-dropzone`…), porque son los mismos componentes |
 | Alta | `alta-<campo>` (ej. `alta-calle`, `alta-precio`), `alta-fotos-dropzone`, `alta-foto`, `alta-foto-principal`, `alta-foto-quitar`, `alta-medio-<medio>-check` / `-recargo`, `alta-indice-<ICL\|IPC>`, `wizard-next-button`, `wizard-prev-button`, `wizard-finish-button`, `alta-mobile-volver`, `alta-mobile-salir`, `alta-errores`, `alta-publicando`, `alta-error-publicar`, `alta-reintentar`, `alta-error-login`, `alta-exito`, `alta-exito-mis-propiedades` (solo si la cuenta ya es locadora), `alta-exito-ver`, `alta-exito-panel` (locatario y no publicada), `alta-exito-otra` |
 | `/propiedad/[id]` (US-41, Sprint 2) | `detalle-propiedad`, `detalle-propiedad-cargando`, `detalle-propiedad-direccion` (con `data-precision="exacta|aproximada"`), `detalle-propiedad-galeria` (adentro, `photo-gallery-main` y `photo-gallery-thumbnail`), `detalle-propiedad-precio`, `detalle-propiedad-disponible-desde`, `detalle-propiedad-caracteristicas`, `detalle-propiedad-dueno-card`, `detalle-propiedad-dueno`, `detalle-propiedad-condiciones`, `detalle-propiedad-medios-pago`, `detalle-propiedad-enviar-mensaje-button` (deshabilitado), `detalle-propiedad-similares`, `detalle-propiedad-similares-cargando`, `detalle-propiedad-similar`, `detalle-propiedad-similares-ver-todas`, `detalle-propiedad-no-encontrada`, `detalle-propiedad-error`, `detalle-propiedad-reintentar-button`, `detalle-propiedad-buscar-button`, `detalle-propiedad-volver-button`. Botón según el estado (tarjeta del dueño): `detalle-propiedad-solicitar-login-button` (sin sesión), `detalle-propiedad-solicitar-button` (puede solicitar), `detalle-propiedad-solicitud-estado` + `detalle-propiedad-solicitud-tag` + `detalle-propiedad-ver-solicitudes-link` (ya la solicitó), `detalle-propiedad-propia`, `detalle-propiedad-no-disponible` + `detalle-propiedad-ver-similares-button`. La barra fija de móvil (`detalle-propiedad-barra-movil`) repite el botón con el prefijo `detalle-propiedad-barra-` (ej. `detalle-propiedad-barra-solicitar-button`) |
 | Modal "Solicitar alquiler" (US-35, sobre `/propiedad/[id]`) | `solicitar-modal`, `solicitar-propiedad`, `solicitar-nombre`, `solicitar-dni`, `solicitar-telefono`, `solicitar-email`, `solicitar-ocupacion`, `solicitar-ingresos`, `solicitar-convivientes` (con `-menos` y `-mas`), `solicitar-mascotas-si`, `solicitar-mascotas-no`, `solicitar-mascotas-detalle`, `solicitar-garantias-exigidas` (aviso arriba del grupo), `solicitar-garantia-<propietaria\|caucion\|otra>`, `solicitar-garantia-exigida` (la etiqueta "La pide el dueño"), `solicitar-mensaje` (contador "N / 600"), `solicitar-acepto`, `solicitar-pendientes-otras`, `solicitar-errores` (resumen al tocar "Enviar"), `solicitar-enviar-button`, `solicitar-cancelar-button`, `solicitar-error`; 409: `solicitar-duplicada`, `solicitar-ver-mi-solicitud-button`, `solicitar-cerrar-button`; 401 con mensaje escrito: `solicitar-sesion-vencida`, `solicitar-reingresar-button`, `solicitar-volver-button`; éxito: `solicitar-exito`, `solicitar-exito-mail`, `solicitar-ver-solicitudes-button`, `solicitar-seguir-buscando-button` |
@@ -718,8 +840,8 @@ Nuevos, sin equivalente anterior: `landing-buscador`, `landing-buscador-mas-filt
 
 - Subida de fotos al bucket y alta completa desde la pantalla (sección 8).
 - ~~Detalle de la propiedad del locador con editar (US-03) y eliminar (US-04)~~: hecho en el
-  front (tanda 3, modo mock; en real faltan `GET /mis-alquileres/:id`, el `PUT` ampliado; el
-  `DELETE` lógico existe desde el 09/10, §7). Queda publicar/pausar (sin US ni endpoint; `cambiarEstadoPublicacion` sigue
+  front (tanda 3). En real: el `DELETE` lógico está conectado desde el 09/10 y el `PUT` parcial desde
+  el 11/10 (§7); falta `GET /mis-alquileres/:id` (hoy, puente). Queda publicar/pausar (sin US ni endpoint; `cambiarEstadoPublicacion` sigue
   en el service, sin usar).
 - ~~Detalle público (`/propiedad/[id]`) y solicitudes (US-35 a US-38)~~: hecho en el front (tandas 1
   y 2, modo mock; el back no tiene el módulo de solicitudes).
