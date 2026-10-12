@@ -74,6 +74,94 @@ router.get(
  *     responses:
  *       200:
  *         description: Datos iniciales de la solicitud.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     usuario:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nombre:
+ *                           type: string
+ *                         apellido:
+ *                           type: string
+ *                           nullable: true
+ *                         dni:
+ *                           type: string
+ *                           nullable: true
+ *                         telefono:
+ *                           type: string
+ *                           nullable: true
+ *                         email:
+ *                           type: string
+ *                           format: email
+ *                     situaciones_ocupacionales:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           codigo:
+ *                             type: string
+ *                             enum: [sin_informar, relacion_dependencia, monotributista, autonoma, estudiante, jubilada]
+ *                           nombre:
+ *                             type: string
+ *                     garantias:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           codigo:
+ *                             type: string
+ *                             enum: [propietaria, caucion, otra]
+ *                           nombre:
+ *                             type: string
+ *                     garantias_exigidas:
+ *                       type: array
+ *                       items:
+ *                         type: integer
+ *                       description: IDs de garantías exigidas por el inmueble. Actualmente vacío hasta persistir esa relación.
+ *                     valores_iniciales:
+ *                       type: object
+ *                       properties:
+ *                         telefono:
+ *                           type: string
+ *                         email:
+ *                           type: string
+ *                           format: email
+ *                         ocupacion:
+ *                           type: string
+ *                           enum: [sin_informar]
+ *                         ingresos:
+ *                           type: integer
+ *                           nullable: true
+ *                         convivientes:
+ *                           type: integer
+ *                           example: 1
+ *                         mascotas:
+ *                           type: boolean
+ *                           example: false
+ *                         detalle_mascotas:
+ *                           type: string
+ *                           nullable: true
+ *                         garantias:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         acepto:
+ *                           type: boolean
+ *                           example: false
  *       400:
  *         description: El identificador es inválido.
  *       401:
@@ -111,10 +199,11 @@ router.get(
  *               - id_inmueble
  *               - telefono
  *               - email
- *               - id_situacion_ocupacional
- *               - ingresos_aprox
- *               - cantidad_personas
- *               - posee_mascotas
+ *               - ocupacion
+ *               - ingresos
+ *               - convivientes
+ *               - mascotas
+ *               - detalle_mascotas
  *               - garantias
  *               - acepta_condiciones
  *             properties:
@@ -132,35 +221,44 @@ router.get(
  *                 type: string
  *                 format: email
  *                 example: "juan.perez@email.com"
- *               id_situacion_ocupacional:
- *                 type: integer
- *                 example: 2
- *               ingresos_aprox:
+ *               ocupacion:
+ *                 type: string
+ *                 enum: [sin_informar, relacion_dependencia, monotributista, autonoma, estudiante, jubilada]
+ *                 default: sin_informar
+ *               ingresos:
  *                 type: integer
  *                 minimum: 1
+ *                 nullable: true
+ *                 description: Entero mayor que cero; null indica que el usuario no informa sus ingresos. El valor 0 recibido por compatibilidad se persiste como null.
  *                 example: 120000
- *               cantidad_personas:
+ *               convivientes:
  *                 type: integer
  *                 minimum: 1
  *                 example: 2
- *               posee_mascotas:
+ *               mascotas:
  *                 type: boolean
  *                 example: false
- *               detalles_mascotas:
+ *               detalle_mascotas:
  *                 type: string
  *                 maxLength: 300
+ *                 nullable: true
  *                 example: "Tengo 1 perro mediano."
  *               garantias:
  *                 type: array
  *                 items:
- *                   type: integer
- *                 example: [1, 2]
+ *                   type: string
+ *                   enum: [propietaria, caucion, otra]
+ *                 example: [propietaria, caucion]
  *               acepta_condiciones:
  *                 type: boolean
  *                 example: true
  *     responses:
  *       201:
  *         description: Solicitud creada exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SolicitudResponse'
  *       400:
  *         description: Datos de la solicitud inválidos.
  *       401:

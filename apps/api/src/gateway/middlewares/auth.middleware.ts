@@ -34,7 +34,17 @@ export const authenticateGateway = async (
       return;
     }
 
-    const payload = await verifySupabaseAccessToken(token);
+    let payload;
+
+    try {
+      payload = await verifySupabaseAccessToken(token);
+    } catch {
+      res.status(401).json({
+        success: false,
+        error: 'No autorizado: el token de Supabase no es válido.'
+      });
+      return;
+    }
 
     if (!payload.sub) {
       res.status(401).json({
@@ -44,7 +54,22 @@ export const authenticateGateway = async (
       return;
     }
 
-    const usuario = await usuarioRepository.findByAuthUserId(payload.sub);
+    let usuario;
+    let roles;
+
+    try {
+      usuario = await usuarioRepository.findByAuthUserId(payload.sub);
+
+      if (usuario) {
+        roles = await usuarioRepository.getRolesByUsuarioId(usuario.id);
+      }
+    } catch {
+      res.status(500).json({
+        success: false,
+        error: 'No se pudo resolver el perfil del usuario autenticado.'
+      });
+      return;
+    }
 
     if (!usuario) {
       res.status(401).json({
@@ -54,8 +79,6 @@ export const authenticateGateway = async (
       return;
     }
 
-    const roles = await usuarioRepository.getRolesByUsuarioId(usuario.id);
-
     (req as any).user = {
       id: usuario.id,
       nombre: usuario.nombre,
@@ -63,7 +86,7 @@ export const authenticateGateway = async (
       email: usuario.email,
       numero_documento: usuario.numero_documento,
       telefono: usuario.telefono,
-      roles: roles.map(role => role.descripcion),
+      roles: (roles ?? []).map(role => role.descripcion),
       authUserId: payload.sub
     } as AuthenticatedUser;
 

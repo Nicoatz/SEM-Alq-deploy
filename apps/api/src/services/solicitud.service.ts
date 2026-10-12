@@ -16,7 +16,7 @@ import { lookupRepository } from '../repositories/lookup.repository';
 export class SolicitudService {
   constructor(
     private readonly solicitudRepo: ISolicitudRepository = solicitudRepository,
-    private readonly inmuebleRepo: IInmuebleRepository = inmuebleRepository
+    private readonly inmuebleRepo: Pick<IInmuebleRepository, 'findById'> = inmuebleRepository
   ) {}
 
   private throwValidationError(message: string, statusCode = 400): never {
