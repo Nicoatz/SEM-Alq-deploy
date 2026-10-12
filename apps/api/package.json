@@ -8,7 +8,9 @@
     "prebuild": "npm run build --workspace=@rentar/shared-types",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "tsx tests/api/us01-registrar-propiedades.test.ts"
+    "test": "jest --config jest.config.cjs --runInBand",
+    "test:us35": "jest --config jest.config.cjs tests/api/us35-enviar-solicitud.test.ts --runInBand",
+    "test:legacy:us01": "tsx tests/api/us01-registrar-propiedades.test.ts"
   },
   "dependencies": {
     "@rentar/shared-types": "*",
@@ -23,9 +25,12 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.14.0",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.14",
     "tsx": "^4.11.0",
     "typescript": "^5.4.5"
   }

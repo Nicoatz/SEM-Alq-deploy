@@ -45,7 +45,7 @@ export interface CrearSolicitudRequest {
   mascotas: boolean;
   detalle_mascotas: string | null;
   garantias: ('propietaria' | 'caucion' | 'otra')[];
-  acepta_condiciones: true;
+  acepta_condiciones: boolean;
 }
 
 export interface SolicitudResponse {
