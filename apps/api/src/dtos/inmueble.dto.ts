@@ -105,9 +105,12 @@ export interface UpdateInmuebleDTO {
   banos?: number;
   antiguedad?: number | null;
   precio_publicado?: number;
-  estado_alquiler?: EstadoAlquiler;
   fecha_disponible?: string | null;
   servicios?: number | null;
+
+  // Colecciones completas para reemplazar las existentes
+  fotos?: CreateFotoDTO[];
+  tags?: number[];
 }
 
 export type CreateInmuebleCompletoDTO = CreateInmuebleCompletoPayload;

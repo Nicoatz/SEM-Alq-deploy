@@ -7,18 +7,18 @@ import {
   FiltrosMisAlquileresDTO,
   CreateInmuebleCompletoDTO,
   FiltrosInmueblesDisponiblesDTO,
-  InmueblesDisponiblesResultadoDTO
+  InmueblesDisponiblesResultadoDTO,
+  UpdateInmuebleDTO,
 } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
 import { lookupRepository } from './lookup.repository';
 
 export interface IInmuebleRepository {
-  findAll(): Promise<InmuebleDTO[]>;
+  findAll(): Promise<InmuebleDTO[]>     ;
   findById(id: number): Promise<InmuebleDTO | null>;
   findByLocadorId(locadorId: number, filtros?: FiltrosMisAlquileresDTO): Promise<InmuebleDTO[]>;
   findBarriosByLocadorId(locadorId: number): Promise<string[]>;
   create(data: Omit<InmuebleDTO, 'id' | 'created_at'>): Promise<InmuebleDTO>;
-  update(id: number, data: Partial<InmuebleDTO>): Promise<InmuebleDTO | null>;
   eliminarLogicamente(
     idInmueble: number,
     idLocador: number
@@ -36,6 +36,11 @@ export interface IInmuebleRepository {
     limit: number;
   }>;
   registrarPropiedadCompleta(idLocador: number, data: CreateInmuebleCompletoDTO): Promise<InmuebleDTO>;
+  actualizarPropiedadCompleta(
+    id: number,
+    idLocador: number,
+    data: UpdateInmuebleDTO
+  ): Promise<InmuebleDTO | null>;
 }
 
 export class InmuebleRepository implements IInmuebleRepository {
@@ -131,23 +136,6 @@ export class InmuebleRepository implements IInmuebleRepository {
 
     return created as InmuebleDTO;
   }
-
-  async update(id: number, data: Partial<InmuebleDTO>): Promise<InmuebleDTO | null> {
-    const { data: updated, error } = await getSupabaseAdmin()
-      .from('inmueble')
-      .update(data)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    if (!updated) return null;
-
-    return updated as InmuebleDTO;
-  }
-
-  
 
   
 async eliminarLogicamente(
@@ -382,6 +370,31 @@ async eliminarLogicamente(
       page,
       limit
     };
+  }
+
+  async actualizarPropiedadCompleta(
+    id: number,
+    idLocador: number,
+    data: UpdateInmuebleDTO
+  ): Promise<InmuebleDTO | null> {
+    const { fotos, tags, ...datosInmueble } = data;
+  
+    const { data: resultado, error } = await getSupabaseAdmin()
+      .rpc('actualizar_propiedad_completa', {
+        p_id_inmueble: id,
+        p_id_locador: idLocador,
+        p_data: {
+          ...datosInmueble,
+          ...(fotos !== undefined ? { fotos } : {}),
+          ...(tags !== undefined ? { tags } : {})
+        }
+      });
+  
+    if (error) {
+      throw error;
+    }
+  
+    return (resultado?.[0] ?? null) as InmuebleDTO | null;
   }
 }
 

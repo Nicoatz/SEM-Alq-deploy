@@ -151,6 +151,194 @@ router.post(
   inmuebleController.create.bind(inmuebleController)
 );
 
+/**
+ * @openapi
+ * /api/v1/inmuebles/{id}:
+ *   put:
+ *     summary: Modificar una propiedad (US)
+ *     description: |
+ *       Permite al locador propietario modificar los datos editables de un inmueble,
+ *       incluyendo sus fotos y tags.
+ *
+ *       Las fotos y los tags enviados reemplazan las colecciones existentes.
+ *       No se permite modificar el estado de alquiler ni los datos del contrato.
+ *       Tampoco se permite modificar una propiedad que se encuentre alquilada
+ *       o publicada/alquilada.
+ *     tags:
+ *       - Inmuebles
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         description: Identificador del inmueble que se desea modificar.
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tipo:
+ *                 type: integer
+ *                 description: ID del tipo de inmueble.
+ *                 example: 2
+ *               descripcion:
+ *                 type: string
+ *                 nullable: true
+ *                 example: Departamento luminoso con balcón.
+ *               provincia:
+ *                 type: string
+ *                 example: Córdoba
+ *               ciudad:
+ *                 type: string
+ *                 example: Córdoba
+ *               barrio:
+ *                 type: string
+ *                 example: Nueva Córdoba
+ *               direccion:
+ *                 type: string
+ *                 example: Av. Vélez Sarsfield
+ *               numero:
+ *                 type: integer
+ *                 example: 1234
+ *               piso:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "4"
+ *               m2_totales:
+ *                 type: number
+ *                 example: 75
+ *               m2_cubiertos:
+ *                 type: number
+ *                 example: 65
+ *               ambientes:
+ *                 type: integer
+ *                 example: 3
+ *               dormitorios:
+ *                 type: integer
+ *                 example: 2
+ *               banos:
+ *                 type: integer
+ *                 example: 1
+ *               antiguedad:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 10
+ *               precio_publicado:
+ *                 type: number
+ *                 description: Precio publicado del inmueble.
+ *                 example: 350000
+ *               fecha_disponible:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 example: "2026-11-01"
+ *               servicios:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: ID del servicio, si corresponde.
+ *                 example: 1
+ *               fotos:
+ *                 type: array
+ *                 description: |
+ *                   Lista completa de fotos que tendrá el inmueble.
+ *                   Si se envía, reemplaza las fotos existentes.
+ *                   Se requieren entre 3 y 50 fotos y como máximo una principal.
+ *                 minItems: 3
+ *                 maxItems: 50
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - url
+ *                     - peso_kb
+ *                     - formato
+ *                   properties:
+ *                     url:
+ *                       type: string
+ *                       example: https://ejemplo.com/foto.jpg
+ *                     peso_kb:
+ *                       type: number
+ *                       example: 350
+ *                     formato:
+ *                       type: string
+ *                       example: jpg
+ *                     es_principal:
+ *                       type: boolean
+ *                       default: false
+ *                       example: true
+ *               tags:
+ *                 type: array
+ *                 description: |
+ *                   Lista completa de IDs de tags del inmueble.
+ *                   Si se envía como un array vacío, se eliminan los tags existentes.
+ *                 items:
+ *                   type: integer
+ *                 example:
+ *                   - 1
+ *                   - 3
+ *           example:
+ *             descripcion: Departamento luminoso con balcón.
+ *             barrio: Nueva Córdoba
+ *             direccion: Av. Vélez Sarsfield
+ *             numero: 1234
+ *             piso: "4"
+ *             m2_totales: 75
+ *             m2_cubiertos: 65
+ *             ambientes: 3
+ *             dormitorios: 2
+ *             banos: 1
+ *             precio_publicado: 350000
+ *             fotos:
+ *               - url: https://ejemplo.com/foto1.jpg
+ *                 peso_kb: 350
+ *                 formato: jpg
+ *                 es_principal: true
+ *               - url: https://ejemplo.com/foto2.jpg
+ *                 peso_kb: 280
+ *                 formato: jpg
+ *                 es_principal: false
+ *               - url: https://ejemplo.com/foto3.jpg
+ *                 peso_kb: 310
+ *                 formato: jpg
+ *                 es_principal: false
+ *             tags:
+ *               - 1
+ *               - 3
+ *     responses:
+ *       200:
+ *         description: Inmueble actualizado exitosamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Inmueble actualizado exitosamente.
+ *                 data:
+ *                   type: object
+ *                   description: Datos del inmueble actualizado.
+ *       400:
+ *         description: ID inválido o datos enviados incorrectos.
+ *       401:
+ *         description: No autorizado. Se requiere un token válido.
+ *       403:
+ *         description: El inmueble no pertenece al locador autenticado o el usuario no tiene el rol requerido.
+ *       404:
+ *         description: Inmueble inexistente o inactivo.
+ *       409:
+ *         description: No se permite modificar el inmueble debido a su estado actual.
+ *       500:
+ *         description: Error interno del servidor.
+ */
 router.put(
   "/:id",
   authenticateGateway,

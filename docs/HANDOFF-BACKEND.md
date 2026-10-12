@@ -174,9 +174,9 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
 | `GET /panel/cobros`, `/panel/reclamos`, `/panel/contratos`, `/solicitudes/recibidas?estado=pendiente` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
 | `POST /solicitudes`, `GET /solicitudes/mias`, `GET /solicitudes/recibidas`, `PATCH /solicitudes/:id/{aceptar,rechazar,cancelar}` | `/propiedad/[id]` (US-35), `/panel/mis-solicitudes` y `/panel/solicitudes` (US-36 a US-38) | **Pendiente** (propuesto, Sprint 2; las tres pantallas están completas en modo mock, con la rama real lista en el service) |
-| `PUT /inmuebles/:id`, `DELETE /inmuebles/:id` | `/panel/propiedades/[id]` y `/panel/propiedades/[id]/editar` (US-03, US-04, tanda 3 del Sprint 2) | **Parcial**: existen y el front las usa en modo real. `PUT` ignora tags, fotos y condiciones (propuesto ampliado) y no chequea el dueño (§10). `DELETE` ver la fila siguiente. El front funciona completo en modo mock |
 | `GET /mis-alquileres/:id` | Detalle y edición del locador (US-03, US-04) | **Pendiente** (propuesto, tanda 3 del Sprint 2). Desde el 09/10 el detalle y la precarga de la edición **cargan en modo real con un puente**: `getMiPropiedad` pide `GET /mis-alquileres` y busca el id (sección 7, US-03 y US-04) |
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
+| `PUT /inmuebles/:id` | Detalle (sprint 2, US-03) | **Existe en el back (10/10, `develop` b5acfa7)**: modifica datos, fotos y tags del inmueble; 409 si está alquilado. El front no lo usa todavía |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 
 ## 6. Status HTTP y errores
@@ -284,6 +284,26 @@ y la pantalla "Esta publicación ya no está disponible". Con sesión, todos los
 | El contrato del inmueble 2 tiene los firmantes duplicados en `contrato_x_usuario`. Ya no rompe la API, pero son datos sucios: borrar las filas repetidas. | db |
 | ~~`contrato.repository#deleteByInmuebleId` borra solo un contrato si el inmueble tiene varios~~ **Ya no aplica (09/10):** eliminar un inmueble es una baja lógica (`eliminar_inmueble_logico`) que finaliza e inactiva **todos** sus contratos; `inmueble.service#delete` ya no llama a `deleteByInmuebleId`. | — |
 
+### US-03 Modificar mis propiedades
+
+Cambio del back del 10/10 (sin probar contra la API; el front todavía no tiene la pantalla de edición).
+
+| Qué hace | Detalle |
+|---|---|
+| `PUT /inmuebles/:id` | Bearer + rol `locador`. El controlador toma el id del usuario del token y llama a `inmueble.service#update(id, idLocador, data)`, que a su vez llama a la función SQL `actualizar_propiedad_completa(p_id_inmueble, p_id_locador, p_data)` (migración `20261010000000_actualizar_propiedad_atomica.sql`): bloquea la fila, valida y actualiza datos, fotos y tags en una sola transacción. |
+| Campos editables | `tipo, descripcion, provincia, ciudad, barrio, direccion, numero, piso, m2_totales, m2_cubiertos, ambientes, dormitorios, banos, antiguedad, precio_publicado, fecha_disponible, servicios`. Todos opcionales: la clave que no se envía conserva su valor. |
+| Fotos y tags | Si se envía `fotos`, **reemplaza** todas las existentes (3 a 50, con `url`, `formato` y `peso_kb` válidos, una principal como máximo; si ninguna es principal, lo es la primera). Si se envía `tags` (ids), reemplaza los existentes; `[]` los borra. |
+| Qué no se puede cambiar | `estado_alquiler` y los datos del contrato (monto, expensas, índice, depósito, etc.): 400. Se sacó `estado_alquiler` de `UpdateInmuebleDTO`. |
+| Respuestas | 200 con el inmueble actualizado, 400 id inválido o datos incorrectos, 401 sin sesión, 403 si el inmueble es de otro locador, 404 si no existe o está inactivo, 409 si está `alquilado` o `publicado/alquilado`. |
+| Errores de la función SQL | `error.middleware` traduce los `RAISE EXCEPTION` (código `P0001`) a 404, 403, 409 o 400 según el mensaje; los errores de integridad (`23503`) y de conversión (`22P02`) dan 400, y todo lo demás 500 (antes el valor por defecto era 400). |
+| Se quitó `inmueble.repository#update` | Era código muerto, reemplazado por `actualizarPropiedadCompleta`. |
+
+| Brecha | Dueño |
+|---|---|
+| `inmuebles.routes.ts` registra dos veces `router.put("/:id")`: el nuevo (con Swagger y `requireRole("locador")`) y el viejo, que quedó debajo y nunca se ejecuta. Borrar el viejo. | backend |
+| La US-03 no tiene archivo en `Documentación/md/US/` (solo está en el Sprint 0): faltan los criterios de aceptación para confirmar los campos editables y las validaciones. | PO / backend |
+| El service valida dueño y estado, y la función SQL lo vuelve a validar (doble chequeo; el de SQL es el que protege ante concurrencia). | — |
+
 ### US-04 Eliminar mis propiedades
 
 Cambio del back del 09/10 (`develop` b7ebf48). **Conectado en el front el 09/10** (`feature/vistas`):
@@ -313,7 +333,7 @@ misma regla que usa el back para el 409. El 409 solo llega si la pantalla quedó
 | Brecha | Dueño |
 |---|---|
 | ~~Faltaba la columna `activo`~~ **Resuelto (09/10):** la migración `20261009000000_us04_eliminacion_logica_inmueble.sql` ahora agrega `activo BOOLEAN NOT NULL DEFAULT TRUE` a `inmueble` y a `contrato` (con `IF NOT EXISTS`). En la base real las columnas se crearon a mano en el SQL Editor y se verificó con `information_schema.columns`. | — |
-| ~~Un inmueble dado de baja se podía leer y editar~~ **Resuelto (09/10, sin probar):** `inmueble.repository#findById`, `findAll` y `contrato.repository#findByInmuebleId` filtran por `activo`, y `inmueble.service#update` responde 404 si el inmueble no existe o está inactivo. Falta que `PUT /inmuebles/:id` valide que el inmueble sea del locador que lo edita. | backend |
+| ~~Un inmueble dado de baja se podía leer y editar~~ **Resuelto (09/10, sin probar):** `inmueble.repository#findById`, `findAll` y `contrato.repository#findByInmuebleId` filtran por `activo`, y `inmueble.service#update` responde 404 si el inmueble no existe o está inactivo. **Resuelto (10/10, `develop` b5acfa7):** `PUT /inmuebles/:id` ahora exige rol `locador` y valida que el inmueble sea del que lo edita (403). | backend |
 | ~~El comentario Swagger de `DELETE /inmuebles/:id` tenía el formato roto~~ En `develop` b7ebf48 el bloque `@openapi` está bien formado (revisado el 09/10). | — |
 | **El bloqueo no mira el contrato vigente** (`contrato.estado = 2`), solo `estado_alquiler`. Ver §10, punto 17. | backend |
 | **No cancela solicitudes ni avisa por mail** (el módulo no existe). Ver §10, punto 19. | backend |
