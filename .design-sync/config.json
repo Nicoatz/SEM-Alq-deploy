@@ -52,6 +52,13 @@
     },
     "WizardLayout": {
       "cardMode": "column"
+    },
+    "EmptyState": {
+      "cardMode": "column"
+    },
+    "HeroSearch": {
+      "cardMode": "column",
+      "viewport": "1280x1500"
     }
   }
 }

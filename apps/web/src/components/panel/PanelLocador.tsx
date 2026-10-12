@@ -16,10 +16,15 @@
  * NOTA: el banner "Tu suscripción vence el 30/09" del diseño no va: la
  * suscripción no es de este sprint y el elenco no la define.
  *
+ * "N solicitudes nuevas" es un link a `/panel/solicitudes` (US-36, tanda 2
+ * del Sprint 2): el diseño del panel no dibuja una tarjeta de solicitudes.
+ *
  * Cubre: sin US en Sprint 0 (inicio del locador, mapa A3). Los conteos de
  * propiedades cierran con US-02 (7 cargadas, 4 alquiladas para Nicolás).
  * Quién lo usa: `app/(app)/panel/page.tsx`.
  */
+import { Fragment, type ReactNode } from 'react'
+import Link from 'next/link'
 import { Button, Skeleton } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
@@ -53,29 +58,45 @@ function contar(cantidad: number, singular: string, plural: string): string {
   return `${cantidad} ${cantidad === 1 ? singular : plural}`
 }
 
-/** "a, b y c". */
-function enumerar(partes: string[]): string {
-  return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}` : (partes[0] ?? '')
+/** "a, b y c", con partes que pueden ser links. */
+function enumerar(partes: ReactNode[]): ReactNode {
+  return partes.map((parte, index) => (
+    <Fragment key={index}>
+      {index > 0 && (index === partes.length - 1 ? ' y ' : ', ')}
+      {parte}
+    </Fragment>
+  ))
 }
 
 /**
  * "Tenés 4 cosas para resolver hoy: 2 cobros vencidos, 1 reclamo sin
  * responder y 1 solicitud nueva." Mientras algún bloque carga (o si falló),
- * no se cuenta: mejor no decir un número que después cambia.
+ * no se cuenta: mejor no decir un número que después cambia. "1 solicitud
+ * nueva" lleva a Solicitudes recibidas.
  */
 function pendientesDeHoy(
   cobros: EstadoServicio<ResumenCobros>,
   reclamos: EstadoServicio<ResumenReclamos>,
   solicitudes: EstadoServicio<SolicitudPanel[]>,
-): string | null {
+): ReactNode {
   if (cobros.status !== 'listo' || reclamos.status !== 'listo' || solicitudes.status !== 'listo') return null
-  const partes: string[] = []
+  const partes: ReactNode[] = []
   if (cobros.data.overdueCount) partes.push(contar(cobros.data.overdueCount, 'cobro vencido', 'cobros vencidos'))
   if (reclamos.data.unanswered) partes.push(contar(reclamos.data.unanswered, 'reclamo sin responder', 'reclamos sin responder'))
-  if (solicitudes.data.length) partes.push(contar(solicitudes.data.length, 'solicitud nueva', 'solicitudes nuevas'))
+  if (solicitudes.data.length) {
+    partes.push(
+      <Link href="/panel/solicitudes" className={styles.inlineLink} data-testid="panel-solicitudes-link">
+        {contar(solicitudes.data.length, 'solicitud nueva', 'solicitudes nuevas')}
+      </Link>,
+    )
+  }
   const total = cobros.data.overdueCount + reclamos.data.unanswered + solicitudes.data.length
   if (total === 0) return 'No tenés nada pendiente para hoy.'
-  return `Tenés ${contar(total, 'cosa', 'cosas')} para resolver hoy: ${enumerar(partes)}.`
+  return (
+    <>
+      Tenés {contar(total, 'cosa', 'cosas')} para resolver hoy: {enumerar(partes)}.
+    </>
+  )
 }
 
 /** Conteos de propiedades para las StatCards. */
@@ -171,7 +192,7 @@ export function PanelLocador({ nombre }: { nombre: string }) {
           </h2>
           <p className={styles.greetingText} data-testid="panel-pendientes">
             {fechaLarga()}
-            {pendientes ? ` · ${pendientes}` : ''}
+            {pendientes && <> · {pendientes}</>}
           </p>
         </div>
         <div className={styles.actions}>

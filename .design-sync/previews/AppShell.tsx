@@ -34,3 +34,24 @@ export function Default() {
     </AppShell>
   )
 }
+
+/** Con "Publicar propiedad" en el encabezado (`headerAction`): cualquier rol puede publicar. */
+export function ConPublicarPropiedad() {
+  return (
+    <AppShell
+      navItems={navItems}
+      activeKey="panel"
+      user={{ name: 'Julieta Peralta', role: 'locatario' }}
+      notifications={notifications}
+      userMenuItems={[{ key: 'perfil', label: 'Mi perfil' }]}
+      onLogout={() => {}}
+      headerAction={{ label: 'Publicar propiedad', href: '#' }}
+      compact
+    >
+      <div style={{ padding: 24 }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: '1.25rem' }}>Mi panel</h2>
+        <p style={{ margin: 0, color: 'var(--rentar-color-text-secondary)' }}>Tenés 2 solicitudes enviadas.</p>
+      </div>
+    </AppShell>
+  )
+}

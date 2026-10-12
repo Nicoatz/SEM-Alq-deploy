@@ -44,10 +44,15 @@
 
 - **Componentes de negocio ya resueltos, preferilos a armar la UI a mano**: `PropertyCard`
   (tarjeta de propiedad completa), `PlanCard` (plan de suscripción), `PhotoGallery` (galería +
-  lightbox), `SearchFilters`/`FilterBar` (filtros de búsqueda/listado), `OnboardingChecklist`
+  lightbox), `HeroSearch` (buscador de la landing), `SearchSidebarFilters` (filtros de
+  `/buscar`), `FilterBar` (filtros de listados), `OnboardingChecklist`
   (checklist de pasos — nunca como fila de tarjetas ícono+heading+párrafo, ese patrón está
   rechazado en este sistema), `AppShell` (layout de panel autenticado, con slot `contextSwitcher`
   y `variant="admin"` para header oscuro), `AuthLayout`/`PublicLayout` (layouts de auth/público).
+
+- **React 18**: los componentes de @rentar/ui no usan APIs exclusivas de React 19
+  (`useEffectEvent`, `use`, `ref` como prop común sin `forwardRef`, etc.): las plantillas de
+  Claude Design corren con React 18.3.1. Lo mismo vale para el código que armes alrededor.
 
 - **Dónde está la verdad**: `styles.css` (importa `_ds_bundle.css`, que ya trae los tokens
   `--rentar-*` embebidos) y el `.prompt.md` de cada componente para su API exacta. Los nombres de

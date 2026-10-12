@@ -1,5 +1,5 @@
 /**
- * panel.mock.ts — cobros, reclamos y solicitudes del elenco para `/panel`.
+ * panel.mock.ts — cobros y reclamos del elenco para `/panel`.
  *
  * Qué es: los datos de otros módulos (Cobros, Reclamos, Solicitudes, de
  * sprints futuros) que el inicio del locador y "Mis propiedades" (US-02)
@@ -25,16 +25,16 @@
  * - **Contratos por vencer o por ajustar (60 días)**: de `rental` de cada
  *   propiedad alquilada (`nextAdjustmentDate` y `endDate`), los que caen en
  *   los próximos 60 días.
- * - **Solicitudes nuevas**: {@link solicitudes} en estado `pendiente` de
- *   propiedades del locador.
+ * - **Solicitudes nuevas**: las de `solicitudes.mock.ts` (más las enviadas
+ *   en el navegador) en estado `pendiente`, de propiedades del locador.
  *
  * Quién lo usa: la rama mock de `services/panel.service.ts` y de
  * `services/propiedades.service.ts`. Ninguna pantalla lo importa directo.
  *
- * TODO(db): son filas de las tablas de cobros, reclamos y solicitudes, que
+ * TODO(db): son filas de las tablas de cobros y reclamos, que
  * todavía no existen en el back.
  */
-import type { ClaimStatus, SolicitudStatus } from '@rentar/shared-types'
+import type { ClaimStatus } from '@rentar/shared-types'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────
 
@@ -65,17 +65,6 @@ export interface ReclamoMock {
   answeredAt: string | null
 }
 
-/** Una solicitud de alquiler sobre una propiedad publicada. */
-export interface SolicitudMock {
-  id: string
-  propertyId: string
-  /** `UsuarioSesion.id` de quien la envió. */
-  applicantUserId: string
-  applicantName: string
-  status: SolicitudStatus
-  /** Fecha ISO en que llegó. */
-  createdAt: string
-}
 
 // ─── Cobros de septiembre de 2026 ───────────────────────────────────────
 // Un cobro por alquiler. Cada contrato vence un día distinto del mes (el
@@ -163,20 +152,5 @@ export const reclamos: ReclamoMock[] = [
     status: 'en_proceso',
     createdAt: '2026-09-12',
     answeredAt: '2026-09-13',
-  },
-]
-
-// ─── Solicitudes ────────────────────────────────────────────────────────
-
-export const solicitudes: SolicitudMock[] = [
-  {
-    id: 'SOL-2026-0031',
-    propertyId: 'prop-rondeau-480',
-    applicantUserId: 'usr-julieta',
-    // Mapa: Julieta encuentra Rondeau 480 en /buscar y la solicita. Todavía
-    // no se aceptó (después termina en CT-2026-0207).
-    applicantName: 'Julieta Peralta',
-    status: 'pendiente',
-    createdAt: '2026-09-20',
   },
 ]

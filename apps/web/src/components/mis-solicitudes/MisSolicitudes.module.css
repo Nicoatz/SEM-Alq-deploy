@@ -1,0 +1,155 @@
+/* Mis solicitudes del locatario (Claude Design, "Flujo de solicitudes" · 04, 05 y 06). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* ─── Fila ────────────────────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.9375rem 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* La aceptada se destaca (· 04): es la que tiene un paso siguiente. */
+.rowAccepted {
+  border-color: var(--rentar-status-success-border);
+  background: var(--rentar-status-success-bg);
+}
+
+.photo {
+  display: block;
+  flex: none;
+  border-radius: var(--rentar-radius-sm);
+  object-fit: cover;
+  background: var(--rentar-color-bg-page);
+}
+
+.rowBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 15.625rem;
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5625rem;
+}
+
+.address {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+  text-decoration: none;
+}
+
+.address:hover {
+  color: var(--rentar-color-blue);
+}
+
+.rowLine {
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.actionButton.actionButton {
+  border-radius: var(--rentar-radius-pill);
+  font-weight: 600;
+}
+
+.linkAction {
+  font-size: 0.84375rem;
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  text-decoration: none;
+}
+
+.linkAction:hover {
+  text-decoration: underline;
+}
+
+/* ─── Carga, vacío y error (· 06) ─────────────────────────────────── */
+
+.skeletonPhoto.skeletonPhoto :global(.ant-skeleton-image) {
+  width: 4rem;
+  height: 3.125rem;
+}
+
+.emptyBlock {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Móvil (· 05): botones a lo ancho y de 44 px como mínimo ──────── */
+
+@media (max-width: 767px) {
+  .rowBody {
+    min-width: 0;
+    flex-basis: calc(100% - 5rem);
+  }
+
+  .actions {
+    width: 100%;
+  }
+
+  .actionButton.actionButton {
+    flex: 1;
+    min-height: 2.75rem;
+  }
+
+  .linkAction {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+}

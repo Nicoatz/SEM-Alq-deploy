@@ -16,18 +16,17 @@
  * - "filtrar por barrio, tipo, estado de publicación, si posee reclamos" y
  *   "solo barrios de sus propiedades": ver `lib/mis-propiedades/filtros.ts`.
  *
- * Acciones: la fila entera abre el detalle (`/panel/propiedades/[id]`,
- * placeholder), con mouse o teclado. En móvil, "Ver detalle" y el "⋯" (que
- * por ahora solo ofrece "Ver detalle"). NOTA: pausar, publicar y eliminar
- * viven en el detalle, que es de otro sprint (US-03 Modificar y US-04
- * Eliminar mis propiedades; publicar/pausar no tiene US en Sprint 0, mapa US-40).
+ * Acciones: la fila entera abre el detalle (`/panel/propiedades/[id]`), con
+ * mouse o teclado. En móvil, "Ver detalle" y el "⋯", con "Ver detalle" y
+ * "Editar" (US-03). NOTA: eliminar vive en el detalle (US-04); publicar y
+ * pausar no tienen US en Sprint 0 (mapa US-40) ni endpoint.
  *
  * Quién lo usa: `app/(app)/panel/propiedades/page.tsx`.
  */
-import { useMemo, useState } from 'react'
-import { Button, Checkbox, Drawer, Dropdown, Input, Pagination, Select } from 'antd'
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Button, Checkbox, Drawer, Dropdown, Input, Pagination, Select } from 'antd'
 import { CloseCircleFilled, EllipsisOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
-import { useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { MisPropiedadesFiltros, OrdenMisPropiedades, PropiedadLocador } from '@rentar/shared-types'
 import { DataTable, EmptyState, PageHeader } from '@rentar/ui'
 import { PROPERTY_TYPE_LABEL, PROPERTY_TYPE_OPTIONS } from '@/lib/catalogs/propiedad'
@@ -44,6 +43,7 @@ import {
   PESTANIAS_ESTADO,
   RECLAMOS_OPTIONS,
 } from '@/lib/mis-propiedades/filtros'
+import { direccionEliminada, olvidarEliminada, PARAM_ELIMINADA } from '@/lib/mis-propiedades/eliminada'
 import { listarMisPropiedades } from '@/services/propiedades.service'
 import { CabeceraTarjeta, columnasMisPropiedades } from './columnas'
 import styles from './MisPropiedades.module.css'
@@ -96,6 +96,8 @@ function textoDeError(code: string, message: string): { titulo: string; detalle:
 export function MisPropiedades() {
   const router = useRouter()
   const carga = useServiceCall(listarMisPropiedades)
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [filtros, setFiltros] = useState<MisPropiedadesFiltros>(FILTROS_INICIALES)
@@ -114,6 +116,20 @@ export function MisPropiedades() {
   const alquiladasHoy = todas.filter((propiedad) => propiedad.status === 'alquilada' || propiedad.status === 'alquilada_publicada').length
   const paginaVisible = visibles.slice((pagina - 1) * MIS_PROPIEDADES_PAGE_SIZE, pagina * MIS_PROPIEDADES_PAGE_SIZE)
   const conteoBorrador = useMemo(() => filtrarMisPropiedades(todas, borrador.filtros, borrador.orden).length, [todas, borrador])
+
+  // Aviso "Eliminaste <dirección>." (US-04): llega por `?eliminada=<id>` desde el detalle.
+  const [eliminada, setEliminada] = useState<{ id: string; direccion: string | null } | null>(() => {
+    const id = searchParams.get(PARAM_ELIMINADA)
+    return id ? { id, direccion: direccionEliminada(id) } : null
+  })
+
+  // Se limpia la URL (como el `?solicitar=1` del detalle público), así recargar no repite el aviso.
+  useEffect(() => {
+    const id = searchParams.get(PARAM_ELIMINADA)
+    if (!id) return
+    olvidarEliminada(id)
+    router.replace(pathname, { scroll: false })
+  }, [searchParams, router, pathname])
 
   // ─── Handlers ───────────────────────────────────────────────────────
   function cambiarFiltros(cambio: Partial<MisPropiedadesFiltros>): void {
@@ -141,6 +157,17 @@ export function MisPropiedades() {
     setPagina(1)
     setDrawerAbierto(false)
   }
+
+  const avisoEliminada = eliminada && (
+    <Alert
+      type="success"
+      showIcon
+      closable={{ 'aria-label': 'Cerrar el aviso' }}
+      onClose={() => setEliminada(null)}
+      title={eliminada.direccion ? `Eliminaste ${eliminada.direccion}.` : 'Eliminaste la propiedad.'}
+      data-testid="mis-propiedades-eliminada"
+    />
+  )
 
   const publicarBoton = (
     <Button type="primary" size="large" icon={<PlusOutlined />} onClick={() => router.push('/panel/propiedades/nueva')} data-testid="mis-propiedades-publicar">
@@ -181,6 +208,7 @@ export function MisPropiedades() {
     return (
       <div className={styles.page}>
         <PageHeader title="Propiedades" breadcrumb={MIGA} actions={publicarBoton} />
+        {avisoEliminada}
         <div className={styles.emptyBlock} data-testid="mis-propiedades-vacio">
           <EmptyState
             title="Todavía no publicaste ninguna propiedad"
@@ -201,6 +229,8 @@ export function MisPropiedades() {
         breadcrumb={MIGA}
         actions={<span className={styles.desktopOnly}>{publicarBoton}</span>}
       />
+
+      {avisoEliminada}
 
       {/* Pestañas de estado con su contador (un guion mientras carga, nunca un 0 falso). */}
       <div className={styles.tabs} role="tablist" aria-label="Estado de la publicación">
@@ -336,10 +366,16 @@ export function MisPropiedades() {
                 <Button type="primary" className={styles.cardPrimary} onClick={() => abrirDetalle(propiedad)} data-testid="mis-propiedades-ver-detalle">
                   Ver detalle
                 </Button>
-                {/* NOTA: por ahora el menú solo tiene "Ver detalle"; pausar, publicar y eliminar llegan con el detalle (US-03, US-04). */}
+                {/* NOTA: eliminar vive en el detalle (US-04), con su confirmación; pausar y publicar no tienen US todavía. */}
                 <Dropdown
                   trigger={['click']}
-                  menu={{ items: [{ key: 'detalle', label: 'Ver detalle', onClick: () => abrirDetalle(propiedad) }] }}
+                  menu={{
+                    items: [
+                      { key: 'detalle', label: 'Ver detalle', onClick: () => abrirDetalle(propiedad) },
+                      // US-03: atajo a la edición, sin pasar por el detalle.
+                      { key: 'editar', label: <span data-testid="mis-propiedades-editar">Editar</span>, onClick: () => router.push(`/panel/propiedades/${encodeURIComponent(propiedad.id)}/editar`) },
+                    ],
+                  }}
                 >
                   <Button className={styles.cardMore} aria-label={`Más opciones de ${propiedad.address}`} icon={<EllipsisOutlined />} data-testid="mis-propiedades-mas" />
                 </Dropdown>

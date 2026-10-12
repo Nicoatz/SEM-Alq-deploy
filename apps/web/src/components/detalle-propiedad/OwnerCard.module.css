@@ -1,0 +1,56 @@
+/* Tarjeta del dueño (Claude Design, "Detalle de propiedad" · 01 y 03). */
+
+.card {
+  border-radius: var(--rentar-radius-lg);
+  box-shadow: var(--rentar-shadow-resting);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar {
+  flex: none;
+  background: var(--rentar-color-bg-surface-alt);
+  color: var(--rentar-color-blue);
+  font-weight: 700;
+}
+
+.identity {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.role {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin-top: var(--rentar-spacing-sm);
+}
+
+.secondary {
+  min-height: 2.75rem;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rentar-spacing-sm);
+  margin-top: var(--rentar-spacing-md);
+  padding-top: var(--rentar-spacing-sm);
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}

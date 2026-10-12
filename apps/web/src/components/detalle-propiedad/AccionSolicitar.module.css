@@ -1,0 +1,62 @@
+/* Botón "Solicitar alquiler" y sus estados (Claude Design, "Detalle de propiedad" · 02 y 04).
+   Toda acción mantiene 44px de alto mínimo (· 03, "Reglas de la vista móvil"). */
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rentar-spacing-xs);
+}
+
+.action {
+  min-height: 2.75rem;
+}
+
+.skeleton {
+  min-height: 2.75rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-tertiary);
+}
+
+/* ─── Ya solicitada ───────────────────────────────────────────────── */
+
+.solicitud {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rentar-spacing-xs);
+  padding: var(--rentar-spacing-sm);
+  border: 1px solid var(--rentar-color-border-hairline);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+}
+
+.solicitudHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rentar-spacing-xs);
+}
+
+.solicitudTitle {
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.solicitudText {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── No disponible ───────────────────────────────────────────────── */
+
+.noDisponible {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+}

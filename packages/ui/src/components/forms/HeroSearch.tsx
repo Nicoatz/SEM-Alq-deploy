@@ -34,13 +34,15 @@
  * `transform` ni `z-index` en sus contenedores: ver HeroSearch.module.css).
  */
 import {
+  forwardRef,
+  useCallback,
   useEffect,
-  useEffectEvent,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
-  type ComponentPropsWithRef,
+  type ComponentPropsWithoutRef,
   type FocusEvent,
   type FormEvent,
   type MouseEvent,
@@ -205,17 +207,23 @@ function countLabel(count: number): string {
 
 // ─── Piezas internas ───────────────────────────────────────────────────────
 
-/** Un `<select>` nativo con la piel de los campos de `/buscar` y la flecha superpuesta. */
-function NativeSelect({ className, children, ...rest }: ComponentPropsWithRef<'select'>) {
+/**
+ * Un `<select>` nativo con la piel de los campos de `/buscar` y la flecha superpuesta.
+ *
+ * NOTA: va con `forwardRef` y no recibe `ref` como prop común (lo que permite
+ * React 19): las plantillas de Claude Design corren con React 18.3.1, donde
+ * esa `ref` no llega y el rango de precio dejaba de cuidarse.
+ */
+const NativeSelect = forwardRef<HTMLSelectElement, ComponentPropsWithoutRef<'select'>>(function NativeSelect({ className, children, ...rest }, ref) {
   return (
     <span className={styles.selectWrap}>
-      <select className={`${styles.select} ${className ?? ''}`} {...rest}>
+      <select ref={ref} className={`${styles.select} ${className ?? ''}`} {...rest}>
         {children}
       </select>
       <DownOutlined className={styles.selectIcon} aria-hidden="true" />
     </span>
   )
-}
+})
 
 /** Props de {@link CountPills}. */
 interface CountPillsProps {
@@ -321,8 +329,19 @@ export function HeroSearch({
     )
   }
 
-  /** `closeMore` para los listeners del efecto (Escape y clic afuera), siempre con el estado al día. */
-  const onCloseRequest = useEffectEvent((returnFocus: boolean) => closeMore(returnFocus))
+  /**
+   * `closeMore` para los listeners del efecto (Escape y clic afuera), siempre
+   * con el estado al día y sin volver a suscribirlos en cada render.
+   * NOTA: no se usa `useEffectEvent`, que hace esto mismo, porque es de React
+   * 19.2 y las plantillas de Claude Design corren con React 18.3.1 ("is not a
+   * function"). La ref se actualiza en un layout effect, antes que cualquier
+   * listener pueda llamarla.
+   */
+  const closeMoreRef = useRef(closeMore)
+  useLayoutEffect(() => {
+    closeMoreRef.current = closeMore
+  })
+  const onCloseRequest = useCallback((returnFocus: boolean) => closeMoreRef.current(returnFocus), [])
 
   // ─── Efectos ────────────────────────────────────────────────────────
   // Con "Más filtros" abierto: Escape lo cierra (y el foco vuelve a "Más
@@ -374,7 +393,7 @@ export function HeroSearch({
       document.removeEventListener('pointerdown', onPointerDown)
       document.body.style.overflow = previousOverflow
     }
-  }, [moreOpen, isDesktop])
+  }, [moreOpen, isDesktop, onCloseRequest])
 
   // Si el componente se desmonta mientras "Más filtros" se cierra, se cancela el cierre pendiente.
   useEffect(() => {

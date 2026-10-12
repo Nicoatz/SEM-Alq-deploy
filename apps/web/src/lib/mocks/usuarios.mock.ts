@@ -30,7 +30,7 @@ export const MOCK_PASSWORD = 'Rentar2026'
  */
 export type UsuarioMock = UsuarioSesion & { password: string }
 
-/** Las tres cuentas del elenco (ver `README.md`). */
+/** Las cinco cuentas del elenco (ver `README.md`). */
 export const usuarios: UsuarioMock[] = [
   {
     id: 'usr-nicolas',
@@ -73,5 +73,33 @@ export const usuarios: UsuarioMock[] = [
     telefono: '+54 351 555-0103',
     dni: '40123456',
     fechaNacimiento: '1998-11-21',
+  },
+  // NOTA: Matías y Diego no están en el mapa. Se sumaron en la tanda 2 del
+  // Sprint 2, con el OK del PO, como postulantes de Rondeau 480 y Fructuoso
+  // Rivera 785 (nombres del diseño "Flujo de solicitudes · 02"). No son
+  // inquilinos de ninguna propiedad. Ver `README.md`, "Las solicitudes".
+  {
+    id: 'usr-matias',
+    nombre: 'Matías',
+    apellido: 'Quiroga',
+    email: 'matias.quiroga@rentar.test',
+    password: MOCK_PASSWORD,
+    roles: ['locatario'],
+    status: 'activo',
+    telefono: '+54 351 555-0104',
+    dni: '39123456',
+    fechaNacimiento: '1996-04-08',
+  },
+  {
+    id: 'usr-diego',
+    nombre: 'Diego',
+    apellido: 'Ferreyra',
+    email: 'diego.ferreyra@rentar.test',
+    password: MOCK_PASSWORD,
+    roles: ['locatario'],
+    status: 'activo',
+    telefono: '+54 351 555-0105',
+    dni: '37123456',
+    fechaNacimiento: '1993-09-30',
   },
 ]

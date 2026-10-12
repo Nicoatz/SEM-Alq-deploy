@@ -2,9 +2,10 @@
  * shared/mockStore.ts — persistencia de los datos de prueba en el navegador.
  *
  * Qué es: lo que crea el usuario en modo mock (una cuenta en `/registro`,
- * una propiedad en el alta) se guarda en `localStorage`, así sobrevive a una
- * recarga y el recorrido "registro → login → publicar → verla en Mis
- * propiedades y en /buscar" funciona completo sin backend.
+ * una propiedad en el alta, una solicitud desde el detalle) se guarda en
+ * `localStorage`, así sobrevive a una recarga y el recorrido "registro →
+ * login → publicar → verla en Mis propiedades y en /buscar" funciona
+ * completo sin backend.
  *
  * Cómo guarda: el elenco (`lib/mocks/`) es la base fija, en código. En
  * `localStorage` solo va lo que el usuario agregó o modificó, por `id`. Al
@@ -23,7 +24,7 @@
 export const MOCK_KEY_PREFIX = 'rentar:mock:'
 
 /** Colecciones que se pueden persistir. Cada una se guarda en `rentar:mock:<nombre>`. */
-export type MockCollection = 'usuarios' | 'propiedades'
+export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes'
 
 /**
  * `true` solo en el navegador.
@@ -82,7 +83,7 @@ export function saveMockRecord<T extends { id: string }>(collection: MockCollect
 
 /**
  * Borra todo lo guardado con el prefijo `rentar:mock:` (las colecciones de
- * cuentas y propiedades) y deja solo el elenco
+ * cuentas, propiedades y solicitudes) y deja solo el elenco
  * original. Lo usa el botón "Reiniciar datos de prueba" de las herramientas
  * de desarrollo (`components/dev/DevTools.tsx`).
  */

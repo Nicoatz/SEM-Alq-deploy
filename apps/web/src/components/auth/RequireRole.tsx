@@ -10,7 +10,8 @@
  * rol?".
  *
  * Quién lo usa: las páginas del locador: Mis propiedades
- * (`(app)/panel/propiedades/page.tsx`) y su detalle (`[id]/page.tsx`). El
+ * (`(app)/panel/propiedades/page.tsx`), su detalle (`[id]/page.tsx`) y
+ * Solicitudes recibidas (`(app)/panel/solicitudes/page.tsx`). El
  * alta (`/panel/propiedades/nueva`) no: la puede usar cualquier usuario con sesión.
  */
 import { useEffect, type ReactNode } from 'react'

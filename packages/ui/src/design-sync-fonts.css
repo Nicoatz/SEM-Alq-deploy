@@ -155,13 +155,13 @@ body {
    * `opacity`; con `prefers-reduced-motion` las animaciones se apagan o
    * quedan en un fade corto (ver `apps/web/src/app/globals.css`).
    */
-  --rentar-motion-duration-fast: 160ms;
-  --rentar-motion-duration-base: 240ms;
-  --rentar-motion-duration-slow: 400ms;
-  --rentar-motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --rentar-motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --rentar-motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-  --rentar-motion-stagger: 60ms;
+  --rentar-motion-duration-fast: 160ms; /* @kind other */
+  --rentar-motion-duration-base: 240ms; /* @kind other */
+  --rentar-motion-duration-slow: 400ms; /* @kind other */
+  --rentar-motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* @kind other */
+  --rentar-motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); /* @kind other */
+  --rentar-motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1); /* @kind other */
+  --rentar-motion-stagger: 60ms; /* @kind other */
 
   /* Sombras con nombre */
   --rentar-shadow-resting: 0 1px 2px 0 rgba(18, 32, 46, 0.05), 0 1px 3px 0 rgba(18, 32, 46, 0.06);

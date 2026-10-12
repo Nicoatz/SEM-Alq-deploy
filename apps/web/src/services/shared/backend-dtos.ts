@@ -12,6 +12,7 @@
  *
  * Quién lo usa: la rama real de los services y los adaptadores.
  */
+import type { EstadoAlquiler } from '@rentar/shared-types'
 
 /**
 /**
@@ -80,9 +81,9 @@ export interface InmueblesDisponiblesResponse {
 /**
  * Query params de `GET /api/v1/inmuebles/disponibles`, con los nombres del
  * back. Todos van como texto en la URL.
- * NOTA: hoy el front manda solo `page` y `limit`: el back ignora el resto de
- * los filtros (ver `propiedades.service.ts#buscarPropiedades`). Quedan
- * documentados para cuando los respete.
+ * NOTA: desde ce677a4 (29/09) el back respeta todos (probado el 06/10), pero
+ * hoy el front manda solo `page` y `limit`: `/buscar` todavía filtra en el
+ * cliente (ver el TODO(backend) de `propiedades.service.ts#buscarPropiedades`).
  */
 export interface DisponiblesQuery {
   barrio?: string
@@ -156,4 +157,168 @@ export interface RegistrarUsuarioRequest {
   /** Formato ISO `YYYY-MM-DD`. */
   fecha_nacimiento: string
   acepta_terminos: boolean
+}
+
+// ─── Solicitudes (US-35 a US-38) · PROPUESTOS ───────────────────────────
+// NOTA: el back todavía no tiene el módulo de solicitudes. Estos DTOs son la
+// propuesta del front (ver `docs/api-endpoints.md`, "Solicitudes"): si el
+// back los arma distinto, se cambian acá y en `adapters/solicitud.adapter.ts`,
+// nunca en las pantallas.
+
+/** Estado de una solicitud, como lo guardaría la tabla (propuesto). */
+export type EstadoSolicitudDto = 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada'
+
+/**
+ * Cuerpo de `POST /api/v1/solicitudes` (no existe — propuesto). El
+ * postulante sale del token.
+ */
+export interface CrearSolicitudRequest {
+  id_inmueble: number
+  /** Opcional, hasta 600 caracteres (US-35 actualizada). */
+  mensaje?: string | null
+  /** E.164: "+" + código de país + número, de 10 a 15 dígitos (US-35). */
+  telefono: string
+  email: string
+  ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
+  /** Entero ≥ 0; 0 = no informa (HANDOFF §7). */
+  ingresos: number
+  /** Mínimo 1 (US-35). */
+  convivientes: number
+  mascotas: boolean
+  /** Hasta 300 caracteres; `null` si no tiene mascotas. */
+  detalle_mascotas: string | null
+  /** Al menos una de las que exige el inmueble, si exige alguna. */
+  garantias: ('propietaria' | 'caucion' | 'otra')[]
+  /** Siempre `true` (US-35: aceptación obligatoria). */
+  acepta_condiciones: true
+}
+
+/**
+ * Una solicitud, como la devolverían `POST /solicitudes`,
+ * `GET /solicitudes/mias`, `GET /solicitudes/recibidas` y los `PATCH` de
+ * cambio de estado (no existen — propuesto).
+ */
+export interface SolicitudResponse {
+  id: number
+  estado: EstadoSolicitudDto
+  mensaje: string | null
+  /** Fecha y hora ISO de envío. */
+  fecha_creacion: string
+  /**
+   * Fecha y hora ISO en que dejó de estar pendiente (aceptada, rechazada o
+   * cancelada); `null` mientras está pendiente.
+   * TODO(backend): sumar la columna y devolverla (Mis solicitudes y
+   * Solicitudes recibidas muestran "Aceptada el 14/09").
+   */
+  fecha_respuesta: string | null
+  inmueble: {
+    id: number
+    direccion: string
+    numero: number
+    piso?: string | null
+    barrio: string
+    /** URL de la foto principal; `null` si no tiene fotos. */
+    foto_principal: string | null
+  }
+  postulante: {
+    id: number
+    nombre: string
+    apellido?: string | null
+    /**
+     * Datos de contacto y DNI (US-35 actualizada). Solo en `/recibidas`, y
+     * solo para el dueño del inmueble: `/mias` no los manda.
+     * TODO(db): la tabla `usuario` no tiene DNI (HANDOFF §10).
+     */
+    dni?: string | null
+    telefono?: string | null
+    email?: string | null
+  }
+  /**
+   * Legajo de la solicitud (US-35 actualizada). Solo en `/recibidas`; `null`
+   * si la solicitud es anterior y no lo tiene.
+   */
+  legajo?: {
+    ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
+    /** Entero; 0 = no informa. */
+    ingresos: number
+    convivientes: number
+    mascotas: boolean
+    detalle_mascotas: string | null
+    garantias: ('propietaria' | 'caucion' | 'otra')[]
+  } | null
+}
+
+// ─── Detalle de la propiedad del locador (US-03, US-04) · PROPUESTO ─────
+// NOTA: `GET /mis-alquileres/:id` no existe. Es la propuesta del front (ver
+// `docs/api-endpoints.md`, "Detalle de mi propiedad"): queda en la familia
+// de rutas que ya filtra por dueño y no se confunde con el detalle público.
+
+/**
+ * Un número que una columna `numeric` de Postgres puede mandar como texto
+ * ("360000.00"). Lo normaliza el adaptador.
+ */
+type NumericDto = number | string
+
+/**
+ * `GET /api/v1/mis-alquileres/:id` (no existe — propuesto): una propiedad
+ * del locador del token, con todo lo que cargó el alta. 404 si no es suya.
+ * Los nombres son los mismos que el cuerpo de `POST /inmuebles`
+ * (`CreateInmuebleCompletoPayload`), así el detalle y el `PUT` ampliado
+ * hablan el mismo idioma.
+ */
+export interface MisAlquileresDetalleResponse {
+  id_inmueble: number
+  tipo: number
+  descripcion: string | null
+  provincia: string
+  ciudad: string
+  barrio: string
+  /** Calle (dirección EXACTA: la ve solo el dueño). */
+  direccion: string
+  numero: number
+  piso: string | null
+  m2_totales: number
+  m2_cubiertos: number
+  ambientes: number
+  dormitorios: number
+  banos: number
+  antiguedad: number | null
+  precio_publicado: NumericDto
+  estado_alquiler: EstadoAlquiler
+  fecha_disponible: string | null
+  /** Fecha ISO de alta de la publicación. */
+  fecha_publicacion: string | null
+  /** Ids de `tags_inmueble`. */
+  tags: number[]
+  /** Fotos en orden, con la principal marcada. */
+  fotos: { url: string; es_principal: boolean; orden: number }[]
+  /** Las condiciones que cargó el alta (fila de `contrato` + medios de pago). */
+  condiciones_contrato: {
+    monto_alquiler: NumericDto
+    expensas: NumericDto
+    indice_aumento: number | null
+    frecuencia_ajuste: string | null
+    duracion_meses: number | null
+    deposito: NumericDto | null
+    interes_por_dia: NumericDto | null
+    dias_gracia: number | null
+    medios_pago: number[]
+  }
+  /** El contrato VIGENTE (estado "vigente"), o `null`. */
+  contrato_vigente: {
+    id: number | string
+    /**
+     * Nombre y apellido del locatario; `null` si el contrato no tiene
+     * locatario cargado (pasa en los datos de prueba).
+     */
+    locatario: string | null
+    /**
+     * Fecha ISO de fin. NOTA: el puente desde `GET /mis-alquileres`
+     * (`propiedad.adapter.ts#misAlquileresItemToDetalleResponse`) la manda
+     * en `null` porque esa ruta no la devuelve.
+     */
+    fecha_fin: string | null
+    proximo_ajuste: string | null
+    monto_actual: NumericDto | null
+  } | null
 }

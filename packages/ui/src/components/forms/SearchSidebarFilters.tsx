@@ -138,8 +138,6 @@ function Section({ title, unit, children }: { title: string; unit?: string; chil
  *
  * `data-testid`: `search-sidebar-*` en escritorio y `search-drawer-*` en el Drawer
  * (por ejemplo `search-sidebar-apply`, `search-drawer-types`).
- *
- * No confundir con `SearchFilters` (la barra horizontal de la landing).
  */
 export function SearchSidebarFilters({
   value,

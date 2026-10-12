@@ -26,10 +26,11 @@ import type {
   SolicitudPanel,
   UserRole,
 } from '@rentar/shared-types'
-import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock } from '@/lib/mocks'
+import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
 import { listarMisPropiedades } from './propiedades.service'
+import { readSolicitudesMock } from './solicitudes.service'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { readMockCollection } from './shared/mockStore'
@@ -201,8 +202,11 @@ export async function getEventosContratos(): Promise<EventoContratoPanel[]> {
 /**
  * Solicitudes de alquiler pendientes sobre las propiedades del locador en
  * sesión (las "cosas para resolver" del saludo).
- * @backend GET /api/v1/solicitudes?estado=pendiente   (no existe — propuesto, US-36) → SolicitudPanel[]
- * TODO(backend): crear la ruta con el módulo de solicitudes (US-35 a US-38).
+ * @backend GET /api/v1/solicitudes/recibidas?estado=pendiente   (no existe — propuesto, US-36) → SolicitudResponse[]
+ * TODO(backend): crear la ruta con el módulo de solicitudes (US-35 a US-38;
+ * ver `solicitudes.service.ts#listarSolicitudesRecibidas`).
+ * NOTA: en modo mock también cuenta las solicitudes enviadas en el navegador
+ * (`rentar:mock:solicitudes`).
  * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
  * existe: así el panel muestra su estado vacío y no un error.
  */
@@ -210,7 +214,7 @@ export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
   if (USE_MOCKS) {
     await delay(500)
     const propias = propiedadesDe(requireSessionUserId())
-    return solicitudesElenco
+    return readSolicitudesMock()
       .filter((solicitud) => solicitud.status === 'pendiente')
       .map((solicitud): SolicitudPanel | null => {
         const propiedad = propias.find((item) => item.id === solicitud.propertyId)
@@ -225,7 +229,8 @@ export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
       .filter((solicitud): solicitud is SolicitudPanel => solicitud !== null)
   }
   // TODO(backend): cuando exista la ruta:
-  // return apiRequest<SolicitudPanel[]>('/solicitudes', { query: { estado: 'pendiente' } })
+  // const items = await apiRequest<SolicitudResponse[]>('/solicitudes/recibidas', { query: { estado: 'pendiente' } })
+  // y adaptar cada item a SolicitudPanel (nombre del postulante, dirección exacta y fecha).
   return []
 }
 

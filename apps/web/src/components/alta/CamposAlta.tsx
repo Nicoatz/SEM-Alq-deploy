@@ -9,7 +9,8 @@
  * se validan como cualquier otro campo.
  * NOTA: se componen acá (apps/web) y no en `@rentar/ui`: aprobado por
  * producto para esta tanda.
- * Quién lo usa: `PasosAlta.tsx`.
+ * Quién lo usa: `PasosAlta.tsx`; `Stepper`, también el modal "Solicitar
+ * alquiler" (personas a residir, US-35).
  */
 import { Checkbox, InputNumber, Radio } from 'antd'
 import { MinusOutlined, PlusOutlined } from '@ant-design/icons'
@@ -163,6 +164,8 @@ export function MediosPagoField({ value = [], onChange }: MediosPagoFieldProps) 
 interface IndiceFieldProps {
   value?: AdjustmentIndex | null
   onChange?: (value: AdjustmentIndex | null) => void
+  /** Bloqueado: la edición (US-03) lo bloquea cuando lo fija el contrato vigente. */
+  disabled?: boolean
 }
 
 /**
@@ -170,10 +173,10 @@ interface IndiceFieldProps {
  * tarjetas con la explicación de cada índice (Alta · 04: "Todo término
  * técnico se explica donde aparece") y la opción de dejarlo sin índice.
  */
-export function IndiceField({ value = null, onChange }: IndiceFieldProps) {
+export function IndiceField({ value = null, onChange, disabled = false }: IndiceFieldProps) {
   return (
     <div className={styles.indexField}>
-      <Radio.Group value={value} onChange={(event) => onChange?.(event.target.value as AdjustmentIndex)} className={styles.indexGroup}>
+      <Radio.Group value={value} disabled={disabled} onChange={(event) => onChange?.(event.target.value as AdjustmentIndex)} className={styles.indexGroup}>
         {(['ICL', 'IPC'] as const).map((index) => (
           <Radio key={index} value={index} className={`${styles.indexCard} ${value === index ? styles.indexCardOn : ''}`} data-testid={`alta-indice-${index}`}>
             <span className={styles.indexText}>
@@ -186,7 +189,7 @@ export function IndiceField({ value = null, onChange }: IndiceFieldProps) {
           </Radio>
         ))}
       </Radio.Group>
-      {value && (
+      {value && !disabled && (
         <button type="button" className={styles.linkButton} onClick={() => onChange?.(null)} data-testid="alta-indice-quitar">
           Sin índice por ahora
         </button>

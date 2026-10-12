@@ -12,6 +12,7 @@
  * porque el alta (`/panel/propiedades/nueva`) queda abierta para cualquier
  * usuario con sesión (regla del equipo, 27/09/2026).
  */
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { RequireRole } from '@/components/auth/RequireRole'
 import { MisPropiedades } from '@/components/mis-propiedades/MisPropiedades'
@@ -23,7 +24,10 @@ export const metadata: Metadata = { title: 'Mis propiedades' }
 export default function MisPropiedadesPage() {
   return (
     <RequireRole role="locador">
-      <MisPropiedades />
+      {/* Suspense: Mis propiedades lee `?eliminada=<id>` (aviso de US-04) con useSearchParams. */}
+      <Suspense>
+        <MisPropiedades />
+      </Suspense>
     </RequireRole>
   )
 }

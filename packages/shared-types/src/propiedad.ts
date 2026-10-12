@@ -7,10 +7,11 @@
  * no conocen esas tablas: reciben estos tipos ya armados por los adaptadores
  * de `apps/web/src/services/adapters/propiedad.adapter.ts`.
  *
- * Quién lo usa: `@rentar/ui` (`PropertyCard`, `SearchFilters`) y las
- * pantallas de la landing, `/buscar` (US-34), `/panel/propiedades` (US-02)
- * y `/panel/propiedades/nueva` (US-01).
+ * Quién lo usa: `@rentar/ui` (`PropertyCard`, `HeroSearch`, `SearchSidebarFilters`) y las
+ * pantallas de la landing, `/buscar` (US-34), `/propiedad/[id]` (US-41),
+ * `/panel/propiedades` (US-02) y `/panel/propiedades/nueva` (US-01).
  */
+import type { GarantiaOfrecida } from './solicitud'
 import type { PropertyStatus } from './status'
 
 /**
@@ -118,6 +119,91 @@ export interface PropiedadResumen {
   publishedAt: string
   /** Solo los dos estados buscables: una propiedad `alquilada` o `pausada` nunca llega acá. */
   status: Extract<PropertyStatus, 'publicada' | 'alquilada_publicada'>
+}
+
+/**
+ * Si la publicación se puede solicitar (US-41 y US-35). `disponible` =
+ * `publicada` o `alquilada_publicada` (esta última muestra "Disponible desde
+ * dd/mm"); `no_disponible` = `alquilada` sin fecha o `pausada` (el detalle
+ * muestra "Ya no está disponible").
+ */
+export type DisponibilidadPropiedad = 'disponible' | 'no_disponible'
+
+/**
+ * El dueño de una publicación, tal como lo ve el detalle público (US-41).
+ * Sin teléfono ni email: el contacto se habilita recién cuando acepta la
+ * solicitud (Flujo de solicitudes · 07, "Privacidad").
+ */
+export interface DuenoPropiedad {
+  id: string
+  /**
+   * Nombre y apellido. `null` si no se conoce: la pantalla dice "el dueño" y
+   * la tarjeta va sin nombre (nunca se inventa uno).
+   */
+  fullName: string | null
+}
+
+/**
+ * Condiciones del contrato que el locador cargó en el alta (US-01, paso 4),
+ * tal como las muestra el detalle (US-41: "Condiciones del contrato"). Cada
+ * campo es `null` si no se cargó.
+ */
+export interface CondicionesContrato {
+  /** Duración del contrato en meses. */
+  contractMonths: number | null
+  /** Cada cuántos meses se ajusta por el índice (1 a 12). */
+  adjustmentEveryMonths: number | null
+  /** Depósito, en pesos. */
+  depositAmount: number | null
+}
+
+/**
+ * Una publicación vista en su página de detalle, `/propiedad/[id]` (US-41
+ * Consultar detalle de propiedad). Reutiliza los campos de
+ * {@link PropiedadResumen} (título, barrio, tipo, m², índice,
+ * características, descripción, fotos y disponibilidad) y suma lo que solo
+ * muestra el detalle.
+ *
+ * NOTA de privacidad (decisión del PO con la US-35 actualizada): con
+ * sesión, `address` es la EXACTA y `floor` trae el piso; sin sesión, la
+ * aproximada de la tarjeta de `/buscar` ("Rondeau al 400", ver
+ * `services/adapters/direccion.ts`) y `floor` en `null`. `addressPrecision`
+ * dice cuál vino.
+ *
+ * Adaptadores: `propiedad.adapter.ts#inmuebleDetalleToPropiedadDetalle`
+ * (rama real, `GET /inmuebles/disponibles/:id`) y
+ * `propiedad-mock.adapter.ts#propiedadMockToDetalle` (elenco).
+ */
+export interface PropiedadDetalle extends Omit<PropiedadResumen, 'priceMonthly' | 'status'> {
+  /**
+   * Alquiler mensual. `null` si el back no lo informa (publicación sin
+   * contrato cargado): la pantalla muestra "Consultar".
+   */
+  priceMonthly: number | null
+  /** Cualquiera de los cuatro estados: el detalle también se abre para una que ya no está disponible. */
+  status: PropertyStatus
+  /** Derivado de `status`: si se puede solicitar. */
+  availability: DisponibilidadPropiedad
+  bathrooms: number
+  /** Superficie cubierta en m² (`areaM2`, heredado, es la total). */
+  coveredAreaM2: number
+  /** `null` si no se conoce (ver {@link DuenoPropiedad}). */
+  owner: DuenoPropiedad | null
+  /** `null` si no se conocen: la sección "Condiciones del contrato" no se muestra. */
+  conditions: CondicionesContrato | null
+  /** `null` si no se conocen: la sección "Cómo se paga" no se muestra. */
+  paymentMethods: MedioPagoConRecargo[] | null
+  /** Si `address` es la exacta (con sesión) o la aproximada (visitante sin sesión). */
+  addressPrecision: 'exacta' | 'aproximada'
+  /** Piso y depto ("7° B", "PB"); solo con sesión. `null` sin sesión o si no tiene. */
+  floor: string | null
+  /**
+   * Garantías que exige el locador (US-35: "se deben marcar las garantías
+   * solicitadas explícitamente por el locador"). Alcanza con que el
+   * postulante ofrezca al menos una (decisión del PO). Vacío = no exige
+   * ninguna.
+   */
+  requiredGuarantees: GarantiaOfrecida[]
 }
 
 /**
@@ -254,4 +340,69 @@ export interface PropiedadNueva {
   depositMonths: number | null
   /** Duración del contrato en meses; `null` si no se cargó. */
   contractMonths: number | null
+}
+
+/**
+ * Lo que se puede modificar de una propiedad (US-03 Modificar mis
+ * propiedades): cualquier dato del alta. La pantalla de edición manda el
+ * formulario completo; el tipo es `Partial` para que el service no exija lo
+ * que no cambió.
+ * Adaptador: `propiedad.adapter.ts#cambiosToUpdateInmueble` (rama real) y
+ * `propiedad-mock.adapter.ts#aplicarCambiosMock` (elenco).
+ */
+export type CambiosPropiedad = Partial<PropiedadNueva>
+
+/** El contrato vigente de una propiedad, para el encabezado del detalle del locador. */
+export interface ContratoVigenteResumen {
+  /** Ej. "CT-2026-0148". */
+  id: string
+  /**
+   * Nombre del locatario (US-02); `null` si el back no lo informa (un
+   * contrato vigente sin locatario cargado en `contrato_x_usuario`).
+   */
+  tenantName: string | null
+  /**
+   * Fecha ISO de fin del contrato; `null` si el back no la manda.
+   * NOTA: hoy `GET /mis-alquileres` no devuelve `fecha_fin_contrato`, así que
+   * con el back real siempre llega `null` (el elenco sí la trae).
+   */
+  endDate: string | null
+  /** Fecha ISO del próximo ajuste por índice; `null` si no se conoce. */
+  nextAdjustmentDate: string | null
+  /** Monto mensual vigente; `null` si no se conoce. */
+  currentAmount: number | null
+}
+
+/**
+ * Una propiedad del locador en sesión, vista en su detalle,
+ * `/panel/propiedades/[id]` (US-03 y US-04, numeración de Jira).
+ *
+ * NOTA: a diferencia del detalle público, acá la dirección es la EXACTA: la
+ * ve solo su dueño.
+ * Adaptador: `propiedad.adapter.ts#misAlquileresDetalleToPropiedadLocadorDetalle`
+ * (rama real, `GET /mis-alquileres/:id`, propuesto) y
+ * `propiedad-mock.adapter.ts#propiedadMockToDetalleLocador` (elenco).
+ */
+export interface PropiedadLocadorDetalle {
+  id: string
+  /** Título de la publicación, ej. "1 dormitorio en planta baja con cochera". */
+  title: string
+  /** Dirección EXACTA, ej. "Rondeau 480, PB". */
+  address: string
+  neighborhoodName: string
+  /** Estado real de la publicación (con `alquilada_publicada`). */
+  status: PropertyStatus
+  /** Fecha ISO de alta; `null` si el back no la manda. */
+  publishedAt: string | null
+  /**
+   * Los datos tal como los carga el alta (US-01). La ficha del detalle y el
+   * formulario de edición (US-03) salen de acá, así nunca se contradicen.
+   */
+  values: PropiedadNueva
+  /**
+   * Contrato vigente, o `null`. Con contrato vigente no se puede modificar el
+   * precio ni el ajuste (los fija el contrato) y no se puede eliminar la
+   * propiedad (decisión del PO, tanda 3 del Sprint 2).
+   */
+  activeContract: ContratoVigenteResumen | null
 }
