@@ -7,6 +7,54 @@ const router = Router();
 
 /**
  * @openapi
+ * /api/v1/solicitudes/mias:
+ *   get:
+ *     summary: Consultar solicitudes enviadas por el locatario
+ *     description: Devuelve las solicitudes del usuario autenticado, ordenadas de la más nueva a la más antigua.
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *           enum: [pendiente, aceptada, rechazada, cancelada]
+ *         description: Filtra las solicitudes por estado.
+ *       - in: query
+ *         name: inmueble
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Filtra las solicitudes de una propiedad.
+ *     responses:
+ *       200:
+ *         description: Solicitudes del usuario autenticado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/SolicitudResponse'
+ *       400:
+ *         description: Filtros inválidos.
+ *       401:
+ *         description: No autorizado.
+ */
+router.get(
+  '/mias',
+  authenticateGateway,
+  solicitudController.getMisSolicitudes.bind(solicitudController)
+);
+
+/**
+ * @openapi
  * /api/v1/solicitudes/preparar:
  *   get:
  *     summary: Obtener datos para preparar una solicitud de alquiler

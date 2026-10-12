@@ -1,5 +1,6 @@
 import type {
   CrearSolicitudRequest,
+  FiltrosMisSolicitudesDTO,
   SolicitudPreparacionResponse,
   SolicitudResponse
 } from '../dtos';
@@ -241,6 +242,21 @@ export class SolicitudService {
     }
 
     return solicitudCompleta;
+  }
+
+  async getMisSolicitudes(
+    user: AuthenticatedUser,
+    filtros: FiltrosMisSolicitudesDTO = {}
+  ): Promise<SolicitudResponse[]> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para consultar sus solicitudes.', 401);
+    }
+
+    if (filtros.inmueble !== undefined && (!Number.isInteger(filtros.inmueble) || filtros.inmueble < 1)) {
+      this.throwValidationError('El filtro inmueble debe ser un entero positivo.', 400);
+    }
+
+    return this.solicitudRepo.findByLocatarioId(user.id, filtros);
   }
 }
 

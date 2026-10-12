@@ -80,6 +80,11 @@ export interface SolicitudResponse {
   } | null;
 }
 
+export interface FiltrosMisSolicitudesDTO {
+  estado?: 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada';
+  inmueble?: number;
+}
+
 export interface SolicitudPreparacionResponse {
   usuario: {
     id: number;
