@@ -472,9 +472,8 @@ configurable en las acciones clave, y sin valores visuales hardcodeados.
 - `MoneyInput`: `InputNumber` con formato de pesos argentinos ya aplicado.
 - `FileDropzone`: `Upload.Dragger` para fotos/documentos. Nunca sube nada de verdad
   (`beforeUpload` siempre `false`).
-- `SearchFilters`: **sin uso** en las pantallas (solo aparece en el catálogo). Lo reemplazaron
-  `HeroSearch` y `SearchSidebarFilters`; candidato a borrarse (decisión del PO). No usarlo en
-  pantallas nuevas.
+- `SearchFilters`: **se borró** el 09/10/2026 (decisión del PO). Lo reemplazaron `HeroSearch`
+  (landing) y `SearchSidebarFilters` (`/buscar`).
 
 **Feedback**
 - `ConfirmActionModal`: confirmación de una acción destructiva o irreversible.

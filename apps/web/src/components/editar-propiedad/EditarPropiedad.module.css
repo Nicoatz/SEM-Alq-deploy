@@ -1,0 +1,199 @@
+/* Edición de una propiedad del locador (Claude Design, "Detalle de propiedad del locador" · 06). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  /* Deja lugar para la barra de guardado fija. */
+  padding-bottom: 5.5rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* ─── Índice lateral ──────────────────────────────────────────────── */
+
+.indice {
+  position: sticky;
+  top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.indiceTitulo {
+  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rentar-color-text-secondary);
+}
+
+.indiceLink {
+  padding: 0.4375rem 0.625rem;
+  border-radius: var(--rentar-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+  text-decoration: none;
+}
+
+.indiceLink:hover {
+  background: var(--rentar-color-sky-light);
+  color: var(--rentar-color-blue);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* Que el ancla no quede tapada por el borde de arriba. */
+.seccion {
+  scroll-margin-top: 1rem;
+}
+
+/* ─── Resumen de errores ──────────────────────────────────────────── */
+
+.errorSummary {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorSummaryTitle {
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorSummaryList {
+  margin: 0;
+  padding-left: 1.125rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.linkButton {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  cursor: pointer;
+}
+
+.link {
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  text-decoration: none;
+}
+
+/* ─── Barra de guardado fija ──────────────────────────────────────── */
+
+.barra {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: var(--rentar-z-sticky);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  background: var(--rentar-color-bg-surface);
+  box-shadow: var(--rentar-shadow-lifted);
+}
+
+.barraTexto {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-secondary);
+}
+
+.barraAcciones {
+  display: flex;
+  gap: 0.5625rem;
+}
+
+/* ─── Carga, error y no encontrada ────────────────────────────────── */
+
+.emptyBlock {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Móvil ───────────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* El índice pasa a una fila de chips con scroll. */
+  .indice {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .indiceTitulo {
+    display: none;
+  }
+
+  .indiceLink {
+    flex: none;
+    border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.15);
+    border-radius: var(--rentar-radius-pill);
+  }
+
+  .barra {
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+  }
+
+  .barraAcciones {
+    flex: 1;
+    justify-content: flex-end;
+  }
+}

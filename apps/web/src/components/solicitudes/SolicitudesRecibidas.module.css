@@ -1,0 +1,447 @@
+/* Solicitudes recibidas del locador (Claude Design, "Flujo de solicitudes" · 02, 05 y 06). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+/* ─── Pestañas, filtro por propiedad y orden ──────────────────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5625rem;
+}
+
+.toolbarSelects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5625rem;
+}
+
+.select.select {
+  min-width: 11rem;
+}
+
+.select.select :global(.ant-select-selector),
+.select.select:global(.ant-select) {
+  border-radius: var(--rentar-radius-pill);
+}
+
+/* ─── Lista + detalle al costado ──────────────────────────────────── */
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 1.125rem;
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  min-width: 0;
+}
+
+.aside {
+  position: sticky;
+  top: 0.75rem;
+  min-width: 0;
+}
+
+/* ─── Grupo por propiedad ─────────────────────────────────────────── */
+
+.group {
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.groupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8125rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.groupPhoto {
+  display: block;
+  flex: none;
+  border-radius: var(--rentar-radius-sm);
+  object-fit: cover;
+  background: var(--rentar-color-bg-page);
+}
+
+.groupTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.groupAddress {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.groupSub {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.groupCount {
+  display: inline-flex;
+  align-items: center;
+  height: 1.625rem;
+  margin-left: auto;
+  padding: 0 0.6875rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-sky-light);
+  color: var(--rentar-color-blue);
+  font-size: 0.78125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ─── Fila de solicitud ───────────────────────────────────────────── */
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.9375rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.08);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.rowSelected {
+  border-left-color: var(--rentar-color-blue);
+}
+
+.avatar.avatar {
+  flex: none;
+  background: var(--rentar-color-sky-light);
+  color: var(--rentar-color-blue);
+  font-weight: 700;
+}
+
+.avatarSelected.avatarSelected {
+  flex: none;
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+  font-weight: 700;
+}
+
+.rowBody {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.1875rem;
+  min-width: 13.75rem;
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5625rem;
+}
+
+.nameButton {
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.nameButton:hover {
+  color: var(--rentar-color-blue);
+}
+
+.nameButton:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+  border-radius: var(--rentar-radius-sm);
+}
+
+.rowDate {
+  font-size: 0.78125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.rowLine {
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Acciones ────────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5625rem;
+}
+
+.actionsDetail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5625rem;
+}
+
+.actionsDetail > * {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.actionsDetail .tooltipWrap > :global(.ant-btn) {
+  width: 100%;
+}
+
+.actionButton.actionButton {
+  border-radius: var(--rentar-radius-pill);
+  font-weight: 700;
+}
+
+.tooltipWrap {
+  display: inline-flex;
+}
+
+.linkAction.linkAction {
+  padding: 0;
+  font-weight: 700;
+}
+
+/* ─── Detalle del postulante ──────────────────────────────────────── */
+
+.detail {
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.detailHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9375rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.detailTitle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.detailName {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.detailSub {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.detailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+}
+
+.detailStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+
+.detailField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+}
+
+.detailLabel {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rentar-color-text-secondary);
+}
+
+.detailValue {
+  font-size: 0.9375rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.detailMessage {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  color: var(--rentar-color-text-primary);
+}
+
+.legajo {
+  padding: 0.75rem;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+}
+
+.legajo :global(.ant-descriptions-item) {
+  padding-bottom: 0.375rem;
+}
+
+.detailEmpty {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Carga, vacío y error (· 06) ─────────────────────────────────── */
+
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.9375rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.08);
+}
+
+.skeletonRow:last-child {
+  border-bottom: none;
+}
+
+.emptyBlock {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.emptyActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.625rem;
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.infoNote.infoNote {
+  border: 1px solid rgba(var(--rentar-color-blue-rgb), 0.2);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-sky-light);
+}
+
+/* ─── Móvil (· 05) ────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .toolbarSelects,
+  .select.select {
+    width: 100%;
+  }
+
+  .select.select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* El encabezado del grupo queda pegado arriba al hacer scroll. */
+  .groupHeader {
+    position: sticky;
+    top: 0;
+    z-index: var(--rentar-z-sticky-secondary);
+  }
+
+  .group {
+    overflow: visible;
+  }
+
+  .rowBody {
+    min-width: 0;
+    flex-basis: calc(100% - 3.5rem);
+  }
+
+  /* Los botones ocupan el ancho y nunca bajan de 44 px. */
+  .actions {
+    width: 100%;
+  }
+
+  .actions > *,
+  .actions .tooltipWrap {
+    flex: 1;
+  }
+
+  .actions .tooltipWrap > :global(.ant-btn) {
+    width: 100%;
+  }
+
+  .actionButton.actionButton {
+    min-height: 2.75rem;
+  }
+
+  /* En el Drawer cada botón grande ocupa su propia fila. */
+  .actionsDetail > * {
+    flex-basis: 100%;
+  }
+
+  /* En el Drawer el detalle no lleva su propio borde. */
+  .detail {
+    border: none;
+    border-radius: 0;
+  }
+}

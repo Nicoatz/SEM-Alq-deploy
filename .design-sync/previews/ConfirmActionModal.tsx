@@ -53,3 +53,47 @@ export function Destructiva() {
     </div>
   )
 }
+
+/**
+ * Con cuerpo extra (`children`) y la acción en curso (`confirmLoading`):
+ * aceptar una solicitud ("Flujo de solicitudes" · 03).
+ */
+export function ConCuerpoYCarga() {
+  return (
+    <div style={wrapStyle}>
+      <ConfirmActionModal
+        {...inline}
+        open
+        title="¿Aceptar la solicitud de Julieta Peralta?"
+        description="Le avisamos por mail. Vas a poder ver sus datos de contacto."
+        confirmLabel="Aceptar solicitud"
+        confirmLoading
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      >
+        <p style={{ margin: 0 }}>La otra solicitud por Rondeau 480 sigue pendiente.</p>
+      </ConfirmActionModal>
+    </div>
+  )
+}
+
+/**
+ * Aviso sin nada que elegir (`hideCancel`): solo "Entendido". La cruz y
+ * Escape siguen cerrando ("Detalle de propiedad del locador" · 05).
+ */
+export function AvisoSinCancelar() {
+  return (
+    <div style={wrapStyle}>
+      <ConfirmActionModal
+        {...inline}
+        open
+        title="No podés eliminar esta propiedad"
+        description="Tiene un contrato vigente. Vas a poder eliminarla cuando el contrato termine."
+        confirmLabel="Entendido"
+        hideCancel
+        onConfirm={() => {}}
+        onCancel={() => {}}
+      />
+    </div>
+  )
+}

@@ -459,3 +459,10 @@
   }
 }
 
+/* "N solicitudes nuevas" de la frase del saludo: link a Solicitudes recibidas. */
+.inlineLink {
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

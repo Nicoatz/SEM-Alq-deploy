@@ -7,8 +7,11 @@
  * y `PropiedadResumen` / `PropiedadLocador` / `PropiedadNueva` (tipos de
  * vista). Cada función comenta, campo por campo, lo que el back todavía no
  * devuelve o guarda distinto.
- * Cubre: US-34 (`PropiedadResumen`), US-02 (`PropiedadLocador`) y US-01
- * (`PropiedadNueva` → cuerpo de `POST /inmuebles`).
+ * Cubre: US-34 (`PropiedadResumen`), US-41 (`PropiedadDetalle`), US-02
+ * (`PropiedadLocador`), US-01 (`PropiedadNueva` → cuerpo de `POST /inmuebles`)
+ * y US-03/US-04 (`PropiedadLocadorDetalle`, por ahora con el puente desde
+ * `/mis-alquileres`; la edición → cuerpo PARCIAL de `PUT /inmuebles/:id`, y
+ * los errores de ese `PUT` y de `DELETE /inmuebles/:id`).
  * Quién lo usa: la rama real de `services/propiedades.service.ts`.
  */
 import type {
@@ -22,13 +25,19 @@ import type {
   PropertyStatus,
   PropertyType,
   PropiedadLocador,
+  PropiedadDetalle,
   PropiedadNueva,
   PropiedadResumen,
+  PropiedadLocadorDetalle,
+  FotoNueva,
+  MedioPagoConRecargo,
 } from '@rentar/shared-types'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
-import type { InmuebleDisponibleResponse } from '../shared/backend-dtos'
-import { formatApproxAddress, formatFloorUnit } from './direccion'
+import type { InmuebleDetalleResponse, InmuebleDisponibleResponse, MisAlquileresDetalleResponse, UpdateInmueblePayload } from '../shared/backend-dtos'
+import { ServiceError } from '../shared/errors'
+import { formatApproxAddress, formatExactAddress, formatFloorUnit, separarPisoDepto } from './direccion'
+import { tituloDePublicacion } from './titulo'
 
 /**
  * Foto que se muestra cuando el inmueble no tiene fotos (o el endpoint no
@@ -170,8 +179,9 @@ function slugDe(nombre: string): string {
  * Si está en el catálogo del piloto (`lib/catalogs/neighborhoods.ts`), se
  * usa ese; si no (ej. "Alberdi"), se arma el slug a partir del nombre.
  * TODO(db): acordar un catálogo de barrios (id + nombre) en vez de texto libre.
+ * Lo usa también `solicitud.adapter.ts` (barrio de la propiedad solicitada).
  */
-function barrioDe(barrio: string | null | undefined): { slug: string; name: string } {
+export function barrioDe(barrio: string | null | undefined): { slug: string; name: string } {
   const nombre = barrio?.trim() ?? ''
   if (!nombre) return { slug: '', name: '' }
   const slug = slugDe(nombre)
@@ -270,8 +280,10 @@ export function tituloDePropiedadNueva(nueva: Pick<PropiedadNueva, 'type' | 'roo
  *
  * Campo por campo, lo que el back todavía no devuelve (brechas en
  * `docs/HANDOFF-BACKEND.md`):
- * - `title`: el back no tiene título; se arma con el tipo y los ambientes,
- *   igual que en el alta.
+ * - `title`: el back no tiene título; se arma con tipo + dormitorios + barrio
+ *   (`titulo.ts#tituloDePublicacion`), igual que en el detalle pero sin el
+ *   barrio (`conBarrio: false`): la tarjeta ya muestra "barrio · título".
+ *   Nunca la dirección.
  * - `address`: aproximada ("calle al 400"), ver la NOTA de privacidad en direccion.ts.
  * - `priceMonthly`, `expenses` y `adjustmentIndex`: del contrato del inmueble
  *   (`precio`, `expensas`, `indice_ajuste`). CAC → `null` (el front no lo ofrece).
@@ -300,7 +312,7 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
 
   return {
     id: String(item.id),
-    title: tituloDePropiedadNueva({ type, rooms: item.ambientes }),
+    title: tituloDePublicacion({ type, bedrooms: item.dormitorios, neighborhoodName: barrio.name }, { conBarrio: false }),
     address: formatApproxAddress(item.direccion, item.numero),
     province: item.provincia,
     city: normalizarCiudad(item.ciudad),
@@ -320,6 +332,104 @@ export function inmuebleDisponibleToPropiedadResumen(item: InmuebleDisponibleRes
     photoSrcs: [foto],
     publishedAt: '',
     status: item.fecha_disponible ? 'alquilada_publicada' : 'publicada',
+  }
+}
+
+// ─── Detalle → PropiedadDetalle (US-41) ─────────────────────────────────
+
+/**
+ * Un monto del detalle (`precio`, `expensas`) → número o `null`.
+ * TODO(backend): sin contrato, el back mandaba `-1` y desde el 29/09 manda
+ * `null` (`inmuebleService.getById`). Se aceptan los dos (y cualquier
+ * negativo) como "no informado" hasta que el back confirme que ya no manda
+ * `-1`. La pantalla muestra "Consultar" en vez del precio.
+ */
+function montoONull(valor: number | string | null | undefined): number | null {
+  if (valor === null || valor === undefined) return null
+  const numero = aNumero(valor)
+  return numero < 0 ? null : numero
+}
+
+/**
+ * Respuesta de `GET /api/v1/inmuebles/disponibles/:id` → `PropiedadDetalle`
+ * (`/propiedad/[id]`, US-41).
+ *
+ * Campo por campo:
+ * - `title`: el back no tiene título; se arma con tipo + dormitorios +
+ *   barrio (`titulo.ts#tituloDePublicacion`), igual que la tarjeta de
+ *   `/buscar`. Nunca la dirección: se ve en las migas.
+ * - `address`: APROXIMADA ("Rondeau al 400"), nunca la altura ni el piso
+ *   (NOTA de privacidad de `PropiedadDetalle`).
+ * - `priceMonthly` / `expenses`: `null` si no vienen o vienen en `-1` (ver
+ *   {@link montoONull}).
+ * - `photoSrcs`: todas las fotos, la principal primero y el resto por
+ *   `orden`; si no tiene, el placeholder.
+ * - `status`: TODO(backend): el detalle no devuelve `estado_alquiler`. La
+ *   ruta solo responde las disponibles (404 si no), así que se deduce: con
+ *   `fecha_disponible` → `alquilada_publicada`; sin fecha → `publicada`. Por
+ *   eso, con el back real, una que ya no está disponible llega como 404
+ *   (pantalla "Esta publicación ya no está disponible").
+ * - `publishedAt`: TODO(db): el back no guarda la fecha de publicación; `''`.
+ * - `owner`: TODO(backend): el detalle no trae el dueño (id y nombre). Sin
+ *   él, la tarjeta va sin nombre ("el dueño") y el front no puede saber si la
+ *   publicación es propia (el back tiene que rechazar esa solicitud).
+ * - `conditions`: TODO(backend): faltan plazo, frecuencia de ajuste y
+ *   depósito del contrato (`duracion_meses`, `frecuencia_ajuste`,
+ *   `deposito`). Con `null`, la sección "Condiciones del contrato" no se muestra.
+ * - `paymentMethods`: TODO(backend): faltan los medios de pago del contrato
+ *   (con su recargo). Con `null`, la sección "Cómo se paga" no se muestra.
+ * - `address` y `floor`: con sesión, la EXACTA y el piso; sin sesión, la
+ *   aproximada y sin piso (decisión del PO con la US-35 actualizada).
+ *   NOTA: es solo cosmético: hoy la ruta es pública y ya manda `direccion`,
+ *   `numero` y `piso` sin token (HANDOFF §10, gravedad alta).
+ * - `requiredGuarantees`: TODO(backend): el back no tiene el dato; sin él,
+ *   ninguna propiedad exige garantías (pendiente para el Sprint 3: toca US-01
+ *   y US-03, HANDOFF §7).
+ */
+export function inmuebleDetalleToPropiedadDetalle(dto: InmuebleDetalleResponse, opciones: { conSesion?: boolean } = {}): PropiedadDetalle {
+  const exacta = opciones.conSesion === true
+  const type = propertyTypeFromTipoId(dto.tipo.id)
+  const barrio = barrioDe(dto.barrio)
+  const characteristics = dto.tags
+    .map((tag) => CHARACTERISTIC_BY_TAG_ID[tag.id] ?? characteristicFromTagDescripcion(tag.descripcion))
+    .filter((key): key is CharacteristicKey => Boolean(key))
+  const fotos = [...dto.fotos]
+    .sort((a, b) => Number(b.es_principal) - Number(a.es_principal) || (a.orden ?? 0) - (b.orden ?? 0))
+    .map((foto) => foto.url)
+  const photoSrcs = fotos.length > 0 ? fotos : [PLACEHOLDER_PHOTO_SRC]
+  const status: PropertyStatus = dto.fecha_disponible ? 'alquilada_publicada' : 'publicada'
+
+  return {
+    id: String(dto.id),
+    title: tituloDePublicacion({ type, bedrooms: dto.dormitorios, neighborhoodName: barrio.name }),
+    address: exacta ? formatExactAddress(dto.direccion, dto.numero, dto.piso) : formatApproxAddress(dto.direccion, dto.numero),
+    province: dto.provincia,
+    city: normalizarCiudad(dto.ciudad),
+    neighborhoodSlug: barrio.slug,
+    neighborhoodName: barrio.name,
+    type,
+    priceMonthly: montoONull(dto.precio),
+    expenses: montoONull(dto.expensas),
+    bedrooms: dto.dormitorios,
+    rooms: dto.ambientes,
+    bathrooms: dto.banos,
+    areaM2: aNumero(dto.m2_totales),
+    coveredAreaM2: aNumero(dto.m2_cubiertos),
+    adjustmentIndex: dto.indice_ajuste ? adjustmentIndexFromId(dto.indice_ajuste.id) : null,
+    characteristics: [...new Set(characteristics)],
+    description: dto.descripcion ?? '',
+    availableFrom: dto.fecha_disponible ?? null,
+    imageSrc: photoSrcs[0],
+    photoSrcs,
+    publishedAt: '',
+    status,
+    availability: 'disponible',
+    owner: null,
+    conditions: null,
+    paymentMethods: null,
+    addressPrecision: exacta ? 'exacta' : 'aproximada',
+    floor: exacta ? (dto.piso ?? null) : null,
+    requiredGuarantees: [],
   }
 }
 
@@ -498,4 +608,409 @@ export function propiedadNuevaToCreateInmueble(nueva: PropiedadNueva, fotos: Cre
       medios_pago: [...new Set(mediosPago)],
     },
   }
+}
+
+// ─── Detalle del locador y edición (US-03, US-04) ───────────────────────
+
+/** `medio_pago.id` → medio del front. Los dos de MercadoPago comparten id: vuelve como débito (ver {@link MEDIO_PAGO_ID}). */
+function medioPagoFromId(id: number): MedioPagoConRecargo | null {
+  const entry = Object.entries(MEDIO_PAGO_ID).find(([, value]) => value === id)
+  // TODO(db): el recargo no se guarda (ver MEDIO_PAGO_ID): vuelve en 0 %.
+  return entry ? { method: entry[0] as MedioPagoConRecargo['method'], surchargePct: 0 } : null
+}
+
+/** `estado_alquiler` → estado del alta (US-01). Una alquilada con fecha es `alquilada` + `availableFrom`. */
+function estadoAltaDeInmueble(estado: EstadoAlquiler): PropiedadNueva['status'] {
+  if (estado === 'pausado') return 'pausada'
+  if (estado === 'alquilado' || estado === 'publicado/alquilado') return 'alquilada'
+  return 'publicada'
+}
+
+/** Número que puede venir `null`: `null` se mantiene. */
+function numeroONull(valor: number | string | null | undefined): number | null {
+  return valor === null || valor === undefined ? null : aNumero(valor)
+}
+
+/**
+ * Nombre de un medio de pago (`medio_pago.nombre`, como lo devuelve
+ * `/mis-alquileres`) → `medio_pago.id`. `null` si no se reconoce.
+ * NOTA: se compara por el comienzo del texto, sin tildes ni mayúsculas, como
+ * {@link characteristicFromTagDescripcion}. "Débito automático" (4) no se
+ * ofrece en el front: {@link medioPagoFromId} lo descarta.
+ */
+function medioPagoIdFromNombre(nombre: string): number | null {
+  const texto = sinTildes(nombre)
+  if (texto.startsWith('transferencia')) return 1
+  if (texto.startsWith('efectivo')) return 2
+  if (texto.startsWith('mercado')) return 3
+  if (texto.startsWith('debito')) return 4
+  return null
+}
+
+/**
+ * PUENTE: un item de `GET /mis-alquileres` (existe) → la forma propuesta de
+ * `GET /mis-alquileres/:id` (`MisAlquileresDetalleResponse`), para armar el
+ * detalle y la edición del locador (US-04, US-03) mientras esa ruta no exista.
+ * Así el resto del camino ({@link misAlquileresDetalleToPropiedadLocadorDetalle})
+ * es el mismo que va a usar la ruta definitiva.
+ *
+ * Campo por campo, lo que `/mis-alquileres` manda distinto:
+ * - `tipo`, `tags`, `indice_aumento` y `medios_pago` llegan como TEXTO (la
+ *   descripción del catálogo) y se vuelven a ids con los mismos mapeos del
+ *   Sprint 1. Un tag o un medio sin equivalente se descarta; CAC queda sin
+ *   índice ({@link adjustmentIndexFromDescripcion}). Lo que se pierde en la
+ *   precarga de `/editar` está en la NOTA de
+ *   {@link misAlquileresDetalleToPropiedadLocadorDetalle}.
+ * - `fecha_publicacion`: no existe en la base. TODO(db): guardar la fecha de
+ *   alta del inmueble.
+ * - `contrato_vigente`: la ruta no manda `contrato.estado`, así que se deduce
+ *   de `estado_alquiler` (`alquilado` o `publicado/alquilado` = hay contrato
+ *   vigente), la misma regla que usa US-02 para la columna "Locatario".
+ *   NOTA: no se usa el locatario para deducirlo: hay contratos vigentes sin
+ *   locatario cargado (inmueble 3 de los datos de prueba).
+ * - `contrato_vigente.fecha_fin`: `null`. TODO(backend): `/mis-alquileres` no
+ *   devuelve `fecha_fin_contrato` (la tabla la tiene).
+ * - `contrato_vigente.monto_actual`: `contrato.monto_alquiler`.
+ * TODO(backend): crear `GET /mis-alquileres/:id` y borrar este puente.
+ */
+export function misAlquileresItemToDetalleResponse(item: MisAlquileresItem): MisAlquileresDetalleResponse {
+  const contrato = item.contrato
+  const alquilada = item.estado_alquiler === 'alquilado' || item.estado_alquiler === 'publicado/alquilado'
+  const tags = item.tags
+    .map(characteristicFromTagDescripcion)
+    .map((key) => (key ? tagIdFromCharacteristic(key) : null))
+    .filter((id): id is number => id !== null)
+  const indice = adjustmentIndexFromDescripcion(contrato.indice_aumento)
+  const locatario = contrato.locatario ? `${contrato.locatario.nombre} ${contrato.locatario.apellido ?? ''}`.trim() : null
+
+  return {
+    id_inmueble: item.id_inmueble,
+    tipo: tipoIdFromPropertyType(propertyTypeFromDescripcion(item.tipo_inmueble)),
+    descripcion: item.descripcion ?? null,
+    provincia: item.provincia,
+    ciudad: item.ciudad,
+    barrio: item.barrio,
+    direccion: item.direccion,
+    numero: item.numero,
+    piso: item.piso ?? null,
+    m2_totales: item.m2_totales,
+    m2_cubiertos: item.m2_cubiertos,
+    ambientes: item.ambientes,
+    dormitorios: item.dormitorios,
+    banos: item.banos,
+    antiguedad: item.antiguedad ?? null,
+    precio_publicado: item.precio_publicado,
+    estado_alquiler: item.estado_alquiler,
+    fecha_disponible: item.fecha_disponible ?? null,
+    fecha_publicacion: null,
+    tags: [...new Set(tags)],
+    fotos: item.fotos.map((foto) => ({ url: foto.url, es_principal: foto.es_principal, orden: foto.orden, peso_kb: foto.peso_kb, formato: foto.formato })),
+    condiciones_contrato: {
+      monto_alquiler: contrato.monto_alquiler,
+      expensas: contrato.expensas,
+      indice_aumento: indice ? INDICE_ID[indice] : null,
+      frecuencia_ajuste: contrato.frecuencia_ajuste ?? null,
+      duracion_meses: contrato.duracion_meses ?? null,
+      deposito: contrato.deposito ?? null,
+      interes_por_dia: contrato.interes_por_dia ?? null,
+      dias_gracia: contrato.dias_gracia ?? null,
+      medios_pago: contrato.medios_pago.map(medioPagoIdFromNombre).filter((id): id is number => id !== null),
+    },
+    contrato_vigente:
+      alquilada
+        ? {
+            id: contrato.id,
+            locatario,
+            fecha_fin: null,
+            proximo_ajuste: contrato.fecha_proximo_ajuste ?? null,
+            monto_actual: contrato.monto_alquiler,
+          }
+        : null,
+  }
+}
+
+/**
+ * `MisAlquileresDetalleResponse` (propuesto; hoy llega por el puente
+ * {@link misAlquileresItemToDetalleResponse}) → `PropiedadLocadorDetalle`.
+ *
+ * Campo por campo:
+ * - `address`: dirección EXACTA ("Rondeau 480, PB"): la ve solo el dueño.
+ * - `values`: los datos con la forma del alta (`PropiedadNueva`), para la
+ *   ficha y para el formulario de edición. `piso` se separa en piso y depto
+ *   (`separarPisoDepto`); los tags vuelven a características; el depósito
+ *   vuelve a meses (el back guarda el MONTO, ver `propiedadNuevaToCreateInmueble`).
+ * - `priceMonthly`: `precio_publicado`, la columna del inmueble que guarda la
+ *   edición (US-03). NOTA: no sale de `condiciones_contrato.monto_alquiler`:
+ *   si saliera de ahí, un precio editado volvería con el valor viejo. El
+ *   depósito se pasa a meses sobre `monto_alquiler`, porque es del contrato.
+ *   TODO(backend): `/buscar` y el detalle público siguen mostrando
+ *   `contrato.monto_alquiler`: el precio editado no se ve ahí (HANDOFF §10).
+ * - Fotos: en orden; cada una con un id local (`foto-<n>`) para el formulario,
+ *   y con su peso y formato (`sizeKb`, `format`), que la edición reenvía.
+ * - `activeContract`: el contrato vigente, si hay. Si no viene, `null`. El
+ *   locatario y la fecha de fin pueden venir en `null` (la pantalla los omite).
+ *
+ * NOTA: la precarga de `/editar` (US-03) no muestra dos datos que el front no
+ * ofrece: el medio de pago "Débito automático" (`medio_pago.id` 4,
+ * {@link medioPagoFromId} lo descarta) y el índice CAC (`tipo_indice.id` 3,
+ * {@link adjustmentIndexFromId} lo deja en `null`). Ya NO hay riesgo de
+ * borrarlos: en `/editar` las condiciones son de solo lectura y el
+ * `PUT /inmuebles/:id` no toca el contrato (la función SQL rechaza esas claves
+ * con 400). Ver {@link cambiosToUpdateInmueble}.
+ * TODO(backend): crear la ruta (`GET /mis-alquileres/:id`, 404 si no es del que llama).
+ */
+export function misAlquileresDetalleToPropiedadLocadorDetalle(dto: MisAlquileresDetalleResponse): PropiedadLocadorDetalle {
+  const barrio = barrioDe(dto.barrio)
+  const { floor, unit } = separarPisoDepto(dto.piso)
+  const condiciones = dto.condiciones_contrato
+  const precio = aNumero(dto.precio_publicado)
+  const montoContrato = aNumero(condiciones.monto_alquiler ?? dto.precio_publicado)
+  const fotos = [...dto.fotos].sort((a, b) => a.orden - b.orden)
+  const photos: FotoNueva[] = fotos.map((foto, index) => ({
+    id: `foto-${index + 1}`,
+    src: foto.url,
+    name: `Foto ${index + 1}`,
+    sizeKb: foto.peso_kb,
+    format: foto.formato,
+  }))
+  const deposito = numeroONull(condiciones.deposito)
+  const mediosPago = [...new Set(condiciones.medios_pago)].map(medioPagoFromId).filter((medio): medio is MedioPagoConRecargo => medio !== null)
+  const type = propertyTypeFromTipoId(dto.tipo)
+
+  const values: PropiedadNueva = {
+    type,
+    street: dto.direccion,
+    streetNumber: dto.numero,
+    floor,
+    unit,
+    neighborhoodSlug: barrio.slug,
+    city: normalizarCiudad(dto.ciudad),
+    province: dto.provincia,
+    rooms: dto.ambientes,
+    bedrooms: dto.dormitorios,
+    bathrooms: dto.banos,
+    ageYears: dto.antiguedad,
+    totalAreaM2: dto.m2_totales,
+    coveredAreaM2: dto.m2_cubiertos,
+    characteristics: [...new Set(dto.tags.map((id) => CHARACTERISTIC_BY_TAG_ID[id]).filter((key): key is CharacteristicKey => key !== undefined))],
+    description: dto.descripcion ?? '',
+    status: estadoAltaDeInmueble(dto.estado_alquiler),
+    availableFrom: dto.fecha_disponible,
+    photos,
+    mainPhotoIndex: Math.max(0, fotos.findIndex((foto) => foto.es_principal)),
+    priceMonthly: precio,
+    expenses: aNumero(condiciones.expensas),
+    dailyInterestPct: numeroONull(condiciones.interes_por_dia),
+    graceDays: condiciones.dias_gracia,
+    paymentMethods: mediosPago,
+    adjustmentIndex: condiciones.indice_aumento ? adjustmentIndexFromId(condiciones.indice_aumento) : null,
+    adjustmentEveryMonths: mesesDeFrecuencia(condiciones.frecuencia_ajuste),
+    depositMonths: deposito && montoContrato ? Math.round(deposito / montoContrato) : null,
+    contractMonths: condiciones.duracion_meses,
+  }
+
+  const contrato = dto.contrato_vigente
+  return {
+    id: String(dto.id_inmueble),
+    title: tituloDePublicacion({ type, bedrooms: dto.dormitorios, neighborhoodName: barrio.name }),
+    address: formatExactAddress(dto.direccion, dto.numero, dto.piso),
+    neighborhoodName: barrio.name,
+    status: statusDeInmueble(dto.estado_alquiler, dto.fecha_disponible),
+    publishedAt: dto.fecha_publicacion,
+    values,
+    activeContract: contrato
+      ? {
+          id: String(contrato.id),
+          tenantName: contrato.locatario,
+          endDate: contrato.fecha_fin,
+          nextAdjustmentDate: contrato.proximo_ajuste,
+          currentAmount: numeroONull(contrato.monto_actual),
+        }
+      : null,
+  }
+}
+
+// ─── Modificar (US-03) ──────────────────────────────────────────────────
+
+/**
+ * Las columnas de `inmueble` que guarda `PUT /inmuebles/:id` y que `/editar`
+ * deja cambiar. Quedan afuera `estado_alquiler` y las condiciones del
+ * contrato (el `PUT` las rechaza con 400; en `/editar` son de solo lectura) y
+ * `servicios` (el formulario no lo pide).
+ * NOTA: ciudad y provincia están, pero el formulario las tiene fijas (Córdoba
+ * Capital): nunca salen como cambio.
+ */
+type CampoDelInmueble = Exclude<keyof UpdateInmueblePayload, 'fotos' | 'tags'>
+
+/**
+ * Los datos del inmueble de una propiedad, con la forma del back y las mismas
+ * traducciones que el alta ({@link propiedadNuevaToCreateInmueble}). Se arma
+ * para lo guardado y para lo editado, y se comparan.
+ */
+function inmuebleEditableDe(values: PropiedadNueva): Required<Pick<UpdateInmueblePayload, CampoDelInmueble>> {
+  const completo = propiedadNuevaToCreateInmueble(values, [])
+  return {
+    tipo: completo.tipo,
+    descripcion: completo.descripcion ?? null,
+    provincia: completo.provincia,
+    ciudad: completo.ciudad,
+    barrio: completo.barrio,
+    direccion: completo.direccion,
+    numero: completo.numero,
+    piso: completo.piso ?? null,
+    m2_totales: completo.m2_totales,
+    m2_cubiertos: completo.m2_cubiertos,
+    ambientes: completo.ambientes,
+    dormitorios: completo.dormitorios,
+    banos: completo.banos,
+    antiguedad: completo.antiguedad ?? null,
+    precio_publicado: completo.precio_publicado,
+    fecha_disponible: completo.fecha_disponible ?? null,
+  }
+}
+
+/** Ids de `tags_inmueble` de una propiedad, sin repetir y ordenados (para comparar como conjunto). */
+function tagsDe(values: PropiedadNueva): number[] {
+  const ids = values.characteristics.map(tagIdFromCharacteristic).filter((id): id is number => id !== null)
+  return [...new Set(ids)].sort((a, b) => a - b)
+}
+
+/** Las fotos como las ve el back: la lista ordenada de URLs y cuál es la principal. */
+function firmaDeFotos(values: PropiedadNueva): string {
+  return `${values.photos.map((foto) => foto.src).join('|')}#${values.mainPhotoIndex}`
+}
+
+/**
+ * `true` si la edición cambió las fotos: agregó, sacó o reordenó, o cambió la
+ * principal. Solo entonces se suben las nuevas y se manda `fotos`.
+ */
+export function fotosCambiaron(guardada: PropiedadNueva, editada: PropiedadNueva): boolean {
+  return firmaDeFotos(guardada) !== firmaDeFotos(editada)
+}
+
+/** Los campos del inmueble y los tags que cambiaron (sin las fotos), ya con la forma del back. */
+function camposCambiados(guardada: PropiedadNueva, editada: PropiedadNueva): Omit<UpdateInmueblePayload, 'fotos'> {
+  const antes = inmuebleEditableDe(guardada)
+  const despues = inmuebleEditableDe(editada)
+  const campos = Object.keys(despues) as CampoDelInmueble[]
+  // NOTA: todos los valores son primitivos (texto, número o null): alcanza con `!==`.
+  const distintos = campos.filter((campo) => antes[campo] !== despues[campo])
+  // `Object.fromEntries` pierde el tipo de cada clave; cada valor sale de `despues[campo]`.
+  const cambiados = Object.fromEntries(distintos.map((campo) => [campo, despues[campo]])) as Omit<UpdateInmueblePayload, 'fotos' | 'tags'>
+  const tagsAntes = tagsDe(guardada)
+  const tagsDespues = tagsDe(editada)
+  return tagsAntes.join(',') === tagsDespues.join(',') ? cambiados : { ...cambiados, tags: tagsDespues }
+}
+
+/**
+ * `true` si la edición tiene algo para mandar al back. Si no (por ejemplo, solo
+ * se tocó una característica que el back no tiene), no se llama al `PUT`.
+ */
+export function hayCambiosEnElInmueble(guardada: PropiedadNueva, editada: PropiedadNueva): boolean {
+  return Object.keys(camposCambiados(guardada, editada)).length > 0 || fotosCambiaron(guardada, editada)
+}
+
+/**
+ * La edición (US-03) → cuerpo PARCIAL de `PUT /api/v1/inmuebles/:id`: solo lo
+ * que cambió entre lo guardado (la precarga de la pantalla) y lo editado.
+ *
+ * Por qué contra la precarga y no contra la base (decisión del PO): si otra
+ * pestaña cambió un campo que acá no se tocó, el formulario tiene el valor
+ * viejo; comparado contra la base saldría distinto y el `PUT` lo pisaría.
+ *
+ * - Campos del inmueble: se traducen los dos lados con las reglas del alta
+ *   ({@link inmuebleEditableDe}) y van solo los distintos. Así un dato que pasa
+ *   por una transformación (piso + depto, barrio) no sale como cambio si no se tocó.
+ * - `tags`: se comparan como conjunto de ids. "Apto profesional" no tiene id en
+ *   la base y no cuenta. Si cambió, va la lista completa (el back la
+ *   reemplaza; `[]` borra todos).
+ * - `fotos`: si cambió la lista o la principal ({@link fotosCambiaron}), va la
+ *   lista COMPLETA en el orden final (el back la reemplaza). Las ya guardadas
+ *   viajan con su URL, peso y formato (`sizeKb`, `format`); las nuevas (data
+ *   URL), con lo que devolvió la subida a Storage.
+ * - Nunca van `estado_alquiler` ni condiciones del contrato: el `PUT` las
+ *   rechaza con 400 y en `/editar` son de solo lectura.
+ * @param subidas Las fotos nuevas ya subidas, en el orden en que aparecen en
+ *   `editada.photos`. Vacío si las fotos no cambiaron.
+ * NOTA: una foto guardada sin peso (no debería pasar: en la base todas tienen
+ * `peso_kb` > 0) iría con 0, y el back respondería 400 ("Cada foto debe tener
+ * URL, formato y peso válido.").
+ */
+export function cambiosToUpdateInmueble(
+  guardada: PropiedadNueva,
+  editada: PropiedadNueva,
+  subidas: Omit<CreateFotoPayload, 'es_principal'>[],
+): UpdateInmueblePayload {
+  const cambios: UpdateInmueblePayload = camposCambiados(guardada, editada)
+  if (!fotosCambiaron(guardada, editada)) return cambios
+
+  let siguienteNueva = 0
+  const fotos = editada.photos.map((foto, index): CreateFotoPayload => {
+    const es_principal = index === editada.mainPhotoIndex
+    if (foto.src.startsWith('data:')) {
+      const subida = subidas[siguienteNueva++]
+      return { url: subida?.url ?? '', peso_kb: subida?.peso_kb ?? 0, formato: subida?.formato ?? 'jpg', es_principal }
+    }
+    const formato = foto.format ?? (/\.png($|\?)/i.test(foto.src) ? 'png' : 'jpg')
+    return { url: foto.src, peso_kb: foto.sizeKb ?? 0, formato, es_principal }
+  })
+  return { ...cambios, fotos }
+}
+
+/** 409 de editar: el inmueble está `alquilado` o `publicado/alquilado` (US-03). */
+export const PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE = 'No podés editar una propiedad alquilada.'
+
+/**
+ * Error de `PUT /api/v1/inmuebles/:id` → el error que muestra `/editar`
+ * (US-03). Mismo criterio que {@link errorDeEliminarPropiedad}:
+ *
+ * - 403 (es de otro locador o no tiene el rol) y 404 (no existe o está dada de
+ *   baja) → `not_found` con {@link MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE}, para no
+ *   revelar que una propiedad ajena existe.
+ * - 409 → `conflict` con {@link PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE}. Solo
+ *   llega si la pantalla quedó vieja: con contrato vigente, `/editar` no
+ *   muestra el formulario.
+ * - El resto pasa sin cambios. El 400 lleva el texto del back: los mensajes de
+ *   la función SQL `actualizar_propiedad_completa` ya vienen en español ("La
+ *   propiedad debe tener entre 3 y 50 fotos."), y un error de la base (de tipo
+ *   o de clave foránea) llega con el texto de Postgres, que no se disfraza.
+ */
+export function errorDeActualizarPropiedad(error: unknown): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE)
+  if (error.code === 'conflict') return new ServiceError('conflict', PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE)
+  return error
+}
+
+// ─── Eliminar (US-04) ───────────────────────────────────────────────────
+
+/** 404 del detalle del locador: no existe, se eliminó o no es suya (mismo mensaje, para no revelar cuál). */
+export const MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE = 'No encontramos esta propiedad.'
+
+/** 409 de eliminar: tiene contrato vigente (decisión del PO, tanda 3 del Sprint 2). */
+export const PROPIEDAD_CON_CONTRATO_MESSAGE = 'No podés eliminar una propiedad con contrato vigente.'
+
+/**
+ * Error de `DELETE /api/v1/inmuebles/:id` → el error que muestra el modal de
+ * eliminar (US-04), con el mensaje en español del front en vez del texto del back.
+ *
+ * - 403 y 404 → `not_found` con {@link MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE}.
+ *   NOTA: el back responde 403 si el inmueble es de otro locador (o si el
+ *   usuario no tiene el rol locador) y 404 si no existe o ya estaba dado de
+ *   baja. Se muestran igual para no revelar que una propiedad ajena existe
+ *   (mismo criterio que el detalle del locador).
+ * - 409 → `conflict` con {@link PROPIEDAD_CON_CONTRATO_MESSAGE}. El back lo
+ *   responde si el inmueble está `alquilado` o `publicado/alquilado`
+ *   ("No se puede eliminar un inmueble que está alquilado."), o en un estado
+ *   que no permite eliminarlo. Es la misma regla con la que el front deduce el
+ *   contrato vigente, así que solo llega si la pantalla quedó vieja.
+ * - El resto pasa sin cambios. NOTA: el 400 NO se traduce a "no encontrada":
+ *   un error de la base también sale como 400 (HANDOFF §10.4) y quedaría
+ *   disfrazado. Lo mismo `unauthorized`, `network` y `server`.
+ */
+export function errorDeEliminarPropiedad(error: unknown): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', MI_PROPIEDAD_NO_ENCONTRADA_MESSAGE)
+  if (error.code === 'conflict') return new ServiceError('conflict', PROPIEDAD_CON_CONTRATO_MESSAGE)
+  return error
 }

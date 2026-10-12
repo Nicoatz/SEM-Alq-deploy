@@ -29,6 +29,7 @@ import type {
   AdjustmentIndex,
   CharacteristicKey,
   ContractStatus,
+  GarantiaOfrecida,
   MedioPagoConRecargo,
   PropertyStatus,
   PropertyType,
@@ -139,6 +140,22 @@ export interface PropiedadMock {
 
   /** Solo para propiedades alquiladas (US-02). */
   rental: AlquilerMock | null
+  /**
+   * Fecha ISO en que el locador la eliminó (US-04). Borrado LÓGICO
+   * (decisión del PO): la propiedad deja de verse en Mis propiedades, en
+   * `/buscar` y en su detalle, pero el registro queda para no perder el
+   * historial (las solicitudes canceladas siguen mostrando su dirección).
+   * Opcional: el elenco no tiene ninguna eliminada.
+   */
+  deletedAt?: string | null
+  /**
+   * Garantías que exige el locador (US-35 actualizada). Alcanza con que el
+   * postulante ofrezca al menos una (decisión del PO). Opcional: sin el dato,
+   * no exige ninguna.
+   * NOTA: el alta y la edición todavía no lo piden (pendiente para el Sprint
+   * 3, toca US-01 y US-03): solo lo trae el elenco.
+   */
+  requiredGuarantees?: GarantiaOfrecida[]
 }
 
 // ─── Helpers de armado ──────────────────────────────────────────────────
@@ -151,15 +168,21 @@ function everyMonthsFor(index: AdjustmentIndex): number {
   return index === 'ICL' ? 12 : 4
 }
 
+/**
+ * Fotos de una propiedad del mapa: la principal primero y dos más.
+ * NOTA: US-01 pide al menos 3 fotos; las del mapa (Nicolás y Sofía) tienen
+ * 3 para que se puedan editar (US-03) sin tener que subir fotos. Las extra
+ * salen del mismo banco de imágenes del elenco (`src/assets/properties`), así
+ * que alguna se repite entre propiedades: son datos de prueba.
+ */
+function fotos(...imagenes: { src: string }[]): FotoMock[] {
+  return imagenes.map((imagen) => ({ src: imagen.src }))
+}
+
 /** Medios de pago del elenco, todos sin recargo. */
 const TRANSFERENCIA: MedioPagoConRecargo = { method: 'transferencia', surchargePct: 0 }
 const MP_DEBITO: MedioPagoConRecargo = { method: 'mercadopago_debito', surchargePct: 0 }
 const EFECTIVO: MedioPagoConRecargo = { method: 'efectivo', surchargePct: 0 }
-
-/** Arma el título "Calle 123, 7° B" a partir de la dirección. */
-function addressTitle(street: string, streetNumber: number, floor: string | null): string {
-  return floor ? `${street} ${streetNumber}, ${floor}` : `${street} ${streetNumber}`
-}
 
 /** Campos comunes de las 16 propiedades "de otros locadores". */
 interface OtroLocadorInput {
@@ -226,7 +249,7 @@ const elenco: PropiedadMock[] = [
     status: 'alquilada',
     publishedAt: '2025-03-01',
     availableFrom: null,
-    title: addressTitle('Laprida', 340, null),
+    title: 'Departamento de 2 dormitorios en Nueva Córdoba',
     street: 'Laprida',
     streetNumber: 340,
     floor: null,
@@ -243,7 +266,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 15,
     characteristics: ['balcon'],
-    photos: [{ src: nuevaCordoba1.src }],
+    photos: fotos(nuevaCordoba1, centro2, guemes2),
     mainPhotoIndex: 0,
     priceMonthly: 520000,
     expenses: 70000,
@@ -275,7 +298,7 @@ const elenco: PropiedadMock[] = [
     status: 'alquilada',
     publishedAt: '2026-02-10',
     availableFrom: null,
-    title: addressTitle('Obispo Trejo', 1250, '7° B'),
+    title: 'Departamento de 2 dormitorios en Nueva Córdoba',
     street: 'Obispo Trejo',
     streetNumber: 1250,
     floor: '7° B',
@@ -292,7 +315,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 12,
     characteristics: ['balcon', 'apto-profesional'],
-    photos: [{ src: nuevaCordoba2.src }],
+    photos: fotos(nuevaCordoba2, nuevaCordoba4, altaCordoba2),
     mainPhotoIndex: 0,
     priceMonthly: 470000,
     expenses: 85000,
@@ -343,7 +366,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 20,
     characteristics: ['cochera'],
-    photos: [{ src: guemes1.src }],
+    photos: fotos(guemes1, guemes2, cofico2),
     mainPhotoIndex: 0,
     priceMonthly: 385000,
     expenses: 62000,
@@ -354,6 +377,9 @@ const elenco: PropiedadMock[] = [
     graceDays: 5,
     contractMonths: 36,
     depositMonths: 1,
+    // US-35 actualizada: el dueño pide garantía propietaria o seguro de caución
+    // (alcanza con una). Dato completado en la tanda 4 del Sprint 2.
+    requiredGuarantees: ['propietaria', 'caucion'],
     rental: null,
   },
   {
@@ -364,7 +390,7 @@ const elenco: PropiedadMock[] = [
     status: 'alquilada',
     publishedAt: '2025-06-15',
     availableFrom: null,
-    title: addressTitle('Belgrano', 1120, null),
+    title: 'Departamento de 1 dormitorio en el Centro',
     street: 'Belgrano',
     streetNumber: 1120,
     floor: null,
@@ -381,7 +407,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 30,
     characteristics: ['amoblado'],
-    photos: [{ src: centro1.src }],
+    photos: fotos(centro1, centro3, generalPaz2),
     mainPhotoIndex: 0,
     priceMonthly: 460000,
     expenses: 58000,
@@ -412,7 +438,7 @@ const elenco: PropiedadMock[] = [
     status: 'alquilada',
     publishedAt: '2025-09-01',
     availableFrom: null,
-    title: addressTitle('Av. Colón', 2450, '3° A'),
+    title: 'Departamento de 2 dormitorios en General Paz',
     street: 'Av. Colón',
     streetNumber: 2450,
     floor: '3° A',
@@ -429,7 +455,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 25,
     characteristics: ['balcon', 'mascotas'],
-    photos: [{ src: generalPaz1.src }],
+    photos: fotos(generalPaz1, generalPaz2, centro2),
     mainPhotoIndex: 0,
     priceMonthly: 440000,
     expenses: 65000,
@@ -475,7 +501,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 40,
     characteristics: ['cochera', 'mascotas'],
-    photos: [{ src: cofico1.src }],
+    photos: fotos(cofico1, cofico2, altaCordoba3),
     mainPhotoIndex: 0,
     priceMonthly: 450000,
     expenses: 15000,
@@ -496,7 +522,7 @@ const elenco: PropiedadMock[] = [
     status: 'pausada',
     publishedAt: '2026-05-12',
     availableFrom: null,
-    title: addressTitle('Chacabuco', 690, null),
+    title: 'Departamento de 1 dormitorio en Alta Córdoba',
     street: 'Chacabuco',
     streetNumber: 690,
     floor: null,
@@ -513,7 +539,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: null,
     characteristics: ['amoblado'],
-    photos: [{ src: altaCordoba1.src }],
+    photos: fotos(altaCordoba1, altaCordoba2, nuevaCordoba3),
     mainPhotoIndex: 0,
     priceMonthly: 445000,
     expenses: 48000,
@@ -535,7 +561,7 @@ const elenco: PropiedadMock[] = [
     status: 'alquilada',
     publishedAt: '2025-11-20',
     availableFrom: null,
-    title: addressTitle('Mariano Moreno', 285, null),
+    title: 'Casa de 2 dormitorios en Nueva Córdoba',
     street: 'Mariano Moreno',
     streetNumber: 285,
     floor: null,
@@ -552,7 +578,7 @@ const elenco: PropiedadMock[] = [
     bathrooms: 1,
     ageYears: 45,
     characteristics: ['cochera', 'mascotas'],
-    photos: [{ src: nuevaCordoba3.src }],
+    photos: fotos(nuevaCordoba3, nuevaCordoba4, altaCordoba3),
     mainPhotoIndex: 0,
     priceMonthly: 510000,
     expenses: 0,

@@ -1,17 +1,26 @@
 /**
- * /panel/solicitudes — Solicitudes (US-36 y US-37 Consultar, aceptar o rechazar solicitudes).
+ * /panel/solicitudes — Solicitudes recibidas (US-36 Consultar, US-37 Aceptar
+ * o rechazar y US-38 Cancelar solicitud de alquiler, numeración de Jira).
  *
- * Placeholder: la pantalla es de otro sprint. Existe para que el botón que
- * lleva acá no quede roto.
- * Entra desde: el ítem "Solicitudes" del menú del locador.
+ * Qué es: las solicitudes que recibió el locador sobre sus propiedades,
+ * agrupadas por propiedad. La pantalla vive en
+ * `components/solicitudes/SolicitudesRecibidas.tsx`; acá solo se monta.
+ * Solo para el rol locador (`RequireRole`): un locatario vuelve a `/panel`.
+ * Entra desde: el ítem "Solicitudes" del menú del locador y el link "N
+ * solicitudes nuevas" del panel.
  */
 import type { Metadata } from 'next'
-import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+import { RequireRole } from '@/components/auth/RequireRole'
+import { SolicitudesRecibidas } from '@/components/solicitudes/SolicitudesRecibidas'
 
 /** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
 export const metadata: Metadata = { title: 'Solicitudes' }
 
-/** Placeholder de Solicitudes (otro sprint). */
+/** Monta Solicitudes recibidas, solo para locadores. */
 export default function SolicitudesPage() {
-  return <PlaceholderScreen title="Solicitudes" userStory="US-36 y US-37 Consultar, aceptar o rechazar solicitudes" />
+  return (
+    <RequireRole role="locador">
+      <SolicitudesRecibidas />
+    </RequireRole>
+  )
 }

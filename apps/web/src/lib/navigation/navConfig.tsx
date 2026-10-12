@@ -6,10 +6,13 @@
  * NO van acá: viven en el UserMenu del header (ver `(app)/panel/layout.tsx`).
  *
  * NOTA: el panel completo del locatario no es del Sprint 1. Una cuenta
- * locataria (o Sofía, al cambiar de contexto) ve solo "Mi panel", con la
- * versión mínima (buscar o publicar, `PanelLocatario`) — su menú de 8 ítems
- * llega con su sprint. No tiene "Propiedades": Mis propiedades es solo para
- * locadores (se gana al publicar la primera).
+ * locataria (o Sofía, al cambiar de contexto) ve "Mi panel", con la versión
+ * mínima (buscar o publicar, `PanelLocatario`), y desde la tanda 2 del
+ * Sprint 2 "Mis solicitudes" (US-36, está en el menú canónico del mapa); el
+ * resto de su menú llega con su sprint. No tiene "Propiedades": Mis
+ * propiedades es solo para locadores (se gana al publicar la primera).
+ * El locador no tiene "Mis solicitudes": una cuenta con los dos roles las ve
+ * al cambiar al contexto locatario (decisión del PO).
  *
  * Quién lo usa: `(app)/panel/layout.tsx`, para armar los ítems del `AppShell`.
  */
@@ -38,7 +41,10 @@ const navItemsLocador: AppShellNavItem[] = [
   { key: 'suscripcion', label: 'Suscripción', href: '/panel/suscripcion', icon: <CreditCardOutlined /> },
 ]
 
-const navItemsLocatario: AppShellNavItem[] = [{ key: 'panel', label: 'Mi panel', href: '/panel', icon: <HomeOutlined /> }]
+const navItemsLocatario: AppShellNavItem[] = [
+  { key: 'panel', label: 'Mi panel', href: '/panel', icon: <HomeOutlined /> },
+  { key: 'mis-solicitudes', label: 'Mis solicitudes', href: '/panel/mis-solicitudes', icon: <FileTextOutlined /> },
+]
 
 /** Roles que tienen panel propio con menú lateral (el garante nunca tiene cuenta). */
 export type PanelRole = 'locador' | 'locatario'

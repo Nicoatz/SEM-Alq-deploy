@@ -41,7 +41,6 @@ import {
   PlanCard,
   PropertyCard as PropertyCardUI,
   RoleContextSwitcher,
-  SearchFilters,
   SimulatedFeatureNotice,
   StatCard,
   StatusTag,
@@ -77,7 +76,7 @@ import {
   hrefBuscarDesdeBuscador,
 } from '@/lib/search/buscadorLanding'
 import { isSearchable, propiedadMockToResumen } from '@/services/adapters/propiedad-mock.adapter'
-import { defaultFilters, MAX_PRICE_CEILING } from '@/lib/types/filters'
+import { MAX_PRICE_CEILING } from '@/lib/types/filters'
 import { formatMonthlyPrice } from '@/lib/utils/format'
 import { navItemsByRole } from '@/lib/navigation/navConfig'
 import styles from './DesignSystem.module.css'
@@ -498,13 +497,17 @@ export default function DesignSystem() {
   const [isDark, setIsDark] = useState(false)
   const [demoRole, setDemoRole] = useState<'locador' | 'locatario'>('locador')
   const [wizardStep, setWizardStep] = useState(0)
-  const [searchFiltersValue, setSearchFiltersValue] = useState(defaultFilters)
   const [filterBarSearch, setFilterBarSearch] = useState('')
   const [filterBarStatus, setFilterBarStatus] = useState('todos')
   const [moneyValue, setMoneyValue] = useState(450000)
   const [demoPassword, setDemoPassword] = useState('Rentar2026')
   const [sidebarFilters, setSidebarFilters] = useState(FILTROS_INICIALES)
   const [confirmOpen, setConfirmOpen] = useState(false)
+  // Demo de `children` + `confirmLoading` (Flujo de solicitudes · 03, "Aceptar").
+  const [acceptOpen, setAcceptOpen] = useState(false)
+  const [acceptLoading, setAcceptLoading] = useState(false)
+  // Demo de `hideCancel` (Detalle de propiedad del locador · 05, "Bloqueado por contrato vigente").
+  const [blockedOpen, setBlockedOpen] = useState(false)
   const [heroSearchHref, setHeroSearchHref] = useState<string | null>(null)
 
   return (
@@ -1368,23 +1371,6 @@ export default function DesignSystem() {
                 />
               </div>
 
-              <p className={styles.subheading}>SearchFilters</p>
-              <p className={styles.sectionLead} style={{ marginBottom: '0.75rem' }}>
-                Filtros horizontales de <code>@rentar/ui</code>: reciben barrios y características por props.
-                NOTA: hoy no los usa ninguna pantalla (la landing usa <code>HeroSearch</code> y{' '}
-                <code>/buscar</code>, <code>SearchSidebarFilters</code>); candidatos a borrar, ver{' '}
-                <code>.design-sync/NOTES.md</code>. Achicá la ventana para ver el botón &quot;Filtros&quot; (Drawer) de
-                mobile.
-              </p>
-              <div className={styles.liveFramePadded}>
-                <SearchFilters
-                  neighborhoods={neighborhoods}
-                  characteristics={characteristicOptions}
-                  value={searchFiltersValue}
-                  onChange={setSearchFiltersValue}
-                  resultCount={properties.length}
-                />
-              </div>
             </section>
 
             {/* Feedback */}
@@ -1404,6 +1390,12 @@ export default function DesignSystem() {
                   <Button danger onClick={() => setConfirmOpen(true)} data-testid="design-system-confirm-trigger">
                     Eliminar propiedad
                   </Button>
+                  <Button onClick={() => setAcceptOpen(true)} data-testid="design-system-confirm-children-trigger">
+                    Aceptar solicitud (cuerpo extra y carga)
+                  </Button>
+                  <Button onClick={() => setBlockedOpen(true)} data-testid="design-system-confirm-hide-cancel-trigger">
+                    Aviso sin botón secundario
+                  </Button>
                   <NotificationBell notifications={demoNotifications} />
                   <UserMenu name="Sofía Ledesma" role="locador" items={demoUserMenuItems} roleOptions={demoRoleOptions} />
                 </div>
@@ -1416,6 +1408,38 @@ export default function DesignSystem() {
                 danger
                 onConfirm={() => setConfirmOpen(false)}
                 onCancel={() => setConfirmOpen(false)}
+              />
+
+              {/* `children` suma un cuerpo extra; `confirmLoading` deja el spinner mientras corre la acción. */}
+              <ConfirmActionModal
+                open={acceptOpen}
+                title="¿Aceptar la solicitud de Julieta Peralta?"
+                description="Le avisamos por mail que aceptaste su solicitud."
+                confirmLabel="Aceptar solicitud"
+                confirmLoading={acceptLoading}
+                onConfirm={() => {
+                  setAcceptLoading(true)
+                  window.setTimeout(() => {
+                    setAcceptLoading(false)
+                    setAcceptOpen(false)
+                  }, 1200)
+                }}
+                onCancel={() => setAcceptOpen(false)}
+              >
+                <p>
+                  Las otras 2 solicitudes de Rondeau 480 <strong>siguen pendientes</strong>.
+                </p>
+              </ConfirmActionModal>
+
+              {/* `hideCancel`: un aviso sin nada que elegir, con un solo botón. */}
+              <ConfirmActionModal
+                open={blockedOpen}
+                title="No podés eliminar una propiedad con contrato vigente"
+                description="Obispo Trejo 1250, 7° B está alquilada a Sofía Ledesma hasta el 31/03/2029. Para eliminarla, primero tiene que terminar el contrato."
+                confirmLabel="Entendido"
+                hideCancel
+                onConfirm={() => setBlockedOpen(false)}
+                onCancel={() => setBlockedOpen(false)}
               />
             </section>
 
