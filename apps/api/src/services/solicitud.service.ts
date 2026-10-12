@@ -1,7 +1,7 @@
 import type {
   CrearSolicitudRequest,
   SolicitudResponse
-} from '@rentar/shared-types';
+} from '../dtos';
 
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { IInmuebleRepository, inmuebleRepository } from '../repositories/inmueble.repository';

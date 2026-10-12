@@ -1,38 +1,37 @@
 import type {
-  CrearSolicitudRequest,
-  EstadoSolicitud,
-  SituacionOcupacional,
-  Solicitud,
+  EstadoSolicitudDTO,
+  SituacionOcupacionalDTO,
+  SolicitudDTO,
   SolicitudResponse,
-  TipoGarantia
-} from '@rentar/shared-types';
+  TipoGarantiaDTO
+} from '../dtos';
 
 import { getSupabaseAdmin } from '../config/supabase';
 
 export type CreateSolicitudEntity = Omit<
-  Solicitud,
+  SolicitudDTO,
   'id' | 'fecha_creacion' | 'fecha_actualizacion'
 >;
 
 export interface ISolicitudRepository {
-  findById(id: number): Promise<Solicitud | null>;
-  findByInmuebleId(idInmueble: number): Promise<Solicitud[]>;
+  findById(id: number): Promise<SolicitudDTO | null>;
+  findByInmuebleId(idInmueble: number): Promise<SolicitudDTO[]>;
   findActiveByInmuebleAndLocatario(
     idInmueble: number,
     idLocatario: number
-  ): Promise<Solicitud | null>;
-  findSolicitudesPendientesByLocatario(idLocatario: number): Promise<Solicitud[]>;
-  create(data: CreateSolicitudEntity): Promise<Solicitud>;
+  ): Promise<SolicitudDTO | null>;
+  findSolicitudesPendientesByLocatario(idLocatario: number): Promise<SolicitudDTO[]>;
+  create(data: CreateSolicitudEntity): Promise<SolicitudDTO>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
-  findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantia[]>;
-  getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantia[]>;
-  getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitud | null>;
-  getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacional | null>;
+  findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]>;
+  getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantiaDTO[]>;
+  getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitudDTO | null>;
+  getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacionalDTO | null>;
   findByIdWithRelations(id: number): Promise<SolicitudResponse | null>;
 }
 
 export class SolicitudRepository implements ISolicitudRepository {
-  async findById(id: number): Promise<Solicitud | null> {
+  async findById(id: number): Promise<SolicitudDTO | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud')
       .select('*')
@@ -41,10 +40,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data as Solicitud | null) ?? null;
+    return (data as SolicitudDTO | null) ?? null;
   }
 
-  async findByInmuebleId(idInmueble: number): Promise<Solicitud[]> {
+  async findByInmuebleId(idInmueble: number): Promise<SolicitudDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud')
       .select('*')
@@ -53,13 +52,13 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data ?? []) as Solicitud[];
+    return (data ?? []) as SolicitudDTO[];
   }
 
   async findActiveByInmuebleAndLocatario(
     idInmueble: number,
     idLocatario: number
-  ): Promise<Solicitud | null> {
+  ): Promise<SolicitudDTO | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud')
       .select('*')
@@ -72,10 +71,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data as Solicitud | null) ?? null;
+    return (data as SolicitudDTO | null) ?? null;
   }
 
-  async findSolicitudesPendientesByLocatario(idLocatario: number): Promise<Solicitud[]> {
+  async findSolicitudesPendientesByLocatario(idLocatario: number): Promise<SolicitudDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud')
       .select('*')
@@ -85,10 +84,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data ?? []) as Solicitud[];
+    return (data ?? []) as SolicitudDTO[];
   }
 
-  async create(data: CreateSolicitudEntity): Promise<Solicitud> {
+  async create(data: CreateSolicitudEntity): Promise<SolicitudDTO> {
     const { data: created, error } = await getSupabaseAdmin()
       .from('solicitud')
       .insert(data)
@@ -97,7 +96,7 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return created as Solicitud;
+    return created as SolicitudDTO;
   }
 
   async addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void> {
@@ -117,7 +116,7 @@ export class SolicitudRepository implements ISolicitudRepository {
     if (error) throw error;
   }
 
-  async findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantia[]> {
+  async findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]> {
     if (!garantiaIds.length) {
       return [];
     }
@@ -129,10 +128,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data ?? []) as TipoGarantia[];
+    return (data ?? []) as TipoGarantiaDTO[];
   }
 
-  async getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantia[]> {
+  async getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantiaDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud_x_garantia')
       .select('tipo_garantia (id, nombre)')
@@ -142,10 +141,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     return (data ?? [])
       .map((row: any) => row.tipo_garantia)
-      .filter(Boolean) as TipoGarantia[];
+      .filter(Boolean) as TipoGarantiaDTO[];
   }
 
-  async getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitud | null> {
+  async getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitudDTO | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('estado_solicitud')
       .select('*')
@@ -154,10 +153,10 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data as EstadoSolicitud | null) ?? null;
+    return (data as EstadoSolicitudDTO | null) ?? null;
   }
 
-  async getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacional | null> {
+  async getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacionalDTO | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('situacion_ocupacional')
       .select('*')
@@ -166,7 +165,7 @@ export class SolicitudRepository implements ISolicitudRepository {
 
     if (error) throw error;
 
-    return (data as SituacionOcupacional | null) ?? null;
+    return (data as SituacionOcupacionalDTO | null) ?? null;
   }
 
   async findByIdWithRelations(id: number): Promise<SolicitudResponse | null> {
