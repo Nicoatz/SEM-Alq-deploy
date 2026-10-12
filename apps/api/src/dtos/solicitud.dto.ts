@@ -24,31 +24,58 @@ export interface SolicitudDTO {
   mensaje?: string | null;
   telefono: string;
   email: string;
-  ingresos_aprox: number;
+  ingresos_aprox: number | null;
   cantidad_personas: number;
   posee_mascotas: boolean;
   detalles_mascotas?: string | null;
   acepta_condiciones: boolean;
   fecha_creacion: string;
+  fecha_respuesta?: string | null;
   fecha_actualizacion: string;
 }
 
 export interface CrearSolicitudRequest {
   id_inmueble: number;
-  mensaje?: string;
+  mensaje?: string | null;
   telefono: string;
   email: string;
-  id_situacion_ocupacional: number;
-  ingresos_aprox: number;
-  cantidad_personas: number;
-  posee_mascotas: boolean;
-  detalles_mascotas?: string;
-  garantias: number[];
-  acepta_condiciones: boolean;
+  ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada';
+  ingresos: number | null;
+  convivientes: number;
+  mascotas: boolean;
+  detalle_mascotas: string | null;
+  garantias: ('propietaria' | 'caucion' | 'otra')[];
+  acepta_condiciones: true;
 }
 
-export interface SolicitudResponse extends SolicitudDTO {
-  estado_solicitud: EstadoSolicitudDTO;
-  situacion_ocupacional: SituacionOcupacionalDTO;
-  garantias: TipoGarantiaDTO[];
+export interface SolicitudResponse {
+  id: number;
+  estado: string;
+  mensaje: string | null;
+  fecha_creacion: string;
+  fecha_respuesta: string | null;
+  inmueble: {
+    id: number;
+    direccion: string;
+    numero: number;
+    piso?: string | null;
+    barrio: string;
+    foto_principal: string | null;
+  };
+  postulante: {
+    id: number;
+    nombre: string;
+    apellido?: string | null;
+    dni?: string | null;
+    telefono?: string | null;
+    email?: string | null;
+  };
+  legajo: {
+    ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada';
+    ingresos: number | null;
+    convivientes: number;
+    mascotas: boolean;
+    detalle_mascotas: string | null;
+    garantias: ('propietaria' | 'caucion' | 'otra')[];
+  } | null;
 }

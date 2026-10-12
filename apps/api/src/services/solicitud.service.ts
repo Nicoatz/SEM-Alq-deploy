@@ -69,16 +69,18 @@ export class SolicitudService {
       this.throwValidationError('El email ingresado no tiene un formato válido.', 400);
     }
 
-    if (!Number.isInteger(payload.ingresos_aprox) || payload.ingresos_aprox <= 0) {
-      this.throwValidationError('Los ingresos aproximados deben ser un número entero mayor a 0.', 400);
+    const ingresos = payload.ingresos === 0 ? null : payload.ingresos;
+
+    if (ingresos !== null && (!Number.isInteger(ingresos) || ingresos <= 0)) {
+      this.throwValidationError('Los ingresos aproximados deben ser un número entero mayor a 0 o nulo.', 400);
     }
 
-    if (!Number.isInteger(payload.cantidad_personas) || payload.cantidad_personas < 1) {
+    if (!Number.isInteger(payload.convivientes) || payload.convivientes < 1) {
       this.throwValidationError('La cantidad de personas debe ser un número entero mayor o igual a 1.', 400);
     }
 
-    if (payload.posee_mascotas) {
-      const detalle = payload.detalles_mascotas?.trim() ?? '';
+    if (payload.mascotas) {
+      const detalle = payload.detalle_mascotas?.trim() ?? '';
 
       if (!detalle) {
         this.throwValidationError('Debés indicar información sobre las mascotas si marcaste que poseés mascotas.', 400);
@@ -93,14 +95,28 @@ export class SolicitudService {
       this.throwValidationError('Debés aceptar lo que implica el envío de la solicitud.', 400);
     }
 
-    const garantiaIds = [...new Set(payload.garantias ?? [])];
-    const garantiasExistentes = await this.solicitudRepo.findGarantiasByIds(garantiaIds);
+    const garantiaNombres: Record<string, string> = {
+      propietaria: 'garantía propietaria',
+      caucion: 'seguro de caución',
+      otra: 'otra'
+    };
+    const garantias = [...new Set(payload.garantias ?? [])];
+    const nombresGarantias = garantias.map(garantia => garantiaNombres[garantia]);
+    const garantiasExistentes = await this.solicitudRepo.findGarantiasByNames(nombresGarantias);
 
-    if (garantiaIds.length !== garantiasExistentes.length) {
+    if (garantias.length !== garantiasExistentes.length) {
       this.throwValidationError('Al menos una garantía indicada no existe.', 400);
     }
 
-    const situacion = await this.solicitudRepo.getSituacionById(payload.id_situacion_ocupacional);
+    const nombresOcupacion: Record<string, string> = {
+      sin_informar: '-',
+      relacion_dependencia: 'relación de dependencia',
+      monotributista: 'monotributista',
+      autonoma: 'autónoma',
+      estudiante: 'estudiante',
+      jubilada: 'jubilada'
+    };
+    const situacion = await this.solicitudRepo.getSituacionByNombre(nombresOcupacion[payload.ocupacion]);
 
     if (!situacion) {
       this.throwValidationError('La situación ocupacional indicada no existe.', 400);
@@ -117,18 +133,21 @@ export class SolicitudService {
       id_locador: inmueble.id_locador,
       id_locatario: user.id,
       id_estado_solicitud: estadoInicial.id,
-      id_situacion_ocupacional: payload.id_situacion_ocupacional,
+      id_situacion_ocupacional: situacion.id,
       mensaje: mensaje || null,
       telefono: payload.telefono.trim(),
       email: payload.email.trim().toLowerCase(),
-      ingresos_aprox: payload.ingresos_aprox,
-      cantidad_personas: payload.cantidad_personas,
-      posee_mascotas: payload.posee_mascotas,
-      detalles_mascotas: payload.posee_mascotas ? (payload.detalles_mascotas?.trim() ?? null) : null,
+      ingresos_aprox: ingresos,
+      cantidad_personas: payload.convivientes,
+      posee_mascotas: payload.mascotas,
+      detalles_mascotas: payload.mascotas ? (payload.detalle_mascotas?.trim() ?? null) : null,
       acepta_condiciones: payload.acepta_condiciones
     });
 
-    await this.solicitudRepo.addGarantias(nuevaSolicitud.id, garantiaIds);
+    await this.solicitudRepo.addGarantias(
+      nuevaSolicitud.id,
+      garantiasExistentes.map(garantia => garantia.id)
+    );
 
     const solicitudCompleta = await this.solicitudRepo.findByIdWithRelations(nuevaSolicitud.id);
 

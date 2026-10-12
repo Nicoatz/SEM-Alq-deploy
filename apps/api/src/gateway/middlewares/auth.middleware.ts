@@ -7,6 +7,8 @@ export interface AuthenticatedUser {
   nombre: string;
   apellido: string;
   email: string;
+  numero_documento: string;
+  telefono?: string | null;
   roles: string[];
   authUserId: string;
 }
@@ -59,6 +61,8 @@ export const authenticateGateway = async (
       nombre: usuario.nombre,
       apellido: usuario.apellido,
       email: usuario.email,
+      numero_documento: usuario.numero_documento,
+      telefono: usuario.telefono,
       roles: roles.map(role => role.descripcion),
       authUserId: payload.sub
     } as AuthenticatedUser;

@@ -37,6 +37,8 @@ export class UsuarioController {
           nombre: user.nombre,
           apellido: user.apellido,
           email: user.email,
+          numero_documento: user.numero_documento,
+          telefono: user.telefono,
           roles: user.roles
         }
       });

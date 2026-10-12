@@ -24,9 +24,11 @@ export interface ISolicitudRepository {
   create(data: CreateSolicitudEntity): Promise<SolicitudDTO>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
   findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]>;
+  findGarantiasByNames(names: string[]): Promise<TipoGarantiaDTO[]>;
   getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantiaDTO[]>;
   getEstadoById(idEstadoSolicitud: number): Promise<EstadoSolicitudDTO | null>;
   getSituacionById(idSituacionOcupacional: number): Promise<SituacionOcupacionalDTO | null>;
+  getSituacionByNombre(nombre: string): Promise<SituacionOcupacionalDTO | null>;
   findByIdWithRelations(id: number): Promise<SolicitudResponse | null>;
 }
 
@@ -131,6 +133,21 @@ export class SolicitudRepository implements ISolicitudRepository {
     return (data ?? []) as TipoGarantiaDTO[];
   }
 
+  async findGarantiasByNames(names: string[]): Promise<TipoGarantiaDTO[]> {
+    if (!names.length) {
+      return [];
+    }
+
+    const { data, error } = await getSupabaseAdmin()
+      .from('tipo_garantia')
+      .select('*')
+      .in('nombre', names);
+
+    if (error) throw error;
+
+    return (data ?? []) as TipoGarantiaDTO[];
+  }
+
   async getGarantiasBySolicitudId(idSolicitud: number): Promise<TipoGarantiaDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('solicitud_x_garantia')
@@ -168,6 +185,18 @@ export class SolicitudRepository implements ISolicitudRepository {
     return (data as SituacionOcupacionalDTO | null) ?? null;
   }
 
+  async getSituacionByNombre(nombre: string): Promise<SituacionOcupacionalDTO | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('situacion_ocupacional')
+      .select('*')
+      .eq('nombre', nombre)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return (data as SituacionOcupacionalDTO | null) ?? null;
+  }
+
   async findByIdWithRelations(id: number): Promise<SolicitudResponse | null> {
     const solicitud = await this.findById(id);
 
@@ -175,22 +204,81 @@ export class SolicitudRepository implements ISolicitudRepository {
       return null;
     }
 
-    const [estado, situacion, garantias] = await Promise.all([
+    const [estado, situacion, garantias, inmueble, fotos, postulante] = await Promise.all([
       this.getEstadoById(solicitud.id_estado_solicitud),
       this.getSituacionById(solicitud.id_situacion_ocupacional),
-      this.getGarantiasBySolicitudId(id)
+      this.getGarantiasBySolicitudId(id),
+      getSupabaseAdmin()
+        .from('inmueble')
+        .select('id, direccion, numero, piso, barrio')
+        .eq('id', solicitud.id_inmueble)
+        .maybeSingle(),
+      getSupabaseAdmin()
+        .from('foto_inmueble')
+        .select('url, es_principal, orden')
+        .eq('id_inmueble', solicitud.id_inmueble)
+        .order('orden'),
+      getSupabaseAdmin()
+        .from('usuario')
+        .select('id, nombre, apellido, numero_documento')
+        .eq('id', solicitud.id_locatario)
+        .maybeSingle()
     ]);
 
-    if (!estado || !situacion) {
+    if (!estado || !situacion || inmueble.error || fotos.error || postulante.error || !inmueble.data || !postulante.data) {
       return null;
     }
 
+    const ocupaciones: Record<string, NonNullable<SolicitudResponse['legajo']>['ocupacion']> = {
+      '-': 'sin_informar',
+      'relación de dependencia': 'relacion_dependencia',
+      monotributista: 'monotributista',
+      autónoma: 'autonoma',
+      estudiante: 'estudiante',
+      jubilada: 'jubilada'
+    };
+    const garantiasPorNombre: Record<string, NonNullable<SolicitudResponse['legajo']>['garantias'][number]> = {
+      'garantía propietaria': 'propietaria',
+      'seguro de caución': 'caucion',
+      otra: 'otra'
+    };
+    const fotoPrincipal = (fotos.data ?? []).find(foto => foto.es_principal)?.url
+      ?? fotos.data?.[0]?.url
+      ?? null;
+
     return {
-      ...solicitud,
-      estado_solicitud: estado,
-      situacion_ocupacional: situacion,
-      garantias
-    } as SolicitudResponse;
+      id: solicitud.id,
+      estado: estado.nombre,
+      mensaje: solicitud.mensaje ?? null,
+      fecha_creacion: solicitud.fecha_creacion,
+      fecha_respuesta: solicitud.fecha_respuesta ?? null,
+      inmueble: {
+        id: inmueble.data.id,
+        direccion: inmueble.data.direccion,
+        numero: inmueble.data.numero,
+        piso: inmueble.data.piso,
+        barrio: inmueble.data.barrio,
+        foto_principal: fotoPrincipal
+      },
+      postulante: {
+        id: postulante.data.id,
+        nombre: postulante.data.nombre,
+        apellido: postulante.data.apellido,
+        dni: postulante.data.numero_documento,
+        telefono: solicitud.telefono,
+        email: solicitud.email
+      },
+      legajo: {
+        ocupacion: ocupaciones[situacion.nombre] ?? 'sin_informar',
+        ingresos: solicitud.ingresos_aprox,
+        convivientes: solicitud.cantidad_personas,
+        mascotas: solicitud.posee_mascotas,
+        detalle_mascotas: solicitud.detalles_mascotas ?? null,
+        garantias: garantias
+          .map(garantia => garantiasPorNombre[garantia.nombre])
+          .filter((garantia): garantia is NonNullable<SolicitudResponse['legajo']>['garantias'][number] => Boolean(garantia))
+      }
+    };
   }
 }
 
