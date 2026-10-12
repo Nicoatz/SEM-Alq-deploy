@@ -58,7 +58,9 @@ export class SolicitudService {
       this.throwValidationError('El mensaje no puede superar los 600 caracteres.', 400);
     }
 
-    if (!payload.telefono || !/^\+[1-9]\d{9,14}$/.test(payload.telefono.trim())) {
+    const telefonoCanonico = payload.telefono?.trim() ?? '';
+
+    if (!/^\+[1-9]\d{9,14}$/.test(telefonoCanonico)) {
       this.throwValidationError(
         'El teléfono debe tener formato internacional válido, por ejemplo +5493511234567.',
         400
@@ -135,7 +137,7 @@ export class SolicitudService {
       id_estado_solicitud: estadoInicial.id,
       id_situacion_ocupacional: situacion.id,
       mensaje: mensaje || null,
-      telefono: payload.telefono.trim(),
+      telefono: telefonoCanonico.slice(1),
       email: payload.email.trim().toLowerCase(),
       ingresos_aprox: ingresos,
       cantidad_personas: payload.convivientes,
