@@ -106,6 +106,92 @@ router.get(
 
 /**
  * @openapi
+ * /api/v1/solicitudes/{id}/aceptar:
+ *   patch:
+ *     summary: Aceptar una solicitud de alquiler
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Solicitud aceptada.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: Se requiere el rol locador.
+ *       404:
+ *         description: Solicitud inexistente o ajena.
+ *       409:
+ *         description: La solicitud ya no está pendiente.
+ */
+router.patch(
+  '/:id/aceptar',
+  authenticateGateway,
+  requireRole('locador'),
+  solicitudController.aceptar.bind(solicitudController)
+);
+
+/**
+ * @openapi
+ * /api/v1/solicitudes/{id}/rechazar:
+ *   patch:
+ *     summary: Rechazar una solicitud de alquiler
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               mensaje_rechazo:
+ *                 type: string
+ *                 maxLength: 200
+ *                 nullable: true
+ *                 example: 'La propiedad fue asignada a otra persona.'
+ *     responses:
+ *       200:
+ *         description: Solicitud rechazada.
+ *       400:
+ *         description: Identificador o mensaje inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: Se requiere el rol locador.
+ *       404:
+ *         description: Solicitud inexistente o ajena.
+ *       409:
+ *         description: La solicitud ya no está pendiente.
+ */
+router.patch(
+  '/:id/rechazar',
+  authenticateGateway,
+  requireRole('locador'),
+  solicitudController.rechazar.bind(solicitudController)
+);
+
+/**
+ * @openapi
  * /api/v1/solicitudes/preparar:
  *   get:
  *     summary: Obtener datos para preparar una solicitud de alquiler

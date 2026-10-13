@@ -22,6 +22,7 @@ export interface SolicitudDTO {
   id_estado_solicitud: number;
   id_situacion_ocupacional: number;
   mensaje?: string | null;
+  mensaje_rechazo?: string | null;
   telefono: string;
   email: string;
   ingresos_aprox: number | null;
@@ -52,6 +53,7 @@ export interface SolicitudResponse {
   id: number;
   estado: string;
   mensaje: string | null;
+  mensaje_rechazo?: string | null;
   fecha_creacion: string;
   fecha_respuesta: string | null;
   inmueble: {
@@ -78,6 +80,10 @@ export interface SolicitudResponse {
     detalle_mascotas: string | null;
     garantias: ('propietaria' | 'caucion' | 'otra')[];
   } | null;
+}
+
+export interface RechazarSolicitudRequest {
+  mensaje_rechazo?: string | null;
 }
 
 export interface FiltrosMisSolicitudesDTO {

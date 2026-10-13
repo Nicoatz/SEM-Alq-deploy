@@ -4,6 +4,7 @@ import {
   ApiResponse,
   CrearSolicitudRequest,
   FiltrosMisSolicitudesDTO,
+  RechazarSolicitudRequest,
   SolicitudPreparacionResponse,
   SolicitudResponse
 } from '../dtos';
@@ -11,6 +12,64 @@ import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { solicitudService } from '../services/solicitud.service';
 
 export class SolicitudController {
+  private parseSolicitudId(req: Request): number | null {
+    const rawId = req.params.id;
+    const id = typeof rawId === 'string' ? Number(rawId) : NaN;
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  async aceptar(
+    req: Request,
+    res: Response<ApiResponse<SolicitudResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idSolicitud = this.parseSolicitudId(req);
+
+      if (idSolicitud === null) {
+        res.status(400).json({ success: false, error: 'El identificador de la solicitud no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const solicitud = await solicitudService.aceptarSolicitud(user, idSolicitud);
+
+      res.status(200).json({
+        success: true,
+        message: 'Solicitud aceptada exitosamente.',
+        data: solicitud
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async rechazar(
+    req: Request<{ id: string }, unknown, RechazarSolicitudRequest>,
+    res: Response<ApiResponse<SolicitudResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idSolicitud = this.parseSolicitudId(req);
+
+      if (idSolicitud === null) {
+        res.status(400).json({ success: false, error: 'El identificador de la solicitud no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const solicitud = await solicitudService.rechazarSolicitud(user, idSolicitud, req.body ?? {});
+
+      res.status(200).json({
+        success: true,
+        message: 'Solicitud rechazada exitosamente.',
+        data: solicitud
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   private parseFiltros(
     req: Request,
     res: Response<ApiResponse<SolicitudResponse[]>>

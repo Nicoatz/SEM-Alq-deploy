@@ -1,6 +1,7 @@
 import type {
   CrearSolicitudRequest,
   FiltrosMisSolicitudesDTO,
+  RechazarSolicitudRequest,
   SolicitudPreparacionResponse,
   SolicitudResponse
 } from '../dtos';
@@ -276,6 +277,69 @@ export class SolicitudService {
     }
 
     return this.solicitudRepo.findByLocadorId(user.id, filtros);
+  }
+
+  async aceptarSolicitud(
+    user: AuthenticatedUser,
+    idSolicitud: number
+  ): Promise<SolicitudResponse> {
+    return this.cambiarEstadoPorLocador(user, idSolicitud, 2);
+  }
+
+  async rechazarSolicitud(
+    user: AuthenticatedUser,
+    idSolicitud: number,
+    payload: RechazarSolicitudRequest
+  ): Promise<SolicitudResponse> {
+    const mensajeRechazo = payload.mensaje_rechazo?.trim() ?? null;
+
+    if (mensajeRechazo && mensajeRechazo.length > 200) {
+      this.throwValidationError('El mensaje de rechazo no puede superar los 200 caracteres.', 400);
+    }
+
+    return this.cambiarEstadoPorLocador(user, idSolicitud, 3, mensajeRechazo);
+  }
+
+  private async cambiarEstadoPorLocador(
+    user: AuthenticatedUser,
+    idSolicitud: number,
+    idEstadoSolicitud: 2 | 3,
+    mensajeRechazo: string | null = null
+  ): Promise<SolicitudResponse> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para modificar la solicitud.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwValidationError('Se requiere el rol locador para modificar solicitudes.', 403);
+    }
+
+    if (!Number.isInteger(idSolicitud) || idSolicitud < 1) {
+      this.throwValidationError('El identificador de la solicitud no es válido.', 400);
+    }
+
+    const solicitud = await this.solicitudRepo.findById(idSolicitud);
+
+    if (!solicitud || solicitud.id_locador !== user.id) {
+      this.throwValidationError('La solicitud no existe o no pertenece al locador.', 404);
+    }
+
+    if (solicitud.id_estado_solicitud !== 1) {
+      this.throwValidationError('Solo se pueden modificar solicitudes pendientes.', 409);
+    }
+
+    const actualizada = await this.solicitudRepo.updateEstado(
+      idSolicitud,
+      user.id,
+      idEstadoSolicitud,
+      mensajeRechazo
+    );
+
+    if (!actualizada) {
+      this.throwValidationError('La solicitud dejó de estar pendiente.', 409);
+    }
+
+    return actualizada;
   }
 }
 

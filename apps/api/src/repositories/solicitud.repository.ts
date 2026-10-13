@@ -30,6 +30,12 @@ export interface ISolicitudRepository {
     idLocador: number,
     filtros?: FiltrosMisSolicitudesDTO
   ): Promise<SolicitudResponse[]>;
+  updateEstado(
+    idSolicitud: number,
+    idLocador: number,
+    idEstadoSolicitud: number,
+    mensajeRechazo?: string | null
+  ): Promise<SolicitudResponse | null>;
   create(data: CreateSolicitudEntity): Promise<SolicitudDTO>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
   findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]>;
@@ -172,6 +178,31 @@ export class SolicitudRepository implements ISolicitudRepository {
     return respuestas.filter(
       (respuesta): respuesta is SolicitudResponse => respuesta !== null
     );
+  }
+
+  async updateEstado(
+    idSolicitud: number,
+    idLocador: number,
+    idEstadoSolicitud: number,
+    mensajeRechazo: string | null = null
+  ): Promise<SolicitudResponse | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('solicitud')
+      .update({
+        id_estado_solicitud: idEstadoSolicitud,
+        mensaje_rechazo: mensajeRechazo,
+        fecha_respuesta: new Date().toISOString()
+      })
+      .eq('id', idSolicitud)
+      .eq('id_locador', idLocador)
+      .eq('id_estado_solicitud', 1)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return this.findByIdWithRelations(data.id);
   }
 
   async create(data: CreateSolicitudEntity): Promise<SolicitudDTO> {
@@ -357,6 +388,7 @@ export class SolicitudRepository implements ISolicitudRepository {
       id: solicitud.id,
       estado: estado.nombre,
       mensaje: solicitud.mensaje ?? null,
+      mensaje_rechazo: solicitud.mensaje_rechazo ?? null,
       fecha_creacion: solicitud.fecha_creacion,
       fecha_respuesta: solicitud.fecha_respuesta ?? null,
       inmueble: {

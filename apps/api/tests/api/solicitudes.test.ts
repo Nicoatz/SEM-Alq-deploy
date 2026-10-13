@@ -85,11 +85,31 @@ class FakeInmuebleRepository implements Pick<IInmuebleRepository, 'findById'> {
 
 class FakeSolicitudRepository implements ISolicitudRepository {
   active: SolicitudDTO | null = null;
+  current: SolicitudDTO = {
+    id: 100,
+    id_inmueble: inmueble.id,
+    id_locador: 30,
+    id_locatario: usuario.id,
+    id_estado_solicitud: 1,
+    id_situacion_ocupacional: 1,
+    mensaje: null,
+    mensaje_rechazo: null,
+    telefono: usuario.telefono ?? '',
+    email: usuario.email,
+    ingresos_aprox: null,
+    cantidad_personas: 1,
+    posee_mascotas: false,
+    detalles_mascotas: null,
+    acepta_condiciones: true,
+    fecha_creacion: '2026-10-12T00:00:00.000Z',
+    fecha_actualizacion: '2026-10-12T00:00:00.000Z'
+  };
   created: CreateSolicitudEntity | null = null;
   misSolicitudes: SolicitudResponse[] = [];
   recibidas: SolicitudResponse[] = [];
   lastLocatarioId: number | null = null;
   lastLocadorId: number | null = null;
+  lastUpdate: { id: number; locador: number; estado: number; mensaje: string | null } | null = null;
   lastFiltros: FiltrosMisSolicitudesDTO | undefined;
   readonly createdResponse: SolicitudResponse = {
     id: 100,
@@ -123,7 +143,7 @@ class FakeSolicitudRepository implements ISolicitudRepository {
     }
   };
 
-  async findById(): Promise<SolicitudDTO | null> { return null; }
+  async findById(): Promise<SolicitudDTO | null> { return this.current; }
   async findByInmuebleId(): Promise<SolicitudDTO[]> { return []; }
   async findActiveByInmuebleAndLocatario(): Promise<SolicitudDTO | null> { return this.active; }
   async findSolicitudesPendientesByLocatario(): Promise<SolicitudDTO[]> { return []; }
@@ -137,6 +157,16 @@ class FakeSolicitudRepository implements ISolicitudRepository {
     this.lastLocadorId = idLocador;
     this.lastFiltros = filtros;
     return this.recibidas;
+  }
+
+  async updateEstado(id: number, locador: number, estado: number, mensaje: string | null = null): Promise<SolicitudResponse | null> {
+    this.lastUpdate = { id, locador, estado, mensaje };
+    return {
+      ...this.createdResponse,
+      estado: estado === 2 ? 'aceptada' : 'rechazada',
+      mensaje_rechazo: mensaje,
+      fecha_respuesta: '2026-10-12T01:00:00.000Z'
+    };
   }
 
   async create(data: CreateSolicitudEntity): Promise<SolicitudDTO> {
@@ -389,5 +419,66 @@ describe('SolicitudService.getSolicitudesRecibidas - US-36', () => {
 
     expect(fixture.solicitudRepository.lastLocadorId).toBe(locador.id);
     expect(fixture.solicitudRepository.lastFiltros).toEqual(filtros);
+  });
+});
+
+describe('SolicitudService.aceptarSolicitud/rechazarSolicitud - US-37', () => {
+  it('acepta una solicitud pendiente del locador', async () => {
+    const fixture = serviceFixture();
+
+    const resultado = await fixture.service.aceptarSolicitud(locador, inmueble.id);
+
+    expect(resultado.estado).toBe('aceptada');
+    expect(fixture.solicitudRepository.lastUpdate).toEqual({
+      id: inmueble.id,
+      locador: locador.id,
+      estado: 2,
+      mensaje: null
+    });
+  });
+
+  it('rechaza una solicitud sin mensaje', async () => {
+    const fixture = serviceFixture();
+
+    const resultado = await fixture.service.rechazarSolicitud(locador, inmueble.id, {});
+
+    expect(resultado.estado).toBe('rechazada');
+    expect(resultado.mensaje_rechazo).toBeNull();
+  });
+
+  it('rechaza una solicitud con un mensaje de hasta 200 caracteres', async () => {
+    const fixture = serviceFixture();
+    const mensaje = 'a'.repeat(200);
+
+    await fixture.service.rechazarSolicitud(locador, inmueble.id, {
+      mensaje_rechazo: mensaje
+    });
+
+    expect(fixture.solicitudRepository.lastUpdate?.mensaje).toBe(mensaje);
+  });
+
+  it('rechaza un mensaje de rechazo de más de 200 caracteres', async () => {
+    const fixture = serviceFixture();
+
+    await expectStatus(
+      fixture.service.rechazarSolicitud(locador, inmueble.id, {
+        mensaje_rechazo: 'a'.repeat(201)
+      }),
+      400
+    );
+  });
+
+  it('rechaza aceptar o rechazar para un usuario que no es locador', async () => {
+    const fixture = serviceFixture();
+
+    await expectStatus(fixture.service.aceptarSolicitud(usuario, inmueble.id), 403);
+    await expectStatus(fixture.service.rechazarSolicitud(usuario, inmueble.id, {}), 403);
+  });
+
+  it('rechaza modificar una solicitud que ya no está pendiente', async () => {
+    const fixture = serviceFixture();
+    fixture.solicitudRepository.current.id_estado_solicitud = 2;
+
+    await expectStatus(fixture.service.aceptarSolicitud(locador, inmueble.id), 409);
   });
 });
