@@ -159,56 +159,69 @@ export interface RegistrarUsuarioRequest {
   acepta_terminos: boolean
 }
 
-// ─── Solicitudes (US-35 a US-38) · PROPUESTOS ───────────────────────────
-// NOTA: el back todavía no tiene el módulo de solicitudes. Estos DTOs son la
-// propuesta del front (ver `docs/api-endpoints.md`, "Solicitudes"): si el
-// back los arma distinto, se cambian acá y en `adapters/solicitud.adapter.ts`,
-// nunca en las pantallas.
+// ─── Solicitudes (US-35 a US-38) ────────────────────────────────────────
+// NOTA: copias de `apps/api/src/dtos/solicitud.dto.ts` (en `develop` desde el
+// 12/10). Si el back cambia la forma, se cambia acá y en
+// `adapters/solicitud.adapter.ts`, nunca en las pantallas.
 
-/** Estado de una solicitud, como lo guardaría la tabla (propuesto). */
-export type EstadoSolicitudDto = 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada'
+/** Ocupación del postulante, con los códigos que usa el back (`situacion_ocupacional`). */
+type OcupacionDto = 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
+
+/** Garantía ofrecida o exigida, con los códigos que usa el back (`tipo_garantia`). */
+type GarantiaDto = 'propietaria' | 'caucion' | 'otra'
 
 /**
- * Cuerpo de `POST /api/v1/solicitudes` (no existe — propuesto). El
- * postulante sale del token.
+ * Cuerpo de `POST /api/v1/solicitudes` (existe): `CrearSolicitudRequest` del
+ * back. El postulante sale del token.
  */
 export interface CrearSolicitudRequest {
   id_inmueble: number
   /** Opcional, hasta 600 caracteres (US-35 actualizada). */
   mensaje?: string | null
-  /** E.164: "+" + código de país + número, de 10 a 15 dígitos (US-35). */
+  /**
+   * E.164: "+" + código de país + número, de 10 a 15 dígitos (US-35). El back
+   * lo guarda sin el "+" y lo devuelve así (ver `SolicitudResponse`).
+   */
   telefono: string
   email: string
-  ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
-  /** Entero ≥ 0; 0 = no informa (HANDOFF §7). */
-  ingresos: number
+  ocupacion: OcupacionDto
+  /**
+   * Entero mayor que 0, o `null` si no lo informa. NOTA: el back convierte un
+   * 0 en `null` por compatibilidad; el adaptador ya manda `null`.
+   */
+  ingresos: number | null
   /** Mínimo 1 (US-35). */
   convivientes: number
   mascotas: boolean
   /** Hasta 300 caracteres; `null` si no tiene mascotas. */
   detalle_mascotas: string | null
   /** Al menos una de las que exige el inmueble, si exige alguna. */
-  garantias: ('propietaria' | 'caucion' | 'otra')[]
-  /** Siempre `true` (US-35: aceptación obligatoria). */
+  garantias: GarantiaDto[]
+  /** Siempre `true` desde el front (US-35: aceptación obligatoria). */
   acepta_condiciones: true
 }
 
 /**
- * Una solicitud, como la devolverían `POST /solicitudes`,
- * `GET /solicitudes/mias`, `GET /solicitudes/recibidas` y los `PATCH` de
- * cambio de estado (no existen — propuesto).
+ * Una solicitud, como la devuelven `POST /solicitudes`, `GET /solicitudes/mias`,
+ * `GET /solicitudes/recibidas` y los `PATCH` de cambio de estado (existen):
+ * `SolicitudResponse` del back, armada en `solicitudRepository.findByIdWithRelations`.
  */
 export interface SolicitudResponse {
   id: number
-  estado: EstadoSolicitudDto
+  /**
+   * `nombre` de la tabla `estado_solicitud`: hoy `pendiente`, `aceptada`,
+   * `rechazada` o `cancelada`. El back lo tipa como texto libre, así que el
+   * adaptador lo valida antes de usarlo.
+   */
+  estado: string
   mensaje: string | null
+  /** Motivo del rechazo (US-37). NOTA: el front no lo manda (decisión del PO): llega `null`. */
+  mensaje_rechazo?: string | null
   /** Fecha y hora ISO de envío. */
   fecha_creacion: string
   /**
    * Fecha y hora ISO en que dejó de estar pendiente (aceptada, rechazada o
    * cancelada); `null` mientras está pendiente.
-   * TODO(backend): sumar la columna y devolverla (Mis solicitudes y
-   * Solicitudes recibidas muestran "Aceptada el 14/09").
    */
   fecha_respuesta: string | null
   inmueble: {
@@ -225,27 +238,74 @@ export interface SolicitudResponse {
     nombre: string
     apellido?: string | null
     /**
-     * Datos de contacto y DNI (US-35 actualizada). Solo en `/recibidas`, y
-     * solo para el dueño del inmueble: `/mias` no los manda.
-     * TODO(db): la tabla `usuario` no tiene DNI (HANDOFF §10).
+     * DNI (`usuario.numero_documento`), teléfono y email de la solicitud.
+     * NOTA: el back los manda SIEMPRE, también en `/mias` y en las respuestas
+     * de los `PATCH` (brecha anotada en HANDOFF §7). El adaptador los descarta
+     * salvo en el detalle del postulante.
+     * NOTA: el teléfono llega solo con dígitos, sin el "+".
      */
     dni?: string | null
     telefono?: string | null
     email?: string | null
   }
   /**
-   * Legajo de la solicitud (US-35 actualizada). Solo en `/recibidas`; `null`
-   * si la solicitud es anterior y no lo tiene.
+   * Legajo de la solicitud (US-35 actualizada). El back lo manda siempre
+   * (también en `/mias`); se deja `null` posible por las solicitudes viejas.
    */
-  legajo?: {
-    ocupacion: 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
-    /** Entero; 0 = no informa. */
-    ingresos: number
+  legajo: {
+    ocupacion: OcupacionDto
+    /** Entero mayor que 0, o `null` si no lo informó. */
+    ingresos: number | null
     convivientes: number
     mascotas: boolean
     detalle_mascotas: string | null
-    garantias: ('propietaria' | 'caucion' | 'otra')[]
+    garantias: GarantiaDto[]
   } | null
+}
+
+/** Query de `GET /solicitudes/mias` y `GET /solicitudes/recibidas` (existen). */
+export interface FiltrosSolicitudesQuery {
+  estado?: 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada'
+  /** Id del inmueble (entero positivo; en el front, texto). */
+  inmueble?: string
+}
+
+/**
+ * Respuesta de `GET /api/v1/solicitudes/preparar?id_inmueble=` (existe):
+ * `SolicitudPreparacionResponse` del back, la precarga del modal (US-35).
+ * 403 si es su propia propiedad, 404 si no existe, 409 si ya no recibe solicitudes.
+ */
+export interface SolicitudPreparacionResponse {
+  usuario: {
+    id: number
+    nombre: string
+    apellido?: string | null
+    dni?: string | null
+    /** Solo dígitos, sin el "+" (como lo guarda la tabla `usuario`). */
+    telefono?: string | null
+    email: string
+  }
+  /** Catálogo de ocupaciones. NOTA: el front no lo usa; tiene sus etiquetas (`OCUPACION_LABEL`). */
+  situaciones_ocupacionales: { id: number; codigo: OcupacionDto; nombre: string }[]
+  /** Catálogo de garantías. NOTA: el front no lo usa; tiene sus etiquetas (`GARANTIA_LABEL`). */
+  garantias: { id: number; codigo: GarantiaDto; nombre: string }[]
+  /**
+   * Ids (de `garantias`) que exige el inmueble.
+   * TODO(db): el esquema no guarda las garantías exigidas: hoy llega siempre vacío.
+   */
+  garantias_exigidas: number[]
+  /** NOTA: el front no los usa: arma los suyos con `valoresIniciales` (mismos valores por defecto). */
+  valores_iniciales: {
+    telefono: string
+    email: string
+    ocupacion: 'sin_informar'
+    ingresos: null
+    convivientes: number
+    mascotas: boolean
+    detalle_mascotas: null
+    garantias: GarantiaDto[]
+    acepto: boolean
+  }
 }
 
 // ─── Detalle de la propiedad del locador (US-03, US-04) · PROPUESTO ─────

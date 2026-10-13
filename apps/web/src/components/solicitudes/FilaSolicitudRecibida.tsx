@@ -28,6 +28,7 @@ import { StatusTag } from '@rentar/ui'
 import { fechaFilaRecibida, lineaRecibida } from '@/lib/solicitudes/textos'
 import { iniciales } from '@/lib/utils/iniciales'
 import { puedeHacerAccion, textoYaAceptaste, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
+import { puedeCancelarAceptada } from '@/services/solicitudes.service'
 import styles from './SolicitudesRecibidas.module.css'
 
 // ─── Acciones ───────────────────────────────────────────────────────────
@@ -80,7 +81,7 @@ export function AccionesSolicitudRecibida({ solicitud, otraAceptada, onAccion, v
       <div className={clase}>
         {bloqueada ? (
           // Una sola aceptada por propiedad: el motivo, en vez de un botón que no hace nada.
-          <Tooltip title={textoYaAceptaste(otraAceptada.applicant.fullName)}>
+          <Tooltip title={textoYaAceptaste(otraAceptada.applicant.fullName, puedeCancelarAceptada)}>
             <span className={styles.tooltipWrap} data-testid={`${testIdPrefix}-aceptar-bloqueado`}>
               {aceptar}
             </span>
@@ -102,7 +103,8 @@ export function AccionesSolicitudRecibida({ solicitud, otraAceptada, onAccion, v
     )
   }
 
-  if (puedeHacerAccion('cancelar', 'locador', solicitud.status)) {
+  // US-38: solo si el back deja dar de baja una aceptada (en real, todavía no: brecha 1 de HANDOFF §7).
+  if (puedeCancelarAceptada && puedeHacerAccion('cancelar', 'locador', solicitud.status)) {
     return (
       <div className={clase}>
         <Button
@@ -160,7 +162,7 @@ export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, o
           <StatusTag domain="solicitud" status={solicitud.status} />
           <span className={styles.rowDate}>{fechaFilaRecibida(solicitud)}</span>
         </div>
-        <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada)}</span>
+        <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada, puedeCancelarAceptada)}</span>
       </div>
       {cerrada ? (
         <div className={styles.actions}>

@@ -30,7 +30,7 @@ import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as r
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
 import { listarMisPropiedades } from './propiedades.service'
-import { readSolicitudesMock } from './solicitudes.service'
+import { listarSolicitudesRecibidas, readSolicitudesMock } from './solicitudes.service'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { readMockCollection } from './shared/mockStore'
@@ -202,13 +202,13 @@ export async function getEventosContratos(): Promise<EventoContratoPanel[]> {
 /**
  * Solicitudes de alquiler pendientes sobre las propiedades del locador en
  * sesión (las "cosas para resolver" del saludo).
- * @backend GET /api/v1/solicitudes/recibidas?estado=pendiente   (no existe — propuesto, US-36) → SolicitudResponse[]
- * TODO(backend): crear la ruta con el módulo de solicitudes (US-35 a US-38;
- * ver `solicitudes.service.ts#listarSolicitudesRecibidas`).
+ * @backend GET /api/v1/solicitudes/recibidas?estado=pendiente   (existe · rol locador, US-36) → SolicitudResponse[]
+ *          vía `solicitudes.service#listarSolicitudesRecibidas` (adaptador y
+ *          errores traducidos de una sola vez).
+ * @returns SolicitudPanel[] con el nombre del postulante, la dirección EXACTA
+ *   (son sus propiedades) y la fecha. Sin datos sensibles.
  * NOTA: en modo mock también cuenta las solicitudes enviadas en el navegador
  * (`rentar:mock:solicitudes`).
- * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
- * existe: así el panel muestra su estado vacío y no un error.
  */
 export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
   if (USE_MOCKS) {
@@ -228,10 +228,13 @@ export async function getSolicitudesPendientes(): Promise<SolicitudPanel[]> {
       })
       .filter((solicitud): solicitud is SolicitudPanel => solicitud !== null)
   }
-  // TODO(backend): cuando exista la ruta:
-  // const items = await apiRequest<SolicitudResponse[]>('/solicitudes/recibidas', { query: { estado: 'pendiente' } })
-  // y adaptar cada item a SolicitudPanel (nombre del postulante, dirección exacta y fecha).
-  return []
+  const pendientes = await listarSolicitudesRecibidas({ estado: 'pendiente' })
+  return pendientes.map((solicitud) => ({
+    id: solicitud.id,
+    applicantName: solicitud.applicant.fullName,
+    propertyAddress: solicitud.property.address,
+    createdAt: solicitud.createdAt,
+  }))
 }
 
 // ─── "Viendo como" (Cambio de rol · 04) ─────────────────────────────────

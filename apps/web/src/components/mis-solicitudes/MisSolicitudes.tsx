@@ -34,7 +34,7 @@ import {
   type CambiosSolicitudes,
   type PestaniaSolicitudes,
 } from '@/lib/solicitudes/filtros'
-import { listarMisSolicitudes } from '@/services/solicitudes.service'
+import { AVISO_CANCELADAS_OCULTAS_MESSAGE, listarMisSolicitudes, muestraCanceladas } from '@/services/solicitudes.service'
 import { ModalAccionSolicitud } from '@/components/solicitudes/ModalAccionSolicitud'
 import { PestaniasSolicitudes } from '@/components/solicitudes/PestaniasSolicitudes'
 import { useAccionSolicitud } from '@/components/solicitudes/useAccionSolicitud'
@@ -164,6 +164,13 @@ export function MisSolicitudes() {
       ) : (
         <>
           <PestaniasSolicitudes opciones={PESTANIAS_MIS} value={pestania} onChange={setPestania} contadores={cargando ? null : contadores} testIdPrefix="mis-solicitudes" />
+
+          {/* Brecha del back (HANDOFF §7): las canceladas no llegan. Una cancelada en esta visita sí se ve hasta recargar. */}
+          {pestania === 'cerradas' && !muestraCanceladas && (
+            <p className={styles.avisoPestania} data-testid="mis-solicitudes-cerradas-aviso">
+              {AVISO_CANCELADAS_OCULTAS_MESSAGE}
+            </p>
+          )}
 
           {cargando ? (
             <FilasCargando />

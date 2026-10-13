@@ -99,67 +99,67 @@ detalle y propuesta en `HANDOFF-BACKEND.md` §10 (y el texto del issue, que abre
 
 ## Solicitudes (Sprint 2)
 
-**Ninguna existe todavía: son la propuesta del front** (módulo nuevo, sin tabla ni rutas). Las firmas
-de `services/solicitudes.service.ts` ya son las definitivas; los DTOs propuestos están en
-`apps/web/src/services/shared/backend-dtos.ts` (`CrearSolicitudRequest`, `SolicitudResponse`) y el
-adaptador, en `services/adapters/solicitud.adapter.ts`. Prefijo `/solicitudes`, igual que las rutas
-existentes (`/inmuebles`, `/mis-alquileres`). Todas con **Bearer**: el usuario sale del token.
+**Existen en `develop` desde el 12/10** (Thiago) y el front las usa desde la tanda 5 (13/10). Código
+del back: `apps/api/src/routes/v1/solicitudes.routes.ts`, `controllers/solicitud.controller.ts`,
+`services/solicitud.service.ts`, `repositories/solicitud.repository.ts` y `dtos/solicitud.dto.ts`.
+En el front: `services/solicitudes.service.ts`, `services/adapters/solicitud.adapter.ts` (DTOs,
+vistas y errores traducidos) y la copia de los DTOs en `services/shared/backend-dtos.ts`. Todas con
+**Bearer** (el usuario sale del token) y el sobre `{ success, data, message?, error? }`. Las
+diferencias con la propuesta original y lo que falta están en
+[`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-35 a US-38".
 
 | Método y ruta | Auth | Estado | US (Jira) | Service | Body / query | Respuesta (`data`) | Errores | Mail que dispara |
 |---|---|---|---|---|---|---|---|---|
-| `POST /solicitudes` | Bearer, cualquier rol | pendiente (propuesto) | US-35 (actualizada, 80dfb8b) | `solicitudes.service#enviarSolicitud` | `CrearSolicitudRequest` (`backend-dtos.ts`): `{ id_inmueble, mensaje?, telefono, email, ocupacion, ingresos, convivientes, mascotas, detalle_mascotas, garantias, acepta_condiciones: true }`. Mensaje hasta **600**; `telefono` en **E.164** (`+` + código de país + número, 10 a 15 dígitos); `email` con formato `nombre@dominio.ext`; `ocupacion` `sin_informar` \| `relacion_dependencia` \| `monotributista` \| `autonoma` \| `estudiante` \| `jubilada`; `ingresos` entero ≥ 0 (0 = no informa); `convivientes` ≥ 1; `detalle_mascotas` hasta 300 (solo si `mascotas`); `garantias` ⊆ `propietaria`, `caucion`, `otra`. Nombre, apellido y DNI salen del token | `SolicitudResponse` (201, `estado: 'pendiente'`) | 400 si un dato no cumple lo anterior, si falta la aceptación, si el inmueble exige garantías y no se ofrece **al menos una**, o si la propiedad no está disponible; 401; 403 si es su propia publicación; 404 si el inmueble no existe; **409 si ya tiene una solicitud pendiente o aceptada para ese inmueble** | Al **locador**: nombre y apellido del postulante y el mensaje, si lo hay (US-35) |
-| `GET /solicitudes/mias` | Bearer | pendiente (propuesto) | US-36 (y US-35: estado del botón del detalle y "N pendientes en otras propiedades") | `#listarMisSolicitudes`; con `?inmueble=:id`, `#getMiSolicitudParaPropiedad`; con `?estado=pendiente`, `#contarMisSolicitudesPendientes` (el front cuenta y excluye la propiedad actual) | `inmueble` y `estado` (opcionales) | `SolicitudResponse[]` del usuario del token, de la más nueva a la más vieja. **Sin** `dni`, `telefono`, `email` ni `legajo` (no los necesita) | 401 | — |
-| `GET /solicitudes/recibidas` | Bearer + rol `locador` | pendiente (propuesto) | US-36 (y US-35: el legajo) | `#listarSolicitudesRecibidas`; con `?estado=pendiente`, `panel.service#getSolicitudesPendientes` | `estado` (opcional) | `SolicitudResponse[]` de los inmuebles del locador, **con** `postulante.dni`, `postulante.telefono`, `postulante.email` y `legajo` (solo para el dueño del inmueble) | 401, 403 | — |
-| `PATCH /solicitudes/:id/aceptar` | Bearer + rol `locador` (dueño del inmueble) | pendiente (propuesto) | US-37 | `#aceptarSolicitud` | — | `SolicitudResponse` (`aceptada`) | 401, 403/404 si no es suya, **409 si ya no está pendiente o si el inmueble ya tiene otra aceptada** | Al **locatario**: que se aceptó (US-37) |
-| `PATCH /solicitudes/:id/rechazar` | Bearer + rol `locador` (dueño del inmueble) | pendiente (propuesto) | US-37 | `#rechazarSolicitud` | — (sin motivo: US-37 no lo pide) | `SolicitudResponse` (`rechazada`) | 401, 403/404, 409 si ya no está pendiente | — (US-37 solo pide mail al aceptar) |
-| `PATCH /solicitudes/:id/cancelar` | Bearer (el dueño del inmueble o el postulante) | pendiente (propuesto) | US-38 (locador) y sin US en Sprint 0 (postulante) | `#cancelarSolicitud` | — | `SolicitudResponse` (`cancelada`) | 401; 403/404 si no es ni el dueño ni el postulante; **409 si el estado no corresponde a quien llama** (ver "Quién cancela") | Al **locatario**, si cancela el locador (US-38) |
+| `GET /solicitudes/preparar` | Bearer | existe | US-35 | `#prepararSolicitud` | `?id_inmueble=` (entero) | `SolicitudPreparacionResponse`: `usuario` (nombre, apellido, DNI, teléfono sin "+", email), catálogos de ocupación y garantías, `garantias_exigidas` (hoy siempre `[]`) y `valores_iniciales` | 400 id inválido; 401; 403 propia; 404 no existe; 409 "ya no recibe solicitudes" (no está `publicado` ni `publicado/alquilado`). **No** detecta una duplicada | — |
+| `POST /solicitudes` | Bearer, cualquier rol | existe | US-35 (actualizada) | `#enviarSolicitud` | `CrearSolicitudRequest`: `{ id_inmueble, mensaje?, telefono, email, ocupacion, ingresos, convivientes, mascotas, detalle_mascotas, garantias, acepta_condiciones }`. `telefono` E.164 (el back lo guarda sin "+"); `ingresos` entero > 0 o **`null`** = no informa (un 0 lo pasa a `null`); `detalle_mascotas` ≤ 300; mensaje ≤ 600 | `SolicitudResponse` (201, `pendiente`) | 400 por dato inválido; 401; 403 propia; 404 no existe; **409 "Ya tenés una solicitud activa para esta propiedad"** (pendiente o aceptada). **No** valida que esté publicada ni las garantías exigidas | Al **locador** (US-35): **no se manda todavía** |
+| `GET /solicitudes/mias` | Bearer | existe | US-36 (y US-35: botón del detalle y "N pendientes en otras propiedades") | `#listarMisSolicitudes`; con `?inmueble=`, `#getMiSolicitudParaPropiedad`; con `?estado=pendiente`, `#contarMisSolicitudesPendientes` | `estado`, `inmueble` (opcionales) | `SolicitudResponse[]`, de la más nueva a la más vieja. **Sin canceladas** (`?estado=cancelada` da vacío). **Con** DNI, contacto y legajo propios (el adaptador los descarta) | 400 filtro inválido; 401 | — |
+| `GET /solicitudes/recibidas` | Bearer + rol `locador` | existe | US-36 | `#listarSolicitudesRecibidas` (lista, sin datos sensibles); con `?inmueble=`, `#getSolicitudRecibida` (puente del detalle); con `?estado=pendiente`, `panel.service#getSolicitudesPendientes` | `estado`, `inmueble` (opcionales) | `SolicitudResponse[]` de los inmuebles del locador, con DNI, contacto y legajo. **Sin canceladas** | 400; 401; 403 sin rol | — |
+| `GET /solicitudes/:id` | Bearer (dueño o postulante) | **no existe — propuesto** | US-36 | `#getSolicitudRecibida` (hoy por el puente de arriba) | — | `SolicitudResponse` con DNI, contacto y legajo solo para el dueño del inmueble | 401; 404 si no es parte | — |
+| `PATCH /solicitudes/:id/aceptar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#aceptarSolicitud` | — | `SolicitudResponse` (`aceptada`) | 400; 401; 403; 404 si no es suya; 409 si ya no está pendiente. **No** controla que el inmueble ya tenga otra aceptada (lo sostiene el front) ni cambia el estado del inmueble | Al **locatario** (US-37): **no se manda todavía** |
+| `PATCH /solicitudes/:id/rechazar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#rechazarSolicitud` | Body opcional `{ mensaje_rechazo? }` (≤ 200). **El front no lo manda** (sin motivo, decisión del PO) | `SolicitudResponse` (`rechazada`) | 400; 401; 403; 404; 409 si ya no está pendiente | — |
+| `PATCH /solicitudes/:id/cancelar` | Bearer (**solo el postulante**) | existe | Sin US en Sprint 0 (postulante, mapa US-39). **US-38 (locador) no está** | `#cancelarSolicitud` | — | `SolicitudResponse` (`cancelada`) | 400; 401; **404 si no es el postulante (también el locador)**; 409 si no está pendiente | Al **locatario** si cancela el locador (US-38): no aplica todavía |
 
-`SolicitudResponse` (propuesto):
+`SolicitudResponse` (`apps/api/src/dtos/solicitud.dto.ts`):
 
 ```ts
 {
   id: number
-  estado: 'pendiente' | 'aceptada' | 'rechazada' | 'cancelada'
+  estado: string                    // nombre de estado_solicitud: pendiente | aceptada | rechazada | cancelada
   mensaje: string | null
+  mensaje_rechazo?: string | null
   fecha_creacion: string            // ISO, con hora
-  fecha_respuesta: string | null    // ISO, con hora: cuándo dejó de estar pendiente; null si sigue pendiente
-  inmueble: { id, direccion, numero, piso, barrio, foto_principal: string | null }
-  postulante: { id, nombre, apellido, dni?, telefono?, email? }   // dni, telefono y email: solo en /recibidas
-  legajo?: {                                                       // solo en /recibidas; null si es anterior
-    ocupacion, ingresos, convivientes, mascotas, detalle_mascotas, garantias
-  } | null
+  fecha_respuesta: string | null    // ISO: cuándo dejó de estar pendiente (también al cancelar)
+  inmueble: { id, direccion, numero, piso?, barrio, foto_principal: string | null }
+  postulante: { id, nombre, apellido?, dni?, telefono?, email? }   // siempre; teléfono sin "+"
+  legajo: { ocupacion, ingresos: number | null, convivientes, mascotas, detalle_mascotas, garantias } | null
 }
 ```
 
 Notas:
 
 - **Quién cancela (decidido por el PO, tanda 2 del Sprint 2):** una sola ruta,
-  `PATCH /solicitudes/:id/cancelar`. El back decide según quién llama y el estado:
-  - **dueño del inmueble + `aceptada`** → `cancelada` (US-38: "dar de baja una solicitud tras haberla
-    aceptado"), con mail al locatario;
-  - **postulante + `pendiente`** → `cancelada` (sin US en Sprint 0, mapa US-39);
-  - el dueño o el postulante con cualquier otro estado → **409**; alguien que no es ninguno de los dos
-    → **403** (o 404, para no revelar que existe).
+  `PATCH /solicitudes/:id/cancelar`, que decide según quién llama y el estado:
+  - **dueño del inmueble + `aceptada`** → `cancelada` (US-38), con mail al locatario. **El back
+    todavía no lo hace** (HANDOFF §7, brecha 1): en real el front oculta el botón.
+  - **postulante + `pendiente`** → `cancelada` (sin US en Sprint 0, mapa US-39). **Hecho.**
 - **Transiciones permitidas** (las mismas que `TRANSICIONES_SOLICITUD` en
   `apps/web/src/lib/validation/solicitud.rules.ts`): aceptar y rechazar, del locador desde
-  `pendiente`; cancelar, del locador desde `aceptada` o del postulante desde `pendiente`. Cada una
-  guarda `fecha_respuesta`.
-- **Una sola aceptada por inmueble (decidido por el PO):** `PATCH /aceptar` responde 409 si el
-  inmueble ya tiene otra solicitud `aceptada`. Para aceptar a otro postulante, el locador primero
-  cancela la aceptada (US-38).
+  `pendiente`; cancelar, del locador desde `aceptada` (falta en el back) o del postulante desde
+  `pendiente`. Cada una guarda `fecha_respuesta`.
+- **Una sola aceptada por inmueble (decidido por el PO):** `PATCH /aceptar` debería responder 409 si
+  el inmueble ya tiene otra `aceptada`. **El back todavía no lo controla** (brecha 2): lo sostiene el
+  front.
 - **Una sola activa por persona e inmueble:** una `pendiente` o `aceptada` impide otra (409). Una
-  `rechazada` o `cancelada` no: se puede volver a solicitar (nada vuelve a `pendiente`; se crea una
-  nueva).
-- **Aceptar no rechaza a las demás** solicitudes del inmueble (Flujo de solicitudes · 02).
-- **Dirección con sesión (decidido por el PO con la US-35 actualizada):** quien inició sesión ve la
-  **exacta** con el piso, en `/recibidas`, en `/mias`, en el modal y en el detalle de
-  `/propiedad/[id]`. Un visitante sin sesión ve la aproximada en el detalle, y las tarjetas de
-  `/buscar` son aproximadas para todos. Reemplaza la regla de las tandas 1 y 2.
+  `rechazada` o `cancelada` no. **Hecho.**
+- **Aceptar no rechaza a las demás** solicitudes del inmueble (Flujo de solicitudes · 02). **Hecho.**
+- **Dirección con sesión:** quien inició sesión ve la **exacta** con el piso, en `/recibidas`, en
+  `/mias`, en el modal y en el detalle de `/propiedad/[id]`.
 - **Privacidad del legajo:** el DNI, el teléfono, el email, los ingresos y el resto del legajo los ve
-  solo el dueño del inmueble, en el detalle del postulante; nunca en un listado. `/mias` no los manda.
+  solo el dueño del inmueble, en el detalle del postulante; nunca en un listado. El back los manda
+  siempre (brecha 4): el adaptador los descarta.
 - **Garantías exigidas:** el inmueble puede exigir garantías (`requiredGuarantees` en el front);
   alcanza con que el postulante ofrezca **al menos una**. **El back no tiene el dato** (ni el alta ni
-  la edición lo cargan): queda para el Sprint 3 (HANDOFF §7).
+  la edición lo cargan; `garantias_exigidas` llega vacío): queda para el Sprint 3 (HANDOFF §7).
 
 ## Panel del locador (`/panel`)
 

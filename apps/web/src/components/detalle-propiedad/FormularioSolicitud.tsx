@@ -20,7 +20,7 @@
 import Image from 'next/image'
 import { Checkbox, Form, Input, InputNumber, Radio, Select } from 'antd'
 import { LockOutlined } from '@ant-design/icons'
-import type { PropiedadDetalle, UsuarioSesion } from '@rentar/shared-types'
+import type { GarantiaOfrecida, PreparacionSolicitud, PropiedadDetalle } from '@rentar/shared-types'
 import { MoneyAmount } from '@rentar/ui'
 import { Stepper } from '@/components/alta/CamposAlta'
 import type { ValoresSolicitud } from '@/lib/solicitudes/formulario'
@@ -44,7 +44,10 @@ import styles from './SolicitarAlquilerModal.module.css'
 /** Props de {@link FormularioSolicitud}. */
 interface FormularioSolicitudProps {
   propiedad: PropiedadDetalle
-  usuario: UsuarioSesion | null
+  /** Perfil de quien solicita (`prepararSolicitud`): nombre, apellido y DNI de solo lectura. */
+  perfil: PreparacionSolicitud['perfil']
+  /** Garantías que exige la propiedad (`prepararSolicitud`); vacío si no exige ninguna. */
+  exigidas: readonly GarantiaOfrecida[]
   /** Nombre del dueño, si se conoce ("Nicolás Arrieta"). */
   nombreDueno: string | null
   /** Solicitudes pendientes del usuario en OTRAS propiedades (US-35); `null` mientras carga. */
@@ -58,7 +61,7 @@ function textoPendientes(cantidad: number): string {
 }
 
 /** "El dueño pide garantía propietaria o seguro de caución: marcá al menos una". */
-function textoGarantiasExigidas(exigidas: PropiedadDetalle['requiredGuarantees']): string {
+function textoGarantiasExigidas(exigidas: readonly GarantiaOfrecida[]): string {
   const nombres = exigidas.map((garantia) => GARANTIA_LABEL[garantia].toLowerCase())
   const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} o ${nombres[nombres.length - 1]}` : nombres[0]
   return exigidas.length > 1 ? `El dueño pide ${lista}: marcá al menos una.` : `El dueño pide ${lista}: marcala para poder enviar.`
@@ -78,14 +81,13 @@ function DatoFijo({ label, valor, testId }: { label: string; valor: string; test
 }
 
 /** Los campos de la solicitud. */
-export function FormularioSolicitud({ propiedad, usuario, nombreDueno, pendientesEnOtras, deshabilitado }: FormularioSolicitudProps) {
+export function FormularioSolicitud({ propiedad, perfil, exigidas, nombreDueno, pendientesEnOtras, deshabilitado }: FormularioSolicitudProps) {
   const form = Form.useFormInstance<ValoresSolicitud>()
   const mascotas = Form.useWatch('mascotas', form)
-  const exigidas = propiedad.requiredGuarantees
   const aptaMascotas = propiedad.characteristics.includes('mascotas')
   // US-35: "metros cuadrados (reales)" = la superficie cubierta; si no la tiene, la total (supuesto, HANDOFF §7).
   const superficie = propiedad.coveredAreaM2 > 0 ? `${propiedad.coveredAreaM2} m² cubiertos` : `${propiedad.areaM2} m² totales`
-  const nombreCompleto = usuario ? `${usuario.nombre} ${usuario.apellido}`.trim() : ''
+  const nombreCompleto = `${perfil.nombre} ${perfil.apellido}`.trim()
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
@@ -115,8 +117,8 @@ export function FormularioSolicitud({ propiedad, usuario, nombreDueno, pendiente
         <p className={styles.help}>Vienen de tu perfil. Nombre y DNI no se editan; el teléfono y el email que pongas acá van solo en esta solicitud.</p>
         <div className={styles.grid}>
           <DatoFijo label="Nombre y apellido" valor={nombreCompleto || '—'} testId="solicitar-nombre" />
-          {/* TODO(db): la tabla `usuario` no guarda el DNI; en modo real puede no venir ("—"). */}
-          <DatoFijo label="DNI" valor={usuario?.dni ? Number(usuario.dni).toLocaleString('es-AR') : '—'} testId="solicitar-dni" />
+          {/* El DNI sale de `usuario.numero_documento`; una cuenta sin DNI cargado muestra "—". */}
+          <DatoFijo label="DNI" valor={perfil.dni ? Number(perfil.dni).toLocaleString('es-AR') : '—'} testId="solicitar-dni" />
           {/*
            * US-35: teléfono en E.164 (10 a 15 dígitos, solo números), con el "+" visible y
            * no editable, y formato E.123 automático mientras se escribe.

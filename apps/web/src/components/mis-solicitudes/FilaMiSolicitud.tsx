@@ -25,6 +25,7 @@ import { StatusTag } from '@rentar/ui'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { hrefBuscarEnBarrio } from '@/lib/search/busquedaParams'
 import { lineaMiSolicitud } from '@/lib/solicitudes/textos'
+import { puedeCancelarAceptada } from '@/services/solicitudes.service'
 import { puedeCancelar } from '@/lib/validation/solicitud.rules'
 import styles from './MisSolicitudes.module.css'
 
@@ -54,7 +55,7 @@ export function FilaMiSolicitud({ solicitud, onCancelar }: FilaMiSolicitudProps)
           <StatusTag domain="solicitud" status={solicitud.status} />
         </div>
         <span className={styles.rowLine} data-testid="mis-solicitudes-estado-texto">
-          {lineaMiSolicitud(solicitud)}
+          {lineaMiSolicitud(solicitud, puedeCancelarAceptada)}
         </span>
       </div>
       <div className={styles.actions}>

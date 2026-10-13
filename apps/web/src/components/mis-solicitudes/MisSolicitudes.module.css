@@ -101,6 +101,13 @@
   height: 3.125rem;
 }
 
+/* Aviso de una brecha del back debajo de las pestañas (ej. "Las canceladas todavía no se muestran"). */
+.avisoPestania {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
 .emptyBlock {
   padding: 1rem;
   border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);

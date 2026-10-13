@@ -4,7 +4,7 @@
  *
  * Qué es: funciones puras, separadas del modal para leerlas y probarlas
  * solas.
- * - `valoresIniciales`: lo que se precarga (del perfil) y los valores por
+ * - `valoresIniciales`: lo que se precarga (del perfil, `prepararSolicitud`) y los valores por
  *   defecto que pide la US (ocupación "-", ingresos 0, 1 persona, sin
  *   mascotas, garantías sin tildar, aceptación sin tildar).
  * - `aSolicitudNueva`: lo validado → `SolicitudNueva`.
@@ -14,7 +14,7 @@
  * Quién lo usa: `components/detalle-propiedad/SolicitarAlquilerModal.tsx` y
  * `FormularioSolicitud.tsx`.
  */
-import type { GarantiaOfrecida, OcupacionPostulante, SolicitudNueva, UsuarioSesion } from '@rentar/shared-types'
+import type { GarantiaOfrecida, OcupacionPostulante, PreparacionSolicitud, SolicitudNueva } from '@rentar/shared-types'
 import { aE164, CONVIVIENTES_MINIMO, telefonoParaPrecargar } from '@/lib/validation/solicitud.rules'
 
 /** Los campos del formulario, como los maneja antd `Form`. */
@@ -42,10 +42,10 @@ export interface ValoresSolicitud {
  * - Garantías y aceptación, sin tildar (decisión del PO: las exigidas se
  *   señalan, no se marcan solas).
  */
-export function valoresIniciales(usuario: Pick<UsuarioSesion, 'email' | 'telefono'> | null): ValoresSolicitud {
+export function valoresIniciales(perfil: Pick<PreparacionSolicitud['perfil'], 'email' | 'telefono'> | null): ValoresSolicitud {
   return {
-    telefono: telefonoParaPrecargar(usuario?.telefono),
-    email: usuario?.email ?? '',
+    telefono: telefonoParaPrecargar(perfil?.telefono),
+    email: perfil?.email ?? '',
     ocupacion: 'sin_informar',
     ingresos: 0,
     convivientes: CONVIVIENTES_MINIMO,

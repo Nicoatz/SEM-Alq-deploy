@@ -12,26 +12,29 @@
  * ingresos, convivientes, mascotas, garantías, mensaje de hasta 600,
  * aceptación obligatoria y cuántas pendientes tiene en otras propiedades.
  * Reemplaza la versión de la tanda 1 ("sin legajo, 1000 caracteres").
- * Datos: `solicitudes.service#enviarSolicitud` y
- * `#contarMisSolicitudesPendientes`; los datos precargados, de la sesión.
+ * Datos: `solicitudes.service#prepararSolicitud` (el perfil precargado, las
+ * garantías exigidas y si la propiedad se puede solicitar), `#enviarSolicitud`
+ * y `#contarMisSolicitudesPendientes`.
  * Quién lo usa: `DetallePropiedad`.
  *
  * NOTA: las validaciones son reglas de antd `Form` (ver
  * `lib/validation/solicitud.rules.ts`); al tocar "Enviar", si algo falta,
  * arriba de las acciones aparece el resumen con un link a cada campo.
- * NOTA: el mail al locador lo manda el back (TODO(backend) en el service);
- * acá solo se avisa que se mandó.
+ * NOTA: el mail al locador lo manda el back; acá solo se avisa que se mandó,
+ * y solo si el back lo manda (`avisaPorMail`: hoy no, TODO(backend) en el service).
+ * NOTA: mientras `prepararSolicitud` carga no se muestra el formulario: los
+ * valores iniciales salen de ahí y antd `Form` los toma una sola vez, al montar.
  */
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Alert, Button, Form, Modal } from 'antd'
+import { Alert, Button, Form, Modal, Skeleton } from 'antd'
 import { CheckCircleFilled } from '@ant-design/icons'
 import type { PropiedadDetalle } from '@rentar/shared-types'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { hrefBuscarEnBarrio } from '@/lib/search/busquedaParams'
 import { aSolicitudNueva, valoresIniciales, type ValoresSolicitud } from '@/lib/solicitudes/formulario'
-import { contarMisSolicitudesPendientes, enviarSolicitud } from '@/services/solicitudes.service'
+import { avisaPorMail, contarMisSolicitudesPendientes, enviarSolicitud, prepararSolicitud } from '@/services/solicitudes.service'
 import { ServiceError } from '@/services/shared/errors'
 import { hrefLoginParaSolicitar } from './estadoAccion'
 import { FormularioSolicitud } from './FormularioSolicitud'
@@ -82,10 +85,13 @@ const HREF_MIS_SOLICITUDES = '/panel/mis-solicitudes'
 /** Modal "Solicitar alquiler" (US-35). Se monta de cero cada vez que se abre. */
 export function SolicitarAlquilerModal({ open, propiedad, onClose }: SolicitarAlquilerModalProps) {
   const router = useRouter()
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const [form] = Form.useForm<ValoresSolicitud>()
-  // Se calcula una sola vez (el modal se monta de cero cada vez que se abre).
-  const [iniciales] = useState(() => valoresIniciales(user))
+  const preparar = useCallback(() => prepararSolicitud(propiedad.id), [propiedad.id])
+  const preparacion = useServiceCall(preparar)
+  const datos = preparacion.status === 'listo' ? preparacion.data : null
+  // El `Form` se monta recién con los datos listos, así toma estos valores iniciales.
+  const iniciales = useMemo(() => valoresIniciales(datos?.perfil ?? null), [datos])
   const contarPendientes = useCallback(() => contarMisSolicitudesPendientes(propiedad.id), [propiedad.id])
   const pendientes = useServiceCall(contarPendientes)
 
@@ -154,7 +160,49 @@ export function SolicitarAlquilerModal({ open, propiedad, onClose }: SolicitarAl
 
   // ─── Render ─────────────────────────────────────────────────────────────
 
+  /**
+   * Por qué no se puede mostrar el formulario (`/preparar` falló):
+   * - `sesion`: 401, se vuelve a ingresar.
+   * - `no_solicitable`: es suya, no existe o ya no recibe solicitudes; solo se cierra.
+   * - `reintentar`: error del servidor o de red.
+   */
+  const bloqueo = preparacion.status !== 'error'
+    ? null
+    : preparacion.code === 'unauthorized'
+      ? 'sesion'
+      : preparacion.code === 'forbidden' || preparacion.code === 'not_found' || preparacion.code === 'validation'
+        ? 'no_solicitable'
+        : 'reintentar'
+
   const footer = (() => {
+    if (preparacion.status === 'cargando') {
+      return (
+        <div className={styles.footerRow}>
+          <Button size="large" onClick={cerrar} className={styles.action} data-testid="solicitar-cancelar-button">
+            Cancelar
+          </Button>
+        </div>
+      )
+    }
+    if (bloqueo) {
+      return (
+        <div className={styles.footerRow}>
+          <Button size="large" onClick={cerrar} className={styles.action} data-testid="solicitar-cerrar-button">
+            Cerrar
+          </Button>
+          {bloqueo === 'sesion' && (
+            <Button type="primary" size="large" onClick={reingresar} className={styles.action} data-testid="solicitar-reingresar-button">
+              Ingresar de nuevo
+            </Button>
+          )}
+          {bloqueo === 'reintentar' && (
+            <Button type="primary" size="large" onClick={preparacion.reintentar} className={styles.action} data-testid="solicitar-preparar-reintentar">
+              Reintentar
+            </Button>
+          )}
+        </div>
+      )
+    }
     switch (fase.tipo) {
       case 'exito':
         return (
@@ -223,12 +271,31 @@ export function SolicitarAlquilerModal({ open, propiedad, onClose }: SolicitarAl
           <div className={styles.success} data-testid="solicitar-exito">
             <CheckCircleFilled className={styles.successIcon} aria-hidden="true" />
             <h2 className={styles.successTitle}>{primerNombre ? `Le mandamos tu solicitud a ${primerNombre}` : 'Le mandamos tu solicitud al dueño'}</h2>
-            {/* US-35: el back le manda un mail al locador; acá solo se informa. */}
-            <p className={styles.successText} data-testid="solicitar-exito-mail">
-              {nombreDueno ? `Le avisamos por mail a ${nombreDueno}.` : 'Le avisamos por mail al dueño.'} Te avisamos cuando responda.
-            </p>
+            {/* US-35: el back le manda un mail al locador; acá solo se informa (si de verdad lo manda). */}
+            {avisaPorMail ? (
+              <p className={styles.successText} data-testid="solicitar-exito-mail">
+                {nombreDueno ? `Le avisamos por mail a ${nombreDueno}.` : 'Le avisamos por mail al dueño.'} Te avisamos cuando responda.
+              </p>
+            ) : (
+              <p className={styles.successText} data-testid="solicitar-exito-respuesta">
+                Vas a ver su respuesta en Mis solicitudes.
+              </p>
+            )}
             <p className={styles.successText}>Mientras tanto seguí mirando: podés tener varias solicitudes abiertas a la vez.</p>
           </div>
+        ) : preparacion.status === 'cargando' ? (
+          // ─── Preparando: perfil, garantías exigidas y si se puede solicitar ───
+          <div data-testid="solicitar-preparando">
+            <Skeleton active paragraph={{ rows: 6 }} />
+          </div>
+        ) : preparacion.status === 'error' ? (
+          bloqueo === 'reintentar' ? (
+            <Alert type="error" showIcon className={styles.alert} title="No pudimos abrir la solicitud" description={preparacion.message} data-testid="solicitar-preparar-error" />
+          ) : bloqueo === 'sesion' ? (
+            <Alert type="warning" showIcon className={styles.alert} title="Tu sesión venció" description="Ingresá de nuevo para solicitar esta propiedad." data-testid="solicitar-sesion-vencida" />
+          ) : (
+            <Alert type="info" showIcon className={styles.alert} title={preparacion.message} data-testid="solicitar-no-solicitable" />
+          )
         ) : (
           <>
             {fase.tipo === 'duplicada' && (
@@ -256,13 +323,16 @@ export function SolicitarAlquilerModal({ open, propiedad, onClose }: SolicitarAl
             {/* El formulario queda montado en las otras fases (duplicada, sesión vencida), así no se pierde lo cargado. */}
             <div hidden={fase.tipo !== 'formulario'}>
               <Form<ValoresSolicitud> form={form} layout="vertical" requiredMark={false} initialValues={iniciales} onValuesChange={(cambios) => setErrores((actual) => actual.filter((error) => !(error.name in cambios)))} className={styles.form}>
-                <FormularioSolicitud
-                  propiedad={propiedad}
-                  usuario={user}
-                  nombreDueno={nombreDueno}
-                  pendientesEnOtras={pendientes.status === 'listo' ? pendientes.data : null}
-                  deshabilitado={enviando}
-                />
+                {datos && (
+                  <FormularioSolicitud
+                    propiedad={propiedad}
+                    perfil={datos.perfil}
+                    exigidas={datos.garantiasExigidas}
+                    nombreDueno={nombreDueno}
+                    pendientesEnOtras={pendientes.status === 'listo' ? pendientes.data : null}
+                    deshabilitado={enviando}
+                  />
+                )}
               </Form>
             </div>
 
