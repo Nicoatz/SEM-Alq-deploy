@@ -40,7 +40,8 @@ interface ModalAccionSolicitudProps {
 /** Textos del modal para cada acción y actor. */
 interface TextosModal {
   title: string
-  description: string
+  /** `undefined` si el modal no lleva texto debajo del título (aceptar en real: lo dice el aviso). */
+  description?: string
   confirmLabel: string
   cancelLabel: string
   /** "aceptar la solicitud", para el título del error. */
@@ -68,9 +69,12 @@ function textosDe(estado: EstadoAccionSolicitud, actor: ActorSolicitud): TextosM
     case 'aceptar':
       return {
         title: `¿Aceptar la solicitud de ${nombre}?`,
-        description: avisaPorMail
-          ? 'Le avisamos por mail que aceptaste su solicitud. Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.'
-          : 'Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.',
+        // En real (sin baja de una aceptada) lo dice todo el aviso de abajo (`AVISO_ACEPTAR_SIN_BAJA_MESSAGE`): sin descripción, para no repetirlo.
+        description: !puedeCancelarAceptada
+          ? undefined
+          : avisaPorMail
+            ? 'Le avisamos por mail que aceptaste su solicitud. Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.'
+            : 'Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.',
         confirmLabel: 'Aceptar solicitud',
         cancelLabel: 'Volver',
         verbo: 'aceptar',
