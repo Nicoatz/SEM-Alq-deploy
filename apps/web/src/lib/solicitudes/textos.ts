@@ -54,7 +54,7 @@ export function fechaFilaRecibida(solicitud: Solicitud): string {
  * @param aceptadaDeLaPropiedad la otra solicitud ya aceptada de la misma
  *   propiedad, si hay (una sola aceptada por propiedad).
  */
-export function lineaRecibida(solicitud: Solicitud, aceptadaDeLaPropiedad: Solicitud | undefined): string {
+export function lineaRecibida(solicitud: Solicitud, aceptadaDeLaPropiedad: Solicitud | undefined, sePuedeCancelarAceptada = true): string {
   switch (solicitud.status) {
     case 'pendiente': {
       const mensaje = solicitud.message ? 'Te dejó un mensaje.' : 'Sin mensaje.'
@@ -64,8 +64,9 @@ export function lineaRecibida(solicitud: Solicitud, aceptadaDeLaPropiedad: Solic
         : `${mensaje} Espera tu respuesta.`
     }
     case 'aceptada':
-      // US-38: el locador puede dar de baja una aceptada para considerar a otro postulante.
-      return 'La aceptaste. Si cambiás de idea, podés cancelarla y aceptar a otro postulante.'
+      // US-38: el locador puede dar de baja una aceptada para considerar a otro postulante
+      // (si el back lo permite: `solicitudes.service#puedeCancelarAceptada`).
+      return sePuedeCancelarAceptada ? 'La aceptaste. Si cambiás de idea, podés cancelarla y aceptar a otro postulante.' : 'La aceptaste.'
     case 'rechazada':
       return 'La rechazaste. Puede volver a solicitar la propiedad mientras siga publicada.'
     case 'cancelada':
@@ -76,14 +77,15 @@ export function lineaRecibida(solicitud: Solicitud, aceptadaDeLaPropiedad: Solic
 // ─── Postulante (Mis solicitudes · 04) ──────────────────────────────────
 
 /** Qué pasó y qué sigue, para quien la envió. */
-export function lineaMiSolicitud(solicitud: Solicitud): string {
+export function lineaMiSolicitud(solicitud: Solicitud, sePuedeCancelarAceptada = true): string {
   const respondida = solicitud.respondedAt ? fechaCorta(solicitud.respondedAt) : null
   switch (solicitud.status) {
     case 'pendiente':
       return `Enviada ${enviadaHace(solicitud)} · el dueño todavía no respondió.`
     case 'aceptada':
       // · 04: "No puede cancelar sola: si se arrepiente, se lo dice y el dueño cierra la solicitud" (US-38).
-      return `${respondida ? `Te aceptaron el ${respondida}.` : 'Te aceptaron.'} Si te arrepentís, avisale al dueño: él puede cancelarla.`
+      // Mientras el back no deje cancelarla (`puedeCancelarAceptada`), no se promete que el dueño pueda.
+      return `${respondida ? `Te aceptaron el ${respondida}.` : 'Te aceptaron.'}${sePuedeCancelarAceptada ? ' Si te arrepentís, avisale al dueño: él puede cancelarla.' : ''}`
     case 'rechazada':
       return `${respondida ? `La rechazaron el ${respondida}.` : 'La rechazaron.'} Podés volver a solicitarla mientras siga publicada.`
     case 'cancelada':

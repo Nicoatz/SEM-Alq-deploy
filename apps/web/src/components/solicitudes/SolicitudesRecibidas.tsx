@@ -48,7 +48,7 @@ import {
 } from '@/lib/solicitudes/filtros'
 import { aceptadaDeLaPropiedad, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
 import { listarMisPropiedades } from '@/services/propiedades.service'
-import { AVISO_CANCELADAS_OCULTAS_MESSAGE, listarSolicitudesRecibidas, muestraCanceladas } from '@/services/solicitudes.service'
+import { AVISO_CANCELADAS_OCULTAS_MESSAGE, listarSolicitudesRecibidas, muestraCanceladas, puedeCancelarAceptada } from '@/services/solicitudes.service'
 import { DetallePostulante } from './DetallePostulante'
 import { useDetalleSolicitud } from './useDetalleSolicitud'
 import { GrupoPropiedad } from './GrupoPropiedad'
@@ -382,7 +382,11 @@ export function SolicitudesRecibidas() {
                   showIcon
                   className={styles.infoNote}
                   title="Aceptar una solicitud no rechaza las otras: siguen pendientes."
-                  description="Podés tener una sola aceptada por propiedad. Para aceptar a otra persona, primero cancelá la que aceptaste."
+                  description={
+                    puedeCancelarAceptada
+                      ? 'Podés tener una sola aceptada por propiedad. Para aceptar a otra persona, primero cancelá la que aceptaste.'
+                      : 'Podés tener una sola aceptada por propiedad.'
+                  }
                   data-testid="solicitudes-aviso-aceptar"
                 />
               )}

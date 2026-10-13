@@ -21,6 +21,7 @@
 import { Alert, Button } from 'antd'
 import { ConfirmActionModal } from '@rentar/ui'
 import type { ActorSolicitud } from '@/lib/validation/solicitud.rules'
+import { AVISO_ACEPTAR_SIN_BAJA_MESSAGE, avisaPorMail, puedeCancelarAceptada } from '@/services/solicitudes.service'
 import type { EstadoAccionSolicitud } from './useAccionSolicitud'
 import styles from './ModalAccionSolicitud.module.css'
 
@@ -55,7 +56,8 @@ function textoOtrasPendientes(cantidad: number, direccion: string): string {
 /**
  * Elige los textos. Se habla de vos y se dice qué pasa después (· 07).
  * "Le avisamos por mail": los mails los manda el back (US-37 al aceptar y
- * US-38 al cancelar); el front solo lo cuenta.
+ * US-38 al cancelar); el front solo lo cuenta, y solo si el back de verdad
+ * los manda (`avisaPorMail`; hoy no, HANDOFF §7).
  */
 function textosDe(estado: EstadoAccionSolicitud, actor: ActorSolicitud): TextosModal | null {
   const pedida = estado.pedida
@@ -66,7 +68,9 @@ function textosDe(estado: EstadoAccionSolicitud, actor: ActorSolicitud): TextosM
     case 'aceptar':
       return {
         title: `¿Aceptar la solicitud de ${nombre}?`,
-        description: 'Le avisamos por mail que aceptaste su solicitud. Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.',
+        description: avisaPorMail
+          ? 'Le avisamos por mail que aceptaste su solicitud. Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.'
+          : 'Mientras siga aceptada, no vas a poder aceptar otra de esta propiedad.',
         confirmLabel: 'Aceptar solicitud',
         cancelLabel: 'Volver',
         verbo: 'aceptar',
@@ -83,7 +87,7 @@ function textosDe(estado: EstadoAccionSolicitud, actor: ActorSolicitud): TextosM
       return actor === 'locador'
         ? {
             title: `¿Cancelar la solicitud aceptada de ${nombre}?`,
-            description: `Le avisamos por mail que la cancelaste. Después vas a poder aceptar a otro postulante${direccion ? ` de ${direccion}` : ''}.`,
+            description: `${avisaPorMail ? 'Le avisamos por mail que la cancelaste. ' : ''}Después vas a poder aceptar a otro postulante${direccion ? ` de ${direccion}` : ''}.`,
             confirmLabel: 'Cancelar solicitud',
             cancelLabel: 'Dejarla aceptada',
             verbo: 'cancelar',
@@ -122,6 +126,10 @@ export function ModalAccionSolicitud({ estado, actor, otrasPendientes = 0, testI
       onCancel={estado.cerrar}
       data-testid={pedida ? `${testIdPrefix}-${pedida.accion}-modal` : undefined}
     >
+      {/* Brechas 1 y 2 de HANDOFF §7: en real, aceptar no tiene vuelta atrás. Se avisa antes de confirmar. */}
+      {pedida?.accion === 'aceptar' && !puedeCancelarAceptada && (
+        <Alert type="warning" showIcon className={styles.modalAlert} title={AVISO_ACEPTAR_SIN_BAJA_MESSAGE} data-testid={`${testIdPrefix}-aceptar-aviso`} />
+      )}
       {/* El aviso de que las otras siguen vivas va acá, en el momento de decidir (· 03). */}
       {pedida?.accion === 'aceptar' && otrasPendientes > 0 && (
         <p className={styles.modalNote}>{textoOtrasPendientes(otrasPendientes, pedida.solicitud.property.address)}</p>

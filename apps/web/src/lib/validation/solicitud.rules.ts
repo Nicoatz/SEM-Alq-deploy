@@ -122,9 +122,16 @@ export function aceptadaDeLaPropiedad<T extends { status: EstadoSolicitud }>(sol
   return solicitudesDeLaPropiedad.find((item) => item.status === 'aceptada')
 }
 
-/** Por qué no se puede aceptar otra: el tooltip del botón y el 409 del service. */
-export function textoYaAceptaste(nombre: string): string {
-  return `Ya aceptaste a ${nombre}. Cancelá esa solicitud para aceptar otra.`
+/**
+ * Por qué no se puede aceptar otra: el tooltip del botón y el 409 del service.
+ * `sePuedeCancelar` es `false` mientras el back no deje al locador dar de baja
+ * una aceptada (`solicitudes.service#puedeCancelarAceptada`): ahí no se
+ * sugiere cancelarla.
+ */
+export function textoYaAceptaste(nombre: string, sePuedeCancelar = true): string {
+  return sePuedeCancelar
+    ? `Ya aceptaste a ${nombre}. Cancelá esa solicitud para aceptar otra.`
+    : `Ya aceptaste a ${nombre}. Por ahora no se puede aceptar otra solicitud para esta propiedad.`
 }
 
 // ─── Datos y legajo de la solicitud (US-35 actualizada) ─────────────────

@@ -97,6 +97,24 @@ export const avisaPorMail: boolean = USE_MOCKS
  */
 export const muestraCanceladas: boolean = USE_MOCKS
 
+/**
+ * `true` si el locador puede dar de baja una solicitud aceptada (US-38).
+ * TODO(backend): `PATCH /:id/cancelar` solo deja cancelar al postulante una
+ * pendiente; el locador recibe 404 (HANDOFF §7, brecha 1). En real se oculta
+ * el botón y se avisa (decisión del PO, tanda 5).
+ */
+export const puedeCancelarAceptada: boolean = USE_MOCKS
+
+/** El detalle de una aceptada, mientras {@link puedeCancelarAceptada} sea `false`. */
+export const AVISO_ACEPTADA_SIN_BAJA_MESSAGE = 'Por ahora no se puede dar de baja una solicitud aceptada.'
+
+/**
+ * El modal de aceptar, mientras {@link puedeCancelarAceptada} sea `false`:
+ * cubre las brechas 1 y 2 de HANDOFF §7 (no se puede dar de baja y el front
+ * sostiene "una sola aceptada por propiedad").
+ */
+export const AVISO_ACEPTAR_SIN_BAJA_MESSAGE = 'Una vez aceptada, por ahora no vas a poder darla de baja ni aceptar a otro postulante para esta propiedad.'
+
 /** Lo que se avisa en "Cerradas" mientras el back no devuelva las canceladas. */
 export const AVISO_CANCELADAS_OCULTAS_MESSAGE = 'Las solicitudes canceladas todavía no se muestran.'
 

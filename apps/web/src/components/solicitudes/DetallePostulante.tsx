@@ -30,6 +30,7 @@ import { DetailList, formatARS, StatusTag } from '@rentar/ui'
 import { enviadaHace, fechaLargaNumerica, lineaRecibida } from '@/lib/solicitudes/textos'
 import { iniciales } from '@/lib/utils/iniciales'
 import { formatoE123, GARANTIA_LABEL, OCUPACION_LABEL, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
+import { AVISO_ACEPTADA_SIN_BAJA_MESSAGE, puedeCancelarAceptada } from '@/services/solicitudes.service'
 import { AccionesSolicitudRecibida } from './FilaSolicitudRecibida'
 import styles from './SolicitudesRecibidas.module.css'
 import type { DetalleSolicitud } from './useDetalleSolicitud'
@@ -93,8 +94,15 @@ export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion }
       <div className={styles.detailBody}>
         <div className={styles.detailStatus}>
           <StatusTag domain="solicitud" status={solicitud.status} />
-          <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada)}</span>
+          <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada, puedeCancelarAceptada)}</span>
         </div>
+
+        {/* Brecha 1 de HANDOFF §7: en real, el botón "Cancelar solicitud" no está; se explica acá. */}
+        {solicitud.status === 'aceptada' && !puedeCancelarAceptada && (
+          <p className={styles.detailEmpty} data-testid="solicitudes-detalle-aviso-aceptada">
+            {AVISO_ACEPTADA_SIN_BAJA_MESSAGE}
+          </p>
+        )}
 
         {propiedad && (
           <div className={styles.detailField}>
