@@ -16,10 +16,10 @@
  * Supabase (brechas anotadas en HANDOFF §7): solo pasa tal cual un texto que
  * está en la lista de {@link TEXTOS_DEL_BACK_QUE_PASAN}.
  */
-import type { EstadoSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
+import type { EstadoSolicitud, GarantiaOfrecida, PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
 import { MENSAJES_SOLICITUD, SOLICITUD_MENSAJE_LARGO_MESSAGE } from '@/lib/validation/solicitud.rules'
-import type { CrearSolicitudRequest, SolicitudResponse } from '../shared/backend-dtos'
+import type { CrearSolicitudRequest, SolicitudPreparacionResponse, SolicitudResponse } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
 import { formatExactAddress } from './direccion'
 import { barrioDe } from './propiedad.adapter'
@@ -166,6 +166,37 @@ function datosSensibles(dto: SolicitudResponse): Pick<Solicitud, 'contact' | 'le
           guarantees: legajo.garantias,
         }
       : null,
+  }
+}
+
+// ─── Precarga del modal ─────────────────────────────────────────────────
+
+/**
+ * `SolicitudPreparacionResponse` → `PreparacionSolicitud` (US-35).
+ * - `perfil`: el `usuario` del back. El apellido vacío queda `''`; el DNI y
+ *   el teléfono, `null` si no los tiene. El teléfono llega sin el "+": lo
+ *   arregla `telefonoParaPrecargar` en el formulario.
+ * - `garantiasExigidas`: los ids de `garantias_exigidas`, traducidos con el
+ *   catálogo `garantias` que viene en la misma respuesta.
+ *   TODO(db): hoy llega siempre vacío (el esquema no guarda las exigidas).
+ * - `situaciones_ocupacionales` y `valores_iniciales` no se usan: el front
+ *   tiene sus etiquetas y sus valores por defecto (los mismos que el back).
+ */
+export function preparacionResponseToPreparacion(dto: SolicitudPreparacionResponse): PreparacionSolicitud {
+  const { usuario } = dto
+  const garantiasExigidas = dto.garantias_exigidas.flatMap((id): GarantiaOfrecida[] => {
+    const garantia = dto.garantias.find((item) => item.id === id)
+    return garantia ? [garantia.codigo] : []
+  })
+  return {
+    perfil: {
+      nombre: usuario.nombre,
+      apellido: usuario.apellido ?? '',
+      dni: usuario.dni || null,
+      telefono: usuario.telefono || null,
+      email: usuario.email,
+    },
+    garantiasExigidas,
   }
 }
 

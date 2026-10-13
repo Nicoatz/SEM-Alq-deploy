@@ -149,3 +149,26 @@ export interface SolicitudNueva {
   /** US-35: "se debe aceptar lo que implica el envío de la solicitud". Siempre `true`. */
   acceptedTerms: true
 }
+
+/**
+ * Los datos con que se abre el modal "Solicitar alquiler" (US-35
+ * actualizada): el perfil de quien solicita y las garantías que exige la
+ * propiedad. En real salen de `GET /api/v1/solicitudes/preparar`; en mock,
+ * de la cuenta del elenco y de la propiedad.
+ * NOTA de privacidad: viven solo mientras el modal está abierto; nunca se
+ * guardan en `localStorage` ni en `sessionStorage`.
+ */
+export interface PreparacionSolicitud {
+  /** El perfil de quien solicita. Nombre, apellido y DNI no se editan (US-35). */
+  perfil: {
+    nombre: string
+    apellido: string
+    /** DNI; `null` si el perfil no lo tiene. */
+    dni: string | null
+    /** Teléfono del perfil (puede venir sin el "+"); `null` si no tiene. */
+    telefono: string | null
+    email: string
+  }
+  /** Las garantías que exige la propiedad (vacío si no exige ninguna). */
+  garantiasExigidas: GarantiaOfrecida[]
+}

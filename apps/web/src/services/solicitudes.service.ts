@@ -23,8 +23,8 @@
  * (solicitudes pendientes del locador) y el modal de eliminar del detalle del
  * locador (US-04, `contarSolicitudesQueSeCancelan`).
  */
-import type { Solicitud, SolicitudNueva } from '@rentar/shared-types'
-import { solicitudes as solicitudesElenco, type SolicitudMock } from '@/lib/mocks'
+import type { PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
+import { solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
 import { hoy } from '@/lib/utils/fechas'
 import {
@@ -42,6 +42,8 @@ import {
   errorDeAccionSolicitud,
   errorDeEnviarSolicitud,
   errorDeListarSolicitudes,
+  errorDePrepararSolicitud,
+  preparacionResponseToPreparacion,
   PROPIEDAD_NO_SOLICITABLE_MESSAGE,
   PUBLICACION_NO_DISPONIBLE_MESSAGE,
   SOLICITUD_DUPLICADA_MESSAGE,
@@ -56,7 +58,7 @@ import {
 } from './adapters/solicitud.adapter'
 import { readPropiedadesMock, readPropiedadesMockConBorradas } from './propiedades.service'
 import { apiRequest } from './shared/apiClient'
-import type { FiltrosSolicitudesQuery, SolicitudResponse } from './shared/backend-dtos'
+import type { FiltrosSolicitudesQuery, SolicitudPreparacionResponse, SolicitudResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
@@ -75,6 +77,18 @@ export {
   SOLICITUD_YA_NO_ACEPTADA_MESSAGE,
   SOLICITUD_YA_NO_PENDIENTE_MESSAGE,
 } from './adapters/solicitud.adapter'
+
+// ─── Qué hace el back hoy (según el modo) ───────────────────────────────
+// NOTA: las pantallas leen estas constantes, nunca `USE_MOCKS`. En mock se
+// comporta como se acordó con el PO; en real, como el back de hoy (brechas en
+// `docs/HANDOFF-BACKEND.md` §7). Cuando el back las cierre, pasan a `true`.
+
+/**
+ * `true` si se avisa "Le avisamos por mail…" al enviar, aceptar o cancelar.
+ * TODO(backend): el back no manda los mails de US-35 (al locador), US-37 (al
+ * aceptar) ni US-38 (al cancelar): en real no se promete un mail que nadie manda.
+ */
+export const avisaPorMail: boolean = USE_MOCKS
 
 /** No se pudo guardar en `localStorage` (modo mock). */
 const MOCK_STORAGE_FULL_MESSAGE = 'No pudimos guardar la solicitud en este navegador. Tocá "Reiniciar datos de prueba" y probá de nuevo.'
@@ -139,6 +153,22 @@ function cambiarEstadoMock(solicitud: SolicitudMock, accion: AccionSolicitud, ac
   return aVista(actualizada, actor)
 }
 
+/**
+ * Rama mock: la propiedad que el usuario en sesión quiere solicitar, con las
+ * mismas respuestas que el back (`/preparar` y `POST`): `not_found` si no
+ * existe, `forbidden` si es suya y `validation` si ya no recibe solicitudes.
+ */
+function propiedadSolicitableMock(propertyId: string, userId: string): PropiedadMock {
+  const propiedad = readPropiedadesMock().find((item) => item.id === propertyId)
+  if (!propiedad) throw new ServiceError('not_found', PUBLICACION_NO_DISPONIBLE_MESSAGE)
+  if (propiedad.ownerId === userId) throw new ServiceError('forbidden', SOLICITUD_PROPIA_MESSAGE)
+  // Se solicita lo que aparece en /buscar: publicada o alquilada con fecha de disponibilidad.
+  if (propiedad.status !== 'publicada' && propiedad.status !== 'alquilada_publicada') {
+    throw new ServiceError('validation', PROPIEDAD_NO_SOLICITABLE_MESSAGE)
+  }
+  return propiedad
+}
+
 // ─── Helpers de la rama real ────────────────────────────────────────────
 
 /**
@@ -166,7 +196,49 @@ async function cambiarEstadoReal(solicitudId: string, accion: AccionSolicitud, v
   }
 }
 
-// ─── Enviar (US-35) ─────────────────────────────────────────────────────
+// ─── Enviar (US-35) ───────────────────────────────────────────────────────
+
+/**
+ * US-35 Enviar solicitud de alquiler (actualizada) — los datos con que se
+ * abre el modal: el perfil de quien solicita (nombre, apellido y DNI de solo
+ * lectura; teléfono y email para precargar) y las garantías que exige la
+ * propiedad. También dice, antes de completar nada, si la propiedad se puede
+ * solicitar.
+ * @backend GET /api/v1/solicitudes/preparar?id_inmueble=:id   (existe) → SolicitudPreparacionResponse
+ * @returns PreparacionSolicitud
+ * @throws {ServiceError}
+ *   - `forbidden`: es su propia publicación ({@link SOLICITUD_PROPIA_MESSAGE}).
+ *   - `not_found`: la propiedad no existe.
+ *   - `validation`: la propiedad ya no recibe solicitudes ({@link PROPIEDAD_NO_SOLICITABLE_MESSAGE}).
+ *   - `unauthorized`: sin sesión.
+ * NOTA: no detecta una solicitud duplicada (el back no lo hace en `/preparar`):
+ * eso lo dice el botón del detalle y, si se escapa, el 409 del envío.
+ * TODO(db): `garantiasExigidas` llega vacío en real (el esquema no las guarda).
+ */
+export async function prepararSolicitud(propertyId: string): Promise<PreparacionSolicitud> {
+  if (USE_MOCKS) {
+    await delay(300)
+    const userId = requireSessionUserId()
+    const propiedad = propiedadSolicitableMock(propertyId, userId)
+    const usuario = readUsuariosMock().find((item) => item.id === userId)
+    return {
+      perfil: {
+        nombre: usuario?.nombre ?? '',
+        apellido: usuario?.apellido ?? '',
+        dni: usuario?.dni ?? null,
+        telefono: usuario?.telefono ?? null,
+        email: usuario?.email ?? '',
+      },
+      garantiasExigidas: propiedad.requiredGuarantees ?? [],
+    }
+  }
+  try {
+    const dto = await apiRequest<SolicitudPreparacionResponse>('/solicitudes/preparar', { query: { id_inmueble: propertyId } })
+    return preparacionResponseToPreparacion(dto)
+  } catch (error) {
+    throw errorDePrepararSolicitud(error)
+  }
+}
 
 /**
  * US-35 Enviar solicitud de alquiler (actualizada) — el usuario en sesión
@@ -208,13 +280,7 @@ export async function enviarSolicitud(nueva: SolicitudNueva): Promise<Solicitud>
   if (USE_MOCKS) {
     await delay(800)
     const userId = requireSessionUserId()
-    const propiedad = readPropiedadesMock().find((item) => item.id === nueva.propertyId)
-    if (!propiedad) throw new ServiceError('not_found', PUBLICACION_NO_DISPONIBLE_MESSAGE)
-    if (propiedad.ownerId === userId) throw new ServiceError('forbidden', SOLICITUD_PROPIA_MESSAGE)
-    // Se solicita lo que aparece en /buscar: publicada o alquilada con fecha de disponibilidad.
-    if (propiedad.status !== 'publicada' && propiedad.status !== 'alquilada_publicada') {
-      throw new ServiceError('validation', PROPIEDAD_NO_SOLICITABLE_MESSAGE)
-    }
+    const propiedad = propiedadSolicitableMock(nueva.propertyId, userId)
     const errorGarantias = errorDeSolicitudNueva(normalizada, propiedad.requiredGuarantees ?? [])
     if (errorGarantias) throw new ServiceError('validation', errorGarantias)
     const existentes = readSolicitudesMock()
