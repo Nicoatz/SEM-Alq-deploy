@@ -192,6 +192,41 @@ router.patch(
 
 /**
  * @openapi
+ * /api/v1/solicitudes/{id}/cancelar:
+ *   patch:
+ *     summary: Cancelar una solicitud de alquiler
+ *     description: Cambia el estado de una solicitud pendiente a cancelada. No elimina físicamente el registro.
+ *     tags:
+ *       - Solicitudes
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Solicitud cancelada.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       404:
+ *         description: Solicitud inexistente o perteneciente a otro locatario.
+ *       409:
+ *         description: La solicitud ya no está pendiente.
+ */
+router.patch(
+  '/:id/cancelar',
+  authenticateGateway,
+  solicitudController.cancelar.bind(solicitudController)
+);
+
+/**
+ * @openapi
  * /api/v1/solicitudes/preparar:
  *   get:
  *     summary: Obtener datos para preparar una solicitud de alquiler

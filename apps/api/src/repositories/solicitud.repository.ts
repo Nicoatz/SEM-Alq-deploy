@@ -36,6 +36,10 @@ export interface ISolicitudRepository {
     idEstadoSolicitud: number,
     mensajeRechazo?: string | null
   ): Promise<SolicitudResponse | null>;
+  cancelarPorLocatario(
+    idSolicitud: number,
+    idLocatario: number
+  ): Promise<SolicitudResponse | null>;
   create(data: CreateSolicitudEntity): Promise<SolicitudDTO>;
   addGarantias(idSolicitud: number, garantiaIds: number[]): Promise<void>;
   findGarantiasByIds(garantiaIds: number[]): Promise<TipoGarantiaDTO[]>;
@@ -114,6 +118,7 @@ export class SolicitudRepository implements ISolicitudRepository {
       .from('solicitud')
       .select('id, id_estado_solicitud')
       .eq('id_locatario', idLocatario)
+      .neq('id_estado_solicitud', 4)
       .order('fecha_creacion', { ascending: false });
 
     if (filtros.inmueble !== undefined) {
@@ -151,6 +156,7 @@ export class SolicitudRepository implements ISolicitudRepository {
       .from('solicitud')
       .select('id, id_estado_solicitud')
       .eq('id_locador', idLocador)
+      .neq('id_estado_solicitud', 4)
       .order('fecha_creacion', { ascending: false });
 
     if (filtros.inmueble !== undefined) {
@@ -195,6 +201,28 @@ export class SolicitudRepository implements ISolicitudRepository {
       })
       .eq('id', idSolicitud)
       .eq('id_locador', idLocador)
+      .eq('id_estado_solicitud', 1)
+      .select('id')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return this.findByIdWithRelations(data.id);
+  }
+
+  async cancelarPorLocatario(
+    idSolicitud: number,
+    idLocatario: number
+  ): Promise<SolicitudResponse | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('solicitud')
+      .update({
+        id_estado_solicitud: 4,
+        fecha_respuesta: new Date().toISOString()
+      })
+      .eq('id', idSolicitud)
+      .eq('id_locatario', idLocatario)
       .eq('id_estado_solicitud', 1)
       .select('id')
       .maybeSingle();

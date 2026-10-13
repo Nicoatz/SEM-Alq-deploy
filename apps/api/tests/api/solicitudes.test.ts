@@ -110,6 +110,7 @@ class FakeSolicitudRepository implements ISolicitudRepository {
   lastLocatarioId: number | null = null;
   lastLocadorId: number | null = null;
   lastUpdate: { id: number; locador: number; estado: number; mensaje: string | null } | null = null;
+  lastCancel: { id: number; locatario: number } | null = null;
   lastFiltros: FiltrosMisSolicitudesDTO | undefined;
   readonly createdResponse: SolicitudResponse = {
     id: 100,
@@ -166,6 +167,17 @@ class FakeSolicitudRepository implements ISolicitudRepository {
       estado: estado === 2 ? 'aceptada' : 'rechazada',
       mensaje_rechazo: mensaje,
       fecha_respuesta: '2026-10-12T01:00:00.000Z'
+    };
+  }
+
+  async cancelarPorLocatario(id: number, locatario: number): Promise<SolicitudResponse | null> {
+    this.lastCancel = { id, locatario };
+    this.current.id_estado_solicitud = 4;
+    this.current.fecha_respuesta = '2026-10-12T01:00:00.000Z';
+    return {
+      ...this.createdResponse,
+      estado: 'cancelada',
+      fecha_respuesta: this.current.fecha_respuesta
     };
   }
 
@@ -480,5 +492,43 @@ describe('SolicitudService.aceptarSolicitud/rechazarSolicitud - US-37', () => {
     fixture.solicitudRepository.current.id_estado_solicitud = 2;
 
     await expectStatus(fixture.service.aceptarSolicitud(locador, inmueble.id), 409);
+  });
+});
+
+describe('SolicitudService.cancelarSolicitud - US-38', () => {
+  it('cancela una solicitud pendiente del locatario autenticado', async () => {
+    const fixture = serviceFixture();
+
+    const resultado = await fixture.service.cancelarSolicitud(usuario, inmueble.id);
+
+    expect(resultado.estado).toBe('cancelada');
+    expect(fixture.solicitudRepository.lastCancel).toEqual({
+      id: inmueble.id,
+      locatario: usuario.id
+    });
+    expect(fixture.solicitudRepository.current.id_estado_solicitud).toBe(4);
+  });
+
+  it('rechaza cancelar una solicitud de otro locatario', async () => {
+    const fixture = serviceFixture();
+    fixture.solicitudRepository.current.id_locatario = 999;
+
+    await expectStatus(fixture.service.cancelarSolicitud(usuario, inmueble.id), 404);
+  });
+
+  it('rechaza cancelar una solicitud que ya no está pendiente', async () => {
+    const fixture = serviceFixture();
+    fixture.solicitudRepository.current.id_estado_solicitud = 2;
+
+    await expectStatus(fixture.service.cancelarSolicitud(usuario, inmueble.id), 409);
+  });
+
+  it('rechaza cancelar sin sesión', async () => {
+    const { service } = serviceFixture();
+
+    await expectStatus(
+      service.cancelarSolicitud(null as unknown as AuthenticatedUser, inmueble.id),
+      401
+    );
   });
 });

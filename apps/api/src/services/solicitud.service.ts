@@ -300,6 +300,37 @@ export class SolicitudService {
     return this.cambiarEstadoPorLocador(user, idSolicitud, 3, mensajeRechazo);
   }
 
+  async cancelarSolicitud(
+    user: AuthenticatedUser,
+    idSolicitud: number
+  ): Promise<SolicitudResponse> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para cancelar la solicitud.', 401);
+    }
+
+    if (!Number.isInteger(idSolicitud) || idSolicitud < 1) {
+      this.throwValidationError('El identificador de la solicitud no es válido.', 400);
+    }
+
+    const solicitud = await this.solicitudRepo.findById(idSolicitud);
+
+    if (!solicitud || solicitud.id_locatario !== user.id) {
+      this.throwValidationError('La solicitud no existe o no pertenece al locatario.', 404);
+    }
+
+    if (solicitud.id_estado_solicitud !== 1) {
+      this.throwValidationError('Solo se pueden cancelar solicitudes pendientes.', 409);
+    }
+
+    const cancelada = await this.solicitudRepo.cancelarPorLocatario(idSolicitud, user.id);
+
+    if (!cancelada) {
+      this.throwValidationError('La solicitud ya no está pendiente.', 409);
+    }
+
+    return cancelada;
+  }
+
   private async cambiarEstadoPorLocador(
     user: AuthenticatedUser,
     idSolicitud: number,

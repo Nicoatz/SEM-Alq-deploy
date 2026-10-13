@@ -70,6 +70,32 @@ export class SolicitudController {
     }
   }
 
+  async cancelar(
+    req: Request,
+    res: Response<ApiResponse<SolicitudResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idSolicitud = this.parseSolicitudId(req);
+
+      if (idSolicitud === null) {
+        res.status(400).json({ success: false, error: 'El identificador de la solicitud no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const solicitud = await solicitudService.cancelarSolicitud(user, idSolicitud);
+
+      res.status(200).json({
+        success: true,
+        message: 'Solicitud cancelada exitosamente.',
+        data: solicitud
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   private parseFiltros(
     req: Request,
     res: Response<ApiResponse<SolicitudResponse[]>>
