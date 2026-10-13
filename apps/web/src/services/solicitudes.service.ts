@@ -90,6 +90,16 @@ export {
  */
 export const avisaPorMail: boolean = USE_MOCKS
 
+/**
+ * `true` si las listas traen las solicitudes canceladas (pestaña "Cerradas").
+ * TODO(backend): `/mias` y `/recibidas` las excluyen siempre (`neq estado 4`),
+ * también con `?estado=cancelada` (HANDOFF §7, brecha 3).
+ */
+export const muestraCanceladas: boolean = USE_MOCKS
+
+/** Lo que se avisa en "Cerradas" mientras el back no devuelva las canceladas. */
+export const AVISO_CANCELADAS_OCULTAS_MESSAGE = 'Las solicitudes canceladas todavía no se muestran.'
+
 /** No se pudo guardar en `localStorage` (modo mock). */
 const MOCK_STORAGE_FULL_MESSAGE = 'No pudimos guardar la solicitud en este navegador. Tocá "Reiniciar datos de prueba" y probá de nuevo.'
 
@@ -327,6 +337,9 @@ export async function enviarSolicitud(nueva: SolicitudNueva): Promise<Solicitud>
  * NOTA: devuelve la más reciente en cualquier estado; quien llama decide con
  * `esSolicitudActiva` si bloquea una nueva (una rechazada o cancelada no bloquea).
  * NOTA: sin sesión devuelve `null` (no hay "mi solicitud"), no un error.
+ * NOTA: en real, `/mias` no trae las canceladas (HANDOFF §7, brecha 3): si la
+ * última fue cancelada, devuelve la anterior o `null`. Da lo mismo para el
+ * botón, porque una cancelada no bloquea una nueva solicitud.
  * TODO(backend): alternativa más barata, que `GET /inmuebles/disponibles/:id`
  * devuelva `mi_solicitud` cuando llega con token (ver `HANDOFF-BACKEND.md` §7, US-41).
  */
@@ -399,6 +412,8 @@ export async function listarSolicitudesRecibidas(): Promise<Solicitud[]> {
  * @returns cantidad (0 sin sesión)
  * NOTA: el front cuenta y excluye la propiedad actual (decisión del PO), así
  * no hace falta una ruta solo para el número.
+ * NOTA: lo que se descarta de `/mias` (datos sensibles propios) no se usa:
+ * de cada item solo se lee `inmueble.id`.
  */
 export async function contarMisSolicitudesPendientes(excluirPropiedadId?: string): Promise<number> {
   if (USE_MOCKS) {
