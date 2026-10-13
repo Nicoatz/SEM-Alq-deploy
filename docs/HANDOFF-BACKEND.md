@@ -491,7 +491,7 @@ real), `services/adapters/solicitud.adapter.ts` (DTOs, vistas y errores traducid
 todavía no hace se apaga en real con constantes del service (`avisaPorMail`, `puedeCancelarAceptada`,
 `muestraCanceladas`, todas `= USE_MOCKS`); ninguna pantalla lee `USE_MOCKS`.
 
-**Brechas del back (13/10).** Archivo y línea en `develop` 0060e0a.
+**Brechas del back (13/10).** Archivo y línea en `develop` 0060e0a (la 17, en el front de `feature/conexion-solicitudes`).
 
 | # | Brecha | Dónde | Qué hace el front mientras tanto | Dueño |
 |---|---|---|---|---|
@@ -511,6 +511,7 @@ todavía no hace se apaga en real con constantes del service (`avisaPorMail`, `p
 | 14 | **`estado` es texto libre** (`estado_solicitud.nombre`), no un enum. | `apps/api/src/dtos/solicitud.dto.ts` (`SolicitudResponse.estado`) | El adaptador lo valida: en una lista descarta la fila con `console.warn` (solo id y estado); en una respuesta de un elemento, error `server`. | backend |
 | 15 | **`garantias_exigidas` siempre vacío** en `/preparar`: el esquema no guarda las garantías que exige el inmueble. | `apps/api/src/services/solicitud.service.ts:95` | En real ninguna propiedad exige garantías (ya anotado para el Sprint 3, abajo). | db / backend |
 | 16 | **`mensaje_rechazo`** existe en el back (`PATCH /rechazar`, opcional, ≤ 200). | `apps/api/src/services/solicitud.service.ts` (`rechazarSolicitud`) | No se usa: sin motivo de rechazo (decisión del PO, tanda 5). El `PATCH` va sin cuerpo. | — |
+| 17 | **En real, el dueño ve "Solicitar alquiler" en su propia propiedad**: `GET /inmuebles/disponibles/:id` no trae `id_locador` (ni el dueño), así que el front no puede saber que es suya (en mock el botón sale deshabilitado, "es tuya"). Visto en el recorrido real del 13/10 con el usuario 20 sobre el inmueble 8. | `apps/web/src/components/detalle-propiedad/estadoAccion.ts:56` (necesita `propiedad.owner`); `apps/web/src/services/adapters/propiedad.adapter.ts:427` (`owner: null`) | Lo frena el 403 de `/preparar`: el modal muestra "No podés solicitar tu propia publicación." antes del formulario y no se crea nada. No se arregla en esta tanda (decisión del PO). | backend |
 
 **Cómo se resolvió lo que no es brecha (tanda 5)**
 
@@ -607,6 +608,9 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Archivos del bucket `fotos-propiedades` del inmueble 24: 3 PNG grises de 1×1 px (67 bytes), sin nada identificable. Siguen públicos después de la baja (§10, punto 20) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/3a0620ed-b680-412d-bf4a-560df0d8c48c.png`, `3e12c119-0702-46ec-a9a2-597c2f5c884f/032451de-b9a9-4d97-a2ce-3a24a3883570.png` y `3e12c119-0702-46ec-a9a2-597c2f5c884f/178df7bc-bfcf-4b76-a186-69e0898f4992.png` | `storage.objects` |
 | Inmueble "[TEST] Prueba de editar (US-03, 11/10) - no usar" ("Calle de Prueba Editar 777, 2° A", Güemes, departamento, **pausado**, `locador@rentar.com`). Editado en el recorrido de US-03: precio 320.000 (el contrato quedó en 300.000), sin tags | inmueble **25**; `foto_inmueble` **79, 80 y 81** (las 76 a 78 las reemplazó el `PUT`); `contrato` **22**; `medio_pago_x_contrato` **39** | cada tabla |
 | Archivos del bucket `fotos-propiedades` del inmueble 25: 4 PNG de color liso de 64×48 px, sin nada identificable. Uno (`8b74d05b-…`) ya no está en `foto_inmueble`: se sacó en la edición y quedó en el bucket (§10, punto 27) | `3e12c119-0702-46ec-a9a2-597c2f5c884f/c6d06f89-6e92-45ef-be07-991e923a4299.png`, `…/1800e362-9907-4700-800b-9973d62b8d4e.png`, `…/8fac0b62-1476-41f3-aa21-61a62c43fa36.png` y `…/8b74d05b-db0e-43af-b924-388002d47a2d.png` | `storage.objects` |
+| Solicitud **4** (A): usuario **16** sobre el inmueble **8**, **cancelada** por el postulante. Mensaje "[TEST tanda 5] Solicitud A del usuario 16 - borrar". Recorrido real de la tanda 5 (13/10, `feature/conexion-solicitudes`) | `solicitud` **4** (sin filas en `solicitud_x_garantia`) | `solicitud` |
+| Solicitud **5** (B): usuario **16** sobre el inmueble **8**, **aceptada** por el locador (usuario 20). Mensaje "[TEST tanda 5] Solicitud B del usuario 16 - borrar". **Deja el inmueble 8 con una aceptada que no se puede dar de baja** (§7, "US-35 a US-38", brechas 1 y 2): el equipo ya está avisado | `solicitud` **5** (sin filas en `solicitud_x_garantia`) | `solicitud` |
+| Solicitud **6** (C): usuario **12** sobre el inmueble **8**, **rechazada** por el locador (usuario 20). Mensaje "[TEST tanda 5] Solicitud C del usuario 12 - borrar" | `solicitud` **6** (sin filas en `solicitud_x_garantia`) | `solicitud` |
 
 ## 10. Observaciones para backend
 
