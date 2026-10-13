@@ -10,16 +10,16 @@
  */
 import type { Solicitud } from '@rentar/shared-types'
 import type { PropiedadMock, SolicitudMock, UsuarioMock } from '@/lib/mocks'
-import type { ActorSolicitud } from '@/lib/validation/solicitud.rules'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
 import { formatAddress, mainPhotoSrc } from './propiedad-mock.adapter'
+import type { VistaSolicitud } from './solicitud.adapter'
 
 /**
  * `SolicitudMock` → `Solicitud`. Con las mismas reglas que la rama real
  * (`solicitud.adapter.ts#solicitudResponseToSolicitud`): dirección exacta
  * (con sesión, decisión del PO con la US-35 actualizada), placeholder si la
- * propiedad no tiene foto, y DNI, contacto y legajo solo en la vista del
- * locador (`vista`). `postulante` es la cuenta de quien la envió, para el DNI.
+ * propiedad no tiene foto, y DNI, contacto y legajo solo en el detalle del
+ * postulante (`vista === 'locador-detalle'`). `postulante` es la cuenta de quien la envió, para el DNI.
  * Las enviadas antes de esta tanda no tienen legajo: `null` ("Sin datos de
  * legajo").
  * `propiedad` es `null` si ya no existe (por ejemplo, se reiniciaron los
@@ -28,12 +28,12 @@ import { formatAddress, mainPhotoSrc } from './propiedad-mock.adapter'
 export function solicitudMockToSolicitud(
   solicitud: SolicitudMock,
   propiedad: PropiedadMock | null,
-  vista: ActorSolicitud,
+  vista: VistaSolicitud,
   postulante: UsuarioMock | null = null,
 ): Solicitud {
   // La regla de la dirección está explicada en `solicitud.adapter.ts`.
   const address = propiedad ? formatAddress(propiedad) : ''
-  const paraElLocador = vista === 'locador'
+  const paraElLocador = vista === 'locador-detalle'
   return {
     id: solicitud.id,
     property: {

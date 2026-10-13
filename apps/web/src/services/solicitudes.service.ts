@@ -115,13 +115,14 @@ export function readSolicitudesMock(): SolicitudMock[] {
 
 /**
  * `SolicitudMock` → `Solicitud`, buscando su propiedad en el elenco. `vista`
- * elige la dirección: exacta para el locador, aproximada para el postulante.
+ * dice cuánto se ve, como en la rama real (`VistaSolicitud`): DNI, contacto y
+ * legajo solo en el detalle del postulante (`'locador-detalle'`).
  */
-function aVista(solicitud: SolicitudMock, vista: ActorSolicitud): Solicitud {
+function aVista(solicitud: SolicitudMock, vista: VistaSolicitud): Solicitud {
   // Con las eliminadas (US-04, borrado lógico): la solicitud cancelada sigue mostrando la dirección.
   const propiedad = readPropiedadesMockConBorradas().find((item) => item.id === solicitud.propertyId) ?? null
   // La cuenta del postulante, para el DNI que ve el locador (US-35 actualizada).
-  const postulante = vista === 'locador' ? (readUsuariosMock().find((item) => item.id === solicitud.applicantUserId) ?? null) : null
+  const postulante = vista === 'locador-detalle' ? (readUsuariosMock().find((item) => item.id === solicitud.applicantUserId) ?? null) : null
   return solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
 }
 
@@ -160,7 +161,8 @@ function cambiarEstadoMock(solicitud: SolicitudMock, accion: AccionSolicitud, ac
   }
   const actualizada: SolicitudMock = { ...solicitud, status: transicion.hacia, respondedAt: ahoraMock() }
   if (!saveMockRecord('solicitudes', actualizada)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-  return aVista(actualizada, actor)
+  // Como la rama real: la fila de la lista, sin datos sensibles (el detalle se vuelve a pedir).
+  return aVista(actualizada, actor === 'locador' ? 'locador-lista' : 'postulante')
 }
 
 /**
@@ -385,7 +387,8 @@ export async function listarMisSolicitudes(): Promise<Solicitud[]> {
  * sus propiedades (`/panel/solicitudes`), de la más nueva a la más vieja.
  * @backend GET /api/v1/solicitudes/recibidas   (existe) → SolicitudResponse[]
  *          Acepta `?estado=pendiente` (lo usa el panel, `panel.service#getSolicitudesPendientes`).
- * @returns Solicitud[] con la dirección EXACTA (son sus propias propiedades).
+ * @returns Solicitud[] con la dirección EXACTA (son sus propias propiedades),
+ *   SIN DNI, contacto ni legajo: esos datos los trae {@link getSolicitudRecibida}.
  * @throws {ServiceError} `unauthorized` sin sesión; `forbidden` si la cuenta no es locadora.
  */
 export async function listarSolicitudesRecibidas(): Promise<Solicitud[]> {
@@ -397,10 +400,39 @@ export async function listarSolicitudesRecibidas(): Promise<Solicitud[]> {
     return readSolicitudesMock()
       .filter((item) => propias.has(item.propertyId))
       .sort(masNuevasPrimero)
-      .map((item) => aVista(item, 'locador'))
+      .map((item) => aVista(item, 'locador-lista'))
   }
   const items = await listarSolicitudesReales('/solicitudes/recibidas')
-  return solicitudesResponseToSolicitudes(items, 'locador-detalle')
+  return solicitudesResponseToSolicitudes(items, 'locador-lista')
+}
+
+/**
+ * US-36 Consultar solicitudes — una solicitud recibida por el locador en
+ * sesión, CON los datos del postulante (DNI, contacto y legajo, US-35
+ * actualizada), para el detalle del postulante. La lista no los trae: los
+ * datos sensibles van solo en el detalle (regla del PO, tanda 5).
+ * @backend GET /api/v1/solicitudes/recibidas?inmueble=:propertyId   (existe · rol locador)
+ *          Se usa como PUENTE: trae las solicitudes de esa propiedad y se busca
+ *          la pedida, como `getMiPropiedad` con `/mis-alquileres`. La ruta
+ *          definitiva es GET /api/v1/solicitudes/:id (no existe — propuesto).
+ * @param propertyId la propiedad de la solicitud (la fila ya la tiene): achica el puente.
+ * @returns Solicitud con `applicant.dni`, `contact` y `legajo`.
+ * @throws {ServiceError} `not_found` si no está entre las recibidas de esa
+ *   propiedad; `unauthorized` sin sesión; `forbidden` sin rol locador.
+ * TODO(backend): crear `GET /solicitudes/:id` (404 si no es del locador ni
+ * del postulante) y pedir solo esa.
+ */
+export async function getSolicitudRecibida(id: string, propertyId: string): Promise<Solicitud> {
+  if (USE_MOCKS) {
+    await delay(300)
+    const solicitud = solicitudRecibidaMock(id)
+    if (solicitud.propertyId !== propertyId) throw new ServiceError('not_found', SOLICITUD_NO_ENCONTRADA_MESSAGE)
+    return aVista(solicitud, 'locador-detalle')
+  }
+  const items = await listarSolicitudesReales('/solicitudes/recibidas', { inmueble: propertyId })
+  const item = items.find((solicitud) => String(solicitud.id) === id)
+  if (!item) throw new ServiceError('not_found', SOLICITUD_NO_ENCONTRADA_MESSAGE)
+  return solicitudResponseToSolicitud(item, 'locador-detalle')
 }
 
 /**
@@ -498,7 +530,7 @@ export async function aceptarSolicitud(solicitudId: string): Promise<Solicitud> 
     if (aceptada && solicitud.status === 'pendiente') throw new ServiceError('conflict', textoYaAceptaste(aceptada.applicantName))
     return cambiarEstadoMock(solicitud, 'aceptar', 'locador')
   }
-  return cambiarEstadoReal(solicitudId, 'aceptar', 'locador-detalle')
+  return cambiarEstadoReal(solicitudId, 'aceptar', 'locador-lista')
 }
 
 /**
@@ -516,7 +548,7 @@ export async function rechazarSolicitud(solicitudId: string): Promise<Solicitud>
     await delay()
     return cambiarEstadoMock(solicitudRecibidaMock(solicitudId), 'rechazar', 'locador')
   }
-  return cambiarEstadoReal(solicitudId, 'rechazar', 'locador-detalle')
+  return cambiarEstadoReal(solicitudId, 'rechazar', 'locador-lista')
 }
 
 // ─── Cancelar (US-38 y sin US en Sprint 0) ──────────────────────────────

@@ -23,8 +23,9 @@
  * - Aceptar no rechaza a las demás: siguen pendientes.
  * - El locador ve la dirección EXACTA (son sus propiedades).
  *
- * De dónde saca los datos: `listarSolicitudesRecibidas` y, para el vacío,
- * `listarMisPropiedades`. Quién lo usa: `app/(app)/panel/solicitudes/page.tsx`.
+ * De dónde saca los datos: `listarSolicitudesRecibidas` (la lista, sin datos
+ * sensibles), `getSolicitudRecibida` (los datos del postulante de la abierta,
+ * vía `useDetalleSolicitud`) y, para el vacío, `listarMisPropiedades`. Quién lo usa: `app/(app)/panel/solicitudes/page.tsx`.
  */
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Alert, Button, Drawer, Select, Skeleton } from 'antd'
@@ -47,8 +48,9 @@ import {
 } from '@/lib/solicitudes/filtros'
 import { aceptadaDeLaPropiedad, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
 import { listarMisPropiedades } from '@/services/propiedades.service'
-import { listarSolicitudesRecibidas } from '@/services/solicitudes.service'
+import { AVISO_CANCELADAS_OCULTAS_MESSAGE, listarSolicitudesRecibidas, muestraCanceladas } from '@/services/solicitudes.service'
 import { DetallePostulante } from './DetallePostulante'
+import { useDetalleSolicitud } from './useDetalleSolicitud'
 import { GrupoPropiedad } from './GrupoPropiedad'
 import { ModalAccionSolicitud } from './ModalAccionSolicitud'
 import { PestaniasSolicitudes } from './PestaniasSolicitudes'
@@ -229,12 +231,17 @@ export function SolicitudesRecibidas() {
   // En escritorio, si no eligió ninguna, se muestra la primera de la lista.
   const seleccionada = visibles.find((item) => item.id === seleccionadaId) ?? visibles[0] ?? null
   const enDrawer = todas.find((item) => item.id === seleccionadaId) ?? null
+  // Los datos del postulante de la solicitud abierta (al costado o en el Drawer): la lista no los trae.
+  const abierta = carga.status !== 'listo' ? null : esMovil ? (drawerAbierto ? enDrawer : null) : seleccionada
+  const detalle = useDetalleSolicitud(abierta)
 
   // ─── Acciones (US-37, US-38) ────────────────────────────────────────
   const accion = useAccionSolicitud({
     onExito: (actualizada) => {
       setConflicto(null)
+      // La fila se actualiza con la respuesta (sin recargar la lista) y el detalle abierto se vuelve a pedir.
       setCambios((actual) => ({ ...actual, [actualizada.id]: { status: actualizada.status, respondedAt: actualizada.respondedAt } }))
+      if (actualizada.id === abierta?.id) detalle.recargar()
     },
     onConflicto: (message, pedida) => {
       // · 06: el error dice qué pasó y la lista se refresca sola.
@@ -336,6 +343,13 @@ export function SolicitudesRecibidas() {
             </div>
           </div>
 
+          {/* Brecha del back (HANDOFF §7): las canceladas no llegan. */}
+          {pestania === 'cerradas' && !muestraCanceladas && (
+            <p className={styles.avisoPestania} data-testid="solicitudes-cerradas-aviso">
+              {AVISO_CANCELADAS_OCULTAS_MESSAGE}
+            </p>
+          )}
+
           <div className={styles.layout}>
             <div className={styles.list}>
               {cargando ? (
@@ -377,7 +391,7 @@ export function SolicitudesRecibidas() {
             {/* Detalle al costado (escritorio). En móvil va en el Drawer. */}
             {!esMovil && (
               <aside className={styles.aside}>
-                {seleccionada && !cargando && <DetallePostulante solicitud={seleccionada} otraAceptada={otraAceptadaDe(seleccionada)} onAccion={pedirAccion} />}
+                {seleccionada && !cargando && <DetallePostulante solicitud={seleccionada} detalle={detalle} otraAceptada={otraAceptadaDe(seleccionada)} onAccion={pedirAccion} />}
               </aside>
             )}
           </div>
@@ -394,7 +408,7 @@ export function SolicitudesRecibidas() {
         closable={{ 'aria-label': 'Volver a la lista' }}
         data-testid="solicitudes-detalle-drawer"
       >
-        {enDrawer && <DetallePostulante solicitud={enDrawer} otraAceptada={otraAceptadaDe(enDrawer)} onAccion={pedirAccion} />}
+        {enDrawer && <DetallePostulante solicitud={enDrawer} detalle={detalle} otraAceptada={otraAceptadaDe(enDrawer)} onAccion={pedirAccion} />}
       </Drawer>
 
       <ModalAccionSolicitud estado={accion} actor="locador" otrasPendientes={otrasPendientes} testIdPrefix="solicitudes" />

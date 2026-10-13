@@ -15,7 +15,8 @@
  * Desde la US-35 actualizada, también los "Datos del postulante" (· 02,
  * ficha del postulante): contacto, DNI, ocupación, ingresos, convivientes,
  * mascotas y garantías. Son datos sensibles: van solo acá, nunca en la
- * lista. Una solicitud enviada antes de la US-35 actualizada no los trae:
+ * lista. Por eso la lista no los trae y llegan aparte, en `detalle`
+ * (`useDetalleSolicitud` → `getSolicitudRecibida`), con su carga y su error. Una solicitud enviada antes de la US-35 actualizada no los trae:
  * "Sin datos de legajo".
  * NOTA: el diseño suma la antigüedad laboral, la relación ingreso/alquiler
  * y la mudanza estimada; la US no los pide (decisión del PO): no van.
@@ -23,7 +24,7 @@
  * Quién lo usa: `SolicitudesRecibidas`.
  */
 import type { ReactNode } from 'react'
-import { Avatar } from 'antd'
+import { Avatar, Button, Skeleton } from 'antd'
 import type { Solicitud } from '@rentar/shared-types'
 import { DetailList, formatARS, StatusTag } from '@rentar/ui'
 import { enviadaHace, fechaLargaNumerica, lineaRecibida } from '@/lib/solicitudes/textos'
@@ -31,10 +32,14 @@ import { iniciales } from '@/lib/utils/iniciales'
 import { formatoE123, GARANTIA_LABEL, OCUPACION_LABEL, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
 import { AccionesSolicitudRecibida } from './FilaSolicitudRecibida'
 import styles from './SolicitudesRecibidas.module.css'
+import type { DetalleSolicitud } from './useDetalleSolicitud'
 
 /** Props de {@link DetallePostulante}. */
 interface DetallePostulanteProps {
+  /** La fila de la lista (estado al día, sin datos sensibles). */
   solicitud: Solicitud
+  /** Los datos del postulante de esta solicitud (`useDetalleSolicitud`). */
+  detalle: DetalleSolicitud
   /** La aceptada de la misma propiedad, si es otra. */
   otraAceptada: Solicitud | undefined
   onAccion: (accion: AccionSolicitud, solicitud: Solicitud) => void
@@ -67,9 +72,9 @@ function filasLegajo(solicitud: Solicitud): { label: string; value: ReactNode }[
 }
 
 /** El detalle de la solicitud elegida. */
-export function DetallePostulante({ solicitud, otraAceptada, onAccion }: DetallePostulanteProps) {
+export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion }: DetallePostulanteProps) {
   const propiedad = [solicitud.property.address, solicitud.property.neighborhoodName].filter(Boolean).join(' · ')
-  const legajo = filasLegajo(solicitud)
+  const legajo = detalle.solicitud ? filasLegajo(detalle.solicitud) : null
 
   return (
     <article className={styles.detail} aria-label={`Solicitud de ${solicitud.applicant.fullName}`} data-testid="solicitudes-detalle">
@@ -101,7 +106,18 @@ export function DetallePostulante({ solicitud, otraAceptada, onAccion }: Detalle
         {/* Datos del postulante (US-35 actualizada): solo en el detalle, nunca en la lista. */}
         <div className={styles.detailField}>
           <span className={styles.detailLabel}>Datos del postulante</span>
-          {legajo ? (
+          {detalle.estado === 'cargando' || detalle.estado === 'sin_solicitud' ? (
+            <div data-testid="solicitudes-detalle-cargando">
+              <Skeleton active title={false} paragraph={{ rows: 4 }} />
+            </div>
+          ) : detalle.estado === 'error' ? (
+            <div className={styles.detailError} role="alert" data-testid="solicitudes-detalle-error">
+              <span className={styles.detailEmpty}>{detalle.message}</span>
+              <Button size="small" onClick={detalle.recargar} data-testid="solicitudes-detalle-reintentar">
+                Reintentar
+              </Button>
+            </div>
+          ) : legajo ? (
             <div className={styles.legajo} data-testid="solicitudes-detalle-legajo">
               <DetailList items={legajo} column={1} />
             </div>
