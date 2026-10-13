@@ -23,7 +23,7 @@
  * (solicitudes pendientes del locador) y el modal de eliminar del detalle del
  * locador (US-04, `contarSolicitudesQueSeCancelan`).
  */
-import type { PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
+import type { EstadoSolicitud, PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
 import { solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
 import { hoy } from '@/lib/utils/fechas'
@@ -403,24 +403,27 @@ export async function listarMisSolicitudes(): Promise<Solicitud[]> {
 /**
  * US-36 Consultar solicitudes — las que recibió el locador en sesión sobre
  * sus propiedades (`/panel/solicitudes`), de la más nueva a la más vieja.
- * @backend GET /api/v1/solicitudes/recibidas   (existe) → SolicitudResponse[]
- *          Acepta `?estado=pendiente` (lo usa el panel, `panel.service#getSolicitudesPendientes`).
+ * @backend GET /api/v1/solicitudes/recibidas   (existe · rol locador) → SolicitudResponse[]
+ *          Con `estado`, `?estado=<estado>` (el panel pide las pendientes,
+ *          `panel.service#getSolicitudesPendientes`).
+ * @param filtros.estado solo las de ese estado. NOTA: `cancelada` devuelve
+ *   vacío en real (HANDOFF §7, brecha 3).
  * @returns Solicitud[] con la dirección EXACTA (son sus propias propiedades),
  *   SIN DNI, contacto ni legajo: esos datos los trae {@link getSolicitudRecibida}.
  * @throws {ServiceError} `unauthorized` sin sesión; `forbidden` si la cuenta no es locadora.
  */
-export async function listarSolicitudesRecibidas(): Promise<Solicitud[]> {
+export async function listarSolicitudesRecibidas(filtros: { estado?: EstadoSolicitud } = {}): Promise<Solicitud[]> {
   if (USE_MOCKS) {
     await delay()
     const userId = requireSessionUserId()
     // Con las eliminadas: el locador conserva el historial (canceladas al eliminar, US-04).
     const propias = new Set(readPropiedadesMockConBorradas().filter((item) => item.ownerId === userId).map((item) => item.id))
     return readSolicitudesMock()
-      .filter((item) => propias.has(item.propertyId))
+      .filter((item) => propias.has(item.propertyId) && (!filtros.estado || item.status === filtros.estado))
       .sort(masNuevasPrimero)
       .map((item) => aVista(item, 'locador-lista'))
   }
-  const items = await listarSolicitudesReales('/solicitudes/recibidas')
+  const items = await listarSolicitudesReales('/solicitudes/recibidas', { estado: filtros.estado })
   return solicitudesResponseToSolicitudes(items, 'locador-lista')
 }
 
