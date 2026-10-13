@@ -16,11 +16,12 @@ mocks ni llama a `fetch` directo**: llaman a una función de un service y recibe
 | | `registrarPropiedad`, `subirFotoPropiedad` (Supabase Storage, bucket `fotos-propiedades`) | US-01 |
 | | `cambiarEstadoPublicacion` (lista pero sin usar: es del sprint del detalle) | — |
 | | `getMiPropiedad` (`GET /mis-alquileres/:id`, propuesto; hoy, puente con `GET /mis-alquileres` + buscar el id), `actualizarPropiedad(id, guardada, editada)` (`PUT /inmuebles/:id`, conectado: manda solo lo que cambió respecto de la precarga y solo datos del inmueble; errores en `propiedad.adapter.ts#errorDeActualizarPropiedad`) y `eliminarPropiedad` (`DELETE /inmuebles/:id`, conectado: baja lógica; errores en `propiedad.adapter.ts#errorDeEliminarPropiedad`). En mock, actualizar y eliminar escriben en el mockStore con las mismas reglas que el back (actualizar no toca el contrato ni una alquilada; eliminar es lógico y cancela las solicitudes activas) | US-03, US-04 |
-| `solicitudes.service.ts` | `enviarSolicitud` (con contacto, legajo y aceptación; valida con `errorDeSolicitudNueva`), `getMiSolicitudParaPropiedad`, `contarMisSolicitudesPendientes` (rutas propuestas, no existen) | US-35 |
-| | `listarMisSolicitudes`, `listarSolicitudesRecibidas` | US-36 |
-| | `aceptarSolicitud`, `rechazarSolicitud` | US-37 |
-| | `contarSolicitudesQueSeCancelan`: para el modal de eliminar (US-04); en real, 0 (el back no tiene el módulo) | US-04 |
-| | `cancelarSolicitud`: el locador una aceptada (US-38) o el postulante una pendiente (sin US en Sprint 0). Una sola aceptada por propiedad: `aceptarSolicitud` da 409 si ya hay otra | US-38 |
+| `solicitudes.service.ts` | `prepararSolicitud` (precarga del modal, `GET /solicitudes/preparar`), `enviarSolicitud` (con contacto, legajo y aceptación; valida con `errorDeSolicitudNueva`), `getMiSolicitudParaPropiedad`, `contarMisSolicitudesPendientes`. Conectadas (13/10); errores traducidos en `adapters/solicitud.adapter.ts` | US-35 |
+| | `listarMisSolicitudes`, `listarSolicitudesRecibidas` (sin datos sensibles), `getSolicitudRecibida` (con DNI, contacto y legajo, para el detalle del postulante; puente con `/recibidas?inmueble=`) | US-36 |
+| | `aceptarSolicitud`, `rechazarSolicitud` (sin cuerpo) | US-37 |
+| | `contarSolicitudesQueSeCancelan`: para el modal de eliminar (US-04); en real, 0 (el `DELETE` del back no cancela solicitudes) | US-04 |
+| | `cancelarSolicitud`: el locador una aceptada (US-38; en real el back todavía no lo permite) o el postulante una pendiente (sin US en Sprint 0). Una sola aceptada por propiedad: en mock `aceptarSolicitud` da 409 si ya hay otra; en real lo sostiene la pantalla | US-38 |
+| | Constantes según el modo: `avisaPorMail`, `puedeCancelarAceptada`, `muestraCanceladas` (en real, `false` mientras el back no cierre las brechas de HANDOFF §7) | US-35 a US-38 |
 | `panel.service.ts` | `getResumenCobros`, `getResumenReclamos`, `getEventosContratos`, `getSolicitudesPendientes`, `getResumenRoles` | `/panel` (sin US en Sprint 0) |
 
 ## Cómo está armada cada función
