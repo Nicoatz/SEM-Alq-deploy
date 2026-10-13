@@ -15,6 +15,11 @@
  *   (`https://rentar.com/fotos/...`), que en realidad no existen. Sacarlo
  *   cuando la base tenga fotos reales en Storage.
  *
+ * NOTA: las fotos remotas de las propiedades ya no pasan por el optimizador
+ * de Next: van con `unoptimized` y el navegador las pide directo al bucket
+ * (ver `lib/next-bridge.tsx#AppImage`). Esta lista queda para cualquier
+ * `next/image` remoto que sí se optimice.
+ *
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
