@@ -44,6 +44,25 @@ export function mensajeSolicitudValido(mensaje: string | null): boolean {
 }
 
 /**
+ * Largo máximo del motivo del rechazo (US-37: "se puede incluir un mensaje de
+ * hasta 200 caracteres para aclarar el motivo del rechazo"). El back responde
+ * 400 si se pasa (`apps/api/src/services/solicitud.service.ts`, `rechazarSolicitud`).
+ */
+export const SOLICITUD_MENSAJE_RECHAZO_MAX = 200
+
+/** Mensaje de error si el motivo supera {@link SOLICITUD_MENSAJE_RECHAZO_MAX}. */
+export const SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE = `El motivo puede tener hasta ${SOLICITUD_MENSAJE_RECHAZO_MAX} caracteres.`
+
+/**
+ * Normaliza el motivo del rechazo: sin espacios en los bordes, y `null` si
+ * quedó vacío (US-37: el motivo es opcional; rechazar sin escribir nada sigue
+ * andando). Se usa al enviarlo y al leer lo que devuelve el back.
+ */
+export function normalizarMensajeRechazo(mensaje: string | null | undefined): string | null {
+  return normalizarMensajeSolicitud(mensaje)
+}
+
+/**
  * `true` si la solicitud sigue viva y, por eso, impide mandar otra sobre la
  * misma propiedad: `pendiente` o `aceptada`.
  * NOTA: una `rechazada` o `cancelada` es historia (Flujo de solicitudes · 07:

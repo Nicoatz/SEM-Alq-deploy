@@ -31,7 +31,10 @@ import {
   aceptadaDeLaPropiedad,
   errorDeSolicitudNueva,
   esSolicitudActiva,
+  normalizarMensajeRechazo,
   normalizarMensajeSolicitud,
+  SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE,
+  SOLICITUD_MENSAJE_RECHAZO_MAX,
   textoYaAceptaste,
   transicionSolicitud,
   type AccionSolicitud,
@@ -58,7 +61,7 @@ import {
 } from './adapters/solicitud.adapter'
 import { readPropiedadesMock, readPropiedadesMockConBorradas } from './propiedades.service'
 import { apiRequest } from './shared/apiClient'
-import type { FiltrosSolicitudesQuery, SolicitudPreparacionResponse, SolicitudResponse } from './shared/backend-dtos'
+import type { FiltrosSolicitudesQuery, RechazarSolicitudRequest, SolicitudPreparacionResponse, SolicitudResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
@@ -166,18 +169,24 @@ function siguienteIdMock(existentes: SolicitudMock[]): string {
  * Aplica un cambio de estado a una solicitud mock, siguiendo la tabla
  * `TRANSICIONES_SOLICITUD` (`lib/validation/solicitud.rules.ts`): si esa
  * acción no se permite a ese actor en el estado actual, `conflict` (409),
- * como respondería el back. Guarda `respondedAt` con "ahora".
+ * como respondería el back. Guarda `respondedAt` con "ahora" y, si vienen,
+ * los `extras` de la acción (el motivo del rechazo, US-37).
  * Quién es parte de la solicitud (dueño o postulante) lo valida antes cada
  * función: acá llega solo lo que ya es suyo.
  */
-function cambiarEstadoMock(solicitud: SolicitudMock, accion: AccionSolicitud, actor: ActorSolicitud): Solicitud {
+function cambiarEstadoMock(
+  solicitud: SolicitudMock,
+  accion: AccionSolicitud,
+  actor: ActorSolicitud,
+  extras: Pick<SolicitudMock, 'rejectionMessage'> = {},
+): Solicitud {
   const transicion = transicionSolicitud(accion, actor, solicitud.status)
   if (!transicion) {
     // La única que parte de `aceptada` es la cancelación del locador (US-38).
     const message = accion === 'cancelar' && actor === 'locador' ? SOLICITUD_YA_NO_ACEPTADA_MESSAGE : SOLICITUD_YA_NO_PENDIENTE_MESSAGE
     throw new ServiceError('conflict', message)
   }
-  const actualizada: SolicitudMock = { ...solicitud, status: transicion.hacia, respondedAt: ahoraMock() }
+  const actualizada: SolicitudMock = { ...solicitud, ...extras, status: transicion.hacia, respondedAt: ahoraMock() }
   if (!saveMockRecord('solicitudes', actualizada)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
   // Como la rama real: la fila de la lista, sin datos sensibles (el detalle se vuelve a pedir).
   return aVista(actualizada, actor === 'locador' ? 'locador-lista' : 'postulante')
@@ -214,12 +223,13 @@ async function listarSolicitudesReales(ruta: '/solicitudes/mias' | '/solicitudes
 }
 
 /**
- * `PATCH /solicitudes/:id/<accion>` sin cuerpo, con la respuesta adaptada a
- * `vista` y los errores ya traducidos (`errorDeAccionSolicitud`).
+ * `PATCH /solicitudes/:id/<accion>`, con la respuesta adaptada a `vista` y
+ * los errores ya traducidos (`errorDeAccionSolicitud`). Sin `body`, el
+ * `PATCH` va sin cuerpo (aceptar, cancelar y rechazar sin motivo).
  */
-async function cambiarEstadoReal(solicitudId: string, accion: AccionSolicitud, vista: VistaSolicitud): Promise<Solicitud> {
+async function cambiarEstadoReal(solicitudId: string, accion: AccionSolicitud, vista: VistaSolicitud, body?: RechazarSolicitudRequest): Promise<Solicitud> {
   try {
-    const dto = await apiRequest<SolicitudResponse>(`/solicitudes/${encodeURIComponent(solicitudId)}/${accion}`, { method: 'PATCH' })
+    const dto = await apiRequest<SolicitudResponse>(`/solicitudes/${encodeURIComponent(solicitudId)}/${accion}`, { method: 'PATCH', body })
     return solicitudResponseToSolicitud(dto, vista)
   } catch (error) {
     throw errorDeAccionSolicitud(error)
@@ -558,18 +568,27 @@ export async function aceptarSolicitud(solicitudId: string): Promise<Solicitud> 
  * US-37 Aceptar o rechazar solicitud — el locador rechaza una solicitud
  * pendiente sobre una propiedad suya.
  * @backend PATCH /api/v1/solicitudes/:id/rechazar   (existe) → SolicitudResponse
- * @returns Solicitud (`rechazada`)
- * @throws {ServiceError} `not_found` si no es una solicitud suya; `conflict` si ya no está pendiente.
- * NOTA: sin motivo. El diseño (Flujo de solicitudes · 03) suma un motivo
- * opcional y el back acepta `mensaje_rechazo`, pero US-37 no lo pide y el PO
- * decidió no incluirlo (tanda 5): el `PATCH` va sin cuerpo.
+ *   Body opcional: `{ mensaje_rechazo }` (≤ 200; 400 si se pasa).
+ * @param mensaje motivo opcional (US-37: "se puede incluir un mensaje de
+ *   hasta 200 caracteres para aclarar el motivo del rechazo"). Se manda sin
+ *   espacios en los bordes y solo si queda texto: vacío, el `PATCH` va sin
+ *   cuerpo, como antes. Lo ven el locador y el postulante (US-36).
+ * @returns Solicitud (`rechazada`, con `rejectionMessage`)
+ * @throws {ServiceError} `validation` si el motivo supera los 200
+ *   caracteres; `not_found` si no es una solicitud suya; `conflict` si ya no
+ *   está pendiente.
+ * NOTA: en la tanda 5 se mandaba sin motivo porque se leyó que US-37 no lo
+ * pedía; el testing del Sprint 2 (US-37 P3 y P4, US-36 P7) mostró que sí.
  */
-export async function rechazarSolicitud(solicitudId: string): Promise<Solicitud> {
+export async function rechazarSolicitud(solicitudId: string, mensaje?: string | null): Promise<Solicitud> {
+  const motivo = normalizarMensajeRechazo(mensaje)
   if (USE_MOCKS) {
     await delay()
-    return cambiarEstadoMock(solicitudRecibidaMock(solicitudId), 'rechazar', 'locador')
+    // Como el back: el largo se valida antes de buscar la solicitud.
+    if (motivo && motivo.length > SOLICITUD_MENSAJE_RECHAZO_MAX) throw new ServiceError('validation', SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE)
+    return cambiarEstadoMock(solicitudRecibidaMock(solicitudId), 'rechazar', 'locador', { rejectionMessage: motivo })
   }
-  return cambiarEstadoReal(solicitudId, 'rechazar', 'locador-lista')
+  return cambiarEstadoReal(solicitudId, 'rechazar', 'locador-lista', motivo ? { mensaje_rechazo: motivo } : undefined)
 }
 
 // ─── Cancelar (US-38 y sin US en Sprint 0) ──────────────────────────────

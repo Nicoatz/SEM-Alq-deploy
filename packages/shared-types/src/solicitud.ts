@@ -133,6 +133,13 @@ export interface Solicitud {
    * cancelación.
    */
   respondedAt: string | null
+  /**
+   * Motivo que escribió el locador al rechazarla (US-37: "se puede incluir un
+   * mensaje de hasta 200 caracteres para aclarar el motivo del rechazo"). Lo
+   * ven las dos vistas: US-36 pide mostrarlo en el listado (truncado a 80).
+   * `null` si no escribió ninguno o si la solicitud no está rechazada.
+   */
+  rejectionMessage: string | null
 }
 
 /**

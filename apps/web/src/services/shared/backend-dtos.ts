@@ -202,6 +202,16 @@ export interface CrearSolicitudRequest {
 }
 
 /**
+ * Cuerpo de `PATCH /api/v1/solicitudes/:id/rechazar` (existe):
+ * `RechazarSolicitudRequest` del back. Opcional: sin motivo, el `PATCH` va
+ * sin cuerpo.
+ */
+export interface RechazarSolicitudRequest {
+  /** Motivo del rechazo, ya sin espacios en los bordes; hasta 200 caracteres (US-37). */
+  mensaje_rechazo: string
+}
+
+/**
  * Una solicitud, como la devuelven `POST /solicitudes`, `GET /solicitudes/mias`,
  * `GET /solicitudes/recibidas` y los `PATCH` de cambio de estado (existen):
  * `SolicitudResponse` del back, armada en `solicitudRepository.findByIdWithRelations`.
@@ -215,7 +225,7 @@ export interface SolicitudResponse {
    */
   estado: string
   mensaje: string | null
-  /** Motivo del rechazo (US-37). NOTA: el front no lo manda (decisión del PO): llega `null`. */
+  /** Motivo del rechazo (US-37), hasta 200 caracteres; `null` (o sin el campo) si no tiene. */
   mensaje_rechazo?: string | null
   /** Fecha y hora ISO de envío. */
   fecha_creacion: string
