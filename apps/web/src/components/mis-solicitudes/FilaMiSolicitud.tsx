@@ -11,11 +11,16 @@
  * - Pendiente: "Cancelar solicitud" (sin US en Sprint 0, mapa US-39) y "Ver".
  * - Aceptada: "Ver". No la puede cancelar: se lo pide al dueño (US-38).
  * - Rechazada o cancelada: "Ver propiedades en <barrio>".
+ * Si la rechazaron con un motivo (US-37), va debajo del estado, truncado a 80
+ * caracteres (US-36). Mis solicitudes no tiene detalle, así que si es más
+ * largo, "Ver motivo completo" lo expande en el lugar (decisión del PO,
+ * tanda B: un `title` no se ve en celular ni con teclado).
  * NOTA: el diseño suma el precio y "Escribirle a <dueño>"; la solicitud no
  * trae el precio y Mensajes es de otro sprint, así que no van.
  *
  * Quién lo usa: `MisSolicitudes`.
  */
+import { useId, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from 'antd'
@@ -25,6 +30,7 @@ import { StatusTag } from '@rentar/ui'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { hrefBuscarEnBarrio } from '@/lib/search/busquedaParams'
 import { lineaMiSolicitud } from '@/lib/solicitudes/textos'
+import { MENSAJE_RECHAZO_LISTADO_MAX, truncar } from '@/lib/utils/truncar'
 import { puedeCancelarAceptada } from '@/services/solicitudes.service'
 import { puedeCancelar } from '@/lib/validation/solicitud.rules'
 import styles from './MisSolicitudes.module.css'
@@ -33,6 +39,45 @@ import styles from './MisSolicitudes.module.css'
 interface FilaMiSolicitudProps {
   solicitud: Solicitud
   onCancelar: (solicitud: Solicitud) => void
+}
+
+/** Props de {@link MotivoRechazo}. */
+interface MotivoRechazoProps {
+  /** El motivo completo (ya sin espacios en los bordes). */
+  mensaje: string
+}
+
+/**
+ * El motivo del rechazo en la fila (US-36: hasta 80 caracteres, con "..." si
+ * los excede), con "Ver motivo completo" / "Ver menos" si es más largo.
+ */
+function MotivoRechazo({ mensaje }: MotivoRechazoProps) {
+  // ─── Estado local ───────────────────────────────────────────────────
+  const [expandido, setExpandido] = useState(false)
+  const textoId = useId()
+  const largo = mensaje.length > MENSAJE_RECHAZO_LISTADO_MAX
+
+  // ─── Render ─────────────────────────────────────────────────────────
+  return (
+    <p className={styles.rejectionNote} data-testid="mis-solicitudes-motivo-rechazo">
+      <span className={styles.rejectionLabel}>Motivo: </span>
+      <span id={textoId} className={styles.rejectionText} data-testid="mis-solicitudes-motivo-rechazo-texto">
+        {expandido || !largo ? mensaje : truncar(mensaje, MENSAJE_RECHAZO_LISTADO_MAX)}
+      </span>
+      {largo && (
+        <button
+          type="button"
+          className={styles.textButton}
+          onClick={() => setExpandido((actual) => !actual)}
+          aria-expanded={expandido}
+          aria-controls={textoId}
+          data-testid="mis-solicitudes-motivo-rechazo-toggle"
+        >
+          {expandido ? 'Ver menos' : 'Ver motivo completo'}
+        </button>
+      )}
+    </p>
+  )
 }
 
 /** Una solicitud enviada por el usuario en sesión. */
@@ -57,6 +102,7 @@ export function FilaMiSolicitud({ solicitud, onCancelar }: FilaMiSolicitudProps)
         <span className={styles.rowLine} data-testid="mis-solicitudes-estado-texto">
           {lineaMiSolicitud(solicitud, puedeCancelarAceptada)}
         </span>
+        {solicitud.status === 'rechazada' && solicitud.rejectionMessage && <MotivoRechazo mensaje={solicitud.rejectionMessage} />}
       </div>
       <div className={styles.actions}>
         {puedeCancelar(solicitud.status, 'postulante') && (
