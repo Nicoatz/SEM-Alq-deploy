@@ -6,7 +6,8 @@
  * Qué hace: zona de arrastrar-y-soltar + grilla de fotos cargadas. Cada foto
  * se puede mover con ← →, marcar como principal o quitar. Controla las
  * reglas de US-01 al agregar: solo JPG o PNG, hasta 350 KB cada una y hasta
- * 50 en total (lo que no cumple se rechaza y se dice por qué). El mínimo de
+ * 50 en total (lo que no cumple se rechaza y se dice por qué, también al
+ * arrastrarlo). El mínimo de
  * 3 lo valida el paso, al tocar "Siguiente".
  *
  * Foto principal (US-01: "la primer foto cargada", "se puede cambiar"): se
@@ -41,10 +42,16 @@ function pesoTexto(bytes: number): string {
   return `${Math.round(bytes / 1024)} KB`
 }
 
-/** Por qué se rechaza un archivo, o `null` si cumple US-01. */
+/** Formatos que ofrece el selector de archivos del sistema (`<input accept>`). */
+const FORMATOS_SELECTOR = '.jpg,.jpeg,.png,image/jpeg,image/png'
+
+/**
+ * Por qué se rechaza un archivo, o `null` si cumple US-01. El tipo se mira por
+ * MIME y por extensión, y tienen que cumplir los dos.
+ */
 function motivoRechazo(file: File): string | null {
   const extensionOk = /\.(jpe?g|png)$/i.test(file.name)
-  if (!FOTO_TIPOS_ACEPTADOS.includes(file.type) || !extensionOk) return 'no es JPG ni PNG'
+  if (!FOTO_TIPOS_ACEPTADOS.includes(file.type) || !extensionOk) return 'solo JPG o PNG'
   if (file.size > FOTO_PESO_MAXIMO_BYTES) return `pesa ${pesoTexto(file.size)} y el máximo es ${pesoTexto(FOTO_PESO_MAXIMO_BYTES)}`
   return null
 }
@@ -122,7 +129,13 @@ export function FotosField({ value = [], onChange }: FotosFieldProps) {
   return (
     <div className={styles.photos}>
       <Upload.Dragger
-        accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+        // NOTA: `filter: 'native'` hace que el filtro de formatos quede solo en
+        // el selector de archivos. Con `accept` como texto, antd (rc-upload)
+        // descarta en silencio lo que se arrastra y no coincide, antes de
+        // `beforeUpload`: el usuario soltaba un .webp y no pasaba nada (testing
+        // del Sprint 2, Prueba 13). Así todo llega a `agregar()` y
+        // `motivoRechazo` dice por qué no se agrega.
+        accept={{ format: FORMATOS_SELECTOR, filter: 'native' }}
         multiple
         showUploadList={false}
         // Nada se sube: se lee el archivo en el navegador. Se procesa la tanda
