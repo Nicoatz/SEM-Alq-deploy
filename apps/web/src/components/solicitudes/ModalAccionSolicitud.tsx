@@ -7,9 +7,11 @@
  * Qué muestra (Claude Design, "Flujo de solicitudes" · 03, 04 y 06):
  * - Aceptar (US-37): "¿Aceptar la solicitud de X?" y, en el momento de
  *   decidir, que las otras pendientes de la propiedad siguen pendientes.
- * - Rechazar (US-37): sin motivo. NOTA: el diseño suma un motivo opcional y
- *   "no puede volver a solicitar por 30 días"; ninguno de los dos va
- *   (decisión del PO: US-37 no lo pide y no hay bloqueo de 30 días).
+ * - Rechazar (US-37): con un motivo opcional de hasta 200 caracteres ("se
+ *   puede incluir un mensaje … para aclarar el motivo del rechazo"), que
+ *   después ve el postulante (US-36). Rechazar sin escribir nada sigue
+ *   andando. NOTA: el "no puede volver a solicitar por 30 días" del diseño no
+ *   va (no hay bloqueo de 30 días, decisión del PO).
  * - Cancelar del locador, una aceptada (US-38): le avisa por mail al
  *   locatario (lo manda el back) y vuelve a poder aceptar a otro.
  * - Cancelar del postulante, una pendiente: sin US en Sprint 0 (mapa US-39).
@@ -18,9 +20,9 @@
  *
  * Quién lo usa: `SolicitudesRecibidas` y `MisSolicitudes`.
  */
-import { Alert, Button } from 'antd'
+import { Alert, Button, Input } from 'antd'
 import { ConfirmActionModal } from '@rentar/ui'
-import type { ActorSolicitud } from '@/lib/validation/solicitud.rules'
+import { SOLICITUD_MENSAJE_RECHAZO_MAX, type ActorSolicitud } from '@/lib/validation/solicitud.rules'
 import { AVISO_ACEPTAR_SIN_BAJA_MESSAGE, avisaPorMail, puedeCancelarAceptada } from '@/services/solicitudes.service'
 import type { EstadoAccionSolicitud } from './useAccionSolicitud'
 import styles from './ModalAccionSolicitud.module.css'
@@ -130,6 +132,28 @@ export function ModalAccionSolicitud({ estado, actor, otrasPendientes = 0, testI
       onCancel={estado.cerrar}
       data-testid={pedida ? `${testIdPrefix}-${pedida.accion}-modal` : undefined}
     >
+      {/* US-37: el motivo es opcional; `maxLength` no deja escribir más de 200. */}
+      {pedida?.accion === 'rechazar' && (
+        <div className={styles.motivo}>
+          <label htmlFor="modal-rechazo-motivo" className={styles.motivoLabel}>
+            Motivo del rechazo (opcional)
+          </label>
+          <Input.TextArea
+            id="modal-rechazo-motivo"
+            value={estado.mensajeRechazo}
+            onChange={(event) => estado.cambiarMensajeRechazo(event.target.value)}
+            maxLength={SOLICITUD_MENSAJE_RECHAZO_MAX}
+            showCount
+            autoSize={{ minRows: 3, maxRows: 5 }}
+            disabled={estado.enCurso}
+            aria-describedby="modal-rechazo-motivo-ayuda"
+            data-testid={`${testIdPrefix}-rechazar-motivo`}
+          />
+          <span id="modal-rechazo-motivo-ayuda" className={styles.motivoHelp}>
+            Si escribís un motivo, el postulante lo va a ver en Mis solicitudes.
+          </span>
+        </div>
+      )}
       {/* Brechas 1 y 2 de HANDOFF §7: en real, aceptar no tiene vuelta atrás. Se avisa antes de confirmar. */}
       {pedida?.accion === 'aceptar' && !puedeCancelarAceptada && (
         <Alert type="warning" showIcon className={styles.modalAlert} title={AVISO_ACEPTAR_SIN_BAJA_MESSAGE} data-testid={`${testIdPrefix}-aceptar-aviso`} />
