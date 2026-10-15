@@ -31,7 +31,7 @@ import { FilterOutlined, SwapOutlined } from '@ant-design/icons'
 import type { BusquedaFiltros, OrdenBusqueda, Paginado, PropiedadResumen, UbicacionOpciones } from '@rentar/shared-types'
 import { SearchSidebarFilters } from '@rentar/ui'
 import { characteristicOptions } from '@/lib/catalogs/characteristics'
-import { FILTROS_INICIALES, ORDEN_OPCIONES } from '@/lib/search/busqueda'
+import { esOrdenBusqueda, FILTROS_INICIALES, ORDEN_OPCIONES } from '@/lib/search/busqueda'
 import { escribirBusqueda, leerBusqueda, type EstadoBusqueda } from '@/lib/search/busquedaParams'
 import { chipsFiltros, type ChipFiltro } from '@/lib/search/filtrosActivos'
 import { buscarPropiedades, contarPropiedades, listarUbicaciones } from '@/services/propiedades.service'
@@ -246,7 +246,9 @@ export function BuscarPropiedades() {
                 selectable: true,
                 selectedKeys: [aplicada.orden],
                 items: ORDEN_OPCIONES.map((opcion) => ({ key: opcion.value, label: opcion.label })),
-                onClick: ({ key }) => cambiarOrden(key as OrdenBusqueda),
+                onClick: ({ key }) => {
+                  if (esOrdenBusqueda(key)) cambiarOrden(key)
+                },
               }}
             >
               <Button className={styles.sortButton} icon={<SwapOutlined rotate={90} />} aria-label="Ordenar" data-testid="buscar-orden-movil" />

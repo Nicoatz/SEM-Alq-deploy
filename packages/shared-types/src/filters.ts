@@ -67,16 +67,18 @@ export interface UbicacionOpciones {
 }
 
 /**
- * Orden de `/buscar` (US-34: precio, cantidad de habitaciones, m²; más
- * recientes lo pide el diseño). `predeterminado` = sin orden aplicado
- * ("quitar el orden" vuelve a este valor).
+ * Orden de `/buscar` (US-34: precio, cantidad de dormitorios y m², cada uno
+ * ascendente o descendente; más recientes lo pide el diseño).
+ * `predeterminado` = sin orden aplicado ("quitar el orden" vuelve a este valor).
  */
 export type OrdenBusqueda =
   | 'predeterminado'
   | 'precio_asc'
   | 'precio_desc'
   | 'dormitorios_desc'
+  | 'dormitorios_asc'
   | 'm2_desc'
+  | 'm2_asc'
   | 'recientes'
 
 /** Una página de resultados (US-34: paginar cuando hay más de 10). */
