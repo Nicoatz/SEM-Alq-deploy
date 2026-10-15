@@ -24,7 +24,8 @@ export class UsuarioService {
       }
     }
 
-    if (!/^[^\s@]+@[^\s@]+$/.test(data.email)) {
+    
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
       const error = new Error('El email no tiene un formato válido.');
       (error as any).statusCode = 400;
       throw error;
