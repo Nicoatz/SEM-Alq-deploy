@@ -97,7 +97,7 @@ export interface TransicionSolicitud {
  * | Acción | Quién | Desde | Hacia | Por qué |
  * |---|---|---|---|---|
  * | aceptar | locador | pendiente | aceptada | US-37. Además, **una sola aceptada por propiedad** (ver {@link aceptadaDeLaPropiedad}). |
- * | rechazar | locador | pendiente | rechazada | US-37 (sin motivo: la US no lo pide). |
+ * | rechazar | locador | pendiente | rechazada | US-37 (con motivo opcional, ≤ 200). |
  * | cancelar | locador | aceptada | cancelada | US-38 (Jira): "dar de baja una solicitud tras haberla aceptado inicialmente para considerar otros posibles locatarios". |
  * | cancelar | postulante | pendiente | cancelada | Sin US en Sprint 0 (mapa US-39): el locatario retira una solicitud que todavía no se respondió (Flujo de solicitudes · 04). |
  *
