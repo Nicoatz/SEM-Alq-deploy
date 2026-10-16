@@ -18,6 +18,8 @@
  * lista. Por eso la lista no los trae y llegan aparte, en `detalle`
  * (`useDetalleSolicitud` → `getSolicitudRecibida`), con su carga y su error. Una solicitud enviada antes de la US-35 actualizada no los trae:
  * "Sin datos de legajo".
+ * En una rechazada, también el motivo completo que escribió el locador
+ * (US-37, hasta 200 caracteres; en la lista va truncado a 80, US-36).
  * NOTA: el diseño suma la antigüedad laboral, la relación ingreso/alquiler
  * y la mudanza estimada; la US no los pide (decisión del PO): no van.
  *
@@ -148,6 +150,21 @@ export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion }
             </span>
           )}
         </div>
+
+        {solicitud.status === 'rechazada' && (
+          <div className={styles.detailField}>
+            <span className={styles.detailLabel}>Motivo del rechazo</span>
+            {solicitud.rejectionMessage ? (
+              <p className={styles.detailMessage} data-testid="solicitudes-detalle-motivo-rechazo">
+                {solicitud.rejectionMessage}
+              </p>
+            ) : (
+              <span className={styles.detailEmpty} data-testid="solicitudes-detalle-motivo-rechazo">
+                No escribiste un motivo.
+              </span>
+            )}
+          </div>
+        )}
 
         <AccionesSolicitudRecibida solicitud={solicitud} otraAceptada={otraAceptada} onAccion={onAccion} variante="detalle" testIdPrefix="solicitudes-detalle" />
       </div>

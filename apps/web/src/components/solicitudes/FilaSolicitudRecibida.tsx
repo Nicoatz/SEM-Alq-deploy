@@ -15,6 +15,8 @@
  *   motivo en un tooltip (una sola aceptada por propiedad).
  * - Aceptada: Cancelar solicitud (US-38).
  * - Rechazada o cancelada: Ver detalle.
+ * Si la rechazó con un motivo (US-37), va debajo de la línea, truncado a 80
+ * caracteres (US-36); el completo está en el detalle del postulante.
  * NOTA: "Iniciar contrato" y "Mensaje" de la aceptada no van: contratos y
  * mensajes son de otro sprint.
  *
@@ -27,6 +29,7 @@ import type { Solicitud } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
 import { fechaFilaRecibida, lineaRecibida } from '@/lib/solicitudes/textos'
 import { iniciales } from '@/lib/utils/iniciales'
+import { MENSAJE_RECHAZO_LISTADO_MAX, truncar } from '@/lib/utils/truncar'
 import { puedeHacerAccion, textoYaAceptaste, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
 import { puedeCancelarAceptada } from '@/services/solicitudes.service'
 import styles from './SolicitudesRecibidas.module.css'
@@ -163,6 +166,12 @@ export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, o
           <span className={styles.rowDate}>{fechaFilaRecibida(solicitud)}</span>
         </div>
         <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada, puedeCancelarAceptada)}</span>
+        {solicitud.status === 'rechazada' && solicitud.rejectionMessage && (
+          <span className={styles.rejectionNote} data-testid="solicitudes-motivo-rechazo">
+            <span className={styles.rejectionLabel}>Tu motivo: </span>
+            {truncar(solicitud.rejectionMessage, MENSAJE_RECHAZO_LISTADO_MAX)}
+          </span>
+        )}
       </div>
       {cerrada ? (
         <div className={styles.actions}>

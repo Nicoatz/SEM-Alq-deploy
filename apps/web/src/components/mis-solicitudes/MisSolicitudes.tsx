@@ -92,7 +92,7 @@ export function MisSolicitudes() {
   const accion = useAccionSolicitud({
     onExito: (actualizada) => {
       setConflicto(null)
-      setCambios((actual) => ({ ...actual, [actualizada.id]: { status: actualizada.status, respondedAt: actualizada.respondedAt } }))
+      setCambios((actual) => ({ ...actual, [actualizada.id]: { status: actualizada.status, respondedAt: actualizada.respondedAt, rejectionMessage: actualizada.rejectionMessage } }))
     },
     onConflicto: (message, pedida) => {
       const direccion = pedida.solicitud.property.address

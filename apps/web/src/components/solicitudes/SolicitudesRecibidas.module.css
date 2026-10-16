@@ -195,6 +195,20 @@
   color: var(--rentar-color-text-secondary);
 }
 
+/* ─── Motivo del rechazo (US-36 y US-37) ──────────────────────────── */
+
+.rejectionNote {
+  margin: 0;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.rejectionLabel {
+  font-weight: 700;
+}
+
 /* ─── Acciones ────────────────────────────────────────────────────── */
 
 .actions {

@@ -133,12 +133,12 @@ export function filtrarRecibidas(
 // ─── Cambios locales ────────────────────────────────────────────────────
 
 /** Estado nuevo de una solicitud después de una acción, por id. */
-export type CambiosSolicitudes = Record<string, Pick<Solicitud, 'status' | 'respondedAt'>>
+export type CambiosSolicitudes = Record<string, Pick<Solicitud, 'status' | 'respondedAt' | 'rejectionMessage'>>
 
 /**
  * Aplica sobre la lista las respuestas de las acciones hechas en la pantalla
  * (aceptar, rechazar o cancelar), sin volver a pedirla. Toma de cada
- * respuesta SOLO el estado y la fecha: la dirección que trae puede ser la de
+ * respuesta SOLO el estado, la fecha y el motivo del rechazo (US-37): la dirección que trae puede ser la de
  * otra vista (ver `cancelarSolicitud`).
  */
 export function aplicarCambios(solicitudes: readonly Solicitud[], cambios: CambiosSolicitudes): Solicitud[] {

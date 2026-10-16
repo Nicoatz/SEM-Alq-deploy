@@ -116,7 +116,7 @@ diferencias con la propuesta original y lo que falta están en
 | `GET /solicitudes/recibidas` | Bearer + rol `locador` | existe | US-36 | `#listarSolicitudesRecibidas` (lista, sin datos sensibles); con `?inmueble=`, `#getSolicitudRecibida` (puente del detalle); con `?estado=pendiente`, `panel.service#getSolicitudesPendientes` | `estado`, `inmueble` (opcionales) | `SolicitudResponse[]` de los inmuebles del locador, con DNI, contacto y legajo. **Sin canceladas** | 400; 401; 403 sin rol | — |
 | `GET /solicitudes/:id` | Bearer (dueño o postulante) | **no existe — propuesto** | US-36 | `#getSolicitudRecibida` (hoy por el puente de arriba) | — | `SolicitudResponse` con DNI, contacto y legajo solo para el dueño del inmueble | 401; 404 si no es parte | — |
 | `PATCH /solicitudes/:id/aceptar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#aceptarSolicitud` | — | `SolicitudResponse` (`aceptada`) | 400; 401; 403; 404 si no es suya; 409 si ya no está pendiente. **No** controla que el inmueble ya tenga otra aceptada (lo sostiene el front) ni cambia el estado del inmueble | Al **locatario** (US-37): **no se manda todavía** |
-| `PATCH /solicitudes/:id/rechazar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#rechazarSolicitud` | Body opcional `{ mensaje_rechazo? }` (≤ 200). **El front no lo manda** (sin motivo, decisión del PO) | `SolicitudResponse` (`rechazada`) | 400; 401; 403; 404; 409 si ya no está pendiente | — |
+| `PATCH /solicitudes/:id/rechazar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#rechazarSolicitud` | Body opcional `{ mensaje_rechazo }` (≤ 200). **El front lo manda solo si hay motivo** (sin espacios en los bordes); sin motivo, el `PATCH` va sin cuerpo. US-36 lo muestra en los listados, truncado a 80 | `SolicitudResponse` (`rechazada`) | 400 (también si el motivo pasa de 200: "El mensaje de rechazo no puede superar los 200 caracteres.", que el front traduce); 401; 403; 404; 409 si ya no está pendiente | — |
 | `PATCH /solicitudes/:id/cancelar` | Bearer (**solo el postulante**) | existe | Sin US en Sprint 0 (postulante, mapa US-39). **US-38 (locador) no está** | `#cancelarSolicitud` | — | `SolicitudResponse` (`cancelada`) | 400; 401; **404 si no es el postulante (también el locador)**; 409 si no está pendiente | Al **locatario** si cancela el locador (US-38): no aplica todavía |
 
 `SolicitudResponse` (`apps/api/src/dtos/solicitud.dto.ts`):
@@ -126,7 +126,7 @@ diferencias con la propuesta original y lo que falta están en
   id: number
   estado: string                    // nombre de estado_solicitud: pendiente | aceptada | rechazada | cancelada
   mensaje: string | null
-  mensaje_rechazo?: string | null
+  mensaje_rechazo?: string | null   // motivo del rechazo (US-37), ≤ 200; null si no tiene
   fecha_creacion: string            // ISO, con hora
   fecha_respuesta: string | null    // ISO: cuándo dejó de estar pendiente (también al cancelar)
   inmueble: { id, direccion, numero, piso?, barrio, foto_principal: string | null }

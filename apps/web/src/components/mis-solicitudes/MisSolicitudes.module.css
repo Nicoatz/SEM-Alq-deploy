@@ -71,6 +71,46 @@
   color: var(--rentar-color-text-secondary);
 }
 
+/* ─── Motivo del rechazo (US-36 y US-37) ──────────────────────────── */
+
+.rejectionNote {
+  margin: 0;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.rejectionLabel {
+  font-weight: 700;
+}
+
+.rejectionText {
+  white-space: pre-line;
+}
+
+/* "Ver motivo completo" / "Ver menos": un botón con aspecto de link. */
+.textButton {
+  margin-left: 0.375rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  cursor: pointer;
+}
+
+.textButton:hover {
+  text-decoration: underline;
+}
+
+.textButton:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+  border-radius: var(--rentar-radius-sm);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

@@ -63,8 +63,8 @@ el 2026-10-07):
   `apps/web/src/components/solicitudes/` y `mis-solicitudes/`. Candidata a pasar al design system
   si se repite en otra pantalla.
 - **Pendiente de corregir en el template "Flujo de solicitudes" (Claude Design), no se tocó:** el
-  dominio `solicitud` de `StatusTag` ya existe (la hoja dice que falta); el motivo al rechazar y el
-  "no puede volver a solicitar por 30 días" no van; el locador cancela una aceptada (US-38); una
+  dominio `solicitud` de `StatusTag` ya existe (la hoja dice que falta); el "no puede volver a
+  solicitar por 30 días" no va (el motivo opcional al rechazar sí va, desde la tanda B del testing); el locador cancela una aceptada (US-38); una
   sola aceptada por propiedad ("Podés aceptar a más de una persona" ya no vale); el locatario ve la
   dirección aproximada en Mis solicitudes.
 - **Texto nuevo para el template "Flujo de solicitudes" · 06 (vacío del locador), pedido por el PO

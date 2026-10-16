@@ -57,6 +57,12 @@ export interface SolicitudMock {
   contact?: ContactoSolicitud
   /** Legajo de la solicitud (US-35 actualizada). Opcional, por lo mismo: sin él, "Sin datos de legajo". */
   legajo?: LegajoSolicitud
+  /**
+   * Motivo del rechazo que escribió el locador (US-37, hasta 200 caracteres).
+   * Opcional: el elenco no define ninguno (el mapa no los trae y no se
+   * inventan); lo guardan los rechazos hechos en el navegador.
+   */
+  rejectionMessage?: string | null
 }
 
 // ─── Contacto y legajo (US-35 actualizada) ──────────────────────────────

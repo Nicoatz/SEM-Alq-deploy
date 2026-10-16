@@ -23,11 +23,14 @@ import type { AccionSolicitud } from '@/lib/validation/solicitud.rules'
 import { aceptarSolicitud, cancelarSolicitud, rechazarSolicitud } from '@/services/solicitudes.service'
 import { ServiceError } from '@/services/shared/errors'
 
-/** La función del service de cada acción. */
-const SERVICIO_DE_ACCION: Record<AccionSolicitud, (solicitudId: string) => Promise<Solicitud>> = {
-  aceptar: aceptarSolicitud,
+/**
+ * La función del service de cada acción. `mensaje` es el motivo del rechazo
+ * (US-37); aceptar y cancelar no lo usan.
+ */
+const SERVICIO_DE_ACCION: Record<AccionSolicitud, (solicitudId: string, mensaje: string) => Promise<Solicitud>> = {
+  aceptar: (solicitudId) => aceptarSolicitud(solicitudId),
   rechazar: rechazarSolicitud,
-  cancelar: cancelarSolicitud,
+  cancelar: (solicitudId) => cancelarSolicitud(solicitudId),
 }
 
 /** La acción que el usuario pidió y todavía no confirmó (o que está en curso). */
@@ -55,6 +58,13 @@ export interface EstadoAccionSolicitud {
   pedida: AccionPedida | null
   enCurso: boolean
   error: ErrorAccion | null
+  /**
+   * Lo que va escribiendo el locador en "Motivo del rechazo (opcional)"
+   * (US-37). Arranca vacío cada vez que se abre el modal; un error o el
+   * "Reintentar" lo conservan.
+   */
+  mensajeRechazo: string
+  cambiarMensajeRechazo: (texto: string) => void
   /** Abre el modal de confirmación de esa acción. */
   pedir: (accion: AccionSolicitud, solicitud: Solicitud) => void
   /** Ejecuta la acción pedida (también es el "Reintentar"). */
@@ -72,10 +82,12 @@ export function useAccionSolicitud({ onExito, onConflicto }: OpcionesAccion): Es
   const [pedida, setPedida] = useState<AccionPedida | null>(null)
   const [enCurso, setEnCurso] = useState(false)
   const [error, setError] = useState<ErrorAccion | null>(null)
+  const [mensajeRechazo, setMensajeRechazo] = useState('')
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   function pedir(accion: AccionSolicitud, solicitud: Solicitud): void {
     setError(null)
+    setMensajeRechazo('')
     setPedida({ accion, solicitud })
   }
 
@@ -83,6 +95,7 @@ export function useAccionSolicitud({ onExito, onConflicto }: OpcionesAccion): Es
     if (enCurso) return
     setPedida(null)
     setError(null)
+    setMensajeRechazo('')
   }
 
   async function confirmar(): Promise<void> {
@@ -90,7 +103,7 @@ export function useAccionSolicitud({ onExito, onConflicto }: OpcionesAccion): Es
     setEnCurso(true)
     setError(null)
     try {
-      const actualizada = await SERVICIO_DE_ACCION[pedida.accion](pedida.solicitud.id)
+      const actualizada = await SERVICIO_DE_ACCION[pedida.accion](pedida.solicitud.id, mensajeRechazo)
       setPedida(null)
       onExito(actualizada, pedida)
     } catch (causa: unknown) {
@@ -106,5 +119,5 @@ export function useAccionSolicitud({ onExito, onConflicto }: OpcionesAccion): Es
     }
   }
 
-  return { pedida, enCurso, error, pedir, confirmar, cerrar }
+  return { pedida, enCurso, error, mensajeRechazo, cambiarMensajeRechazo: setMensajeRechazo, pedir, confirmar, cerrar }
 }

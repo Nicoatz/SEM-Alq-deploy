@@ -240,7 +240,7 @@ export function SolicitudesRecibidas() {
     onExito: (actualizada) => {
       setConflicto(null)
       // La fila se actualiza con la respuesta (sin recargar la lista) y el detalle abierto se vuelve a pedir.
-      setCambios((actual) => ({ ...actual, [actualizada.id]: { status: actualizada.status, respondedAt: actualizada.respondedAt } }))
+      setCambios((actual) => ({ ...actual, [actualizada.id]: { status: actualizada.status, respondedAt: actualizada.respondedAt, rejectionMessage: actualizada.rejectionMessage } }))
       if (actualizada.id === abierta?.id) detalle.recargar()
     },
     onConflicto: (message, pedida) => {

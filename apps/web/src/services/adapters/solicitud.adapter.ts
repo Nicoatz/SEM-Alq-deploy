@@ -18,7 +18,7 @@
  */
 import type { EstadoSolicitud, GarantiaOfrecida, PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
-import { MENSAJES_SOLICITUD, SOLICITUD_MENSAJE_LARGO_MESSAGE } from '@/lib/validation/solicitud.rules'
+import { MENSAJES_SOLICITUD, normalizarMensajeRechazo, SOLICITUD_MENSAJE_LARGO_MESSAGE, SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE } from '@/lib/validation/solicitud.rules'
 import type { CrearSolicitudRequest, SolicitudPreparacionResponse, SolicitudResponse } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
 import { formatExactAddress } from './direccion'
@@ -96,7 +96,8 @@ function telefonoE164(telefono: string): string {
  * - `property.imageSrc`: `foto_principal`, o el placeholder si no tiene fotos.
  * - `applicant.fullName`: "Nombre Apellido".
  * - `message`: `null` si vino vacío.
- * - `mensaje_rechazo`: no se usa (sin motivo de rechazo, decisión del PO).
+ * - `rejectionMessage`: `mensaje_rechazo` sin espacios en los bordes; `null`
+ *   si no vino o vino vacío (US-37: el motivo es opcional).
  *
  * @throws {ServiceError} `server` si el estado no es uno de los cuatro conocidos.
  */
@@ -147,6 +148,7 @@ function aVista(dto: SolicitudResponse, status: EstadoSolicitud, vista: VistaSol
     status,
     createdAt: dto.fecha_creacion,
     respondedAt: dto.fecha_respuesta ?? null,
+    rejectionMessage: normalizarMensajeRechazo(dto.mensaje_rechazo),
   }
 }
 
@@ -308,13 +310,21 @@ export function errorDePrepararSolicitud(error: unknown): unknown {
  *   403 si no tiene el rol locador. Se muestran igual, como en propiedades.
  * - 409 → `conflict` con {@link SOLICITUD_YA_NO_PENDIENTE_MESSAGE}: el back
  *   solo cambia solicitudes pendientes.
- * - 400 (id inválido) y 5xx → `server` con el genérico.
+ * - 400 por el motivo del rechazo ("El mensaje de rechazo no puede superar
+ *   los 200 caracteres.", US-37) → `validation` con
+ *   `SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE`. El modal no deja escribir más
+ *   de 200, así que solo llega si alguien saltea el formulario.
+ * - Otro 400 (id inválido) y 5xx → `server` con el genérico.
  */
 export function errorDeAccionSolicitud(error: unknown): unknown {
   if (!(error instanceof ServiceError)) return error
   if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', SOLICITUD_NO_ENCONTRADA_MESSAGE)
   if (error.code === 'conflict') return new ServiceError('conflict', SOLICITUD_YA_NO_PENDIENTE_MESSAGE)
-  if (error.code === 'validation') return new ServiceError('server', SOLICITUD_ERROR_GENERICO_MESSAGE)
+  if (error.code === 'validation') {
+    return error.message.includes('El mensaje de rechazo no puede superar')
+      ? new ServiceError('validation', SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE)
+      : new ServiceError('server', SOLICITUD_ERROR_GENERICO_MESSAGE)
+  }
   return sinTextoTecnico(error)
 }
 

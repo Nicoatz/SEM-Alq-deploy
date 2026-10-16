@@ -54,5 +54,7 @@ export function solicitudMockToSolicitud(
     createdAt: solicitud.createdAt,
     // `?? null`: las enviadas en el navegador antes de la tanda 2 no tienen el campo.
     respondedAt: solicitud.respondedAt ?? null,
+    // `?? null`: las del elenco y las rechazadas antes de la tanda B no tienen motivo.
+    rejectionMessage: solicitud.rejectionMessage ?? null,
   }
 }
