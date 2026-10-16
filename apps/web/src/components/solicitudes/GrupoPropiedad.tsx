@@ -28,6 +28,8 @@ interface GrupoPropiedadProps {
   /** La aceptada de esta propiedad (de la lista completa, no solo de la pestaña), si hay. */
   aceptada: Solicitud | undefined
   seleccionadaId: string | null
+  /** Si las filas muestran sus botones (solo en móvil: en escritorio van en el detalle). */
+  conAcciones: boolean
   onAbrir: (solicitud: Solicitud) => void
   onAccion: (accion: AccionSolicitud, solicitud: Solicitud) => void
 }
@@ -38,7 +40,7 @@ function solicitudesTexto(cantidad: number): string {
 }
 
 /** Una propiedad con sus solicitudes. */
-export function GrupoPropiedad({ grupo, aceptada, seleccionadaId, onAbrir, onAccion }: GrupoPropiedadProps) {
+export function GrupoPropiedad({ grupo, aceptada, seleccionadaId, conAcciones, onAbrir, onAccion }: GrupoPropiedadProps) {
   const foto = useFotoConRespaldo(grupo.property.imageSrc)
 
   return (
@@ -58,6 +60,7 @@ export function GrupoPropiedad({ grupo, aceptada, seleccionadaId, onAbrir, onAcc
           solicitud={solicitud}
           otraAceptada={aceptada && aceptada.id !== solicitud.id ? aceptada : undefined}
           seleccionada={solicitud.id === seleccionadaId}
+          conAcciones={conAcciones}
           onAbrir={onAbrir}
           onAccion={onAccion}
         />

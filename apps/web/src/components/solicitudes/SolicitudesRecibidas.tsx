@@ -14,8 +14,9 @@
  *
  * Qué muestra (Claude Design, "Flujo de solicitudes" · 02, 03, 05 y 06):
  * pestañas con contador, filtro por propiedad y orden; las solicitudes
- * agrupadas por propiedad; el detalle del postulante al costado (en móvil,
- * Drawer a pantalla completa); vacío, carga con skeleton y error.
+ * agrupadas por propiedad; el detalle del postulante al costado, ancho y con
+ * las acciones (en móvil, Drawer a pantalla completa y las acciones en cada
+ * fila); vacío, carga con skeleton y error.
  *
  * Reglas (`lib/validation/solicitud.rules.ts`):
  * - Una sola aceptada por propiedad: mientras haya una, el "Aceptar" de las
@@ -27,11 +28,11 @@
  * sensibles), `getSolicitudRecibida` (los datos del postulante de la abierta,
  * vía `useDetalleSolicitud`) y, para el vacío, `listarMisPropiedades`. Quién lo usa: `app/(app)/panel/solicitudes/page.tsx`.
  */
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { Alert, Button, Drawer, Select, Skeleton } from 'antd'
 import { useRouter } from 'next/navigation'
 import type { PropiedadLocador, Solicitud } from '@rentar/shared-types'
-import { EmptyState, PageHeader } from '@rentar/ui'
+import { breakpoints, EmptyState, PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import {
   agruparPorPropiedad,
@@ -59,8 +60,23 @@ import styles from './SolicitudesRecibidas.module.css'
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Solicitudes' }]
 
-/** Debajo de este ancho el detalle se abre en un Drawer (mismo corte que el CSS). */
-const MEDIA_MOVIL = '(max-width: 767px)'
+/**
+ * Móvil: debajo de `breakpoints.md` (768 px). El detalle se abre en un Drawer
+ * y las acciones van en cada fila.
+ * NOTA: es el MISMO corte que `@media (max-width: 767px)` de
+ * `SolicitudesRecibidas.module.css` (las media queries no leen variables, por
+ * eso allá va el literal). Si no coincidieran, habría anchos sin acciones en
+ * la fila y sin panel al costado.
+ */
+const MEDIA_MOVIL = `(max-width: ${breakpoints.md - 1}px)`
+
+/**
+ * Ancho del panel del costado (px) desde el que "Datos del postulante" va en
+ * 2 columnas. NOTA: se mide el panel y no la ventana: con 1200 px de ventana
+ * el panel mide 520 y "$ 900.000 por mes" se partía en cuatro renglones; con
+ * 1440, mide 670 y entra.
+ */
+const ANCHO_DETALLE_DOS_COLUMNAS = 640
 
 /** Se suscribe a los cambios del corte de móvil. */
 function suscribirMovil(avisar: () => void): () => void {
@@ -72,10 +88,26 @@ function suscribirMovil(avisar: () => void): () => void {
 /**
  * `true` debajo de 768 px. En el servidor, `false` (escritorio).
  * NOTA: el detalle va en el panel del costado O en el Drawer, nunca en los
- * dos a la vez, así los `data-testid` del detalle no se repiten.
+ * dos a la vez, así los `data-testid` del detalle no se repiten. Lo mismo con
+ * las acciones: en la fila (móvil) O en el detalle (escritorio).
  */
 function useEsMovil(): boolean {
   return useSyncExternalStore(suscribirMovil, () => window.matchMedia(MEDIA_MOVIL).matches, () => false)
+}
+
+/**
+ * Mide el panel del costado: devuelve el `ref` para el `<aside>` y `true` si
+ * mide al menos {@link ANCHO_DETALLE_DOS_COLUMNAS}.
+ */
+function useDetalleAncho(): [(nodo: HTMLElement | null) => (() => void) | undefined, boolean] {
+  const [ancho, setAncho] = useState(false)
+  const ref = useCallback((nodo: HTMLElement | null) => {
+    if (!nodo) return undefined
+    const observador = new ResizeObserver(([entrada]) => setAncho((entrada?.contentRect.width ?? 0) >= ANCHO_DETALLE_DOS_COLUMNAS))
+    observador.observe(nodo)
+    return () => observador.disconnect()
+  }, [])
+  return [ref, ancho]
 }
 
 /** Nombre de cada pestaña en minúscula, para el vacío "sin resultados". */
@@ -210,6 +242,7 @@ function VacioLocador() {
 export function SolicitudesRecibidas() {
   const carga = useServiceCall(listarSolicitudesRecibidas)
   const esMovil = useEsMovil()
+  const [refPanel, detalleAncho] = useDetalleAncho()
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [cambios, setCambios] = useState<CambiosSolicitudes>({})
@@ -369,6 +402,8 @@ export function SolicitudesRecibidas() {
                     aceptada={aceptadas.get(grupo.property.id)}
                     // En móvil no hay panel al costado: ninguna fila se marca como elegida.
                     seleccionadaId={esMovil ? null : (seleccionada?.id ?? null)}
+                    // En escritorio las acciones están en el detalle del costado.
+                    conAcciones={esMovil}
                     onAbrir={abrir}
                     onAccion={pedirAccion}
                   />
@@ -394,8 +429,8 @@ export function SolicitudesRecibidas() {
 
             {/* Detalle al costado (escritorio). En móvil va en el Drawer. */}
             {!esMovil && (
-              <aside className={styles.aside}>
-                {seleccionada && !cargando && <DetallePostulante solicitud={seleccionada} detalle={detalle} otraAceptada={otraAceptadaDe(seleccionada)} onAccion={pedirAccion} />}
+              <aside className={styles.aside} ref={refPanel}>
+                {seleccionada && !cargando && <DetallePostulante solicitud={seleccionada} detalle={detalle} otraAceptada={otraAceptadaDe(seleccionada)} onAccion={pedirAccion} columnas={detalleAncho ? 2 : 1} />}
               </aside>
             )}
           </div>
@@ -412,7 +447,7 @@ export function SolicitudesRecibidas() {
         closable={{ 'aria-label': 'Volver a la lista' }}
         data-testid="solicitudes-detalle-drawer"
       >
-        {enDrawer && <DetallePostulante solicitud={enDrawer} detalle={detalle} otraAceptada={otraAceptadaDe(enDrawer)} onAccion={pedirAccion} />}
+        {enDrawer && <DetallePostulante solicitud={enDrawer} detalle={detalle} otraAceptada={otraAceptadaDe(enDrawer)} onAccion={pedirAccion} columnas={1} />}
       </Drawer>
 
       <ModalAccionSolicitud estado={accion} actor="locador" otrasPendientes={otrasPendientes} testIdPrefix="solicitudes" />

@@ -20,6 +20,9 @@
  * - Rechazada o cancelada: Ver detalle.
  * Si la rechazó con un motivo (US-37), va debajo de la línea, truncado a 80
  * caracteres (US-36); el completo está en el detalle del postulante.
+ * Las acciones de la fila (y "Ver detalle") van solo en móvil (`conAcciones`):
+ * en escritorio no entran al lado del resumen (medido a 1280 px en la tanda C)
+ * y están en el detalle del costado, con los `data-testid` `solicitudes-detalle-*`.
  * NOTA: "Iniciar contrato" y "Mensaje" de la aceptada no van: contratos y
  * mensajes son de otro sprint.
  *
@@ -136,14 +139,20 @@ export function AccionesSolicitudRecibida({ solicitud, otraAceptada, onAccion, v
 interface FilaSolicitudRecibidaProps {
   solicitud: Solicitud
   otraAceptada: Solicitud | undefined
-  /** Es la que se ve en el panel del costado (borde azul). */
+  /** Es la que se ve en el panel del costado (borde y fondo azul, `aria-current`). */
   seleccionada: boolean
+  /**
+   * Si muestra los botones (Aceptar, Rechazar, Cancelar o "Ver detalle").
+   * `true` solo en móvil, donde no hay panel al costado; lo decide el mismo
+   * corte de 768 px que el CSS (`SolicitudesRecibidas#MEDIA_MOVIL`).
+   */
+  conAcciones: boolean
   onAbrir: (solicitud: Solicitud) => void
   onAccion: (accion: AccionSolicitud, solicitud: Solicitud) => void
 }
 
 /** Una solicitud recibida dentro del grupo de su propiedad. */
-export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, onAbrir, onAccion }: FilaSolicitudRecibidaProps) {
+export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, conAcciones, onAbrir, onAccion }: FilaSolicitudRecibidaProps) {
   const cerrada = solicitud.status === 'rechazada' || solicitud.status === 'cancelada'
 
   return (
@@ -194,7 +203,7 @@ export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, o
           </span>
         )}
       </div>
-      {cerrada ? (
+      {!conAcciones ? null : cerrada ? (
         <div className={styles.actions}>
           <Button
             type="link"

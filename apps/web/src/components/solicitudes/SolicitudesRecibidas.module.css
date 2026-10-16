@@ -33,9 +33,10 @@
 
 /* ─── Lista + detalle al costado ──────────────────────────────────── */
 
+/* Opción B de la tanda C: el detalle es más ancho que la lista (antes, 1.5fr / 1fr). */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: 1.125rem;
   align-items: start;
 }
@@ -51,6 +52,22 @@
   position: sticky;
   top: 0.75rem;
   min-width: 0;
+}
+
+/* El panel del costado nunca es más alto que la ventana: si el mensaje es
+   largo, hace scroll adentro y los botones quedan siempre a la vista. */
+.aside .detail {
+  max-height: calc(100dvh - 1.5rem);
+  overflow-y: auto;
+}
+
+.aside .actionsDetail {
+  position: sticky;
+  bottom: 0;
+  margin: 0 -1rem -1rem;
+  padding: 0.75rem 1rem 1rem;
+  border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  background: var(--rentar-color-bg-surface);
 }
 
 /* ─── Grupo por propiedad ─────────────────────────────────────────── */
@@ -147,12 +164,15 @@
   font-weight: 700;
 }
 
+/* `min-width: 0`: en escritorio la fila no lleva botones y la columna de la
+   lista mide ~290 px a 768 px; con un mínimo fijo, el avatar quedaba solo en
+   una línea. En móvil, `flex-basis` (abajo) manda los botones a otra línea. */
 .rowBody {
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: 0.1875rem;
-  min-width: 13.75rem;
+  min-width: 0;
 }
 
 .rowHead {
@@ -346,6 +366,9 @@
   line-height: 1.5;
   white-space: pre-line;
   color: var(--rentar-color-text-primary);
+  /* Un texto sin espacios (600 "k" en el testing) corta en cualquier carácter
+     en vez de desbordar el panel. También el motivo del rechazo (US-37). */
+  overflow-wrap: anywhere;
 }
 
 .legajo {
@@ -356,6 +379,10 @@
 
 .legajo :global(.ant-descriptions-item) {
   padding-bottom: 0.375rem;
+}
+
+.sinCorte {
+  white-space: nowrap;
 }
 
 /* Aviso de una brecha del back debajo de las pestañas (ej. "Las canceladas todavía no se muestran"). */
@@ -434,6 +461,9 @@
 }
 
 /* ─── Móvil (· 05) ────────────────────────────────────────────────── */
+/* Debajo de `breakpoints.md` (768 px, breakpoints.md). NOTA: el mismo corte que
+   `MEDIA_MOVIL` en SolicitudesRecibidas.tsx, que decide si la fila lleva las
+   acciones: si se cambia uno, se cambia el otro. */
 
 @media (max-width: 767px) {
   .layout {
