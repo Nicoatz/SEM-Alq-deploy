@@ -53,7 +53,7 @@ export interface HeaderSession {
   onLogout: () => void
 }
 
-/** Props de {@link Header}. Las dos son opcionales: sin ellas, el Header sin sesión de siempre. */
+/** Props de {@link Header}. Todas son opcionales: sin ellas, el Header sin sesión de siempre. */
 interface HeaderProps {
   /** Usuario en sesión. `null`/`undefined` = sin sesión. */
   session?: HeaderSession | null
@@ -63,6 +63,13 @@ interface HeaderProps {
    * con sesión, así no parpadea.
    */
   sessionPending?: boolean
+  /**
+   * A dónde lleva "Iniciar sesión" (escritorio y menú móvil). Por defecto
+   * `/login`. `apps/web` le pasa `/login?next=<página actual>` para que, después
+   * del login, el usuario vuelva a donde estaba (US-39). Viene por prop porque
+   * este paquete no depende de `next/navigation`.
+   */
+  loginHref?: string
 }
 
 /** Iniciales para el avatar sin foto: "Sofía Ledesma" → "SL". */
@@ -86,7 +93,7 @@ function initials(name: string): string {
  * - Logo → `/`.
  * - "Buscar propiedades" → `/buscar` (US-34).
  * - "Cómo funciona" → la sección de la landing (`/#como-funciona`).
- * - "Iniciar sesión" → `/login` (US-39).
+ * - "Iniciar sesión" → `loginHref` (por defecto `/login`; US-39).
  * - "Publicar propiedad" → `/panel/propiedades/nueva` (US-01). Sin sesión,
  *   `proxy.ts` de apps/web lo manda a `/login?next=...` y vuelve después.
  *
@@ -98,7 +105,7 @@ function initials(name: string): string {
  * estilo de botón) en vez de envolverlos en un link: un `<button>` dentro
  * de un `<a>` es HTML inválido.
  */
-export function Header({ session, sessionPending = false }: HeaderProps) {
+export function Header({ session, sessionPending = false, loginHref = '/login' }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { ImageComponent, LinkComponent } = useNextBridge()
   // Mientras se confirma la sesión no se muestra ninguna de las dos variantes.
@@ -108,7 +115,7 @@ export function Header({ session, sessionPending = false }: HeaderProps) {
   // ─── Acciones de escritorio ─────────────────────────────────────────
   let desktopActions = (
     <>
-      <Button type="text" href="/login" style={{ color: seed.blue, fontWeight: 600 }} data-testid="header-login-button">
+      <Button type="text" href={loginHref} style={{ color: seed.blue, fontWeight: 600 }} data-testid="header-login-button">
         Iniciar sesión
       </Button>
       <Button type="primary" href="/panel/propiedades/nueva" data-testid="header-publish-button">
@@ -240,7 +247,7 @@ export function Header({ session, sessionPending = false }: HeaderProps) {
 
           {sinSesion && (
             <div className={styles.drawerActions}>
-              <Button type="text" href="/login" style={{ color: seed.blue, fontWeight: 600, textAlign: 'left' }} block data-testid="header-drawer-login-button">
+              <Button type="text" href={loginHref} style={{ color: seed.blue, fontWeight: 600, textAlign: 'left' }} block data-testid="header-drawer-login-button">
                 Iniciar sesión
               </Button>
               <Button type="primary" href="/panel/propiedades/nueva" block data-testid="header-drawer-publish-button">

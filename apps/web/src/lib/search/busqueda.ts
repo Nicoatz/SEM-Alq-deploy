@@ -40,16 +40,31 @@ export const FILTROS_INICIALES: BusquedaFiltros = {
   adjustmentIndex: null,
 }
 
-/** Opciones de orden, en el orden en que aparecen en el selector. */
+/**
+ * Opciones de orden, en el orden en que aparecen en el selector (escritorio)
+ * y en el menú "Ordenar" (móvil). US-34: precio, dormitorios y m², en los dos
+ * sentidos (testing del Sprint 2, Pruebas 9 y 10).
+ */
 export const ORDEN_OPCIONES: { value: OrdenBusqueda; label: string }[] = [
   // "Quitar el orden" (US-34) = volver a esta opción.
   { value: 'predeterminado', label: 'Sin orden' },
   { value: 'precio_asc', label: 'Menor precio' },
   { value: 'precio_desc', label: 'Mayor precio' },
-  { value: 'dormitorios_desc', label: 'Más habitaciones' },
-  { value: 'm2_desc', label: 'Más metros cuadrados' },
+  { value: 'dormitorios_desc', label: 'Más dormitorios' },
+  { value: 'dormitorios_asc', label: 'Menos dormitorios' },
+  { value: 'm2_desc', label: 'Más m²' },
+  { value: 'm2_asc', label: 'Menos m²' },
   { value: 'recientes', label: 'Más recientes' },
 ]
+
+/**
+ * `true` si `valor` es uno de los órdenes de {@link ORDEN_OPCIONES}. Lo usan la
+ * lectura de la URL (un `orden` desconocido cae en `predeterminado`) y el
+ * menú "Ordenar" del móvil (su `key` llega como texto).
+ */
+export function esOrdenBusqueda(valor: unknown): valor is OrdenBusqueda {
+  return ORDEN_OPCIONES.some((opcion) => opcion.value === valor)
+}
 
 // ─── Filtrar ────────────────────────────────────────────────────────────
 
@@ -97,7 +112,9 @@ export function ordenar(propiedades: PropiedadResumen[], orden: OrdenBusqueda): 
     precio_asc: (a, b) => a.priceMonthly - b.priceMonthly,
     precio_desc: (a, b) => b.priceMonthly - a.priceMonthly,
     dormitorios_desc: (a, b) => b.bedrooms - a.bedrooms,
+    dormitorios_asc: (a, b) => a.bedrooms - b.bedrooms,
     m2_desc: (a, b) => b.areaM2 - a.areaM2,
+    m2_asc: (a, b) => a.areaM2 - b.areaM2,
     recientes: (a, b) => b.publishedAt.localeCompare(a.publishedAt),
   }
   return [...propiedades].sort((a, b) => comparar[orden](a, b) || a.id.localeCompare(b.id))

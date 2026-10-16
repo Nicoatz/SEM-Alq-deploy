@@ -208,6 +208,8 @@ export async function listarPropiedadesRecientes(cantidad: number): Promise<Prop
  * más"). Falta volver a mandar la búsqueda al servidor (en `feature/vistas`):
  * el mapeo de la URL a sus params estaba en `propiedad.adapter.ts`
  * (`consultaDeDisponibles`, commit 60f8c63). Ver `HANDOFF-BACKEND.md` §7.
+ * NOTA: al mandar el orden, el back lo pide en dos params: `orden=precio|dormitorios|m2`
+ * y `direccion=asc|desc` (`dormitorios_asc` → `orden=dormitorios&direccion=asc`).
  */
 export async function buscarPropiedades(filtros: BusquedaFiltros, orden: OrdenBusqueda, pagina: number): Promise<Paginado<PropiedadResumen>> {
   if (USE_MOCKS) {

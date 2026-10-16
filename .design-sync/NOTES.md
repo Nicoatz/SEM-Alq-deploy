@@ -275,6 +275,14 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
+## Pendiente de subir: `Header#loginHref` (testing del Sprint 2, 2026-10-15)
+
+- `Header`: prop nueva opcional `loginHref?: string` (por defecto `/login`), que usan los dos
+  botones "Iniciar sesión" (`header-login-button` y `header-drawer-login-button`). `apps/web`
+  (`components/PublicHeader.tsx`) le pasa `/login?next=<página actual>` para volver ahí después
+  del login (US-39, Prueba 6 del testing). Va por prop porque `@rentar/ui` no depende de
+  `next/navigation`. Sin cambios visuales; `PublicLayout` sigue usando `<Header />` sin props.
+
 ## Tarea aparte: peso del JS común (Lighthouse móvil), para después del merge de la landing
 
 Decisión del PO (01/10/2026): no se resuelve en `feature/nuevo-landing`. Queda acá y en la

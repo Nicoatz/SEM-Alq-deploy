@@ -16,7 +16,7 @@
  * | `m2Min`, `m2Max` | `40` | superficie total |
  * | `tag` (se repite) | `mascotas` | características |
  * | `indice` | `ICL` | índice de ajuste |
- * | `orden` | `precio_asc` | orden |
+ * | `orden` | `precio_asc` | orden (`precio_`, `dormitorios_`, `m2_` + `asc`/`desc`, o `recientes`; otro valor = sin orden) |
  * | `pagina` | `2` | página (desde 1) |
  *
  * Quién lo usa: `components/buscar/BuscarPropiedades.tsx`,
@@ -25,7 +25,7 @@
  * de la propiedad (`components/detalle-propiedad/`, links a `/buscar?barrio=`).
  */
 import type { AdjustmentIndex, BusquedaFiltros, CharacteristicKey, OrdenBusqueda, PropertyType } from '@rentar/shared-types'
-import { FILTROS_INICIALES, ORDEN_OPCIONES } from './busqueda'
+import { esOrdenBusqueda, FILTROS_INICIALES } from './busqueda'
 
 const TIPOS: PropertyType[] = ['departamento', 'casa', 'ph', 'monoambiente']
 const INDICES: AdjustmentIndex[] = ['IPC', 'ICL']
@@ -87,7 +87,7 @@ export function leerBusqueda(params: URLSearchParams): EstadoBusqueda {
       characteristics: permitidos(params, 'tag', CARACTERISTICAS),
       adjustmentIndex: INDICES.includes(indice as AdjustmentIndex) ? (indice as AdjustmentIndex) : null,
     },
-    orden: ORDEN_OPCIONES.some((opcion) => opcion.value === orden) ? (orden as OrdenBusqueda) : 'predeterminado',
+    orden: esOrdenBusqueda(orden) ? orden : 'predeterminado',
     pagina: Math.max(1, Math.floor(numero(params, 'pagina') ?? 1)),
   }
 }

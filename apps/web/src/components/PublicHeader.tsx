@@ -13,20 +13,25 @@
  *   (`sesionProbable`), un placeholder con la forma de la variante con sesión:
  *   nunca se ve "Iniciar sesión" para después cambiarlo (ver
  *   `app/(public)/layout.tsx`).
+ * - "Iniciar sesión" lleva `?next=` con la página actual (ruta + query), para
+ *   volver ahí después del login (US-39). Ver `loginHrefDesde`.
  * Cubre: US-39 Iniciar y cerrar sesión (la sesión se ve y se cierra desde
- * cualquier página pública).
+ * cualquier página pública, y el login vuelve a la página en la que estaba).
  *
  * NOTA: "Cerrar sesión" acá se queda en la página pública (`logout({ quedarse:
  * true })`): el Header pasa a la variante sin sesión, sin recargar.
+ *
  * NOTA: no muestra "Viendo como": el diseño del Header no lo tiene (el cambio
  * de rol vive en el panel).
  *
  * De dónde saca los datos: `useAuth()` (`lib/auth/AuthProvider.tsx`).
  * Quién lo usa: `app/(public)/layout.tsx`.
  */
+import { usePathname, useSearchParams } from 'next/navigation'
 import { HomeOutlined, PlusOutlined, UserOutlined } from '@ant-design/icons'
 import { Header, type HeaderSession, type UserMenuItem } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { loginHrefDesde } from '@/lib/auth/redirect'
 
 /** Rutas del panel a las que lleva el Header con sesión. */
 const PANEL_PATH = '/panel'
@@ -51,6 +56,11 @@ interface PublicHeaderProps {
 /** Header público con la variante de sesión según `useAuth()`. */
 export function PublicHeader({ sesionProbable }: PublicHeaderProps) {
   const { user, activeRole, isLoading, logout } = useAuth()
+  // NOTA: `useSearchParams` sin `Suspense` es válido acá: el layout público lee
+  // cookies, así que estas páginas se renderizan en cada pedido (no se prerenderizan).
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const loginHref = loginHrefDesde(pathname, searchParams.toString())
 
   const session: HeaderSession | null =
     user && activeRole
@@ -66,5 +76,5 @@ export function PublicHeader({ sesionProbable }: PublicHeaderProps) {
       : null
 
   // Sin cookie de sesión no se espera nada: la variante sin sesión sale de entrada.
-  return <Header session={session} sessionPending={isLoading && sesionProbable} />
+  return <Header session={session} sessionPending={isLoading && sesionProbable} loginHref={loginHref} />
 }
