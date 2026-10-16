@@ -138,7 +138,6 @@
   gap: 0.875rem;
   padding: 0.9375rem 1rem;
   border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.08);
-  border-left: 3px solid transparent;
   cursor: pointer;
 }
 
@@ -146,8 +145,19 @@
   border-bottom: none;
 }
 
+/* La elegida (la que se ve en el panel del costado) no depende solo de una
+   línea de color (P3/P6 del testing: la línea azul de 3 px se perdía con baja
+   visión): borde completo de 2 px y fondo azul suave, más `aria-current` en
+   el nombre. Es un `outline` hacia adentro: no mueve el contenido y se sigue
+   viendo en el modo de alto contraste (`forced-colors`), que borra fondos y
+   sombras.
+   Contraste sobre el fondo (6 % de azul sobre blanco, rgb 240 244 249): texto
+   primario 14,97:1, secundario (ink/70) 5,85:1, azul 7,57:1; el borde contra
+   el blanco de al lado, 8,35:1 (DESIGN.md, "La regla de contraste"). */
 .rowSelected {
-  border-left-color: var(--rentar-color-blue);
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--rentar-color-blue) 6%, var(--rentar-color-bg-surface));
 }
 
 .avatar.avatar {

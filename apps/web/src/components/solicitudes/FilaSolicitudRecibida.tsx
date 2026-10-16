@@ -171,6 +171,8 @@ export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, c
               onAbrir(solicitud)
             }}
             aria-label={`Ver la solicitud de ${solicitud.applicant.fullName}`}
+            // La que se ve en el panel del costado: los lectores de pantalla la anuncian como "actual".
+            aria-current={seleccionada ? 'true' : undefined}
           >
             {solicitud.applicant.fullName}
           </button>
