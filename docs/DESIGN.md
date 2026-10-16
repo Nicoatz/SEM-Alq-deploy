@@ -263,6 +263,19 @@ landing es azul y usa los mismos tonos que el panel, medidos sobre `#004D98`:
 La ciudad ilustrada de la base no baja estos números: va multiplicada sobre el azul, así que solo
 lo oscurece, y queda debajo de los chips.
 
+**El fondo de selección** (16/10/2026, tanda C de correcciones del Sprint 2). La fila elegida de
+una lista (Solicitudes recibidas: la que se ve en el panel del costado) lleva un borde completo de
+2 px con `--rentar-color-blue` y de fondo
+`color-mix(in srgb, var(--rentar-color-blue) 6%, var(--rentar-color-bg-surface))` (rgb 240 244 249).
+No se usa `--rentar-color-sky-light`: es el fondo de los encabezados de grupo y se confundirían.
+Medido sobre ese fondo:
+- Texto primario (`ink`): **14,97:1**.
+- Texto secundario (`ink/70`): **5,85:1**. Baja del ≈6,1:1 que da sobre blanco, pero pasa AA de
+  sobra (4,5:1); aprobado por el PO.
+- Azul del tema (`#004D98`): **7,57:1**.
+- El borde azul contra el blanco de al lado: **8,35:1** (el mínimo para un borde que distingue es 3:1).
+Al 8 % o al 10 % de azul, `ink/70` bajaría a 5,75:1 y 5,66:1: el 6 % es el tope.
+
 ## Tipografía
 
 **Fuente de Display/Cuerpo:** League Spartan, con `system-ui, sans-serif` como respaldo — una sola
