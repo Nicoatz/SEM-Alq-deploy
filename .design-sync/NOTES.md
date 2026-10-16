@@ -275,7 +275,22 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
-## Pendiente de subir: `Header#loginHref` (testing del Sprint 2, 2026-10-15)
+## Re-sync del 2026-10-16 (`Header#loginHref`): proyecto de la cuenta nueva
+
+- **Desde el 16/10, `config.json` apunta al proyecto de la cuenta nueva:
+  `3dd3f68f-0040-4a31-86ee-6cf1352cc696` ("RentAR Design System", creado en la migración del
+  13/10).** Antes apuntaba a `0f707fbd-bf3d-4fbc-a8f3-74c68d6e4cb7`, de la cuenta vieja, que ya no se
+  usa (hoy da "project not found"). Si `get_project` vuelve a dar 404, no adoptar otro proyecto sin
+  preguntar al PO.
+- **Render check con Edge:** en esta máquina ya no hay Chrome. `DS_CHROMIUM_PATH="C:/Program Files
+  (x86)/Microsoft/Edge/Application/msedge.exe"` anda igual (34/34 limpias); lo leen
+  `package-validate.mjs` y `package-capture.mjs`.
+- Resultado: ningún componente cambió de render (los 34 quedaron verificados por la subida
+  anterior). Se subieron `Header` (`.d.ts` y `.prompt.md` con `loginHref`), el bundle y los estilos:
+  176 archivos más el aviso y el ancla, 0 borrados. Sincronizado desde `develop` en `fd8762e` (PRs
+  #17 y #18). La tanda C (#19, re-merge en #20) no toca `@rentar/ui`.
+
+## (Subido el 2026-10-16) `Header#loginHref` (testing del Sprint 2, 2026-10-15)
 
 - `Header`: prop nueva opcional `loginHref?: string` (por defecto `/login`), que usan los dos
   botones "Iniciar sesión" (`header-login-button` y `header-drawer-login-button`). `apps/web`
