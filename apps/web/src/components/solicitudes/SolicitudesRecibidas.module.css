@@ -395,6 +395,18 @@
   white-space: nowrap;
 }
 
+/* En 2 columnas, mitad y mitad. NOTA: antd reparte las columnas según el
+   contenido, y un email largo dejaba la segunda en un tercio: "No informó"
+   se salía del recuadro (visto en real a 1440 px, con barra de scroll). */
+.legajoDosColumnas :global(td.ant-descriptions-item[colspan='1']) {
+  width: 50%;
+}
+
+.legajoDosColumnas :global(.ant-descriptions-item-content) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* Aviso de una brecha del back debajo de las pestañas (ej. "Las canceladas todavía no se muestran"). */
 .avisoPestania {
   margin: 0;

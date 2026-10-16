@@ -73,10 +73,17 @@ function filasLegajo(solicitud: Solicitud): { label: string; value: ReactNode }[
     { label: 'DNI', value: solicitud.applicant.dni ? Number(solicitud.applicant.dni).toLocaleString('es-AR') : '—' },
     { label: 'Ocupación', value: OCUPACION_LABEL[legajo.occupation] },
     // 0 = no los informa (decisión del PO, HANDOFF §7).
-    // El valor no se parte en renglones ("$ 900.000 por / mes", "No / informó") con los datos en 2 columnas.
+    // Ni la cifra ni "No informó" se parten en renglones ("$ 900. / 000", "No / informó") con los datos en 2 columnas.
     {
       label: 'Ingresos declarados',
-      value: <span className={styles.sinCorte}>{legajo.monthlyIncome > 0 ? `${formatARS(legajo.monthlyIncome)} por mes` : 'No informó'}</span>,
+      value:
+        legajo.monthlyIncome > 0 ? (
+          <>
+            <span className={styles.sinCorte}>{formatARS(legajo.monthlyIncome)}</span> por mes
+          </>
+        ) : (
+          <span className={styles.sinCorte}>No informó</span>
+        ),
     },
     { label: 'Van a vivir', value: personas(legajo.residents) },
     { label: 'Mascotas', value: legajo.hasPets ? (legajo.petsDetail ? `Sí: ${legajo.petsDetail}` : 'Sí') : 'No' },
@@ -138,7 +145,7 @@ export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion, 
               </Button>
             </div>
           ) : legajo ? (
-            <div className={styles.legajo} data-testid="solicitudes-detalle-legajo">
+            <div className={`${styles.legajo} ${columnas === 2 ? styles.legajoDosColumnas : ''}`} data-testid="solicitudes-detalle-legajo">
               <DetailList items={legajo} column={columnas} />
             </div>
           ) : (
