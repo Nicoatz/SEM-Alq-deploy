@@ -195,6 +195,28 @@
   color: var(--rentar-color-text-secondary);
 }
 
+/* ─── Resumen y extracto del mensaje (US-36) ──────────────────────── */
+
+.rowSummary {
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+}
+
+/* Dos líneas y "…": un texto sin espacios (600 "k" en el testing) corta en
+   cualquier carácter en vez de desbordar la fila. */
+.rowMessage {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 0.84375rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
 /* ─── Motivo del rechazo (US-36 y US-37) ──────────────────────────── */
 
 .rejectionNote {

@@ -6,8 +6,11 @@
  *
  * Qué muestra (Claude Design, "Flujo de solicitudes" · 02): avatar con
  * iniciales, nombre y apellido del postulante (US-36), `StatusTag` del
- * dominio `solicitud`, cuándo llegó o cuándo se respondió, la línea que
- * explica el estado, y las acciones según el estado
+ * dominio `solicitud`, cuándo llegó ("hace 3 h", "hace 2 días") o cuándo se
+ * respondió, el resumen de la solicitud (US-36: convivientes, mascotas,
+ * garantías y si declaró ingresos, nunca el monto), un extracto de 2 líneas
+ * del mensaje (P3/P6 del testing: el completo va en el detalle), la línea
+ * que explica el estado, y las acciones según el estado
  * (`TRANSICIONES_SOLICITUD`):
  * - Pendiente: Aceptar y Rechazar (US-37: "distinguir claramente el botón
  *   de aceptar y el de rechazar": azul lleno con ✓ y blanco con ✕). Si la
@@ -27,7 +30,7 @@ import { Avatar, Button, Tooltip } from 'antd'
 import { CheckOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons'
 import type { Solicitud } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
-import { fechaFilaRecibida, lineaRecibida } from '@/lib/solicitudes/textos'
+import { fechaFilaRecibida, lineaRecibida, textoResumen } from '@/lib/solicitudes/textos'
 import { iniciales } from '@/lib/utils/iniciales'
 import { MENSAJE_RECHAZO_LISTADO_MAX, truncar } from '@/lib/utils/truncar'
 import { puedeHacerAccion, textoYaAceptaste, type AccionSolicitud } from '@/lib/validation/solicitud.rules'
@@ -163,8 +166,26 @@ export function FilaSolicitudRecibida({ solicitud, otraAceptada, seleccionada, o
             {solicitud.applicant.fullName}
           </button>
           <StatusTag domain="solicitud" status={solicitud.status} />
-          <span className={styles.rowDate}>{fechaFilaRecibida(solicitud)}</span>
+          <span className={styles.rowDate} data-testid="solicitudes-fila-tiempo">
+            {fechaFilaRecibida(solicitud)}
+          </span>
         </div>
+        {/* US-36: el resumen, sin datos sensibles. `undefined` no pasa en esta lista (siempre es la vista del locador). */}
+        {solicitud.summary !== undefined && (
+          <span className={styles.rowSummary} data-testid="solicitudes-fila-resumen">
+            {solicitud.summary ? textoResumen(solicitud.summary) : 'Sin datos de legajo'}
+          </span>
+        )}
+        {/* Extracto de 2 líneas (CSS): el mensaje completo está en el detalle. */}
+        {solicitud.message ? (
+          <span className={styles.rowMessage} data-testid="solicitudes-fila-mensaje">
+            {solicitud.message}
+          </span>
+        ) : (
+          <span className={styles.rowLine} data-testid="solicitudes-fila-mensaje">
+            Sin mensaje.
+          </span>
+        )}
         <span className={styles.rowLine}>{lineaRecibida(solicitud, otraAceptada, puedeCancelarAceptada)}</span>
         {solicitud.status === 'rechazada' && solicitud.rejectionMessage && (
           <span className={styles.rejectionNote} data-testid="solicitudes-motivo-rechazo">
