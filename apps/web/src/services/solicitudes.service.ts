@@ -26,7 +26,7 @@
 import type { EstadoSolicitud, PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
 import { solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
-import { hoy } from '@/lib/utils/fechas'
+import { ahora } from '@/lib/utils/fechas'
 import {
   aceptadaDeLaPropiedad,
   errorDeSolicitudNueva,
@@ -147,10 +147,13 @@ function aVista(solicitud: SolicitudMock, vista: VistaSolicitud): Solicitud {
   return solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
 }
 
-/** "Ahora" en el elenco: el "hoy" fijo (23/09/2026) con la hora actual, así ordena después de las del día. */
+/**
+ * "Ahora" en el elenco: el 23/09/2026 a las 12:00 (`AHORA_ELENCO`), así una
+ * solicitud recién enviada dice "hace menos de 1 h" (US-36) y ordena después
+ * de las del día (la más nueva del elenco es de las 11:35).
+ */
 function ahoraMock(): string {
-  const ahora = new Date()
-  return hoy().hour(ahora.getHours()).minute(ahora.getMinutes()).format('YYYY-MM-DDTHH:mm:ss')
+  return ahora().format('YYYY-MM-DDTHH:mm:ss')
 }
 
 /** De la más nueva a la más vieja. */
@@ -420,6 +423,8 @@ export async function listarMisSolicitudes(): Promise<Solicitud[]> {
  *   vacío en real (HANDOFF §7, brecha 3).
  * @returns Solicitud[] con la dirección EXACTA (son sus propias propiedades),
  *   SIN DNI, contacto ni legajo: esos datos los trae {@link getSolicitudRecibida}.
+ *   Sí trae `summary` (US-36: convivientes, mascotas, garantías y si declaró
+ *   ingresos, sin el monto), armado del legajo que `/recibidas` ya manda.
  * @throws {ServiceError} `unauthorized` sin sesión; `forbidden` si la cuenta no es locadora.
  */
 export async function listarSolicitudesRecibidas(filtros: { estado?: EstadoSolicitud } = {}): Promise<Solicitud[]> {

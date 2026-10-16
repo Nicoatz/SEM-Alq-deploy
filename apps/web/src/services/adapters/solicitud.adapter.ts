@@ -16,7 +16,7 @@
  * Supabase (brechas anotadas en HANDOFF §7): solo pasa tal cual un texto que
  * está en la lista de {@link TEXTOS_DEL_BACK_QUE_PASAN}.
  */
-import type { EstadoSolicitud, GarantiaOfrecida, PreparacionSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
+import type { EstadoSolicitud, GarantiaOfrecida, LegajoSolicitud, PreparacionSolicitud, ResumenSolicitud, Solicitud, SolicitudNueva } from '@rentar/shared-types'
 import { PLACEHOLDER_PHOTO_SRC } from '@/lib/imagenes/fotoConRespaldo'
 import { MENSAJES_SOLICITUD, normalizarMensajeRechazo, SOLICITUD_MENSAJE_LARGO_MESSAGE, SOLICITUD_MENSAJE_RECHAZO_LARGO_MESSAGE } from '@/lib/validation/solicitud.rules'
 import type { CrearSolicitudRequest, SolicitudPreparacionResponse, SolicitudResponse } from '../shared/backend-dtos'
@@ -91,6 +91,11 @@ function telefonoE164(telefono: string): string {
  *   (ver {@link VistaSolicitud}); en las otras vistas quedan sin definir.
  * - `contact.phone`: el back lo manda sin el "+"; acá vuelve a E.164.
  * - `legajo.monthlyIncome`: `null` ("no informa") → 0, la convención del front.
+ * - `summary`: en `'locador-lista'` y `'locador-detalle'` (US-36), armado del
+ *   `legajo` con {@link resumenDeLegajo}: de los ingresos, solo si los
+ *   declaró. NOTA: `/recibidas` ya manda el legajo completo en cada fila; el
+ *   monto y el DNI se descartan acá (la brecha de que viajen igual está en
+ *   HANDOFF §7). Sin definir en `'postulante'`.
  * - `property.neighborhoodSlug` / `neighborhoodName`: `inmueble.barrio` (texto
  *   libre), con el slug del catálogo si lo tiene (`barrioDe`).
  * - `property.imageSrc`: `foto_principal`, o el placeholder si no tiene fotos.
@@ -129,6 +134,7 @@ function aVista(dto: SolicitudResponse, status: EstadoSolicitud, vista: VistaSol
   const barrio = barrioDe(dto.inmueble.barrio)
   const { direccion, numero, piso } = dto.inmueble
   const conDatosSensibles = vista === 'locador-detalle'
+  const paraElLocador = vista !== 'postulante'
   return {
     id: String(dto.id),
     property: {
@@ -144,6 +150,7 @@ function aVista(dto: SolicitudResponse, status: EstadoSolicitud, vista: VistaSol
       ...(conDatosSensibles ? { dni: dto.postulante.dni ?? null } : {}),
     },
     ...(conDatosSensibles ? datosSensibles(dto) : {}),
+    ...(paraElLocador ? { summary: resumenDeLegajo(legajoDeDto(dto)) } : {}),
     message: dto.mensaje?.trim() ? dto.mensaje : null,
     status,
     createdAt: dto.fecha_creacion,
@@ -155,19 +162,41 @@ function aVista(dto: SolicitudResponse, status: EstadoSolicitud, vista: VistaSol
 /** Contacto y legajo de la respuesta (solo en el detalle del postulante). */
 function datosSensibles(dto: SolicitudResponse): Pick<Solicitud, 'contact' | 'legajo'> {
   const { telefono, email } = dto.postulante
-  const legajo = dto.legajo
   return {
     contact: telefono || email ? { phone: telefono ? telefonoE164(telefono) : '', email: email ?? '' } : null,
-    legajo: legajo
-      ? {
-          occupation: legajo.ocupacion,
-          monthlyIncome: legajo.ingresos ?? 0,
-          residents: legajo.convivientes,
-          hasPets: legajo.mascotas,
-          petsDetail: legajo.detalle_mascotas,
-          guarantees: legajo.garantias,
-        }
-      : null,
+    legajo: legajoDeDto(dto),
+  }
+}
+
+/** El `legajo` del back → `LegajoSolicitud` (`null` si la solicitud no lo trae). */
+function legajoDeDto(dto: SolicitudResponse): LegajoSolicitud | null {
+  const { legajo } = dto
+  if (!legajo) return null
+  return {
+    occupation: legajo.ocupacion,
+    monthlyIncome: legajo.ingresos ?? 0,
+    residents: legajo.convivientes,
+    hasPets: legajo.mascotas,
+    petsDetail: legajo.detalle_mascotas,
+    guarantees: legajo.garantias,
+  }
+}
+
+/**
+ * El resumen del listado del locador (US-36), a partir del legajo: cuántos
+ * van a vivir, si tiene mascotas, qué garantías ofrece y si declaró ingresos.
+ * Sin el monto, sin el detalle de las mascotas y sin la ocupación: los datos
+ * sensibles van solo en el detalle del postulante. `null` si no hay legajo.
+ * Lo usa también la rama mock (`solicitud-mock.adapter.ts`).
+ */
+export function resumenDeLegajo(legajo: LegajoSolicitud | null | undefined): ResumenSolicitud | null {
+  if (!legajo) return null
+  return {
+    residents: legajo.residents,
+    hasPets: legajo.hasPets,
+    guarantees: legajo.guarantees,
+    // 0 = no los informa (convención del front, HANDOFF §7).
+    declaredIncome: legajo.monthlyIncome > 0,
   }
 }
 
