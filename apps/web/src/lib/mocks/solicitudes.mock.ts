@@ -20,6 +20,8 @@
  *   envío completo de US-35.
  * - Una propiedad alquilada (sin fecha de disponibilidad) o pausada no recibe
  *   solicitudes: no hay ninguna sobre esas.
+ * - Tanda C de correcciones (US-36, tiempo en horas): 0039 (Sofía, hace 3 h)
+ *   y 0040 (Diego, hace menos de 1 h), las dos pendientes de Nicolás.
  * - Prefijo de id: `SOL-2026-XXXX`.
  *
  * Quién lo usa: la rama mock de `services/solicitudes.service.ts` y de
@@ -211,5 +213,42 @@ export const solicitudes: SolicitudMock[] = [
     respondedAt: '2026-09-12T09:15:00',
     contact: CONTACTO_JULIETA,
     legajo: LEGAJO_JULIETA,
+  },
+
+  // ─── Tanda C de correcciones del testing del Sprint 2 (US-36) ─────────
+  // Dos pendientes del mismo "hoy", para ver el tiempo en horas (el "ahora"
+  // del elenco es el 23/09 a las 12:00, `AHORA_ELENCO`): una de hace 3 h y
+  // otra de hace menos de 1 h. La de varios días es la de Matías (0032).
+  // NOTA: no son de Julieta: sobre Fructuoso Rivera 785 no tiene ninguna
+  // (ahí se prueba el envío de US-35) y en Rondeau 480 ya tiene la 0031.
+  {
+    id: 'SOL-2026-0039',
+    propertyId: 'prop-rivera-785',
+    applicantUserId: 'usr-sofia',
+    // Sofía busca un lugar más grande para cuando termine su contrato de Obispo Trejo.
+    // Como Fructuoso Rivera 785 ya tiene la aceptada de Diego, su "Aceptar" aparece bloqueado.
+    applicantName: 'Sofía Ledesma',
+    message: 'Hola Nicolás, soy Sofía, tu inquilina de Obispo Trejo. Mi contrato termina en marzo y busco algo con más luz. Puedo mostrar mis recibos de sueldo.',
+    status: 'pendiente',
+    createdAt: '2026-09-23T09:00:00',
+    respondedAt: null,
+    contact: { phone: '+543515550102', email: 'sofia.ledesma@rentar.test' },
+    // Tres garantías: el resumen de la fila las une con comas ("…, … y …").
+    legajo: { occupation: 'relacion_dependencia', monthlyIncome: 1400000, residents: 1, hasPets: false, petsDetail: null, guarantees: ['propietaria', 'caucion', 'otra'] },
+  },
+  {
+    id: 'SOL-2026-0040',
+    propertyId: 'prop-rondeau-480',
+    applicantUserId: 'usr-diego',
+    // Diego vuelve a solicitar Rondeau 480 después del rechazo de la 0033 (US-37: "puede volver a
+    // solicitarla mientras siga publicada").
+    applicantName: 'Diego Ferreyra',
+    message: 'Hola de nuevo. Ahora sumo seguro de caución además de la garantía propietaria, por si eso ayuda.',
+    status: 'pendiente',
+    createdAt: '2026-09-23T11:35:00',
+    respondedAt: null,
+    contact: CONTACTO_DIEGO,
+    // Dos garantías: el resumen las une con " y ".
+    legajo: { occupation: 'relacion_dependencia', monthlyIncome: 900000, residents: 1, hasPets: false, petsDetail: null, guarantees: ['propietaria', 'caucion'] },
   },
 ]

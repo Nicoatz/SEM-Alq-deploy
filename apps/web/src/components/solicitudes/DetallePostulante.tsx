@@ -9,8 +9,12 @@
  * hace 2 días", el estado con su línea, la propiedad, el mensaje opcional
  * del postulante (US-36: "se debe leer el mensaje opcional incluido por el
  * locatario, si lo hubiera") y los botones grandes de acción.
- * En escritorio va al costado de la lista; en móvil, en un Drawer a pantalla
- * completa (· 05: "el detalle del postulante se abre como pantalla propia").
+ * En escritorio va al costado de la lista, en un panel ancho (opción B de la
+ * tanda C de correcciones: P3/P6 del testing decían que el panel chico era
+ * incómodo), con los datos en dos columnas si el panel mide 640 px o más; en móvil, en un
+ * Drawer a pantalla completa (· 05: "el detalle del postulante se abre como
+ * pantalla propia"). El mensaje va completo y corta en cualquier carácter:
+ * un texto sin espacios (600 "k" en el testing) no desborda el panel.
  *
  * Desde la US-35 actualizada, también los "Datos del postulante" (· 02,
  * ficha del postulante): contacto, DNI, ocupación, ingresos, convivientes,
@@ -46,6 +50,8 @@ interface DetallePostulanteProps {
   /** La aceptada de la misma propiedad, si es otra. */
   otraAceptada: Solicitud | undefined
   onAccion: (accion: AccionSolicitud, solicitud: Solicitud) => void
+  /** Columnas de "Datos del postulante": 2 en el panel ancho de escritorio, 1 en el Drawer. */
+  columnas: 1 | 2
 }
 
 /** "1 persona" / "2 personas". */
@@ -67,7 +73,18 @@ function filasLegajo(solicitud: Solicitud): { label: string; value: ReactNode }[
     { label: 'DNI', value: solicitud.applicant.dni ? Number(solicitud.applicant.dni).toLocaleString('es-AR') : '—' },
     { label: 'Ocupación', value: OCUPACION_LABEL[legajo.occupation] },
     // 0 = no los informa (decisión del PO, HANDOFF §7).
-    { label: 'Ingresos declarados', value: legajo.monthlyIncome > 0 ? `${formatARS(legajo.monthlyIncome)} por mes` : 'No informó' },
+    // Ni la cifra ni "No informó" se parten en renglones ("$ 900. / 000", "No / informó") con los datos en 2 columnas.
+    {
+      label: 'Ingresos declarados',
+      value:
+        legajo.monthlyIncome > 0 ? (
+          <>
+            <span className={styles.sinCorte}>{formatARS(legajo.monthlyIncome)}</span> por mes
+          </>
+        ) : (
+          <span className={styles.sinCorte}>No informó</span>
+        ),
+    },
     { label: 'Van a vivir', value: personas(legajo.residents) },
     { label: 'Mascotas', value: legajo.hasPets ? (legajo.petsDetail ? `Sí: ${legajo.petsDetail}` : 'Sí') : 'No' },
     { label: 'Garantía que ofrece', value: legajo.guarantees.length ? legajo.guarantees.map((garantia) => GARANTIA_LABEL[garantia]).join(' · ') : 'Ninguna' },
@@ -75,7 +92,7 @@ function filasLegajo(solicitud: Solicitud): { label: string; value: ReactNode }[
 }
 
 /** El detalle de la solicitud elegida. */
-export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion }: DetallePostulanteProps) {
+export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion, columnas }: DetallePostulanteProps) {
   const propiedad = [solicitud.property.address, solicitud.property.neighborhoodName].filter(Boolean).join(' · ')
   const legajo = detalle.solicitud ? filasLegajo(detalle.solicitud) : null
 
@@ -128,8 +145,8 @@ export function DetallePostulante({ solicitud, detalle, otraAceptada, onAccion }
               </Button>
             </div>
           ) : legajo ? (
-            <div className={styles.legajo} data-testid="solicitudes-detalle-legajo">
-              <DetailList items={legajo} column={1} />
+            <div className={`${styles.legajo} ${columnas === 2 ? styles.legajoDosColumnas : ''}`} data-testid="solicitudes-detalle-legajo">
+              <DetailList items={legajo} column={columnas} />
             </div>
           ) : (
             <span className={styles.detailEmpty} data-testid="solicitudes-detalle-sin-legajo">
