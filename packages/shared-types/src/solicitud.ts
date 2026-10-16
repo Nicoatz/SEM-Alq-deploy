@@ -75,6 +75,24 @@ export interface LegajoSolicitud {
 }
 
 /**
+ * Resumen de la solicitud para el listado del locador (US-36: "se debe
+ * visualizar un resumen de la solicitud en el listado de solicitudes:
+ * cantidad de convivientes, si posee mascotas, tipo de garantía, si declaró o
+ * no ingresos"). Sale del legajo, SIN datos sensibles: de los ingresos, solo
+ * si los declaró (nunca el monto); sin DNI ni contacto.
+ */
+export interface ResumenSolicitud {
+  /** Personas que van a vivir, incluido el postulante (`LegajoSolicitud.residents`). */
+  residents: number
+  /** Si tiene mascotas (sin el detalle: ese va en el detalle del postulante). */
+  hasPets: boolean
+  /** Garantías que ofrece. */
+  guarantees: GarantiaOfrecida[]
+  /** `true` si informó ingresos mayores a 0. NOTA: el monto no viaja a la vista de lista. */
+  declaredIncome: boolean
+}
+
+/**
  * Una solicitud de alquiler, vista por quien la envió (US-36: dirección de la
  * propiedad) o por el locador que la recibe (US-36: nombre y apellido del
  * postulante). Las dos vistas comparten el tipo.
@@ -120,6 +138,13 @@ export interface Solicitud {
    * "Sin datos de legajo" (las enviadas antes de la US-35 actualizada).
    */
   legajo?: LegajoSolicitud | null
+  /**
+   * Resumen para el listado del locador (US-36): en Solicitudes recibidas y
+   * en el detalle del postulante; sin definir en la vista de quien la envió.
+   * `null` si la solicitud no trae legajo (las enviadas antes de la US-35
+   * actualizada).
+   */
+  summary?: ResumenSolicitud | null
   /** Mensaje opcional al locador (US-35 actualizada: hasta 600 caracteres, ver `SOLICITUD_MENSAJE_MAX` en `apps/web/src/lib/validation/solicitud.rules.ts`); `null` si no escribió nada. */
   message: string | null
   status: EstadoSolicitud

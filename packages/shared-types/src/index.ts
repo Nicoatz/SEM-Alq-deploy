@@ -305,6 +305,7 @@ export type {
   LegajoSolicitud,
   OcupacionPostulante,
   PreparacionSolicitud,
+  ResumenSolicitud,
   Solicitud,
   SolicitudNueva,
 } from './solicitud';

@@ -423,6 +423,8 @@ export async function listarMisSolicitudes(): Promise<Solicitud[]> {
  *   vacío en real (HANDOFF §7, brecha 3).
  * @returns Solicitud[] con la dirección EXACTA (son sus propias propiedades),
  *   SIN DNI, contacto ni legajo: esos datos los trae {@link getSolicitudRecibida}.
+ *   Sí trae `summary` (US-36: convivientes, mascotas, garantías y si declaró
+ *   ingresos, sin el monto), armado del legajo que `/recibidas` ya manda.
  * @throws {ServiceError} `unauthorized` sin sesión; `forbidden` si la cuenta no es locadora.
  */
 export async function listarSolicitudesRecibidas(filtros: { estado?: EstadoSolicitud } = {}): Promise<Solicitud[]> {
