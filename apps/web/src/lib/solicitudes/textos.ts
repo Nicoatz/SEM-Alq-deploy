@@ -15,7 +15,7 @@
  */
 import dayjs from 'dayjs'
 import type { Solicitud } from '@rentar/shared-types'
-import { diasDesde, textoHaceDias } from '@/lib/utils/fechas'
+import { textoHaceHorasODias } from '@/lib/utils/fechas'
 
 /** "14/09". */
 export function fechaCorta(fecha: string): string {
@@ -27,9 +27,14 @@ export function fechaLargaNumerica(fecha: string): string {
   return dayjs(fecha).format('DD/MM/YYYY')
 }
 
-/** "hace 2 días", "ayer", "hoy" para la fecha de envío. */
+/**
+ * Cuánto hace que se envió: "hace menos de 1 h", "hace 3 h", "hace 2 días".
+ * US-36: en horas durante las primeras 23 y en días desde las 24 (P4 del
+ * testing del Sprint 2: antes decía "hoy"). `createdAt` trae la hora
+ * (`fecha_creacion` es TIMESTAMPTZ y el adaptador la pasa entera).
+ */
 export function enviadaHace(solicitud: Pick<Solicitud, 'createdAt'>): string {
-  return textoHaceDias(diasDesde(solicitud.createdAt))
+  return textoHaceHorasODias(solicitud.createdAt)
 }
 
 /** Primer nombre: "Julieta Peralta" → "Julieta". */

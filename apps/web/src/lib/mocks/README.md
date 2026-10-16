@@ -98,8 +98,14 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
 - SOL-2026-0031 muestra el estado "ya la solicitaste" del detalle (`/propiedad/prop-rondeau-480`
   con la sesión de Julieta). El envío completo (US-35) se prueba con Julieta sobre **Fructuoso
   Rivera 785** (`prop-rivera-785`), la otra publicada de Nicolás: Julieta no tiene ninguna ahí.
-- **Solicitudes recibidas de Nicolás** (`/panel/solicitudes`): 5, en 2 propiedades. Pendientes 2
-  (Julieta y Matías en Rondeau 480), aceptadas 1 (Diego en Fructuoso Rivera 785), cerradas 2.
+- **Solicitudes recibidas de Nicolás** (`/panel/solicitudes`): 7, en 2 propiedades. Pendientes 4
+  (Julieta, Matías y Diego en Rondeau 480; Sofía en Fructuoso Rivera 785), aceptadas 1 (Diego en
+  Fructuoso Rivera 785), cerradas 2.
+- **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** el "ahora" del elenco es el
+  23/09/2026 a las **12:00** (`AHORA_ELENCO` en `lib/utils/fechas.ts`; `hoy()` sigue a las 00:00).
+  0039 (Sofía en Fructuoso Rivera 785, 09:00) dice "hace 3 h"; 0040 (Diego vuelve a solicitar
+  Rondeau 480 después del rechazo de la 0033, 11:35) dice "hace menos de 1 h"; la de Matías (0032,
+  19/09) dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
 - **Una sola aceptada por propiedad:** como Fructuoso Rivera 785 ya tiene la de Diego, si Julieta
   le manda una (el recorrido de la tanda 1), su "Aceptar" aparece deshabilitado hasta que Nicolás
   cancele la de Diego (US-38).
@@ -121,8 +127,8 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
   02"). No son inquilinos de ninguna propiedad. (Diego no tiene relación con Julián Ferreyra, el
   inquilino de Belgrano 1120.)
 - Una propiedad alquilada (sin fecha) o pausada no recibe solicitudes.
-- Las nuevas toman el siguiente número libre (`SOL-2026-0032`, …) y la fecha de "hoy" (23/09/2026)
-  con la hora del momento.
+- Las nuevas toman el siguiente número libre (`SOL-2026-0041`, …) y el "ahora" del elenco
+  (23/09/2026 a las 12:00): dicen "hace menos de 1 h".
 
 Los "vence en N días" y "N días de atraso" se calculan contra "hoy" (`lib/utils/fechas.ts`), que
 en modo mock está FIJO en el **23/09/2026**: Laprida lleva 19 días de atraso y Belgrano 7, siempre.
