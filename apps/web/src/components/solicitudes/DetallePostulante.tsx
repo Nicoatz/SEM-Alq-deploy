@@ -73,8 +73,11 @@ function filasLegajo(solicitud: Solicitud): { label: string; value: ReactNode }[
     { label: 'DNI', value: solicitud.applicant.dni ? Number(solicitud.applicant.dni).toLocaleString('es-AR') : '—' },
     { label: 'Ocupación', value: OCUPACION_LABEL[legajo.occupation] },
     // 0 = no los informa (decisión del PO, HANDOFF §7).
-    // El monto no se parte en renglones ("$ 900.000 por / mes") con los datos en 2 columnas.
-    { label: 'Ingresos declarados', value: legajo.monthlyIncome > 0 ? <span className={styles.sinCorte}>{formatARS(legajo.monthlyIncome)} por mes</span> : 'No informó' },
+    // El valor no se parte en renglones ("$ 900.000 por / mes", "No / informó") con los datos en 2 columnas.
+    {
+      label: 'Ingresos declarados',
+      value: <span className={styles.sinCorte}>{legajo.monthlyIncome > 0 ? `${formatARS(legajo.monthlyIncome)} por mes` : 'No informó'}</span>,
+    },
     { label: 'Van a vivir', value: personas(legajo.residents) },
     { label: 'Mascotas', value: legajo.hasPets ? (legajo.petsDetail ? `Sí: ${legajo.petsDetail}` : 'Sí') : 'No' },
     { label: 'Garantía que ofrece', value: legajo.guarantees.length ? legajo.guarantees.map((garantia) => GARANTIA_LABEL[garantia]).join(' · ') : 'Ninguna' },
