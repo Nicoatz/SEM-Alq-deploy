@@ -2,11 +2,12 @@
  * ActivityTimeline.tsx — línea de tiempo de eventos (historial de un cobro, un contrato, un
  * reclamo).
  *
- * Quién lo usa: el catálogo `/design-system` (todavía no hay una pantalla del Sprint 1 que la use).
+ * Quién lo usa: el historial del contrato (`apps/web`, US-07, con `dateFormat="absolute"`) y el
+ * catálogo `/design-system`.
  */
 import { Timeline } from 'antd'
 import type { SemanticColorKey } from '../../tokens/semantic'
-import { formatRelative } from '../../utils/formatDate'
+import { formatDate, formatRelative } from '../../utils/formatDate'
 
 interface ActivityEvent {
   id: string
@@ -20,6 +21,13 @@ interface ActivityEvent {
 /** Props de {@link ActivityTimeline}. */
 interface ActivityTimelineProps {
   events: ActivityEvent[]
+  /**
+   * Cómo se muestra la fecha de cada evento: `'relative'` ("hace 2 horas") o
+   * `'absolute'` ("22/09/2026 a las 11:40"), para cuando la fecha y la hora
+   * exactas importan (ej. el historial de firmas de un contrato, US-07).
+   * @default 'relative'
+   */
+  dateFormat?: 'relative' | 'absolute'
   'data-testid'?: string
 }
 
@@ -34,9 +42,10 @@ const DOT_COLOR: Record<SemanticColorKey, string> = {
 
 /**
  * Historial de eventos de un contrato, cobro o reclamo — cada ítem muestra
- * título, fecha relativa (`formatRelative`) y descripción opcional.
+ * título, fecha (relativa con `formatRelative`, o absoluta con
+ * `dateFormat="absolute"`) y descripción opcional.
  */
-export function ActivityTimeline({ events, ...rest }: ActivityTimelineProps) {
+export function ActivityTimeline({ events, dateFormat = 'relative', ...rest }: ActivityTimelineProps) {
   return (
     <Timeline
       {...rest}
@@ -56,7 +65,7 @@ export function ActivityTimeline({ events, ...rest }: ActivityTimelineProps) {
               suppressHydrationWarning
               style={{ margin: '0.125rem 0 0', fontSize: '0.8125rem', color: 'var(--rentar-color-text-tertiary)' }}
             >
-              {formatRelative(event.date)}
+              {dateFormat === 'absolute' ? formatDate(event.date, 'DD/MM/YYYY [a las] HH:mm') : formatRelative(event.date)}
             </p>
             {event.description && (
               <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem' }}>{event.description}</p>

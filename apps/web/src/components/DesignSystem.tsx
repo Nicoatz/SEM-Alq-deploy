@@ -1253,6 +1253,11 @@ export default function DesignSystem() {
                 <ActivityTimeline events={demoActivityEvents} />
               </div>
 
+              <p className={styles.subheading}>ActivityTimeline · dateFormat=&quot;absolute&quot;</p>
+              <div className={styles.chipDemoCard}>
+                <ActivityTimeline events={demoActivityEvents} dateFormat="absolute" />
+              </div>
+
               <p className={styles.subheading}>EmptyState</p>
               <EmptyState
                 title="Todavía no publicaste ninguna propiedad"

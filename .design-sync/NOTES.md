@@ -288,6 +288,20 @@ en un solo `/design-sync` (decisión del PO, tanda 3).
   y la unión de `index` si está en `dtsPropsFor`.
 - NOTA: en el back, `AdjustmentIndex` (`@rentar/shared-types`) tampoco tiene CAC (HANDOFF §7, US-05).
 
+## Pendiente de subir (Sprint 3): `ActivityTimeline` con `dateFormat` (2026-10-21)
+
+**Hecho en `@rentar/ui` con el OK del PO (tanda 3); falta el `/design-sync`**, que corre el PO al final
+del Sprint 3 junto con lo de `IndexBadge`.
+- **`ActivityTimeline`: prop opcional `dateFormat`** (`'relative' | 'absolute'`, por defecto
+  `'relative'`: los usos de antes no cambian). Con `'absolute'`, cada evento muestra
+  "22/09/2026 a las 11:40" (`formatDate`) en lugar de "hace 2 horas". Motivo: US-07 pide el historial
+  del contrato "con fecha y hora", y la fecha relativa se calcula contra el reloj real (en modo mock,
+  donde "hoy" es el 23/09/2026, decía "hace un mes").
+- Lo usa el historial del contrato (`apps/web/src/components/contratos/DetalleContrato.tsx`). Ejemplo
+  sumado en `/design-system`.
+- Al subir: sumar una historia `FechaAbsoluta` en `previews/ActivityTimeline.tsx` y la unión de
+  `dateFormat` en `dtsPropsFor` si el componente está ahí.
+
 ## Re-sync del 2026-10-21, segunda corrida (`StatusTag` con `borrador`)
 
 - Sincronizado desde `feature/vistas` en `5b87c71`, camino atómico, mismo comando y Edge. Ancla
