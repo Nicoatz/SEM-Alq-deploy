@@ -8,7 +8,7 @@
 | - Se deben mostrar los datos del locatario (nombre, apellido, dni, teléfono y dirección de correo). |
 | - Se puede modificar el teléfono e email a incluir en la solicitud, pero no el nombre, apellido ni dni. |
 | - Se puede indicar la situación ocupacional del locatario (-, relación de dependencia, monotributista, autónoma, estudiante, jubilada). |
-| - Se puede indicar el monto de ingresos aproximados del locatario, siendo este un número entero superior a 0. |
+| - Se puede indicar el monto de ingresos aproximados del locatario, siendo este un número entero mayor o igual a 0. El valor 0 indica "prefiero no informarlo". El campo es opcional: si se deja vacío, tampoco se informan los ingresos. |
 | - Se puede indicar la cantidad de personas a residir en la propiedad a alquilar, siendo una (1) la cantidad mínima. |
 | - Se puede indicar si el locatario posee mascotas o no. |
 | - Se debe indicar por defecto que el locatario no posee mascotas. |
@@ -38,7 +38,9 @@
 | - Probar enviar una solicitud de alquiler después de modificar el teléfono y el correo electrónico (pasa). |
 | - Probar enviar una solicitud de alquiler seleccionando cada situación ocupacional disponible (pasa). |
 | - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario superior a 0 (pasa). |
-| - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto negativo o igual a cero (falla). |
+| - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto negativo (falla). |
+| - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario igual a 0, que significa "prefiero no informarlo" (pasa). |
+| - Probar enviar una solicitud de alquiler dejando vacío el monto aproximado de ingresos del locatario (pasa). |
 | - Probar enviar una solicitud de alquiler indicando el monto aproximado de ingresos del locatario con un monto con números decimales (falla). |
 | - Probar enviar una solicitud de alquiler indicando menos de una persona a residir en la propiedad (falla). |
 | - Probar enviar una solicitud de alquiler indicando una o más personas a residir en la propiedad (pasa). |
