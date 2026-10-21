@@ -85,11 +85,9 @@ const COLOR_EVENTO: Record<EventoContrato['tipo'], SemanticColorKey> = {
 }
 
 /**
- * Historial (US-07: "con fecha y hora"). `ActivityTimeline` muestra la fecha
- * relativa; la fecha y la hora van en la descripción.
- * NOTA: la fecha relativa se calcula contra el reloj real: en modo mock
- * ("hoy" es el 23/09/2026) dice "hace un mes". Pendiente de decidir con el
- * PO si `ActivityTimeline` suma una prop para la fecha absoluta.
+ * Historial (US-07: "con fecha y hora"): `ActivityTimeline` con
+ * `dateFormat="absolute"` (decisión del PO, tanda 3). El motivo de un
+ * rechazo va en la descripción.
  */
 function eventosDelHistorial(historial: readonly EventoContrato[]) {
   return historial.map((evento) => ({
@@ -97,7 +95,7 @@ function eventosDelHistorial(historial: readonly EventoContrato[]) {
     title: tituloDeEvento(evento),
     date: evento.fecha,
     colorKey: COLOR_EVENTO[evento.tipo],
-    description: evento.motivo ? `${fechaYHora(evento.fecha)} · Motivo: "${evento.motivo}"` : fechaYHora(evento.fecha),
+    description: evento.motivo ? `Motivo: "${evento.motivo}"` : undefined,
   }))
 }
 
@@ -107,6 +105,17 @@ function estadoDeFirmante(firmante: FirmanteContrato): string {
   if (firmante.estado === 'firmado' && firmante.firmadoEl) return `${rol} · firmó el ${fechaYHora(firmante.firmadoEl)}`
   if (firmante.estado === 'rechazado' && firmante.rechazadoEl) return `${rol} · rechazó la firma el ${fechaYHora(firmante.rechazadoEl)}`
   return `${rol} · todavía no firmó`
+}
+
+/**
+ * Rol de quien mira el contrato, o `null`.
+ * NOTA: sale de comparar la sesión con las partes; los ids son los mismos que manda `/usuarios/me`.
+ */
+export function rolEnContrato(contrato: Pick<ContratoDetalle, 'locador' | 'locatario'>, userId: string | undefined): RolFirmante | null {
+  if (!userId) return null
+  if (userId === contrato.locador.userId) return 'locador'
+  if (userId === contrato.locatario.userId) return 'locatario'
+  return null
 }
 
 /** Iniciales para el avatar. */
@@ -121,15 +130,24 @@ function iniciales(nombre: string): string {
 
 // ─── Contenido (con el contrato cargado) ────────────────────────────────
 
-/** Props de {@link ContenidoDetalle}. */
-interface ContenidoDetalleProps {
+/** Props de {@link VistaContrato}. */
+interface VistaContratoProps {
   inicial: ContratoDetalle
   /** Rol de quien mira (`null` si no se pudo saber: no ve acciones). */
   miRol: RolFirmante | null
+  /** Migas: las del locador (Contratos) o las del locatario (Mi alquiler). */
+  miga: { label: string; href?: string }[]
+  /** Título de la página; por defecto, "Contrato CT-…". */
+  titulo?: string
 }
 
-/** El detalle con el contrato cargado; las acciones lo van actualizando. */
-function ContenidoDetalle({ inicial, miRol }: ContenidoDetalleProps) {
+/**
+ * El contrato cargado, con lo que le toca a cada parte: el locador firma,
+ * cancela el envío y reenvía; el locatario firma o rechaza. Las acciones lo
+ * van actualizando. La usan el detalle del locador y Mi alquiler
+ * (`MiAlquiler.tsx`), que en la tanda 4 suma sus propias secciones.
+ */
+export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: VistaContratoProps) {
   const router = useRouter()
 
   // ─── Estado local ───────────────────────────────────────────────────
@@ -153,6 +171,7 @@ function ContenidoDetalle({ inicial, miRol }: ContenidoDetalleProps) {
   const miFirma = contrato.firmantes.find((firmante) => firmante.rol === miRol) ?? null
   const faltan = firmasQueFaltan(contrato.firmantes)
   const cancelable = puedeCancelarEnvio(contrato)
+  const rechazoLocatario = contrato.firmantes.find((firmante) => firmante.rol === 'locatario' && firmante.estado === 'rechazado') ?? null
   const titulo = tituloContrato(contrato)
 
   // ─── Handlers ───────────────────────────────────────────────────────
@@ -247,9 +266,9 @@ function ContenidoDetalle({ inicial, miRol }: ContenidoDetalleProps) {
   return (
     <div className={styles.page} data-testid="contrato-detalle" data-estado={contrato.status}>
       <PageHeader
-        title={`Contrato ${contrato.code ?? ''}`.trim()}
+        title={tituloPagina ?? `Contrato ${contrato.code ?? ''}`.trim()}
         subtitle={`${propiedad.address} · ${nombreDe(locatario) || 'Sin locatario'}${condiciones.startDate && contrato.endDate ? ` · del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}` : ''}`}
-        breadcrumb={[...MIGA_BASE, { label: contrato.code ?? 'Contrato' }]}
+        breadcrumb={miga}
       />
 
       {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-detalle-aviso" />}
@@ -259,9 +278,21 @@ function ContenidoDetalle({ inicial, miRol }: ContenidoDetalleProps) {
       {pendiente ? (
         <div className={`${styles.franja} ${styles.franjaPendiente}`} data-testid="contrato-estado">
           <StatusTag domain="contrato" status="pendiente_firma" />
-          <span className={styles.franjaTexto} data-testid="contrato-faltan-firmas">
-            {faltan === 1 ? 'Falta' : 'Faltan'} <strong>{faltan} de {contrato.firmantes.length} firmas</strong>.
-            {contrato.enviadoEl ? ` Enviado el ${fechaCorta(contrato.enviadoEl)}.` : ''} Cuando firmen las dos partes, el contrato pasa a vigente y la propiedad, a alquilada.
+          <span className={styles.franjaTexto}>
+            <span data-testid="contrato-faltan-firmas">
+              {faltan === 1 ? 'Falta' : 'Faltan'} <strong>{faltan} de {contrato.firmantes.length} firmas</strong>.
+              {contrato.enviadoEl ? ` Enviado el ${fechaCorta(contrato.enviadoEl)}.` : ''}
+            </span>{' '}
+            {/* Propuesta aprobada por el PO: quien rechaza no firma después; el locador cancela y reenvía. */}
+            {rechazoLocatario ? (
+              <strong data-testid="contrato-rechazo-explicacion">
+                {soyLocador
+                  ? `${locatario.nombre || 'El locatario'} rechazó la firma. Para volver a enviarlo, cancelá el envío, editá lo que haga falta y envialo de nuevo.`
+                  : `Rechazaste la firma${rechazoLocatario.rechazadoEl ? ` el ${fechaCorta(rechazoLocatario.rechazadoEl)}` : ''}. El contrato sigue pendiente: si ${locador.nombre || 'el locador'} lo corrige, te lo va a volver a enviar.`}
+              </strong>
+            ) : (
+              'Cuando firmen las dos partes, el contrato pasa a vigente y la propiedad, a alquilada.'
+            )}
           </span>
           {soyLocador && (
             <span className={styles.franjaAccion}>
@@ -395,7 +426,7 @@ function ContenidoDetalle({ inicial, miRol }: ContenidoDetalleProps) {
             {contrato.historial.length === 0 ? (
               <p className={styles.valorSecundario}>Sin historial registrado: el contrato es anterior a RentAR.</p>
             ) : (
-              <ActivityTimeline events={eventosDelHistorial(contrato.historial)} data-testid="contrato-historial-eventos" />
+              <ActivityTimeline events={eventosDelHistorial(contrato.historial)} dateFormat="absolute" data-testid="contrato-historial-eventos" />
             )}
           </section>
         </div>
@@ -470,7 +501,12 @@ export function DetalleContrato({ contratoId }: DetalleContratoProps) {
   }
 
   const contrato = carga.data
-  // NOTA: el rol sale de comparar la sesión con las partes; los ids son los mismos que manda `/usuarios/me`.
-  const miRol: RolFirmante | null = user?.id === contrato.locador.userId ? 'locador' : user?.id === contrato.locatario.userId ? 'locatario' : null
-  return <ContenidoDetalle key={`${contrato.id}-${contrato.status}`} inicial={contrato} miRol={miRol} />
+  return (
+    <VistaContrato
+      key={`${contrato.id}-${contrato.status}`}
+      inicial={contrato}
+      miRol={rolEnContrato(contrato, user?.id)}
+      miga={[...MIGA_BASE, { label: contrato.code ?? 'Contrato' }]}
+    />
+  )
 }
