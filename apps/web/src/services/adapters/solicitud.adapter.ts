@@ -130,7 +130,15 @@ export function solicitudesResponseToSolicitudes(dtos: SolicitudResponse[], vist
   })
 }
 
-/** El armado común de {@link solicitudResponseToSolicitud} y {@link solicitudesResponseToSolicitudes}. */
+/**
+ * El armado común de {@link solicitudResponseToSolicitud} y {@link solicitudesResponseToSolicitudes}.
+ * NOTA (US-05): `contrato` y `propiedadConContrato` quedan sin definir: el
+ * back no los manda. TODO(backend): sumar `id_contrato` y `estado_contrato`
+ * (el contrato que originó la solicitud) y si el inmueble tiene un contrato
+ * vigente o pendiente de firma, a `/solicitudes/recibidas`. Mientras tanto,
+ * "Iniciar contrato" aparece en toda aceptada y lo frena
+ * `GET /contratos/preparar` con un 409.
+ */
 function aVista(dto: SolicitudResponse, status: EstadoSolicitud, vista: VistaSolicitud): Solicitud {
   const barrio = barrioDe(dto.inmueble.barrio)
   const { direccion, numero, piso } = dto.inmueble

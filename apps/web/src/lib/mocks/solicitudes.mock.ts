@@ -103,14 +103,17 @@ export const solicitudes: SolicitudMock[] = [
     id: 'SOL-2026-0031',
     propertyId: 'prop-rondeau-480',
     applicantUserId: 'usr-julieta',
-    // Mapa: Julieta encuentra Rondeau 480 en /buscar y la solicita. Todavía
-    // no se aceptó (después termina en CT-2026-0207).
+    // Mapa: Julieta encuentra Rondeau 480 en /buscar, la solicita, la
+    // aceptan y firma CT-2026-0207. Desde el Sprint 3 (tanda 2, OK del PO)
+    // está aceptada y ya originó ese contrato, pendiente de firma (ver
+    // contratos.mock.ts). Por la regla "una sola aceptada por propiedad",
+    // en Rondeau ya no se puede aceptar otra.
     applicantName: 'Julieta Peralta',
     // NOTA: el mapa no define un mensaje; no se inventa uno.
     message: null,
-    status: 'pendiente',
+    status: 'aceptada',
     createdAt: '2026-09-20',
-    respondedAt: null,
+    respondedAt: '2026-09-21',
     contact: CONTACTO_JULIETA,
     legajo: LEGAJO_JULIETA,
   },

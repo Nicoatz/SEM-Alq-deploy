@@ -11,3 +11,4 @@ export { propiedades, type PropiedadMock, type FotoMock, type AlquilerMock } fro
 export { cobros, reclamos, type CobroMock, type ReclamoMock } from './panel.mock'
 export { solicitudes, type SolicitudMock } from './solicitudes.mock'
 export { perfiles, LEGAJO_VACIO, type PerfilMock } from './perfiles.mock'
+export { contratos, type ContratoMock } from './contratos.mock'

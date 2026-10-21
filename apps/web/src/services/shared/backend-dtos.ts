@@ -499,3 +499,130 @@ export type ActualizarLegajoRequest = LegajoDto
  * `ServiceError.apiCode`.
  */
 export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
+
+// ─── Contratos (US-05) · PROPUESTO ──────────────────────────────────────
+// NOTA: ninguna de estas rutas existe todavía (Sprint 3, tanda 2). Contrato
+// completo en `docs/api-endpoints.md` ("Contratos") y `HANDOFF-BACKEND.md`
+// §7 (US-05). Códigos de garantía igual que las solicitudes; medios de pago
+// con los ids de `medio_pago`, igual que `/mis-alquileres`.
+
+/** Estado del contrato (propuesto: hoy `estado_contrato` solo tiene disponible, vigente y finalizado). */
+export type EstadoContratoDto = 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
+
+/** Índice del contrato (propuesto). `sin_ajuste` en lugar de `indice_aumento` en `NULL`. */
+export type IndiceContratoDto = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC'
+
+/** Periodicidad del ajuste (propuesto; hoy `frecuencia_ajuste` es texto libre). */
+export type PeriodicidadDto = 'trimestral' | 'semestral' | 'anual'
+
+/** La dirección del inmueble, como la manda `/solicitudes`. */
+export interface InmuebleContratoDto {
+  id: number
+  direccion: string
+  numero: number
+  piso: string | null
+  barrio: string | null
+}
+
+/** Una fila de `GET /contratos` (no existe — propuesto). Sin DNI ni contacto. */
+export interface ContratoResumenResponse {
+  id: number
+  /** `null` en los borradores. */
+  codigo: string | null
+  estado: EstadoContratoDto
+  inmueble: InmuebleContratoDto
+  locatario: { nombre: string; apellido: string | null }
+  monto_actual: number | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  indice: IndiceContratoDto | null
+  proximo_ajuste: string | null
+  id_solicitud: number | null
+}
+
+/** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
+export interface ParteContratoDto {
+  id: number
+  nombre: string
+  apellido: string | null
+  numero_documento: string | null
+  email: string
+  /** Solo dígitos, con código de país. */
+  telefono: string | null
+}
+
+/** Un garante: dato del contrato, sin cuenta (decisión del PO: no firma en el Sprint 3). */
+export interface GaranteDto {
+  nombre_apellido: string
+  numero_documento: string
+  email: string
+}
+
+/** Las condiciones del contrato. En un borrador, cualquier campo puede venir en `null`. */
+export interface CondicionesContratoDto {
+  fecha_inicio: string | null
+  duracion_meses: number | null
+  monto_inicial: number | null
+  deposito: number | null
+  dia_vencimiento: number | null
+  indice: IndiceContratoDto
+  periodicidad: PeriodicidadDto | null
+}
+
+/** Una cláusula. `clave` es la de la plantilla del front (`objeto`, `precio`…) o `propia-<n>`. */
+export interface ClausulaDto {
+  clave: string
+  tipo: 'fija' | 'editable' | 'propia'
+  titulo: string
+  texto: string
+  editada: boolean
+}
+
+/**
+ * `GET /contratos/:id` y `GET /contratos/preparar?id_solicitud=` (no existen
+ * — propuestos). `/preparar` devuelve el contrato todavía sin guardar:
+ * `id`, `codigo`, `condiciones` y `clausulas` vacíos (el front los completa
+ * con sus valores por defecto y su plantilla).
+ */
+export interface ContratoResponse {
+  id: number | null
+  codigo: string | null
+  estado: EstadoContratoDto
+  id_solicitud: number
+  /** Cuándo se aceptó la solicitud (`solicitud.fecha_respuesta`). */
+  fecha_aceptacion_solicitud: string | null
+  inmueble: InmuebleContratoDto & {
+    precio_publicado: number | null
+    /** Índice de la publicación (`tipo_indice`): ICL o IPC; `null` si no tiene. */
+    indice_publicacion: 'ICL' | 'IPC' | null
+    medios_pago: number[]
+    dias_gracia: number | null
+    interes_por_dia: number | null
+  }
+  locador: ParteContratoDto
+  locatario: ParteContratoDto
+  garantias_ofrecidas: GarantiaDto[]
+  garantes: GaranteDto[]
+  condiciones: CondicionesContratoDto | null
+  clausulas: ClausulaDto[]
+  ultimo_paso: number
+}
+
+/** Cuerpo de `POST /contratos` y `PUT /contratos/:id` (no existen — propuestos). */
+export interface ContratoRequest {
+  id_solicitud: number
+  garantes: GaranteDto[]
+  condiciones: CondicionesContratoDto
+  clausulas: ClausulaDto[]
+  ultimo_paso: number
+}
+
+/** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
+export interface ContratoEnviadoResponse {
+  id: number
+  codigo: string
+  estado: 'pendiente_firma'
+}
+
+/** Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`). */
+export type CodigoErrorContrato = 'SOLICITUD_NO_ACEPTADA' | 'SOLICITUD_CON_CONTRATO' | 'PROPIEDAD_CON_CONTRATO' | 'CONTRATO_NO_EDITABLE'

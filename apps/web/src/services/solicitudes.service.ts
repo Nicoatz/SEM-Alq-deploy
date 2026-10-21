@@ -66,6 +66,7 @@ import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
+import { contratoDeSolicitudMock, propiedadConContratoActivoMock } from './adapters/contrato-mock.adapter'
 import { perfilMockDe } from './perfil.service'
 import { requireSessionUserId } from './shared/session'
 import { readUsuariosMock } from './usuarios.service'
@@ -145,7 +146,15 @@ function aVista(solicitud: SolicitudMock, vista: VistaSolicitud): Solicitud {
   const propiedad = readPropiedadesMockConBorradas().find((item) => item.id === solicitud.propertyId) ?? null
   // La cuenta del postulante, para el DNI que ve el locador (US-35 actualizada).
   const postulante = vista === 'locador-detalle' ? (readUsuariosMock().find((item) => item.id === solicitud.applicantUserId) ?? null) : null
-  return solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
+  const vistaBase = solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
+  if (vista === 'locador-lista' || vista === 'locador-detalle') {
+    // US-05: para "Iniciar contrato" / "Continuar contrato", el locador
+    // necesita saber si esta solicitud ya originó un contrato y si la
+    // propiedad tiene otro vigente o pendiente de firma.
+    const contrato = contratoDeSolicitudMock(solicitud.id)
+    return { ...vistaBase, contrato, propiedadConContrato: !contrato && propiedadConContratoActivoMock(solicitud.propertyId) }
+  }
+  return vistaBase
 }
 
 /**

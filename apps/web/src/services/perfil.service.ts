@@ -25,7 +25,7 @@
 import dayjs from 'dayjs'
 import type { DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
-import { LEGAJO_VACIO, perfiles as perfilesElenco, propiedades as propiedadesElenco, usuarios as usuariosElenco, type UsuarioMock } from '@/lib/mocks'
+import { LEGAJO_VACIO, perfiles as perfilesElenco, usuarios as usuariosElenco, type UsuarioMock } from '@/lib/mocks'
 import { telefonoAE164 } from '@/lib/perfil/formato'
 import { emailValido, MENSAJES_SOLICITUD, TELEFONO_E164_REGEX } from '@/lib/validation/solicitud.rules'
 import { DNI_REGEX, esMayorDeEdad, ingresoLegajoValido, MENSAJES, MENSAJES_PERFIL, nombrePerfilValido, PASSWORD_REGEX } from '@/lib/validation/usuario.rules'
@@ -45,6 +45,7 @@ import {
   PERFIL_PASSWORD_ACTUAL_INCORRECTA_MESSAGE,
   PERFIL_PASSWORD_IGUAL_MESSAGE,
 } from './adapters/perfil.adapter'
+import { contratoActivoDeUsuarioMock } from './adapters/contrato-mock.adapter'
 import { apiRequest } from './shared/apiClient'
 import type { LegajoDto, PerfilResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
@@ -98,19 +99,15 @@ function dniMock(usuario: UsuarioMock): string | null {
 }
 
 /**
- * Contrato que bloquea nombre, apellido y DNI (US-21), con los mismos datos
- * que el resto de las pantallas (`propiedades.mock.ts`, `rental`): es parte
- * como locador (dueño) o como locatario (`tenantUserId`).
+ * Contrato que bloquea nombre, apellido y DNI (US-21): uno vigente o
+ * pendiente de firma del que es parte, como locador o como locatario. Mira
+ * los vigentes del elenco (`propiedades.mock.ts`) y los de
+ * `contratos.mock.ts` + los del navegador (desde la tanda 2: por ejemplo,
+ * CT-2026-0207 bloquea a Julieta mientras está pendiente de firma).
  */
 function bloqueoMock(userId: string): PerfilUsuario['identityLock'] {
-  for (const propiedad of readMockCollection('propiedades', propiedadesElenco)) {
-    const { rental } = propiedad
-    if (!rental || (rental.contractStatus !== 'vigente' && rental.contractStatus !== 'pendiente_firma')) continue
-    if (propiedad.ownerId === userId || rental.tenantUserId === userId) {
-      return { contractCode: rental.contractId, contractStatus: rental.contractStatus }
-    }
-  }
-  return null
+  const contrato = contratoActivoDeUsuarioMock(userId)
+  return contrato ? { contractCode: contrato.code, contractStatus: contrato.status } : null
 }
 
 /** El legajo guardado de una cuenta (sin el ingreso) y su ingreso vigente. */

@@ -612,8 +612,11 @@ export function propiedadNuevaToCreateInmueble(nueva: PropiedadNueva, fotos: Cre
 
 // ─── Detalle del locador y edición (US-03, US-04) ───────────────────────
 
-/** `medio_pago.id` → medio del front. Los dos de MercadoPago comparten id: vuelve como débito (ver {@link MEDIO_PAGO_ID}). */
-function medioPagoFromId(id: number): MedioPagoConRecargo | null {
+/**
+ * `medio_pago.id` → medio del front. Los dos de MercadoPago comparten id: vuelve como débito (ver {@link MEDIO_PAGO_ID}).
+ * Lo usa también `contrato.adapter.ts` (condiciones de cobro del paso 2, US-05).
+ */
+export function medioPagoFromId(id: number): MedioPagoConRecargo | null {
   const entry = Object.entries(MEDIO_PAGO_ID).find(([, value]) => value === id)
   // TODO(db): el recargo no se guarda (ver MEDIO_PAGO_ID): vuelve en 0 %.
   return entry ? { method: entry[0] as MedioPagoConRecargo['method'], surchargePct: 0 } : null
