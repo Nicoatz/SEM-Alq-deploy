@@ -275,6 +275,19 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
+## Pendiente (Sprint 3): `IndexBadge` con CAC y "Sin ajuste" (2026-10-21)
+
+**No se tocó `@rentar/ui`.** Se hace al final del Sprint 3, junto con lo que surja de `@rentar/ui`,
+en un solo `/design-sync` (decisión del PO, tanda 3).
+- El alta de contrato (US-05) ofrece cuatro opciones de ajuste: Sin ajuste, ICL, IPC y CAC.
+  `IndexBadge` solo conoce ICL e IPC, así que hoy CAC y "Sin ajuste" se muestran como texto
+  (`apps/web/src/components/contratos/IndiceAjuste.tsx`).
+- Qué falta: sumar `CAC` (Índice del Costo de la Construcción, con su explicación en el tooltip) y
+  una variante "Sin ajuste" a `IndexBadge`. Después, `IndiceAjuste` pasa a usar el badge para los
+  cuatro. Al subir: actualizar el preview (`previews/IndexBadge.tsx`), el catálogo `/design-system`
+  y la unión de `index` si está en `dtsPropsFor`.
+- NOTA: en el back, `AdjustmentIndex` (`@rentar/shared-types`) tampoco tiene CAC (HANDOFF §7, US-05).
+
 ## Re-sync del 2026-10-21, segunda corrida (`StatusTag` con `borrador`)
 
 - Sincronizado desde `feature/vistas` en `5b87c71`, camino atómico, mismo comando y Edge. Ancla
