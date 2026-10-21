@@ -15,8 +15,9 @@ documentada, también el catálogo `/design-system` (no es una pantalla del prod
 | `usr-julieta` | Julieta Peralta | locatario | La que busca: encuentra Rondeau 480, la solicita, se la aceptan y su contrato CT-2026-0207 está pendiente de firma (Sprint 3). |
 | `usr-matias` | Matías Quiroga | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante de Rondeau 480 y Fructuoso Rivera 785. No es inquilino de nada. |
 | `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. **Sin teléfono** (Sprint 3): el caso "Sin cargar" de US-20. |
+| `usr-camila` | Camila Ríos | locatario | Inquilina de Mariano Moreno 285 (de Sofía). **Cuenta desde la tanda 4 del Sprint 3** (OK del PO; en el mapa ya estaba, sin cuenta): `camila.rios@rentar.test`. Tiene un vigente (CT-2026-0133) y un finalizado (CT-2023-0041): el caso de "Mis alquileres" (US-27). |
 
-Contraseña de las cinco en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
+Contraseña de las seis en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
 está: el panel de administración no es de este sprint.
 
 ## El perfil y el legajo (`perfiles.mock.ts`, US-20 y US-21)
@@ -28,6 +29,7 @@ está: el panel de administración no es de este sprint.
 | `usr-julieta` | Completo (monotributista, $980.000, caución) | **Bloqueados** desde la tanda 2 del Sprint 3: locataria de CT-2026-0207, pendiente de firma. |
 | `usr-matias` | Incompleto: estudiante, sin ingreso ni garantías | Editables. **Ejemplo de edición** (con Diego). |
 | `usr-diego` | Completo (relación de dependencia, $1.200.000, propietaria y otra) | Editables. Sin teléfono. **Ejemplo de edición** (con Matías). |
+| `usr-camila` | Completo (relación de dependencia, $1.300.000, propietaria) | **Bloqueados**: locataria de CT-2026-0133, vigente. |
 
 - El bloqueo no se guarda: sale de los contratos vigentes o pendientes de firma en los que la cuenta
   es dueña o locataria, mirando `propiedades.mock.ts` (`rental`) y `contratos.mock.ts` (más los del
@@ -70,7 +72,8 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial
   (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
-  contratos" de US-27 (tanda 4) sin inventar gente nueva (decisión del PO).
+  contratos" de US-27. Desde la tanda 4 tiene cuenta (`usr-camila`), así que Mis alquileres
+  (`/panel/alquileres`) se prueba entrando como ella.
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
   propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
 - **Listado de Nicolás** (`/panel/contratos`): 1 pendiente de firma, 4 vigentes y 1 finalizado. El de
@@ -147,6 +150,13 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
 | Belgrano 1120 | Julián Ferreyra | CT-2026-0115 | $460.000, vencido el 16/09 (retrasada) | 0 | IPC cada 4 meses, 01/11/2026 |
 | Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 1 | ICL anual, 01/10/2026 |
 | Mariano Moreno 285 (de Sofía) | Camila Ríos | CT-2026-0133 | $510.000, vencido el 05/09 (retrasada) | 0 | IPC cada 4 meses, 01/12/2026 |
+
+**Depósito y garantes (US-27, tanda 4 del Sprint 3, pedido del PO):** solo en CT-2026-0148 y
+CT-2026-0133, para la ficha del locatario. Un mes de depósito (`depositMonths` × el precio de la
+publicación: $470.000 y $510.000) y un garante cada uno, con nombres que no son del elenco: **Raúl
+Benítez** (de Sofía) e **Inés Moyano** (de Camila). Los otros tres vigentes (0102, 0115 y 0121) no los
+tienen y su detalle muestra "Sin dato": no rompe nada (ninguno tiene locatario con cuenta). El día de
+pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
 
 ## Las solicitudes (`solicitudes.mock.ts`)
 

@@ -504,8 +504,9 @@ function diaDePagoDelElenco(contractId: string): number | null {
 
 /**
  * Un vigente del elenco (`propiedad.rental`, anterior a RentAR) → detalle.
- * Solo con lo que el elenco tiene: sin firmas, historial, garantes, monto
- * inicial ni depósito (se muestran vacíos, nunca inventados). El monto
+ * Solo con lo que el elenco tiene: sin firmas, historial ni monto inicial
+ * (se muestran vacíos, nunca inventados); el depósito y los garantes, solo
+ * donde el elenco los cargó. El monto
  * actual y el próximo ajuste salen de `rental`; el día de pago, de su
  * cobro en `panel.mock.ts` (US-27, tanda 4).
  */
@@ -524,13 +525,14 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     locador: parteDe(perfilMockDe(propiedad.ownerId), propiedad.ownerId),
     locatario: parteDe(rental.tenantUserId ? perfilMockDe(rental.tenantUserId) : null, rental.tenantUserId ?? '', rental.tenantName),
     garantiasOfrecidas: [],
-    garantes: [],
+    // US-27 (tanda 4): el depósito y los garantes, si el elenco los tiene (CT-2026-0148 y 0133).
+    garantes: rental.guarantors ?? [],
     condiciones: {
       startDate: rental.startDate,
       durationMonths: meses,
       // NOTA: `rental` guarda el monto ACTUAL (ya ajustado), no el inicial.
       initialAmount: null,
-      deposit: null,
+      deposit: rental.deposit ?? null,
       paymentDueDay: diaDePagoDelElenco(rental.contractId),
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),

@@ -54,4 +54,10 @@ export const perfiles: PerfilMock[] = [
     legajo: { occupation: 'relacion_dependencia', monthlyIncome: 1200000, guarantees: ['propietaria', 'otra'] },
     pendingEmail: null,
   },
+  {
+    // Completo (tanda 4 del Sprint 3). Identidad bloqueada por CT-2026-0133, vigente (US-21).
+    id: 'usr-camila',
+    legajo: { occupation: 'relacion_dependencia', monthlyIncome: 1300000, guarantees: ['propietaria'] },
+    pendingEmail: null,
+  },
 ]

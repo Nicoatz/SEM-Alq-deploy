@@ -30,7 +30,7 @@ export const MOCK_PASSWORD = 'Rentar2026'
  */
 export type UsuarioMock = UsuarioSesion & { password: string }
 
-/** Las cinco cuentas del elenco (ver `README.md`). */
+/** Las seis cuentas del elenco (ver `README.md`). */
 export const usuarios: UsuarioMock[] = [
   {
     id: 'usr-nicolas',
@@ -103,5 +103,21 @@ export const usuarios: UsuarioMock[] = [
     // US-20. Su solicitud ya enviada conserva el teléfono que mandó.
     dni: '37123456',
     fechaNacimiento: '1993-09-30',
+  },
+  // NOTA (Sprint 3, tanda 4, OK del PO): Camila ya estaba en el mapa como
+  // inquilina de Mariano Moreno 285 (de Sofía), pero sin cuenta. Se le da una
+  // para probar Mis alquileres (US-27): tiene un vigente (CT-2026-0133) y un
+  // finalizado (CT-2023-0041). Solo existe en modo mock.
+  {
+    id: 'usr-camila',
+    nombre: 'Camila',
+    apellido: 'Ríos',
+    email: 'camila.rios@rentar.test',
+    password: MOCK_PASSWORD,
+    roles: ['locatario'],
+    status: 'activo',
+    telefono: '+54 351 555-0106',
+    dni: '36123456',
+    fechaNacimiento: '1995-05-14',
   },
 ]

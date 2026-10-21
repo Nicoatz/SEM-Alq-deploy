@@ -151,7 +151,8 @@ export const contratos: ContratoMock[] = [
     ownerId: 'usr-nicolas',
     propertyId: 'prop-rondeau-480',
     solicitudId: null,
-    tenantUserId: null,
+    // Cuenta desde la tanda 4 del Sprint 3 (US-27): su finalizado se ve en Mis alquileres.
+    tenantUserId: 'usr-camila',
     tenantName: 'Camila Ríos',
     garantes: [],
     condiciones: {
