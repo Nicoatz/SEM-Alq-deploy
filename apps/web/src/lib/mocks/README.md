@@ -10,14 +10,83 @@ documentada, también el catálogo `/design-system` (no es una pantalla del prod
 
 | Id | Persona | Roles | Notas |
 |---|---|---|---|
-| `usr-nicolas` | Nicolás Arrieta | locador | Dueño de 7 propiedades: 4 alquiladas, 2 publicadas, 1 pausada. |
-| `usr-sofia` | Sofía Ledesma | locador y locatario | Locataria de Obispo Trejo 1250 7° B y locadora de Mariano Moreno 285. Única cuenta con dos roles. |
-| `usr-julieta` | Julieta Peralta | locatario | La que busca: encuentra Rondeau 480 y la solicita. |
+| `usr-nicolas` | Nicolás Arrieta | locador y locatario | Dueño de 7 propiedades: 4 alquiladas, 2 publicadas, 1 pausada. Desde el Sprint 3 también locatario ("locador abarca a locatario", OK del PO): ve "Viendo como". |
+| `usr-sofia` | Sofía Ledesma | locador y locatario | Locataria de Obispo Trejo 1250 7° B y locadora de Mariano Moreno 285. |
+| `usr-julieta` | Julieta Peralta | locatario | La que busca: encuentra Rondeau 480, la solicita, se la aceptan y su contrato CT-2026-0207 está pendiente de firma (Sprint 3). |
 | `usr-matias` | Matías Quiroga | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante de Rondeau 480 y Fructuoso Rivera 785. No es inquilino de nada. |
-| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. |
+| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. **Sin teléfono** (Sprint 3): el caso "Sin cargar" de US-20. |
+| `usr-camila` | Camila Ríos | locatario | Inquilina de Mariano Moreno 285 (de Sofía). **Cuenta desde la tanda 4 del Sprint 3** (OK del PO; en el mapa ya estaba, sin cuenta): `camila.rios@rentar.test`. Tiene un vigente (CT-2026-0133) y un finalizado (CT-2023-0041): el caso de "Mis alquileres" (US-27). |
 
-Contraseña de las cinco en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
+Contraseña de las seis en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
 está: el panel de administración no es de este sprint.
+
+## El perfil y el legajo (`perfiles.mock.ts`, US-20 y US-21)
+
+| Id | Legajo | Nombre, apellido y DNI |
+|---|---|---|
+| `usr-nicolas` | Vacío (incompleto: faltan los tres datos) | **Bloqueados**: es locador de contratos vigentes. |
+| `usr-sofia` | Completo (relación de dependencia, $1.450.000, propietaria) | **Bloqueados**: locataria de CT-2026-0148. |
+| `usr-julieta` | Completo (monotributista, $980.000, caución) | **Bloqueados** desde la tanda 2 del Sprint 3: locataria de CT-2026-0207, pendiente de firma. |
+| `usr-matias` | Incompleto: estudiante, sin ingreso ni garantías | Editables. **Ejemplo de edición** (con Diego). |
+| `usr-diego` | Completo (relación de dependencia, $1.200.000, propietaria y otra) | Editables. Sin teléfono. **Ejemplo de edición** (con Matías). |
+| `usr-camila` | Completo (relación de dependencia, $1.300.000, propietaria) | **Bloqueados**: locataria de CT-2026-0133, vigente. |
+
+- El bloqueo no se guarda: sale de los contratos vigentes o pendientes de firma en los que la cuenta
+  es dueña o locataria, mirando `propiedades.mock.ts` (`rental`) y `contratos.mock.ts` (más los del
+  navegador). Lo resuelve `services/adapters/contrato-mock.adapter.ts#contratoActivoDeUsuarioMock`.
+- **Ejemplos de edición de la tanda 1 → Matías y Diego.** Julieta era el ejemplo de "editable", pero
+  desde que su contrato está pendiente de firma su nombre, apellido y DNI están bloqueados (US-21).
+- Lo que se edita en "Mi perfil" se guarda en `rentar:mock:usuarios` (nombre, apellido, teléfono,
+  fecha, correo y contraseña) y `rentar:mock:perfiles` (situación, garantías y correo pendiente).
+  **El DNI y el ingreso editados no se guardan en el navegador**: viven en memoria hasta recargar
+  (ver `services/perfil.service.ts`).
+
+## Los contratos (`contratos.mock.ts`, US-05, Sprint 3 tanda 2)
+
+Dos fuentes, sin duplicar: los **5 vigentes** salen de `propiedades.mock.ts` (`rental`, ver "Los
+alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegador
+(`rentar:mock:contratos`).
+
+| Código | Propiedad | Locatario | Estado | Vigencia | Monto | Ajuste | De dónde sale |
+|---|---|---|---|---|---|---|---|
+| CT-2026-0102 | Laprida 340 | Tomás Bianchi | vigente | 01/03/2025 → 29/02/2028 | $520.000 | ver "Los alquileres" | `rental` |
+| CT-2026-0115 | Belgrano 1120 | Julián Ferreyra | vigente | 01/07/2025 → 30/06/2028 | $460.000 | ver "Los alquileres" | `rental` |
+| CT-2026-0121 | Colón 2450 | Martín Cabrera | vigente | 01/10/2025 → 30/09/2028 | $440.000 | ver "Los alquileres" | `rental` |
+| CT-2026-0148 | Obispo Trejo 1250, 7° B | Sofía Ledesma | vigente | 01/04/2026 → 31/03/2029 | $470.000 | ver "Los alquileres" | `rental` |
+| CT-2026-0133 | Mariano Moreno 285 (de **Sofía**) | Camila Ríos | vigente | 01/12/2025 → 30/11/2028 | $510.000 | ver "Los alquileres" | `rental` |
+| **CT-2026-0207** | Rondeau 480, PB | Julieta Peralta | **pendiente de firma** | 01/10/2026 → 30/09/2029 | $385.000 | ICL semestral (5 ajustes, el primero el 01/04/2027) | `contratos.mock.ts`, desde SOL-2026-0031 |
+| **CT-2023-0041** | Rondeau 480, PB | Camila Ríos | **finalizado** | 01/12/2023 → 30/11/2025 (24 meses) | $240.000 | IPC semestral | `contratos.mock.ts` |
+
+- **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
+  diseño). Mientras está pendiente de firma, **Rondeau 480 sigue publicada** (decisión del PO). Su
+  monto es el canónico del mapa ($385.000; el wizard del diseño decía $320.000).
+- **Firmas (US-07, tanda 3):** CT-2026-0207 arranca **pendiente con 0 firmas**; las dos partes fueron
+  invitadas el 22/09 a las 11:40 (el primer reenvío ya se puede hacer). Firman Nicolás (desde el
+  detalle, `/panel/contratos/CT-2026-0207`) y Julieta (desde **Mi alquiler**, `/panel/alquiler`). Las
+  firmas, rechazos, cancelaciones y reenvíos hechos en el navegador se guardan en
+  `rentar:mock:contratos` con el reloj único (`ahora()`: el 23/09/2026 con la **hora real**,
+  decisión del PO). **No hay un contrato sembrado con 1 firma**: se arma
+  en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
+  `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
+  "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
+- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial
+  (no se inventan).
+- **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
+  contratos" de US-27. Desde la tanda 4 tiene cuenta (`usr-camila`), así que Mis alquileres
+  (`/panel/alquileres`) se prueba entrando como ella.
+  Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
+  propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
+- **Listado de Nicolás** (`/panel/contratos`): 1 pendiente de firma, 4 vigentes y 1 finalizado. El de
+  Sofía: 1 vigente (0133).
+- **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y
+  sin contrato. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
+- **Borradores sembrados: ninguno.** Se crean en la prueba. El borrador se guarda en
+  `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en memoria hasta recargar (mismo
+  criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.
+- **Pendiente (issue #15, regla de la tanda 5 del Sprint 2):** "mientras el inmueble tenga una
+  solicitud aceptada, sigue publicado pero no recibe solicitudes nuevas". **El mock todavía no la
+  aplica:** con SOL-2026-0031 aceptada, Rondeau 480 sigue recibiendo solicitudes nuevas
+  (`solicitudes.service#propiedadSolicitableMock` solo mira el estado de la propiedad).
 
 ## Las propiedades (`propiedades.mock.ts`)
 
@@ -82,11 +151,18 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
 | Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 1 | ICL anual, 01/10/2026 |
 | Mariano Moreno 285 (de Sofía) | Camila Ríos | CT-2026-0133 | $510.000, vencido el 05/09 (retrasada) | 0 | IPC cada 4 meses, 01/12/2026 |
 
+**Depósito y garantes (US-27, tanda 4 del Sprint 3, pedido del PO):** solo en CT-2026-0148 y
+CT-2026-0133, para la ficha del locatario. Un mes de depósito (`depositMonths` × el precio de la
+publicación: $470.000 y $510.000) y un garante cada uno, con nombres que no son del elenco: **Raúl
+Benítez** (de Sofía) e **Inés Moyano** (de Camila). Los otros tres vigentes (0102, 0115 y 0121) no los
+tienen y su detalle muestra "Sin dato": no rompe nada (ninguno tiene locatario con cuenta). El día de
+pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
+
 ## Las solicitudes (`solicitudes.mock.ts`)
 
 | Id | Postulante | Propiedad | Estado | Enviada | Respondida | Mensaje |
 |---|---|---|---|---|---|---|
-| SOL-2026-0031 | Julieta Peralta (`usr-julieta`) | Rondeau 480, PB | pendiente | 20/09/2026 | — | sin mensaje (el mapa no define uno) |
+| SOL-2026-0031 | Julieta Peralta (`usr-julieta`) | Rondeau 480, PB | **aceptada** (Sprint 3, originó CT-2026-0207) | 20/09/2026 | 21/09/2026 | sin mensaje (el mapa no define uno) |
 | SOL-2026-0032 | Matías Quiroga (`usr-matias`) | Rondeau 480, PB | pendiente | 19/09/2026 | — | sí |
 | SOL-2026-0033 | Diego Ferreyra (`usr-diego`) | Rondeau 480, PB | rechazada | 02/09/2026 | 04/09/2026 | no |
 | SOL-2026-0034 | Diego Ferreyra | Fructuoso Rivera 785 | **aceptada** | 12/09/2026 | 14/09/2026 | sí |
@@ -95,17 +171,19 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
 | SOL-2026-0037 | Julieta Peralta | 27 de Abril 370 (`prop-otro-03`, Centro) | rechazada | 05/09/2026 | 08/09/2026 | no |
 | SOL-2026-0038 | Julieta Peralta | 24 de Septiembre 1450 (`prop-otro-07`, General Paz) | cancelada (la canceló ella) | 10/09/2026 | 12/09/2026 | no |
 
-- SOL-2026-0031 muestra el estado "ya la solicitaste" del detalle (`/propiedad/prop-rondeau-480`
-  con la sesión de Julieta). El envío completo (US-35) se prueba con Julieta sobre **Fructuoso
+- SOL-2026-0031 muestra el estado "ya la solicitaste" (aceptada desde el Sprint 3) del detalle
+  (`/propiedad/prop-rondeau-480` con la sesión de Julieta). El envío completo (US-35) se prueba con Julieta sobre **Fructuoso
   Rivera 785** (`prop-rivera-785`), la otra publicada de Nicolás: Julieta no tiene ninguna ahí.
-- **Solicitudes recibidas de Nicolás** (`/panel/solicitudes`): 7, en 2 propiedades. Pendientes 4
-  (Julieta, Matías y Diego en Rondeau 480; Sofía en Fructuoso Rivera 785), aceptadas 1 (Diego en
-  Fructuoso Rivera 785), cerradas 2.
-- **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** el "ahora" del elenco es el
-  23/09/2026 a las **12:00** (`AHORA_ELENCO` en `lib/utils/fechas.ts`; `hoy()` sigue a las 00:00).
-  0039 (Sofía en Fructuoso Rivera 785, 09:00) dice "hace 3 h"; 0040 (Diego vuelve a solicitar
-  Rondeau 480 después del rechazo de la 0033, 11:35) dice "hace menos de 1 h"; la de Matías (0032,
-  19/09) dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
+- **Solicitudes recibidas de Nicolás** (`/panel/solicitudes`): 7, en 2 propiedades. Desde el
+  Sprint 3 (tanda 2): pendientes 3 (Matías y Diego en Rondeau 480; Sofía en Fructuoso Rivera 785),
+  aceptadas 2 (Julieta en Rondeau 480, con contrato; Diego en Fructuoso Rivera 785, sin contrato),
+  cerradas 2. Como Rondeau ya tiene una aceptada, ahí no se puede aceptar otra.
+- **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** desde la tanda 3 del Sprint 3
+  hay **un solo reloj** (`lib/utils/fechas.ts#ahora`): en mock, la fecha es el 23/09/2026 y la hora,
+  la real (`hoy()` es esa fecha a las 00:00). 0039 (Sofía en Fructuoso Rivera 785) y 0040 (Diego
+  vuelve a solicitar Rondeau 480 después del rechazo de la 0033) tienen su fecha **relativa a
+  `ahora()`** (ahora − 3 h y ahora − 30 min, calculadas al leerlas): siempre dicen "hace 3 h" y "hace
+  menos de 1 h", a cualquier hora. La de Matías (0032, 19/09) tiene fecha fija y dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
 - **Una sola aceptada por propiedad:** como Fructuoso Rivera 785 ya tiene la de Diego, si Julieta
   le manda una (el recorrido de la tanda 1), su "Aceptar" aparece deshabilitado hasta que Nicolás
   cancele la de Diego (US-38).

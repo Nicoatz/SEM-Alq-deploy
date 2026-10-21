@@ -36,7 +36,7 @@ import type {
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { buscarEnLista, FILTROS_INICIALES, ordenar, ubicacionesDe } from '@/lib/search/busqueda'
 import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
-import { hoy } from '@/lib/utils/fechas'
+import { ahoraIso, hoy } from '@/lib/utils/fechas'
 import { FOTO_PESO_MAXIMO_BYTES, FOTO_TIPOS_ACEPTADOS } from '@/lib/validation/propiedad.rules'
 import {
   aplicarCambiosMock,
@@ -588,10 +588,9 @@ function miPropiedadMock(propiedadId: string): PropiedadMock {
   return propiedad
 }
 
-/** "Ahora" en el elenco: el "hoy" fijo (23/09/2026) con la hora actual. */
+/** "Ahora" en el elenco: el reloj único (`ahora()`: el "hoy" fijo con la hora real). */
 function ahoraMock(): string {
-  const ahora = new Date()
-  return hoy().hour(ahora.getHours()).minute(ahora.getMinutes()).format('YYYY-MM-DDTHH:mm:ss')
+  return ahoraIso()
 }
 
 /**

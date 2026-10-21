@@ -14,3 +14,17 @@ export function Default() {
     />
   )
 }
+
+/** Con la fecha y la hora exactas (`dateFormat="absolute"`): el historial de firmas de un contrato (US-07, Sprint 3). */
+export function FechaAbsoluta() {
+  return (
+    <ActivityTimeline
+      dateFormat="absolute"
+      events={[
+        { id: '3', title: 'Firmó Julieta Peralta', date: '2026-09-23T16:20:00-03:00', colorKey: 'success' },
+        { id: '2', title: 'Se envió a firmar', date: '2026-09-22T11:40:00-03:00', colorKey: 'info' },
+        { id: '1', title: 'Se creó el borrador', date: '2026-09-21T17:22:00-03:00', colorKey: 'neutral' },
+      ]}
+    />
+  )
+}

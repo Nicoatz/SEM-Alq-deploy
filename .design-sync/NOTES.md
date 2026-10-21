@@ -275,6 +275,115 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
+## Para el `/design-sync` del cierre del Sprint 3 (lista exacta)
+
+Componentes de `@rentar/ui` cambiados en el Sprint 3 que **todavía no se subieron** (los de
+`StatusTag` y `HeroSearch` del 21/10 ya están subidos, ver abajo). Correr `/design-sync` después del
+merge de `feature/vistas` en `develop`:
+
+| Componente | Cambio | Preview |
+|---|---|---|
+| `IndexBadge` | `index` acepta `'ICL' \| 'IPC' \| 'CAC' \| 'sin_ajuste'` (tipo `IndiceContrato` de `@rentar/shared-types`; antes `AdjustmentIndex`, que sigue entrando). CAC con su explicación; "Sin ajuste" en neutro (`--rentar-status-neutral-*`) | `previews/IndexBadge.tsx`: historia nueva `Contrato` |
+| `ActivityTimeline` | prop opcional `dateFormat` (`'relative' \| 'absolute'`, por defecto `'relative'`) | `previews/ActivityTimeline.tsx`: historia nueva `FechaAbsoluta` |
+
+Sin APIs exclusivas de React 19 (regla del 09/10): los dos cambios son props y estilos. Ningún otro
+componente cambió. Si `dtsPropsFor` de `config.json` llegara a listar alguno de los dos, actualizar
+la unión (hoy no los lista).
+
+## Hecho (Sprint 3, cierre): `IndexBadge` con CAC y "Sin ajuste" (2026-10-21)
+
+- El alta de contrato (US-05) ofrece cuatro opciones de ajuste: Sin ajuste, ICL, IPC y CAC. Antes,
+  CAC y "Sin ajuste" se mostraban como texto (`IndiceAjuste.tsx`, que se borró): ahora el alta, la
+  revisión, el listado de contratos, el detalle, Mi alquiler y Mis alquileres usan `IndexBadge` para
+  los cuatro. Ejemplo en `/design-system`.
+- NOTA: en el back, `AdjustmentIndex` (`@rentar/shared-types`) tampoco tiene CAC (HANDOFF §7, US-05).
+
+## Pendiente de subir (Sprint 3): `ActivityTimeline` con `dateFormat` (2026-10-21)
+
+**Hecho en `@rentar/ui` con el OK del PO (tanda 3); falta el `/design-sync`**, que corre el PO al final
+del Sprint 3 junto con lo de `IndexBadge`.
+- **`ActivityTimeline`: prop opcional `dateFormat`** (`'relative' | 'absolute'`, por defecto
+  `'relative'`: los usos de antes no cambian). Con `'absolute'`, cada evento muestra
+  "22/09/2026 a las 11:40" (`formatDate`) en lugar de "hace 2 horas". Motivo: US-07 pide el historial
+  del contrato "con fecha y hora", y la fecha relativa se calcula contra el reloj real (en modo mock,
+  donde "hoy" es el 23/09/2026, decía "hace un mes").
+- Lo usa el historial del contrato (`apps/web/src/components/contratos/DetalleContrato.tsx`). Ejemplo
+  sumado en `/design-system`.
+- Al subir: sumar una historia `FechaAbsoluta` en `previews/ActivityTimeline.tsx` y la unión de
+  `dateFormat` en `dtsPropsFor` si el componente está ahí.
+
+## Re-sync del 2026-10-21, segunda corrida (`StatusTag` con `borrador`)
+
+- Sincronizado desde `feature/vistas` en `5b87c71`, camino atómico, mismo comando y Edge. Ancla
+  local igual a la remota (`bundleSha12` `c3609354a326`).
+- Diff: 33 `unchanged`, 1 `changed` (`StatusTag`, cambió su preview). Se capturó y se calificó
+  `good` en las dos celdas (`Dominios`, `DominiosOscuro`). Render check 34/34 limpias con
+  `--render-sample 0`; `conventions.md` sigue válido (no enumera estados).
+- Subidos 178 archivos (aviso + 176 + ancla), 0 borrados.
+
+## (Subido el 2026-10-21) `StatusTag`: estado `borrador` en `contrato` (2026-10-21)
+
+- `ContractStatus` (`@rentar/shared-types`) suma `borrador`: quedan `borrador`, `pendiente_firma`,
+  `vigente`, `finalizado` y `rescindido`. Se agregó a `statusMeta.contrato` como
+  `{ label: 'Borrador', colorKey: 'neutral', icon: EditFilled }`. El lápiz lo separa de los otros
+  neutros (anulado, cancelada), que usan `StopFilled`. Los otros cuatro no cambian: `pendiente_firma`
+  ya era `warning`, y `rescindido` (`error`, cruz) ya se distinguía de `finalizado` (`info`, bandera).
+- Se actualizaron la unión de `status` en `dtsPropsFor.StatusTag` (`config.json`), el preview
+  (`previews/StatusTag.tsx`), el catálogo `/design-system`, la tabla de `docs/DESIGN.md` y los tests
+  (los cinco estados con su color, y rescindido ≠ finalizado).
+- NOTA: el pedido decía alinear con "el enum `estado_contrato` de la migración del Sprint 3", pero
+  esa migración no está en ninguna rama de `origin`. Hoy `estado_contrato` es una tabla de catálogo
+  (`init_rentar_schema.sql`) con `disponible`, `vigente` y `finalizado` en `seed.sql`. El front quedó
+  con los cinco valores pedidos; está anotado como `TODO(db)` en `status.ts`.
+- Antes decía "no existe un estado `borrador`, quedó fuera del MVP" (`status.ts` y el preview). Lo
+  cambió el pedido del equipo del 21/10. `PropertyStatus` sigue sin `borrador`.
+
+## Re-sync del 2026-10-21 (`HeroSearch` y `StatusTag`)
+
+- Aprobado por el PO. Sincronizado desde `feature/vistas` en `95d9d73` (commits `61bcb65` y
+  `95d9d73`), camino atómico, mismo comando y `DS_CHROMIUM_PATH` (Edge) que el 16/10.
+- Ancla: la copia local `ds-bundle/_ds_sync.json` de la subida anterior coincidía con el
+  `_ds_sync.json` del proyecto (mismos `bundleSha12`, `styleSha`, 34 render hashes y 102
+  `sourceHashes`), así que se usó como `remote-sync.json`. Verificarlo siempre antes de reusarla.
+- Diff: 34 componentes `unchanged`, 0 a regradear; cambian el bundle, los estilos y aux. Los
+  `.d.ts` de `StatusTag`/`DataTable` salen de `dtsPropsFor` (no cambian) y el JSDoc nuevo de
+  `DataTableColumn#render` no llega al `.prompt.md` (se sintetiza del JSDoc del componente).
+- Render check 34/34 limpias. `conventions.md` validado contra el build, sin cambios. Subidos 178
+  archivos (aviso + 176 + ancla), 0 borrados. No se tocan `templates/`, `uploads/` ni `screenshots/`
+  (son del equipo en Claude Design).
+
+## (Subido el 2026-10-21) `HeroSearch` sin custom property local (2026-10-21)
+
+- `HeroSearch.module.css` declaraba `--hero-search-control: 2.5rem` en `.form`, y el sistema de
+  diseño avisaba por ser una custom property fuera de `:root`. No es un token de tema y solo la usa
+  `HeroSearch`: se reemplazó por `2.5rem` directo en sus cuatro usos (`.select`, `.summary`,
+  `.input` y `.submit` en la fila única) y se borró la declaración. Mismo valor: sin cambios
+  visuales ni de API (medido con Edge a 1440, 900 y 390 px, antes y después: mismas alturas y
+  capturas idénticas píxel a píxel). Si otro componente necesita ese alto, pasarlo a un token en
+  `:root` (por ejemplo `--rentar-control-height-sm`) en vez de repetir el número.
+- NOTA (ya pasaba antes, sin tocar): en la fila única `.submit` mide **44 px, no 40**. Su
+  `height: 2.5rem` empata en especificidad con `:where(.css-…).ant-btn { height:
+  var(--ant-control-height) }` de antd, que se inyecta después y gana. Igualarlo a los selects es un
+  cambio visual: consultarlo con el PO.
+
+## (Subido el 2026-10-21) `StatusTag` tolera estados desconocidos (2026-10-21)
+
+- **`getStatusMeta` nunca devuelve `undefined`.** Con un dominio o un estado que no están en
+  `statusMeta` (o con `status` vacío), devuelve `{ label: String(status ?? '—'), colorKey:
+  'neutral', icon: QuestionCircleFilled }` y, solo en desarrollo, un `console.warn` con `domain` y
+  `status`. Antes, un estado nuevo del back rompía la pantalla con "Cannot read properties of
+  undefined (reading 'icon')". El parámetro `status` acepta también `null`/`undefined`; el tipo de
+  retorno sigue siendo `StatusMeta`, que ahora es cierto en ejecución. Usa `Object.hasOwn`, así que un
+  estado como `"constructor"` cae al fallback en vez de devolver algo del prototipo.
+- **`StatusTag`**: si una entrada no tiene ícono, el `Tag` sale sin ícono; si el `colorKey` no
+  tiene clase, usa la de `neutral`. La API no cambia y los estados conocidos se ven igual.
+  `StatusTag` es el único que consume `getStatusMeta`/`statusMeta` en `packages/ui` y `apps/web`.
+- **`DataTable`**: el JSDoc de `columns[].render` aclara que la firma es `render(record)`, **no** la
+  de antd (`render(value, record, index)`). Solo documentación: la API no cambia.
+- **Tests nuevos en `@rentar/ui`** (`npm test --workspace=@rentar/ui`): Vitest + jsdom + Testing
+  Library (`vitest.config.mts`), `src/components/data/StatusTag.test.tsx`.
+  `tsconfig.types.json` excluye los `*.test.ts(x)` para que no lleguen al `.d.ts` de `/design-sync`.
+
 ## Re-sync del 2026-10-16 (`Header#loginHref`): proyecto de la cuenta nueva
 
 - **Desde el 16/10, `config.json` apunta al proyecto de la cuenta nueva:
@@ -571,9 +680,9 @@ autoró una preview para estos tres), muestran solo el nombre del componente. No
 
 - `EmptyState` · `AccionAnchoCompleto` se ve igual que `Default`: `actionBlock` solo actúa debajo de
   640 px de PANTALLA, y la card mide más. La historia queda para documentar la prop (08/10/2026).
-- `check_design_system` avisa por `--hero-search-control: 2.5rem` dentro de `.HeroSearch_form`
-  (`components/forms/HeroSearch.module.css:24`): es una medida interna del componente (el alto de
-  sus controles), no un token del sistema. Se deja donde está (decisión del PO, 08/10/2026).
+- (Resuelto el 2026-10-21) `check_design_system` avisaba por `--hero-search-control: 2.5rem`
+  dentro de `.HeroSearch_form`. Se reemplazó por `2.5rem` directo (ver "HeroSearch sin custom
+  property local"); si el aviso vuelve a aparecer, es una regresión.
 - `Header` muestra el link "Sistema de diseño" en las previews: el componente lo esconde solo en
   producción de `apps/web`. Es esperable.
 

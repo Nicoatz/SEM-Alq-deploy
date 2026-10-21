@@ -30,7 +30,7 @@
  */
 import { useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import { Alert, Button, Drawer, Select, Skeleton } from 'antd'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { PropiedadLocador, Solicitud } from '@rentar/shared-types'
 import { breakpoints, EmptyState, PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
@@ -246,7 +246,9 @@ export function SolicitudesRecibidas() {
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [cambios, setCambios] = useState<CambiosSolicitudes>({})
-  const [pestania, setPestania] = useState<PestaniaSolicitudes>('pendientes')
+  // `?pestania=aceptadas` (desde "Ver solicitudes aceptadas" de Contratos, US-05) abre esa pestaña.
+  const pestaniaInicial = useSearchParams().get('pestania')
+  const [pestania, setPestania] = useState<PestaniaSolicitudes>(() => PESTANIAS_RECIBIDAS.find((opcion) => opcion.value === pestaniaInicial)?.value ?? 'pendientes')
   const [propiedad, setPropiedad] = useState<string>(TODAS_LAS_PROPIEDADES)
   const [orden, setOrden] = useState<OrdenSolicitudes>('recientes')
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)

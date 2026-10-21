@@ -91,7 +91,7 @@ export function SolicitarAlquilerModal({ open, propiedad, onClose }: SolicitarAl
   const preparacion = useServiceCall(preparar)
   const datos = preparacion.status === 'listo' ? preparacion.data : null
   // El `Form` se monta recién con los datos listos, así toma estos valores iniciales.
-  const iniciales = useMemo(() => valoresIniciales(datos?.perfil ?? null), [datos])
+  const iniciales = useMemo(() => valoresIniciales(datos?.perfil ?? null, datos?.legajo ?? null), [datos])
   const contarPendientes = useCallback(() => contarMisSolicitudesPendientes(propiedad.id), [propiedad.id])
   const pendientes = useServiceCall(contarPendientes)
 

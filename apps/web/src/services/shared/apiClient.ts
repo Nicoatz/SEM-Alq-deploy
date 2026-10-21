@@ -107,6 +107,16 @@ async function buildHeaders(hasBody: boolean, auth: boolean): Promise<Record<str
   return headers
 }
 
+/**
+ * El `codigo` de negocio del sobre, si viene (propuesto en el Sprint 3 para
+ * el perfil, ver `CodigoErrorPerfil` en `backend-dtos.ts`). `ApiResponse` es
+ * el modelo del back y no lo tiene todavía: se lee sin tocarlo.
+ */
+function codigoDeNegocio(envelope: ApiResponse<unknown> | null): string | undefined {
+  const codigo: unknown = envelope ? (envelope as ApiResponse<unknown> & { codigo?: unknown }).codigo : undefined
+  return typeof codigo === 'string' ? codigo : undefined
+}
+
 /** Lee el cuerpo como JSON; `null` si viene vacío o no es JSON (por ejemplo, un 502 con HTML). */
 async function readJson(response: Response): Promise<ApiResponse<unknown> | null> {
   try {
@@ -157,7 +167,7 @@ export async function apiRequest<T>(path: string, options: ApiRequestOptions = {
     const code = response.ok ? 'server' : errorCodeFromHttpStatus(response.status)
     // NOTA: el 401 del back trae un texto técnico ("el token de Supabase no es
     // válido"). Para quien usa la app, es que la sesión venció.
-    throw new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message)
+    throw new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message, codigoDeNegocio(envelope))
   }
 
   // NOTA: algunos endpoints responden `success: true` sin `data` (ej. un

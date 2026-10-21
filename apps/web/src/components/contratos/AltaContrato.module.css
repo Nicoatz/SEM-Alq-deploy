@@ -1,0 +1,374 @@
+/* Alta de contrato (Claude Design, "Flujo de contratos" · 02 a 04). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.paso {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.referencia {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+.bloqueado {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* ─── Grillas de campos ───────────────────────────────────────────────── */
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  column-gap: 0.75rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: 0.75rem;
+}
+
+/* ─── Paso 1 · Partes y garantes ──────────────────────────────────────── */
+
+.contexto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--rentar-status-info-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-info-bg);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+}
+
+.partes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.parte {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.parteAvatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.parteDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.parteNombre {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.parteRol {
+  font-weight: 600;
+  color: var(--rentar-color-blue);
+}
+
+.garante {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+}
+
+.garanteHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.garanteTitulo {
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.agregar {
+  align-self: flex-start;
+}
+
+/* ─── Paso 2 · Condiciones ────────────────────────────────────────────── */
+
+.calculado {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: var(--rentar-radius-sm);
+  background: rgba(var(--rentar-color-ink-rgb), 0.05);
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.resumenAjustes {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--rentar-status-money-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-money-bg);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--rentar-color-text-primary);
+}
+
+/* Acciones del encabezado (Guardar y Eliminar borrador). */
+.headerAcciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+@media (max-width: 767px) {
+  /* PageHeader no deja pasar de línea a sus acciones: en móvil, una debajo de la otra. */
+  .headerAcciones {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .contexto {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ─── Paso 3 · Cláusulas ──────────────────────────────────────────────── */
+
+.clausulasHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.clausulasResumen {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9375rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.plantillaTag {
+  margin: 0;
+}
+
+.clausulas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clausula {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* Editada o agregada por el locador: resaltada, como en el diseño (· 04). */
+.clausulaMarcada {
+  border-color: var(--rentar-status-info-border);
+  background: var(--rentar-status-info-bg);
+}
+
+.clausulaHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.clausulaTitulo {
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.clausulaTexto {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--rentar-color-text-secondary);
+  white-space: pre-wrap;
+}
+
+.clausulaEditor {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.clausulaError {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-error);
+}
+
+.documento {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.documentoTitulo {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.documentoClausula {
+  margin: 0 0 0.875rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--rentar-color-text-primary);
+  text-align: justify;
+  white-space: pre-wrap;
+}
+
+/* ─── Paso 4 · Revisión ───────────────────────────────────────────────── */
+
+.bloqueRevision {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+}
+
+.bloqueRevisionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.bloqueRevisionTitulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.ajusteRevision {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alEnviar {
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--rentar-status-warning-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-warning-bg);
+}
+
+.alEnviarLista {
+  margin: 0.5rem 0 0;
+  padding-left: 1.125rem;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--rentar-color-text-primary);
+}
+
+/* ─── Resultado ───────────────────────────────────────────────────────── */
+
+.resultado {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1.25rem;
+  border: 1px solid var(--rentar-status-success-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  text-align: center;
+}
+
+.resultadoIcono {
+  font-size: 2.5rem;
+  color: var(--rentar-color-success);
+}
+
+.resultadoTitulo {
+  margin: 0;
+  font-size: 1.375rem;
+  font-weight: 800;
+  color: var(--rentar-color-text-primary);
+}
+
+.resultadoCodigo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}

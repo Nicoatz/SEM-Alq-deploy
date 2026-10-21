@@ -29,6 +29,7 @@ import type {
   AdjustmentIndex,
   CharacteristicKey,
   ContractStatus,
+  GaranteContrato,
   GarantiaOfrecida,
   MedioPagoConRecargo,
   PropertyStatus,
@@ -79,6 +80,13 @@ export interface AlquilerMock {
   currentAmount: number
   /** Fecha ISO del próximo ajuste por índice. */
   nextAdjustmentDate: string
+  /**
+   * Depósito en garantía del contrato (US-27, ficha del locatario). Opcional:
+   * los vigentes del elenco que no lo tienen se ven "Sin dato".
+   */
+  deposit?: number | null
+  /** Garantes del contrato (US-27). Opcional, por lo mismo. Datos del elenco, solo mock. */
+  guarantors?: GaranteContrato[]
 }
 
 /**
@@ -335,6 +343,9 @@ const elenco: PropiedadMock[] = [
       endDate: '2029-03-31',
       currentAmount: 470000,
       nextAdjustmentDate: '2027-04-01',
+      // US-27 (tanda 4, pedido del PO): un mes de depósito (`depositMonths` × el precio) y un garante.
+      deposit: 470000,
+      guarantors: [{ key: 'garante-1', fullName: 'Raúl Benítez', dni: '17234567', email: 'raul.benitez@rentar.test' }],
     },
   },
   {
@@ -593,12 +604,18 @@ const elenco: PropiedadMock[] = [
       contractId: 'CT-2026-0133',
       contractStatus: 'vigente',
       tenantName: 'Camila Ríos',
-      tenantUserId: null,
+      // Cuenta desde la tanda 4 del Sprint 3 (US-27, OK del PO).
+      tenantUserId: 'usr-camila',
       startDate: '2025-12-01',
       endDate: '2028-11-30',
       currentAmount: 510000,
       // IPC cada 4 meses desde diciembre de 2025: abr-26, ago-26, dic-26.
       nextAdjustmentDate: '2026-12-01',
+      // US-27 (tanda 4, pedido del PO): un mes de depósito y un garante.
+      // NOTA: el elenco no tiene el monto inicial (ya hubo ajustes): el depósito
+      // es `depositMonths` (1) × el precio de la publicación ($510.000).
+      deposit: 510000,
+      guarantors: [{ key: 'garante-1', fullName: 'Inés Moyano', dni: '22876543', email: 'ines.moyano@rentar.test' }],
     },
   },
 ]

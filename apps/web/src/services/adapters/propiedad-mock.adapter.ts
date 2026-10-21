@@ -195,6 +195,7 @@ export function propiedadMockToLocador(propiedad: PropiedadMock, { cobro, openCl
     imageSrc: mainPhotoSrc(propiedad),
     publishedAt: propiedad.publishedAt,
     tenantName: rental?.tenantName ?? null,
+    contractId: rental?.contractId ?? null,
     paymentStatus: pago?.status ?? null,
     paymentDueDate: rental && cobro ? cobro.dueDate : null,
     daysOverdue: pago?.daysOverdue ?? null,

@@ -12,6 +12,8 @@
  * propiedad (`/propiedad/[id]`) y, desde la tanda 2 del Sprint 2,
  * `/panel/mis-solicitudes` y `/panel/solicitudes`.
  */
+import type { ContratoDeSolicitud } from './contrato'
+import type { LegajoUsuario } from './perfil'
 import type { SolicitudStatus } from './status'
 
 /**
@@ -139,6 +141,19 @@ export interface Solicitud {
    */
   legajo?: LegajoSolicitud | null
   /**
+   * El contrato que originó esta solicitud aceptada (US-05: "una solicitud
+   * aceptada puede originar un solo contrato"). Solo en la vista del
+   * locador; `null` = no originó ninguno; sin definir = no se sabe (en
+   * real, mientras el back no lo mande: TODO(backend)).
+   */
+  contrato?: ContratoDeSolicitud | null
+  /**
+   * `true` si la propiedad ya tiene un contrato vigente o pendiente de firma
+   * de OTRA solicitud (US-05: no se puede iniciar otro). Solo en la vista
+   * del locador; sin definir = no se sabe (lo frena `/contratos/preparar`).
+   */
+  propiedadConContrato?: boolean
+  /**
    * Resumen para el listado del locador (US-36): en Solicitudes recibidas y
    * en el detalle del postulante; sin definir en la vista de quien la envió.
    * `null` si la solicitud no trae legajo (las enviadas antes de la US-35
@@ -203,4 +218,11 @@ export interface PreparacionSolicitud {
   }
   /** Las garantías que exige la propiedad (vacío si no exige ninguna). */
   garantiasExigidas: GarantiaOfrecida[]
+  /**
+   * El legajo del perfil, para precargar situación, ingreso y garantías
+   * (US-21: "los datos del legajo se precargan en las solicitudes nuevas").
+   * `null` si no se conoce (en real, mientras `/preparar` no lo mande): el
+   * formulario usa los valores por defecto de US-35.
+   */
+  legajo: LegajoUsuario | null
 }

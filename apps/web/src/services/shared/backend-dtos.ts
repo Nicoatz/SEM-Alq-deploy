@@ -165,10 +165,10 @@ export interface RegistrarUsuarioRequest {
 // `adapters/solicitud.adapter.ts`, nunca en las pantallas.
 
 /** Ocupación del postulante, con los códigos que usa el back (`situacion_ocupacional`). */
-type OcupacionDto = 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
+export type OcupacionDto = 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
 
 /** Garantía ofrecida o exigida, con los códigos que usa el back (`tipo_garantia`). */
-type GarantiaDto = 'propietaria' | 'caucion' | 'otra'
+export type GarantiaDto = 'propietaria' | 'caucion' | 'otra'
 
 /**
  * Cuerpo de `POST /api/v1/solicitudes` (existe): `CrearSolicitudRequest` del
@@ -304,6 +304,13 @@ export interface SolicitudPreparacionResponse {
    * TODO(db): el esquema no guarda las garantías exigidas: hoy llega siempre vacío.
    */
   garantias_exigidas: number[]
+  /**
+   * El legajo del usuario, para precargar la solicitud (US-21). NO EXISTE
+   * todavía: propuesto en el Sprint 3, misma forma que `LegajoDto` del
+   * perfil. `null` o ausente = sin legajo.
+   * TODO(backend): sumarlo a `GET /solicitudes/preparar` (HANDOFF §7).
+   */
+  legajo?: LegajoDto | null
   /** NOTA: el front no los usa: arma los suyos con `valoresIniciales` (mismos valores por defecto). */
   valores_iniciales: {
     telefono: string
@@ -427,4 +434,283 @@ export interface UpdateInmueblePayload {
   fecha_disponible?: string | null
   fotos?: CreateFotoPayload[]
   tags?: number[]
+}
+
+// ─── Perfil y legajo (US-20, US-21) ─────────────────────────────────────
+// NOTA: PROPUESTOS por el front (Sprint 3): el back todavía no tiene estas
+// rutas. Contrato completo en `docs/api-endpoints.md` ("Perfil") y en
+// `docs/HANDOFF-BACKEND.md` §7. Mismos códigos de ocupación y garantía que
+// las solicitudes, así el legajo pasa del perfil a la solicitud sin traducir.
+
+/** El legajo como lo guardaría el back (propuesto). */
+export interface LegajoDto {
+  ocupacion: OcupacionDto
+  /** Entero mayor que 0, o `null` si no lo cargó (US-21). */
+  ingresos: number | null
+  garantias: GarantiaDto[]
+}
+
+/**
+ * Respuesta de `GET /api/v1/usuarios/me/perfil` (no existe — propuesto).
+ * Solo el usuario del token: no hay forma de pedir el perfil de otro (US-20).
+ */
+export interface PerfilResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  email: string
+  numero_documento: string | null
+  /** Solo dígitos, con código de país (igual que en `SolicitudResponse`). */
+  telefono: string | null
+  /** `YYYY-MM-DD`. */
+  fecha_nacimiento: string | null
+  /** Descripciones de la tabla `rol`, igual que `/usuarios/me`. */
+  roles: string[]
+  /**
+   * El contrato vigente o pendiente de firma del que el usuario es parte
+   * (locador o locatario), si hay uno: bloquea nombre, apellido y DNI (US-21).
+   * Si hay varios, cualquiera (el front solo lo nombra).
+   */
+  contrato_bloqueante: { codigo: string; estado: 'vigente' | 'pendiente_firma' } | null
+  /** `null` si nunca lo cargó. */
+  legajo: LegajoDto | null
+}
+
+/**
+ * Cuerpo de `PATCH /api/v1/usuarios/me` (no existe — propuesto). Solo los
+ * campos que cambian. El correo NO va acá: lo cambia Supabase Auth.
+ */
+export interface ActualizarPerfilRequest {
+  nombre?: string
+  apellido?: string
+  numero_documento?: string
+  /** E.164 sin el "+" ni separadores, 10 a 15 dígitos. */
+  telefono?: string | null
+  fecha_nacimiento?: string | null
+}
+
+/** Cuerpo de `PATCH /api/v1/usuarios/me/legajo` (no existe — propuesto). Reemplaza el legajo entero. */
+export type ActualizarLegajoRequest = LegajoDto
+
+/**
+ * Código de error de negocio que el front propone que el back mande en el
+ * sobre (`{ success: false, error, codigo }`), para distinguir dos 409 de la
+ * misma ruta sin leer el texto. Lo lee `apiClient` y lo guarda en
+ * `ServiceError.apiCode`.
+ */
+export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
+
+// ─── Contratos (US-05) · PROPUESTO ──────────────────────────────────────
+// NOTA: ninguna de estas rutas existe todavía (Sprint 3, tanda 2). Contrato
+// completo en `docs/api-endpoints.md` ("Contratos") y `HANDOFF-BACKEND.md`
+// §7 (US-05). Códigos de garantía igual que las solicitudes; medios de pago
+// con los ids de `medio_pago`, igual que `/mis-alquileres`.
+
+/** Estado del contrato (propuesto: hoy `estado_contrato` solo tiene disponible, vigente y finalizado). */
+export type EstadoContratoDto = 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
+
+/** Índice del contrato (propuesto). `sin_ajuste` en lugar de `indice_aumento` en `NULL`. */
+export type IndiceContratoDto = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC'
+
+/** Periodicidad del ajuste (propuesto; hoy `frecuencia_ajuste` es texto libre). */
+export type PeriodicidadDto = 'trimestral' | 'semestral' | 'anual'
+
+/** La dirección del inmueble, como la manda `/solicitudes`. */
+export interface InmuebleContratoDto {
+  id: number
+  direccion: string
+  numero: number
+  piso: string | null
+  barrio: string | null
+}
+
+/** Una fila de `GET /contratos` (no existe — propuesto). Sin DNI ni contacto. */
+export interface ContratoResumenResponse {
+  id: number
+  /** `null` en los borradores. */
+  codigo: string | null
+  estado: EstadoContratoDto
+  inmueble: InmuebleContratoDto
+  locatario: { nombre: string; apellido: string | null }
+  /**
+   * Nombre del locador (propuesto, US-27): lo necesita Mis alquileres
+   * (`GET /contratos?rol=locatario`). Sin contacto ni DNI en la fila.
+   */
+  locador?: { nombre: string; apellido: string | null } | null
+  monto_actual: number | null
+  fecha_inicio: string | null
+  fecha_fin: string | null
+  indice: IndiceContratoDto | null
+  proximo_ajuste: string | null
+  id_solicitud: number | null
+}
+
+/** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
+export interface ParteContratoDto {
+  id: number
+  nombre: string
+  apellido: string | null
+  numero_documento: string | null
+  email: string
+  /** Solo dígitos, con código de país. */
+  telefono: string | null
+}
+
+/** Un garante: dato del contrato, sin cuenta (decisión del PO: no firma en el Sprint 3). */
+export interface GaranteDto {
+  nombre_apellido: string
+  numero_documento: string
+  email: string
+}
+
+/** Las condiciones del contrato. En un borrador, cualquier campo puede venir en `null`. */
+export interface CondicionesContratoDto {
+  fecha_inicio: string | null
+  duracion_meses: number | null
+  monto_inicial: number | null
+  deposito: number | null
+  dia_vencimiento: number | null
+  indice: IndiceContratoDto
+  periodicidad: PeriodicidadDto | null
+}
+
+/** Una cláusula. `clave` es la de la plantilla del front (`objeto`, `precio`…) o `propia-<n>`. */
+export interface ClausulaDto {
+  clave: string
+  tipo: 'fija' | 'editable' | 'propia'
+  titulo: string
+  texto: string
+  editada: boolean
+}
+
+/**
+ * `GET /contratos/:id` y `GET /contratos/preparar?id_solicitud=` (no existen
+ * — propuestos). `/preparar` devuelve el contrato todavía sin guardar:
+ * `id`, `codigo`, `condiciones` y `clausulas` vacíos (el front los completa
+ * con sus valores por defecto y su plantilla).
+ */
+export interface ContratoResponse {
+  id: number | null
+  codigo: string | null
+  estado: EstadoContratoDto
+  id_solicitud: number
+  /** Cuándo se aceptó la solicitud (`solicitud.fecha_respuesta`). */
+  fecha_aceptacion_solicitud: string | null
+  inmueble: InmuebleContratoDto & {
+    /** URL de la foto principal (US-27, ficha del locatario; propuesto). `null` si no tiene. */
+    foto_principal: string | null
+    precio_publicado: number | null
+    /** Índice de la publicación (`tipo_indice`): ICL o IPC; `null` si no tiene. */
+    indice_publicacion: 'ICL' | 'IPC' | null
+    medios_pago: number[]
+    dias_gracia: number | null
+    interes_por_dia: number | null
+  }
+  locador: ParteContratoDto
+  locatario: ParteContratoDto
+  garantias_ofrecidas: GarantiaDto[]
+  garantes: GaranteDto[]
+  condiciones: CondicionesContratoDto | null
+  clausulas: ClausulaDto[]
+  ultimo_paso: number
+}
+
+/** Cuerpo de `POST /contratos` y `PUT /contratos/:id` (no existen — propuestos). */
+export interface ContratoRequest {
+  id_solicitud: number
+  garantes: GaranteDto[]
+  condiciones: CondicionesContratoDto
+  clausulas: ClausulaDto[]
+  ultimo_paso: number
+}
+
+/** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
+export interface ContratoEnviadoResponse {
+  id: number
+  codigo: string
+  estado: 'pendiente_firma'
+}
+
+/**
+ * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
+ * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
+ * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
+ * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
+ * el envío) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
+ */
+export type CodigoErrorContrato =
+  | 'SOLICITUD_NO_ACEPTADA'
+  | 'SOLICITUD_CON_CONTRATO'
+  | 'PROPIEDAD_CON_CONTRATO'
+  | 'CONTRATO_NO_EDITABLE'
+  | 'CONTRATO_NO_PENDIENTE'
+  | 'YA_FIRMO'
+  | 'FIRMA_RECHAZADA'
+  | 'OTRA_PARTE_FIRMO'
+  | 'FIRMANTE_NO_PENDIENTE'
+
+// ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────
+// NOTA: no existen (Sprint 3, tanda 3). Contrato en `docs/api-endpoints.md`
+// ("Contratos", US-07). Firman el locador y el locatario (decisión del PO).
+
+/** Rol de quien firma. */
+export type RolFirmanteDto = 'locador' | 'locatario'
+
+/** Una parte que firma, con el estado de su firma. La IP la guarda el back y NO viaja al front. */
+export interface FirmanteDto {
+  rol: RolFirmanteDto
+  id_usuario: number
+  nombre: string
+  apellido: string | null
+  estado: 'pendiente' | 'firmado' | 'rechazado'
+  /** Fecha y hora ISO de la firma (la registra el back, con la IP). */
+  fecha_firma: string | null
+  fecha_rechazo: string | null
+  motivo_rechazo: string | null
+  /** Fecha y hora ISO de la última invitación (el envío o un reenvío): el front calcula desde cuándo se puede reenviar. */
+  fecha_ultima_invitacion: string | null
+}
+
+/** Un evento del historial del contrato. */
+export interface EventoContratoDto {
+  id: number
+  tipo: 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
+  /** Fecha y hora ISO. */
+  fecha: string
+  rol: RolFirmanteDto | null
+  /** Nombre y apellido de quien firmó o rechazó, o a quien se le reenvió. */
+  nombre: string | null
+  motivo: string | null
+}
+
+/**
+ * `GET /contratos/:id` con lo de US-07 (propuesto): el mismo `ContratoResponse`
+ * más los firmantes y el historial, en una sola respuesta (el historial no
+ * tiene otro uso que este detalle). También es la respuesta de firmar,
+ * rechazar, cancelar el envío y reenviar.
+ * Lo pueden pedir el locador y el locatario del contrato; un borrador, solo el locador.
+ */
+export interface ContratoDetalleResponse extends ContratoResponse {
+  fecha_envio: string | null
+  /** Fecha y hora de la última firma, cuando firmaron todas las partes. */
+  fecha_firma_completa: string | null
+  /** `false` en los contratos cargados antes de RentAR: sin firmas ni historial. */
+  firmas_registradas: boolean
+  fecha_fin: string | null
+  firmantes: FirmanteDto[]
+  /** Del más reciente al más viejo. */
+  historial: EventoContratoDto[]
+  /** Monto mensual actual, con los ajustes aplicados (US-27; propuesto). */
+  monto_actual: number | null
+}
+
+/** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
+export interface RechazarFirmaRequest {
+  /** Opcional, hasta 300 caracteres; `null` sin motivo. */
+  motivo: string | null
+}
+
+/** Cuerpo de `POST /contratos/:id/reenviar` (propuesto). Hoy solo `locatario`: el locador es quien reenvía. */
+export interface ReenviarInvitacionRequest {
+  rol: RolFirmanteDto
 }

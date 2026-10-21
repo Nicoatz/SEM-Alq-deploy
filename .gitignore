@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /apps/web/node_modules
+/packages/ui/node_modules
 /.pnp
 jspm_packages/
 web_modules/
