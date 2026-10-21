@@ -304,6 +304,13 @@ export interface SolicitudPreparacionResponse {
    * TODO(db): el esquema no guarda las garantías exigidas: hoy llega siempre vacío.
    */
   garantias_exigidas: number[]
+  /**
+   * El legajo del usuario, para precargar la solicitud (US-21). NO EXISTE
+   * todavía: propuesto en el Sprint 3, misma forma que `LegajoDto` del
+   * perfil. `null` o ausente = sin legajo.
+   * TODO(backend): sumarlo a `GET /solicitudes/preparar` (HANDOFF §7).
+   */
+  legajo?: LegajoDto | null
   /** NOTA: el front no los usa: arma los suyos con `valoresIniciales` (mismos valores por defecto). */
   valores_iniciales: {
     telefono: string

@@ -23,6 +23,7 @@ import type { CrearSolicitudRequest, SolicitudPreparacionResponse, SolicitudResp
 import { ServiceError } from '../shared/errors'
 import { formatExactAddress } from './direccion'
 import { barrioDe } from './propiedad.adapter'
+import { legajoDtoToLegajo } from './perfil.adapter'
 
 // ─── Mensajes ───────────────────────────────────────────────────────────
 
@@ -212,6 +213,9 @@ export function resumenDeLegajo(legajo: LegajoSolicitud | null | undefined): Res
  *   TODO(db): hoy llega siempre vacío (el esquema no guarda las exigidas).
  * - `situaciones_ocupacionales` y `valores_iniciales` no se usan: el front
  *   tiene sus etiquetas y sus valores por defecto (los mismos que el back).
+ * - `legajo` (propuesto, US-21): el legajo del perfil para precargar.
+ *   TODO(backend): `/preparar` todavía no lo manda; mientras tanto, `null`
+ *   y el formulario usa los valores por defecto de US-35.
  */
 export function preparacionResponseToPreparacion(dto: SolicitudPreparacionResponse): PreparacionSolicitud {
   const { usuario } = dto
@@ -228,6 +232,7 @@ export function preparacionResponseToPreparacion(dto: SolicitudPreparacionRespon
       email: usuario.email,
     },
     garantiasExigidas,
+    legajo: dto.legajo ? legajoDtoToLegajo(dto.legajo) : null,
   }
 }
 

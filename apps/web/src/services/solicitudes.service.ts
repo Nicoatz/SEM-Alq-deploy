@@ -66,6 +66,7 @@ import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
+import { perfilMockDe } from './perfil.service'
 import { requireSessionUserId } from './shared/session'
 import { readUsuariosMock } from './usuarios.service'
 
@@ -257,22 +258,29 @@ async function cambiarEstadoReal(solicitudId: string, accion: AccionSolicitud, v
  * NOTA: no detecta una solicitud duplicada (el back no lo hace en `/preparar`):
  * eso lo dice el botón del detalle y, si se escapa, el 409 del envío.
  * TODO(db): `garantiasExigidas` llega vacío en real (el esquema no las guarda).
+ * TODO(backend): sumar el legajo del usuario a la respuesta (US-21: "los
+ * datos del legajo se precargan en las solicitudes nuevas"); hasta entonces,
+ * en real `legajo` es `null`.
  */
 export async function prepararSolicitud(propertyId: string): Promise<PreparacionSolicitud> {
   if (USE_MOCKS) {
     await delay(300)
     const userId = requireSessionUserId()
     const propiedad = propiedadSolicitableMock(propertyId, userId)
-    const usuario = readUsuariosMock().find((item) => item.id === userId)
+    // El perfil completo (con el DNI y el legajo vigentes, incluso los
+    // editados en "Mi perfil" que viven solo en memoria: ver `perfil.service`).
+    const perfil = perfilMockDe(userId)
     return {
       perfil: {
-        nombre: usuario?.nombre ?? '',
-        apellido: usuario?.apellido ?? '',
-        dni: usuario?.dni ?? null,
-        telefono: usuario?.telefono ?? null,
-        email: usuario?.email ?? '',
+        nombre: perfil?.nombre ?? '',
+        apellido: perfil?.apellido ?? '',
+        dni: perfil?.dni ?? null,
+        telefono: perfil?.telefono ?? null,
+        email: perfil?.email ?? '',
       },
       garantiasExigidas: propiedad.requiredGuarantees ?? [],
+      // US-21: el legajo del perfil se precarga en la solicitud nueva.
+      legajo: perfil?.legajo ?? null,
     }
   }
   try {
