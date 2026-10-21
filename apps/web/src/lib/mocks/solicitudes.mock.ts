@@ -30,6 +30,7 @@
  * TODO(db): son filas de la tabla de solicitudes, que todavía no existe.
  */
 import type { ContactoSolicitud, EstadoSolicitud, LegajoSolicitud } from '@rentar/shared-types'
+import { ahora } from '@/lib/utils/fechas'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────
 
@@ -65,6 +66,11 @@ export interface SolicitudMock {
    * inventan); lo guardan los rechazos hechos en el navegador.
    */
   rejectionMessage?: string | null
+}
+
+/** Fecha y hora ISO de hace `cantidad` horas o minutos, según el reloj único (ver la NOTA de 0039 y 0040). */
+function haceDesdeAhora(cantidad: number, unidad: 'hour' | 'minute'): string {
+  return ahora().subtract(cantidad, unidad).format('YYYY-MM-DDTHH:mm:ss')
 }
 
 // ─── Contacto y legajo (US-35 actualizada) ──────────────────────────────
@@ -219,9 +225,14 @@ export const solicitudes: SolicitudMock[] = [
   },
 
   // ─── Tanda C de correcciones del testing del Sprint 2 (US-36) ─────────
-  // Dos pendientes del mismo "hoy", para ver el tiempo en horas (el "ahora"
-  // del mock es el 23/09 con la hora real, `ahora()`: a las 12:00, una es de
-  // hace 3 h y otra de hace menos de 1 h). La de varios días es la de Matías (0032).
+  // Dos pendientes recientes, para ver el tiempo en horas: una de hace 3 h y
+  // otra de hace menos de 1 h. La de varios días es la de Matías (0032).
+  // NOTA (tanda 4 del Sprint 3): con el reloj único (`ahora()`: el 23/09 con
+  // la hora real), una hora fija haría que el texto cambie según la hora del
+  // día y los tests de Selenium fallen. Por eso su `createdAt` se calcula
+  // RELATIVO a `ahora()` cada vez que se lee (un getter): siempre dicen
+  // "hace 3 h" y "hace menos de 1 h". Al guardarse en el navegador (por
+  // ejemplo, al aceptarla), queda la fecha de ese momento.
   // NOTA: no son de Julieta: sobre Fructuoso Rivera 785 no tiene ninguna
   // (ahí se prueba el envío de US-35) y en Rondeau 480 ya tiene la 0031.
   {
@@ -233,7 +244,9 @@ export const solicitudes: SolicitudMock[] = [
     applicantName: 'Sofía Ledesma',
     message: 'Hola Nicolás, soy Sofía, tu inquilina de Obispo Trejo. Mi contrato termina en marzo y busco algo con más luz. Puedo mostrar mis recibos de sueldo.',
     status: 'pendiente',
-    createdAt: '2026-09-23T09:00:00',
+    get createdAt() {
+      return haceDesdeAhora(3, 'hour')
+    },
     respondedAt: null,
     contact: { phone: '+543515550102', email: 'sofia.ledesma@rentar.test' },
     // Tres garantías: el resumen de la fila las une con comas ("…, … y …").
@@ -248,7 +261,9 @@ export const solicitudes: SolicitudMock[] = [
     applicantName: 'Diego Ferreyra',
     message: 'Hola de nuevo. Ahora sumo seguro de caución además de la garantía propietaria, por si eso ayuda.',
     status: 'pendiente',
-    createdAt: '2026-09-23T11:35:00',
+    get createdAt() {
+      return haceDesdeAhora(30, 'minute')
+    },
     respondedAt: null,
     contact: CONTACTO_DIEGO,
     // Dos garantías: el resumen las une con " y ".

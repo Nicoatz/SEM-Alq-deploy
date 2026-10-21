@@ -170,10 +170,10 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
   cerradas 2. Como Rondeau ya tiene una aceptada, ahí no se puede aceptar otra.
 - **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** desde la tanda 3 del Sprint 3
   hay **un solo reloj** (`lib/utils/fechas.ts#ahora`): en mock, la fecha es el 23/09/2026 y la hora,
-  la real (`hoy()` es esa fecha a las 00:00). 0039 (Sofía en Fructuoso Rivera 785, 09:00) y 0040
-  (Diego vuelve a solicitar Rondeau 480 después del rechazo de la 0033, 11:35) dicen "hace N h"
-  **según la hora a la que se mire** (a las 12:00, "hace 3 h" y "hace menos de 1 h", como antes; antes
-  de su hora, "hace menos de 1 h"); la de Matías (0032, 19/09) dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
+  la real (`hoy()` es esa fecha a las 00:00). 0039 (Sofía en Fructuoso Rivera 785) y 0040 (Diego
+  vuelve a solicitar Rondeau 480 después del rechazo de la 0033) tienen su fecha **relativa a
+  `ahora()`** (ahora − 3 h y ahora − 30 min, calculadas al leerlas): siempre dicen "hace 3 h" y "hace
+  menos de 1 h", a cualquier hora. La de Matías (0032, 19/09) tiene fecha fija y dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
 - **Una sola aceptada por propiedad:** como Fructuoso Rivera 785 ya tiene la de Diego, si Julieta
   le manda una (el recorrido de la tanda 1), su "Aceptar" aparece deshabilitado hasta que Nicolás
   cancele la de Diego (US-38).

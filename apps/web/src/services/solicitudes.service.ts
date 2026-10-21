@@ -159,8 +159,7 @@ function aVista(solicitud: SolicitudMock, vista: VistaSolicitud): Solicitud {
 
 /**
  * "Ahora" en el elenco: el reloj único (`ahora()`, el 23/09/2026 con la hora real), así una
- * solicitud recién enviada dice "hace menos de 1 h" (US-36). NOTA: si se envía
- * antes de las 11:35 (hora real), queda más vieja que la 0040 del elenco.
+ * solicitud recién enviada dice "hace menos de 1 h" (US-36).
  */
 function ahoraMock(): string {
   return ahora().format('YYYY-MM-DDTHH:mm:ss')

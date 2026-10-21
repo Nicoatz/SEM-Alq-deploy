@@ -31,8 +31,9 @@ export const HOY_ELENCO = '2026-09-23'
  *   cancelar o reenviar un contrato; enviar o responder una solicitud) queda
  *   con una hora de verdad: el límite de "un reenvío por hora" (US-07) se
  *   cumple con el reloj real.
- * NOTA: los textos "hace N h" de las solicitudes del elenco (US-36) dependen
- * de la hora a la que se mire (antes eran contra un 12:00 fijo).
+ * NOTA: las dos solicitudes "de hace horas" del elenco (US-36) tienen su fecha
+ * relativa a este reloj (`solicitudes.mock.ts`), así su texto no cambia con
+ * la hora del día.
  */
 export function ahora(): Dayjs {
   const reloj = dayjs()
