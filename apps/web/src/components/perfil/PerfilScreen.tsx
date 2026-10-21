@@ -20,7 +20,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
 import type { LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
-import { PageHeader } from '@rentar/ui'
+import { ConfirmActionModal, PageHeader } from '@rentar/ui'
+import { useAvisoCambiosSinGuardar } from '@/lib/hooks/useAvisoCambiosSinGuardar'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { estadoLegajo } from '@/lib/perfil/legajo'
 import { getMiPerfil } from '@/services/perfil.service'
@@ -75,6 +76,8 @@ export function PerfilScreen() {
     window.history.replaceState(window.history.state, '', url)
   }, [])
   const hayCambiosSinGuardar = useMemo(() => Object.values(conCambios).some(Boolean), [conCambios])
+  // US-21: "se debe avisar si el usuario intenta salir de la pantalla con cambios sin guardar".
+  const avisoSalida = useAvisoCambiosSinGuardar(hayCambiosSinGuardar)
 
   // ─── Handlers ───────────────────────────────────────────────────────
   // Callbacks estables por bloque: los bloques los usan en un `useEffect`.
@@ -150,6 +153,18 @@ export function PerfilScreen() {
           <MisRolesBloque roles={perfil.roles} />
         </aside>
       </div>
+
+      <ConfirmActionModal
+        open={avisoSalida.destinoPendiente !== null}
+        title="Tenés cambios sin guardar"
+        description="Si salís ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando."
+        confirmLabel="Salir sin guardar"
+        cancelLabel="Seguir editando"
+        danger
+        onConfirm={avisoSalida.confirmarSalida}
+        onCancel={avisoSalida.cancelarSalida}
+        data-testid="aviso-salida"
+      />
     </div>
   )
 }
