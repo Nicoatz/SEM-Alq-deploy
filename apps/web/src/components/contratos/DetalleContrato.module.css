@@ -365,6 +365,98 @@
   color: var(--rentar-color-error);
 }
 
+/* ─── Ficha del locatario (US-27, Mi alquiler) ───────────────────────── */
+
+.fichaPropiedad {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.fichaFoto {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 13.75rem;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.fichaFotoImg {
+  object-fit: cover;
+}
+
+.fichaFotoVacia {
+  font-size: 2rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.fichaPropiedadDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.fichaDireccion {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--rentar-color-text-primary);
+}
+
+.fichaEstado {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.viene {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vieneItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--rentar-radius-md);
+  font-size: 0.90625rem;
+  color: var(--rentar-color-text-primary);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.vieneTitulo {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-secondary);
+}
+
+.contacto {
+  font-size: 0.90625rem;
+  color: var(--rentar-color-blue);
+  overflow-wrap: anywhere;
+}
+
+.contacto:hover,
+.contacto:focus-visible {
+  text-decoration: underline;
+}
+
 /* ─── Móvil ───────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
@@ -374,6 +466,15 @@
 }
 
 @media (max-width: 640px) {
+  .fichaPropiedad {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fichaFoto {
+    width: 100%;
+  }
+
   .franjaAccion {
     align-items: stretch;
     width: 100%;

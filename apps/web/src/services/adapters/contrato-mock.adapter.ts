@@ -26,11 +26,11 @@
  * propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas.
  *
  * Cubre: US-05 Registrar contrato de alquiler, US-07 Firmar contrato de
- * alquiler (y US-21, el bloqueo).
+ * alquiler, US-27 Consultar mis alquileres (y US-21, el bloqueo).
  * Quién lo usa: la rama mock de `contratos.service.ts`, `solicitudes.service.ts`
  * y `perfil.service.ts`. Nunca las pantallas.
  */
-import type { ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
+import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
 import {
   contratos as contratosElenco,
   propiedades as propiedadesElenco,
@@ -218,6 +218,36 @@ export function contratosDeLocadorMock(ownerId: string, nombreDe: (userId: strin
       return resumenDeContrato(contrato, propiedad, nombre, hoyIso)
     })
   return [...deAlquileresSinRepetir, ...filasGuardadas]
+}
+
+/**
+ * Los contratos de un usuario como LOCATARIO para Mis alquileres (US-27):
+ * los del elenco (`rental`) y los guardados, en los estados pedidos y sin
+ * repetir, con el nombre del locador. Sin ordenar.
+ * @param nombreDe Resuelve "Nombre Apellido" de una cuenta del elenco por su id.
+ */
+export function contratosDeLocatarioMock(
+  userId: string,
+  nombreDe: (userId: string) => string | null,
+  hoyIso: string,
+  estados: readonly ContractStatus[],
+): AlquilerResumen[] {
+  const propiedades = readPropiedadesContratoMock()
+  const guardados = readContratosMock().filter((contrato) => contrato.tenantUserId === userId && estados.includes(contrato.status))
+  const codigosGuardados = new Set(guardados.map((contrato) => contrato.code))
+  const deAlquileres = propiedades
+    .filter((propiedad) => propiedad.rental?.tenantUserId === userId && estados.includes(propiedad.rental.contractStatus))
+    .map((propiedad) => {
+      const resumen = resumenDeAlquiler(propiedad)
+      return resumen ? { ...resumen, landlordName: nombreDe(propiedad.ownerId) ?? '' } : null
+    })
+    .filter((item): item is AlquilerResumen => item !== null && !codigosGuardados.has(item.id))
+  const filasGuardadas = guardados.map((contrato) => {
+    const propiedad = propiedades.find((item) => item.id === contrato.propertyId)
+    const nombre = (contrato.tenantUserId && nombreDe(contrato.tenantUserId)) || contrato.tenantName
+    return { ...resumenDeContrato(contrato, propiedad, nombre, hoyIso), landlordName: nombreDe(contrato.ownerId) ?? '' }
+  })
+  return [...deAlquileres, ...filasGuardadas]
 }
 
 /** Periodicidad de la publicación, para precargar el paso 2. */

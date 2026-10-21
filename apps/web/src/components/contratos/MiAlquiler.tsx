@@ -1,23 +1,26 @@
 'use client'
 
 /**
- * MiAlquiler.tsx — `/panel/alquiler`, el contrato del locatario.
+ * MiAlquiler.tsx — `/panel/alquiler`, la ficha del alquiler del locatario.
  *
- * Cubre: US-07 Firmar contrato de alquiler, del lado del locatario: "el
- * locatario firma desde Mi alquiler (/panel/alquiler)" y "puede rechazar la
- * firma, indicando un motivo opcional de hasta 300 caracteres". Después de
- * rechazar, ve su rechazo y no el botón de firmar (decisión del PO).
- * Es la BASE de la ficha de US-27 Consultar mis alquileres (tanda 4): la
- * misma vista del contrato (`VistaContrato`), con el mismo `FirmaContrato`
- * que usa el locador. Lo que falta de la ficha (condiciones, "Lo que viene"
- * y el listado cuando tiene varios) llega en la tanda 4.
- * - Sin contrato pendiente ni vigente: un estado vacío con salida a la búsqueda.
- * - `?contrato=<id>` ajeno o inexistente: "No encontramos este alquiler", sin distinguir.
+ * Cubre: US-27 Consultar mis alquileres y US-07 Firmar contrato de alquiler
+ * (del lado del locatario):
+ * - Con un solo contrato (pendiente de firma, vigente o finalizado;
+ *   decisión del PO), su ficha directa. Con dos o más, va al listado
+ *   `/panel/alquileres` (`router.replace`).
+ * - Sin contratos: "Todavía no tenés un contrato activo", con acceso a
+ *   buscar propiedades.
+ * - `?contrato=<id>` (desde el listado): la ficha de ese contrato; si no es
+ *   suyo o no existe, "No encontramos este alquiler", sin distinguir.
+ * - La ficha (`VistaContrato` con `vista="locatario"`): propiedad con foto,
+ *   estado y código, locador con su contacto, condiciones, "Lo que viene",
+ *   firmas (y la firma, si falta la suya: `FirmaContrato`), documento, PDF e
+ *   historial. Un finalizado, en solo lectura y sin "Lo que viene".
  *
  * De dónde saca los datos: `contratos.service#getMiAlquiler`.
  * Quién lo usa: `app/(app)/panel/alquiler/page.tsx`.
  */
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import { Button, Skeleton } from 'antd'
 import { useRouter } from 'next/navigation'
 import { EmptyState, PageHeader } from '@rentar/ui'
@@ -27,25 +30,33 @@ import { getMiAlquiler } from '@/services/contratos.service'
 import { rolEnContrato, VistaContrato } from './DetalleContrato'
 import styles from './DetalleContrato.module.css'
 
-const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Mi alquiler' }]
-
 /** Props de {@link MiAlquiler}. */
 interface MiAlquilerProps {
-  /** Un contrato puntual (`?contrato=`); sin él, el pendiente de firma o el vigente. */
+  /** Un contrato puntual (`?contrato=`, desde el listado); sin él, el único que tenga. */
   contratoId?: string
 }
 
-/** Mi alquiler: carga, vacío, "no encontrado" y la vista del contrato. */
+/** Mi alquiler: carga, vacío, "no encontrado", varios → listado, y la ficha. */
 export function MiAlquiler({ contratoId }: MiAlquilerProps) {
   const router = useRouter()
   const { user } = useAuth()
   const cargar = useCallback(() => getMiAlquiler(contratoId), [contratoId])
   const carga = useServiceCall(cargar)
+  const varios = carga.status === 'listo' && carga.data.tipo === 'varios'
+  // Con un contrato elegido del listado, la miga vuelve a "Mis alquileres".
+  const miga = contratoId
+    ? [{ label: 'Mi panel', href: '/panel' }, { label: 'Mis alquileres', href: '/panel/alquileres' }, { label: 'Alquiler' }]
+    : [{ label: 'Mi panel', href: '/panel' }, { label: 'Mi alquiler' }]
 
-  if (carga.status === 'cargando') {
+  // US-27: "si tiene dos o más … se debe mostrar el listado en /panel/alquileres".
+  useEffect(() => {
+    if (varios) router.replace('/panel/alquileres')
+  }, [varios, router])
+
+  if (carga.status === 'cargando' || varios) {
     return (
       <div className={styles.page} data-testid="mi-alquiler-cargando">
-        <PageHeader title="Mi alquiler" breadcrumb={MIGA} />
+        <PageHeader title="Mi alquiler" breadcrumb={miga} />
         <Skeleton active paragraph={{ rows: 8 }} />
       </div>
     )
@@ -55,7 +66,7 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
     const noEncontrado = carga.code === 'not_found'
     return (
       <div className={styles.page}>
-        <PageHeader title="Mi alquiler" breadcrumb={MIGA} />
+        <PageHeader title="Mi alquiler" breadcrumb={miga} />
         <div className={styles.bloqueado} data-testid={noEncontrado ? 'mi-alquiler-no-encontrado' : 'mi-alquiler-error'}>
           <EmptyState
             title={noEncontrado ? 'No encontramos este alquiler' : 'No pudimos abrir tu alquiler'}
@@ -78,24 +89,21 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
     )
   }
 
-  const contrato = carga.data
-  if (!contrato) {
+  const resultado = carga.data
+  if (resultado.tipo !== 'uno') {
+    // US-27: "Si el usuario no tiene contratos, se debe mostrar el mensaje
+    // 'Todavía no tenés un contrato activo' con acceso a buscar propiedades."
     return (
       <div className={styles.page}>
-        <PageHeader title="Mi alquiler" breadcrumb={MIGA} />
+        <PageHeader title="Mi alquiler" breadcrumb={miga} />
         <div className={styles.bloqueado} data-testid="mi-alquiler-vacio">
           <EmptyState
-            title="Todavía no tenés un alquiler"
+            title="Todavía no tenés un contrato activo"
             description="Cuando un locador te envíe un contrato para firmar, lo vas a ver acá."
             action={
-              <span className={styles.acciones}>
-                <Button type="primary" onClick={() => router.push('/buscar')} data-testid="mi-alquiler-buscar">
-                  Buscar propiedades
-                </Button>
-                <Button onClick={() => router.push('/panel/mis-solicitudes')} data-testid="mi-alquiler-solicitudes">
-                  Ver mis solicitudes
-                </Button>
-              </span>
+              <Button type="primary" onClick={() => router.push('/buscar')} data-testid="mi-alquiler-buscar">
+                Buscar propiedades en Córdoba
+              </Button>
             }
           />
         </div>
@@ -103,13 +111,15 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
     )
   }
 
+  const { contrato } = resultado
   return (
     <VistaContrato
       key={`${contrato.id}-${contrato.status}`}
       inicial={contrato}
       miRol={rolEnContrato(contrato, user?.id)}
-      miga={MIGA}
+      miga={miga}
       titulo="Mi alquiler"
+      vista="locatario"
     />
   )
 }

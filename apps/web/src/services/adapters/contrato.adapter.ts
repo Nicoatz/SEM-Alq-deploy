@@ -12,6 +12,7 @@
  * rama mock, así responde igual que el back).
  */
 import type {
+  AlquilerResumen,
   ClausulaContrato,
   ContratoBorrador,
   ContratoDetalle,
@@ -23,6 +24,7 @@ import type {
   GaranteContrato,
   ParteContrato,
 } from '@rentar/shared-types'
+import { MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { completarClausulas } from '@/lib/contratos/plantilla'
 import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO } from '@/lib/contratos/validaciones'
 import { telefonoAE164 } from '@/lib/perfil/formato'
@@ -63,6 +65,7 @@ export const FIRMANTE_NO_PENDIENTE_MESSAGE = 'Solo se puede reenviar la invitaci
 export const REENVIO_MUY_PRONTO_MESSAGE = 'Ya se reenvió la invitación hace menos de una hora. Se puede reenviar una vez por hora.'
 export const SOLO_LOCADOR_MESSAGE = 'Solo el locador del contrato puede hacer esto.'
 export const SOLO_LOCATARIO_MESSAGE = 'Solo el locatario puede rechazar la firma.'
+export const MIS_ALQUILERES_ERROR_MESSAGE = 'No pudimos traer tus alquileres. Probá de nuevo en unos minutos.'
 export const FIRMA_ERROR_GENERICO_MESSAGE = 'No pudimos registrar la acción. No se cambió nada: probá de nuevo.'
 const CONTRATO_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revisá tu conexión y probá de nuevo.'
 
@@ -131,6 +134,7 @@ export function contratoDeDto(dto: ContratoResponse): ContratoBorrador {
       neighborhoodName: barrioDe(inmueble.barrio).name,
       priceMonthly: precio,
       adjustmentIndex: inmueble.indice_publicacion,
+      photoSrc: inmueble.foto_principal ?? null,
       cobro: {
         paymentMethods: inmueble.medios_pago.map(medioPagoFromId).filter((medio) => medio !== null),
         graceDays: inmueble.dias_gracia,
@@ -197,7 +201,17 @@ export function contratoDetalleDeDto(dto: ContratoDetalleResponse): ContratoDeta
     firmantes: [...dto.firmantes].sort((a, b) => orden[a.rol] - orden[b.rol]).map(firmanteDeDto),
     historial: dto.historial.map(eventoDeDto),
     endDate: dto.fecha_fin,
+    montoActual: dto.monto_actual,
+    ajusteCadaMeses: dto.condiciones?.indice && dto.condiciones.indice !== 'sin_ajuste' && dto.condiciones.periodicidad ? MESES_POR_PERIODO[dto.condiciones.periodicidad] : null,
   }
+}
+
+/**
+ * Fila de `GET /contratos?rol=locatario` → `AlquilerResumen` (US-27).
+ * TODO(backend): sumar `locador` a la fila (propuesto); sin él, el nombre queda vacío.
+ */
+export function alquilerResumenDeDto(dto: ContratoResumenResponse): AlquilerResumen {
+  return { ...contratoResumenDeDto(dto), landlordName: dto.locador ? [dto.locador.nombre, dto.locador.apellido].filter(Boolean).join(' ') : '' }
 }
 
 /** Respuesta de `POST /contratos/:id/enviar` → `ContratoEnviado`. Los firmantes salen del borrador (decisión del PO: locador y locatario). */

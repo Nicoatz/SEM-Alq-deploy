@@ -51,6 +51,7 @@ import { dniParaMostrar } from '@/lib/perfil/formato'
 import { ahoraIso } from '@/lib/utils/fechas'
 import { cancelarEnvio, getDetalleContrato, reenviarInvitacion } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
+import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
 import { IndiceAjuste } from './IndiceAjuste'
 import { VisorContrato } from './VisorContrato'
@@ -137,6 +138,12 @@ interface VistaContratoProps {
   miga: { label: string; href?: string }[]
   /** Título de la página; por defecto, "Contrato CT-…". */
   titulo?: string
+  /**
+   * `'locatario'`: la ficha de Mi alquiler (US-27): foto y dirección arriba,
+   * "Lo que viene", condiciones y el locador con su contacto en lugar de
+   * "Datos del contrato". @default 'locador'
+   */
+  vista?: 'locador' | 'locatario'
 }
 
 /**
@@ -145,7 +152,7 @@ interface VistaContratoProps {
  * van actualizando. La usan el detalle del locador y Mi alquiler
  * (`MiAlquiler.tsx`), que en la tanda 4 suma sus propias secciones.
  */
-export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: VistaContratoProps) {
+export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vista = 'locador' }: VistaContratoProps) {
   const router = useRouter()
 
   // ─── Estado local ───────────────────────────────────────────────────
@@ -274,12 +281,19 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
 
   // ─── Render ─────────────────────────────────────────────────────────
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
+  const esFicha = vista === 'locatario'
+  // US-27: un finalizado (o rescindido) se ve en solo lectura, sin "Lo que viene".
+  const terminado = contrato.status === 'finalizado' || contrato.status === 'rescindido'
 
   return (
     <div className={styles.page} data-testid="contrato-detalle" data-estado={contrato.status}>
       <PageHeader
         title={tituloPagina ?? `Contrato ${contrato.code ?? ''}`.trim()}
-        subtitle={`${propiedad.address} · ${nombreDe(locatario) || 'Sin locatario'}${condiciones.startDate && contrato.endDate ? ` · del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}` : ''}`}
+        subtitle={
+          esFicha
+            ? `${propiedad.address}${condiciones.startDate ? ` · tu alquiler desde ${fechaCorta(condiciones.startDate)}` : ''}`
+            : `${propiedad.address} · ${nombreDe(locatario) || 'Sin locatario'}${condiciones.startDate && contrato.endDate ? ` · del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}` : ''}`
+        }
         breadcrumb={miga}
         actions={
           <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
@@ -290,6 +304,8 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
 
       {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-detalle-aviso" />}
       {errorAccion && <Alert type="error" showIcon closable={{ 'aria-label': 'Cerrar el error' }} onClose={() => setErrorAccion(null)} title={errorAccion} data-testid="contrato-detalle-error" />}
+
+      {esFicha && <EncabezadoAlquiler contrato={contrato} />}
 
       {/* Franja de estado (Claude Design · 05): lo primero mientras faltan firmas. */}
       {pendiente ? (
@@ -344,6 +360,9 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
 
       <div className={styles.grilla}>
         <div className={styles.columna}>
+          {esFicha && !terminado && <LoQueVieneAlquiler contrato={contrato} />}
+          {esFicha && <CondicionesAlquiler contrato={contrato} />}
+          {esFicha && <LocadorAlquiler contrato={contrato} />}
           {contrato.firmasRegistradas && (
             <section className={styles.tarjeta} aria-labelledby="contrato-firmantes-titulo" data-testid="contrato-firmantes">
               <header className={styles.tarjetaEncabezado}>
@@ -410,9 +429,11 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
             </section>
           )}
 
-          <section className={styles.tarjeta} data-testid="contrato-datos">
-            <DetailList title="Datos del contrato" items={datos} />
-          </section>
+          {!esFicha && (
+            <section className={styles.tarjeta} data-testid="contrato-datos">
+              <DetailList title="Datos del contrato" items={datos} />
+            </section>
+          )}
         </div>
 
         <div className={styles.columna}>

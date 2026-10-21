@@ -121,6 +121,8 @@ export interface PropiedadDelContrato {
   /** Índice de la publicación: se precarga en el paso 2 (decisión del PO). */
   adjustmentIndex: AdjustmentIndex | null
   cobro: CondicionesCobroPropiedad
+  /** Foto principal (URL); `null` si no tiene. La muestra la ficha del locatario (US-27). */
+  photoSrc: string | null
 }
 
 /**
@@ -256,4 +258,30 @@ export interface ContratoDetalle extends ContratoBorrador {
   historial: EventoContrato[]
   /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
   endDate: string | null
+  /**
+   * Monto mensual actual, con los ajustes aplicados (US-27: "monto actual");
+   * `null` si no se sabe. NOTA: en mock, en los contratos hechos en RentAR es
+   * el inicial (los ajustes no se calculan).
+   */
+  montoActual: number | null
+  /**
+   * Cada cuántos meses se ajusta (3, 6 o 12 en los contratos de RentAR; los
+   * del elenco pueden ajustar cada 4). `null` sin ajuste o si no se sabe.
+   */
+  ajusteCadaMeses: number | null
 }
+
+/**
+ * Una fila de Mis alquileres (`/panel/alquileres`, US-27): lo del listado
+ * del locador más el nombre del locador. Sin DNI ni contacto.
+ */
+export interface AlquilerResumen extends ContratoResumen {
+  /** Nombre y apellido del locador. */
+  landlordName: string
+}
+
+/**
+ * Lo que abre Mi alquiler (`/panel/alquiler`, US-27): ninguno, la ficha del
+ * único, o "varios" (va al listado `/panel/alquileres`).
+ */
+export type MiAlquiler = { tipo: 'ninguno' } | { tipo: 'uno'; contrato: ContratoDetalle } | { tipo: 'varios'; cantidad: number }

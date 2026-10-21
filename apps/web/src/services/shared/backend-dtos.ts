@@ -532,6 +532,11 @@ export interface ContratoResumenResponse {
   estado: EstadoContratoDto
   inmueble: InmuebleContratoDto
   locatario: { nombre: string; apellido: string | null }
+  /**
+   * Nombre del locador (propuesto, US-27): lo necesita Mis alquileres
+   * (`GET /contratos?rol=locatario`). Sin contacto ni DNI en la fila.
+   */
+  locador?: { nombre: string; apellido: string | null } | null
   monto_actual: number | null
   fecha_inicio: string | null
   fecha_fin: string | null
@@ -592,6 +597,8 @@ export interface ContratoResponse {
   /** Cuándo se aceptó la solicitud (`solicitud.fecha_respuesta`). */
   fecha_aceptacion_solicitud: string | null
   inmueble: InmuebleContratoDto & {
+    /** URL de la foto principal (US-27, ficha del locatario; propuesto). `null` si no tiene. */
+    foto_principal: string | null
     precio_publicado: number | null
     /** Índice de la publicación (`tipo_indice`): ICL o IPC; `null` si no tiene. */
     indice_publicacion: 'ICL' | 'IPC' | null
@@ -693,6 +700,8 @@ export interface ContratoDetalleResponse extends ContratoResponse {
   firmantes: FirmanteDto[]
   /** Del más reciente al más viejo. */
   historial: EventoContratoDto[]
+  /** Monto mensual actual, con los ajustes aplicados (US-27; propuesto). */
+  monto_actual: number | null
 }
 
 /** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
