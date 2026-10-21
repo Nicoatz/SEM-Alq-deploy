@@ -38,7 +38,8 @@ El front tiene dos modos, según `NEXT_PUBLIC_USE_MOCKS` (`apps/web/.env.local`)
    `supabase.auth.signInWithPassword({ email, password })`. `apps/api` no tiene ruta de login ni de
    logout (lo definió backend).
 2. **Perfil:** con la sesión abierta, el front pide `GET /api/v1/usuarios/me`, que devuelve
-   `{ id, nombre, apellido, email, roles }`. Los roles salen **solo** de ahí: si `/me` falla, el
+   `{ id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento, roles }`
+   (el front hoy usa solo `id, nombre, apellido, email, roles`). Los roles salen **solo** de ahí: si `/me` falla, el
    front cierra la sesión de Supabase y muestra el error, sin deducir roles de otro lado.
 3. **Cada request a la API** lleva `Authorization: Bearer <access_token>`. El `apiClient`
    (`apps/web/src/services/shared/apiClient.ts`) le pide a Supabase la sesión vigente **antes de cada
@@ -469,7 +470,7 @@ según el resultado (el primer enlace de "Secure email change" vuelve como `parc
 
 | Brecha | Dueño |
 |---|---|
-| `/usuarios/me` no devuelve teléfono, DNI ni fecha de nacimiento (los va a pedir el perfil). | backend |
+| ~~`/usuarios/me` no devuelve teléfono, DNI ni fecha de nacimiento~~ **Resuelto en `feature/consultar_usuario`:** el back los devuelve (junto con `id, nombre, apellido, email, roles`). Falta que el front los lea en el adaptador y que la pantalla de perfil los muestre. | front |
 | No hay estado de cuenta (activa, suspendida): el front asume `activo`. | db |
 | `GET /usuarios/me/contextos` para el "Viendo como" (hoy se calcula en el front). | backend |
 | En el Swagger de `/usuarios/me` el esquema de seguridad se llama `bearerAuth`, pero el definido en `config/swagger.ts` es `SupabaseBearerAuth`. | backend |
@@ -932,8 +933,8 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
     mandar la calle y la cuadra, nunca el piso.
 15. **🟠 Medio · El registro (US-19) pide el DNI, pero la tabla `usuario` no lo guarda** (no hay
     columna). La US-35 actualizada lo muestra en la solicitud y al locador: con el back real va "—".
-    Sumar la columna y devolverla en `/usuarios/me` (junto con el `telefono`, que sí se guarda pero
-    `/me` no lo devuelve).
+    Sumar la columna. `/usuarios/me` ya devuelve `telefono`, `numero_documento` y `fecha_nacimiento`
+    (`feature/consultar_usuario`).
 
 16. **🔴 Alto · Contraseña de prueba expuesta en el repo (dueño: testing).** El test de Selenium
     `Tests_Selenium/Sprint 1/US-02 Consultar mis propiedades.side` (commit del 30/09, ya en

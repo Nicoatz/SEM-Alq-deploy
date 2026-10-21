@@ -20,7 +20,7 @@ Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de
 |---|---|---|---|---|---|---|
 | Supabase Auth `signInWithPassword` | — (SDK, clave publicable) | conectado | US-39 | `auth.service#login` | `{ email, password }` | Sesión en cookies `sb-*` (la maneja `@supabase/ssr`) |
 | Supabase Auth `signOut` | sesión | conectado | US-39 | `auth.service#logout` | — | — |
-| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` (y `useAuth().refrescarUsuario` después de publicar) | — | `{ id, nombre, apellido, email, roles: string[] }` → `usuarioMeToSesion`. Propuesto: una cuenta locadora devuelve `["locador", "locatario"]` |
+| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` (y `useAuth().refrescarUsuario` después de publicar) | — | `{ id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento, roles: string[] }` (el back ya manda todo; `usuarioMeToSesion` hoy usa solo `id, nombre, apellido, email, roles`). Propuesto: una cuenta locadora devuelve `["locador", "locatario"]` |
 | `POST /registrar-usuario` | **sin token** | conectado | US-19 | `auth.service#registrarUsuario` | `{ nombre, apellido, email, contraseña, confirmar_contraseña, telefono, numero_documento, fecha_nacimiento, acepta_terminos }` (sin `rol`) | `Usuario` (`id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento`) → `registroResponseToSesion` |
 | `GET /usuarios/me/contextos` | Bearer | pendiente (propuesto) | US-39 (cambio de rol) | `panel.service#getResumenRoles` | — | `ResumenContextoRol[]` (hoy se arma en el front) |
 
@@ -34,8 +34,10 @@ Notas:
   mergear. Errores: 400 con el mensaje de la validación; **409** si el mail ya existe
   (Supabase Auth) o si el DNI ya existe (índice único `uq_usuario_numero_documento`). El back crea
   la cuenta confirmada: el front inicia sesión solo después del 201.
-- **`/usuarios/me`:** 401 sin token, con token inválido o si el usuario de Auth no tiene fila en
-  `usuario`. **Locador abarca a locatario:** una cuenta que publicó devuelve
+- **`/usuarios/me`:** 401 sin token o con token inválido. Desde `feature/consultar_usuario` el perfil
+  sale de la fila de `usuario` (`usuarioService.obtenerMiPerfil`, por `authUserId`) y, si no existe,
+  responde **404** "No se encontró el perfil del usuario autenticado." (lo mapea el `apiClient`).
+  La contraseña nunca se devuelve. **Locador abarca a locatario:** una cuenta que publicó devuelve
   `["locatario", "locador"]` (el registro guarda locatario y el alta suma locador, desde el 29/09).
   Las cuentas locadoras viejas sin la fila de locatario devuelven solo `["locador"]`.
 
