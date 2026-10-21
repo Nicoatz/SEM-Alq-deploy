@@ -26,11 +26,18 @@ export type ServiceErrorCode =
 /** Error tipado de un service. `message` ya está en español, listo para mostrar. */
 export class ServiceError extends Error {
   code: ServiceErrorCode
+  /**
+   * Código de negocio que manda el back en el sobre (`codigo`), si lo manda.
+   * Sirve para distinguir dos errores con el mismo status (ej. los dos 409 de
+   * `PATCH /usuarios/me`, US-21). Solo lo leen los adaptadores.
+   */
+  apiCode?: string
 
-  constructor(code: ServiceErrorCode, message: string) {
+  constructor(code: ServiceErrorCode, message: string, apiCode?: string) {
     super(message)
     this.name = 'ServiceError'
     this.code = code
+    this.apiCode = apiCode
   }
 }
 

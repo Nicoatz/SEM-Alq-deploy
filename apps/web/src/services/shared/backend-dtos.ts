@@ -165,10 +165,10 @@ export interface RegistrarUsuarioRequest {
 // `adapters/solicitud.adapter.ts`, nunca en las pantallas.
 
 /** Ocupación del postulante, con los códigos que usa el back (`situacion_ocupacional`). */
-type OcupacionDto = 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
+export type OcupacionDto = 'sin_informar' | 'relacion_dependencia' | 'monotributista' | 'autonoma' | 'estudiante' | 'jubilada'
 
 /** Garantía ofrecida o exigida, con los códigos que usa el back (`tipo_garantia`). */
-type GarantiaDto = 'propietaria' | 'caucion' | 'otra'
+export type GarantiaDto = 'propietaria' | 'caucion' | 'otra'
 
 /**
  * Cuerpo de `POST /api/v1/solicitudes` (existe): `CrearSolicitudRequest` del
@@ -428,3 +428,67 @@ export interface UpdateInmueblePayload {
   fotos?: CreateFotoPayload[]
   tags?: number[]
 }
+
+// ─── Perfil y legajo (US-20, US-21) ─────────────────────────────────────
+// NOTA: PROPUESTOS por el front (Sprint 3): el back todavía no tiene estas
+// rutas. Contrato completo en `docs/api-endpoints.md` ("Perfil") y en
+// `docs/HANDOFF-BACKEND.md` §7. Mismos códigos de ocupación y garantía que
+// las solicitudes, así el legajo pasa del perfil a la solicitud sin traducir.
+
+/** El legajo como lo guardaría el back (propuesto). */
+export interface LegajoDto {
+  ocupacion: OcupacionDto
+  /** Entero mayor que 0, o `null` si no lo cargó (US-21). */
+  ingresos: number | null
+  garantias: GarantiaDto[]
+}
+
+/**
+ * Respuesta de `GET /api/v1/usuarios/me/perfil` (no existe — propuesto).
+ * Solo el usuario del token: no hay forma de pedir el perfil de otro (US-20).
+ */
+export interface PerfilResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  email: string
+  numero_documento: string | null
+  /** Solo dígitos, con código de país (igual que en `SolicitudResponse`). */
+  telefono: string | null
+  /** `YYYY-MM-DD`. */
+  fecha_nacimiento: string | null
+  /** Descripciones de la tabla `rol`, igual que `/usuarios/me`. */
+  roles: string[]
+  /**
+   * El contrato vigente o pendiente de firma del que el usuario es parte
+   * (locador o locatario), si hay uno: bloquea nombre, apellido y DNI (US-21).
+   * Si hay varios, cualquiera (el front solo lo nombra).
+   */
+  contrato_bloqueante: { codigo: string; estado: 'vigente' | 'pendiente_firma' } | null
+  /** `null` si nunca lo cargó. */
+  legajo: LegajoDto | null
+}
+
+/**
+ * Cuerpo de `PATCH /api/v1/usuarios/me` (no existe — propuesto). Solo los
+ * campos que cambian. El correo NO va acá: lo cambia Supabase Auth.
+ */
+export interface ActualizarPerfilRequest {
+  nombre?: string
+  apellido?: string
+  numero_documento?: string
+  /** E.164 sin el "+" ni separadores, 10 a 15 dígitos. */
+  telefono?: string | null
+  fecha_nacimiento?: string | null
+}
+
+/** Cuerpo de `PATCH /api/v1/usuarios/me/legajo` (no existe — propuesto). Reemplaza el legajo entero. */
+export type ActualizarLegajoRequest = LegajoDto
+
+/**
+ * Código de error de negocio que el front propone que el back mande en el
+ * sobre (`{ success: false, error, codigo }`), para distinguir dos 409 de la
+ * misma ruta sin leer el texto. Lo lee `apiClient` y lo guarda en
+ * `ServiceError.apiCode`.
+ */
+export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'

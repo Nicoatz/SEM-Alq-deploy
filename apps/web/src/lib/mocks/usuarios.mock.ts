@@ -38,9 +38,10 @@ export const usuarios: UsuarioMock[] = [
     apellido: 'Arrieta',
     email: 'nicolas.arrieta@rentar.test',
     password: MOCK_PASSWORD,
-    // Único rol: locador. Dueño de 7 propiedades, 4 alquiladas (ver
-    // propiedades.mock.ts).
-    roles: ['locador'],
+    // Locador (y, como toda cuenta, locatario: regla del equipo del 27/09,
+    // "locador abarca a locatario"; corregido en el Sprint 3 con el OK del
+    // PO). Dueño de 7 propiedades, 4 alquiladas (ver propiedades.mock.ts).
+    roles: ['locador', 'locatario'],
     status: 'activo',
     telefono: '+54 351 555-0101',
     dni: '30123456',
@@ -98,7 +99,8 @@ export const usuarios: UsuarioMock[] = [
     password: MOCK_PASSWORD,
     roles: ['locatario'],
     status: 'activo',
-    telefono: '+54 351 555-0105',
+    // NOTA: sin teléfono a propósito (Sprint 3): es el caso "Sin cargar" de
+    // US-20. Su solicitud ya enviada conserva el teléfono que mandó.
     dni: '37123456',
     fechaNacimiento: '1993-09-30',
   },

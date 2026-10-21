@@ -10,14 +10,31 @@ documentada, también el catálogo `/design-system` (no es una pantalla del prod
 
 | Id | Persona | Roles | Notas |
 |---|---|---|---|
-| `usr-nicolas` | Nicolás Arrieta | locador | Dueño de 7 propiedades: 4 alquiladas, 2 publicadas, 1 pausada. |
-| `usr-sofia` | Sofía Ledesma | locador y locatario | Locataria de Obispo Trejo 1250 7° B y locadora de Mariano Moreno 285. Única cuenta con dos roles. |
+| `usr-nicolas` | Nicolás Arrieta | locador y locatario | Dueño de 7 propiedades: 4 alquiladas, 2 publicadas, 1 pausada. Desde el Sprint 3 también locatario ("locador abarca a locatario", OK del PO): ve "Viendo como". |
+| `usr-sofia` | Sofía Ledesma | locador y locatario | Locataria de Obispo Trejo 1250 7° B y locadora de Mariano Moreno 285. |
 | `usr-julieta` | Julieta Peralta | locatario | La que busca: encuentra Rondeau 480 y la solicita. |
 | `usr-matias` | Matías Quiroga | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante de Rondeau 480 y Fructuoso Rivera 785. No es inquilino de nada. |
-| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. |
+| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. **Sin teléfono** (Sprint 3): el caso "Sin cargar" de US-20. |
 
 Contraseña de las cinco en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
 está: el panel de administración no es de este sprint.
+
+## El perfil y el legajo (`perfiles.mock.ts`, US-20 y US-21)
+
+| Id | Legajo | Nombre, apellido y DNI |
+|---|---|---|
+| `usr-nicolas` | Vacío (incompleto: faltan los tres datos) | **Bloqueados**: es locador de contratos vigentes. |
+| `usr-sofia` | Completo (relación de dependencia, $1.450.000, propietaria) | **Bloqueados**: locataria de CT-2026-0148. |
+| `usr-julieta` | Completo (monotributista, $980.000, caución) | Editables. |
+| `usr-matias` | Incompleto: estudiante, sin ingreso ni garantías | Editables. |
+| `usr-diego` | Completo (relación de dependencia, $1.200.000, propietaria y otra) | Editables. Sin teléfono. |
+
+- El bloqueo no se guarda: sale de `propiedades.mock.ts` (`rental` vigente o pendiente de firma, como
+  dueño o como `tenantUserId`).
+- Lo que se edita en "Mi perfil" se guarda en `rentar:mock:usuarios` (nombre, apellido, teléfono,
+  fecha, correo y contraseña) y `rentar:mock:perfiles` (situación, garantías y correo pendiente).
+  **El DNI y el ingreso editados no se guardan en el navegador**: viven en memoria hasta recargar
+  (ver `services/perfil.service.ts`).
 
 ## Las propiedades (`propiedades.mock.ts`)
 

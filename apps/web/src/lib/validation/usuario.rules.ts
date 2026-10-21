@@ -7,7 +7,13 @@
  * 03, criterio RNF-09: el error dice qué pasó y qué hacer).
  * Si backend cambia una regla, se cambia acá y lo toman todos los formularios.
  *
- * Quién lo usa: `components/auth/LoginForm.tsx` y `components/auth/RegistroForm.tsx`.
+ * Desde el Sprint 3 también las del perfil (US-21 Modificar usuario): largo
+ * del nombre, DNI, mayoría de edad, ingreso del legajo y contraseña nueva
+ * distinta de la actual. El teléfono y el correo del perfil usan las reglas
+ * de US-35 (`solicitud.rules.ts`), como pide US-21.
+ *
+ * Quién lo usa: `components/auth/LoginForm.tsx`, `components/auth/RegistroForm.tsx`
+ * y `components/perfil/*`.
  */
 import type { FormRule as Rule } from 'antd'
 import type { Dayjs } from 'dayjs'
@@ -208,3 +214,74 @@ export const reglasTerminos: Rule[] = [
     },
   },
 ]
+
+// ─── Perfil (US-21 Modificar usuario) ───────────────────────────────────
+
+/** Largo del nombre y del apellido en el perfil (US-21: "de 2 a 100 caracteres"). */
+export const NOMBRE_MIN = 2
+export const NOMBRE_MAX = 100
+
+/** Mensajes del perfil que no estaban en el registro. */
+export const MENSAJES_PERFIL = {
+  nombreLargo: `Tiene que tener entre ${NOMBRE_MIN} y ${NOMBRE_MAX} caracteres.`,
+  nombreInvalido: 'Usá solo letras, espacios, apóstrofos y guiones.',
+  ingresoInvalido: 'Ingresá un monto entero mayor a 0, sin decimales, o dejalo vacío.',
+  passwordActualVacia: 'Escribí tu contraseña actual.',
+  passwordIgualActual: 'La contraseña nueva tiene que ser distinta de la actual.',
+} as const
+
+/**
+ * Nombre o apellido del perfil (US-21: "obligatorios, de 2 a 100 caracteres,
+ * y solo admiten letras, espacios, apóstrofos y guiones"). Usa la misma
+ * expresión que el registro (`NOMBRE_REGEX`).
+ */
+export function reglasNombrePerfil(mensajeVacio: string): Rule[] {
+  return [
+    { required: true, whitespace: true, message: mensajeVacio },
+    { min: NOMBRE_MIN, max: NOMBRE_MAX, message: MENSAJES_PERFIL.nombreLargo },
+    { pattern: NOMBRE_REGEX, message: MENSAJES_PERFIL.nombreInvalido },
+  ]
+}
+
+/** `true` si el nombre (o apellido) cumple US-21. La usa la rama mock del service para responder como el back. */
+export function nombrePerfilValido(valor: string): boolean {
+  const limpio = valor.trim()
+  return limpio.length >= NOMBRE_MIN && limpio.length <= NOMBRE_MAX && NOMBRE_REGEX.test(limpio)
+}
+
+/**
+ * Ingreso mensual del legajo (US-21: "un número entero mayor a 0, o vacío").
+ * NOTA: distinto de la solicitud (US-35), donde el 0 significa "prefiero no
+ * informarlo". En el perfil el 0 falla; vacío (`null`) pasa.
+ */
+export function ingresoLegajoValido(valor: number | null | undefined): boolean {
+  return valor === null || valor === undefined || (Number.isInteger(valor) && valor > 0)
+}
+
+/** Regla de antd para el ingreso del legajo (ver {@link ingresoLegajoValido}). */
+export const reglasIngresoLegajo: Rule[] = [
+  {
+    validator(_, value: number | null | undefined) {
+      return ingresoLegajoValido(value) ? Promise.resolve() : Promise.reject(new Error(MENSAJES_PERFIL.ingresoInvalido))
+    },
+  },
+]
+
+/** Contraseña actual (US-21: "se deben ingresar la contraseña actual, la nueva y su confirmación"). */
+export const reglasPasswordActual: Rule[] = [{ required: true, message: MENSAJES_PERFIL.passwordActualVacia }]
+
+/**
+ * Contraseña nueva del perfil: las reglas del registro (US-19) y distinta de
+ * la actual (US-21). `campoActual` es el nombre del campo de la contraseña actual.
+ */
+export function reglasPasswordCambio(campoActual: string): Rule[] {
+  return [
+    ...reglasPasswordNueva,
+    ({ getFieldValue }) => ({
+      validator(_, value: string | undefined) {
+        if (!value || getFieldValue(campoActual) !== value) return Promise.resolve()
+        return Promise.reject(new Error(MENSAJES_PERFIL.passwordIgualActual))
+      },
+    }),
+  ]
+}
