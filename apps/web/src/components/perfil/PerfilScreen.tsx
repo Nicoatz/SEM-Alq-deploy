@@ -17,14 +17,15 @@
  * De dónde saca los datos: `perfil.service#getMiPerfil`.
  * Quién lo usa: `app/(app)/panel/perfil/page.tsx`.
  */
-import { useCallback, useMemo, useState } from 'react'
-import { Button, Skeleton } from 'antd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Alert, Button, Skeleton } from 'antd'
 import type { LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
 import { PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { estadoLegajo } from '@/lib/perfil/legajo'
 import { getMiPerfil } from '@/services/perfil.service'
 import { AccesoSeguridadBloque } from './AccesoSeguridadBloque'
+import { CambioCorreo } from './CambioCorreo'
 import { DatosPersonalesBloque } from './DatosPersonalesBloque'
 import { LegajoBloque } from './LegajoBloque'
 import { MisRolesBloque } from './MisRolesBloque'
@@ -32,8 +33,25 @@ import styles from './PerfilScreen.module.css'
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Mi perfil' }]
 
+/**
+ * Lo que dice el aviso cuando se vuelve del enlace del correo
+ * (`/auth/confirmar?…` redirige acá con `?correo=<resultado>`, US-21).
+ */
+const AVISO_CORREO: Record<'confirmado' | 'parcial' | 'error', { type: 'success' | 'info' | 'error'; texto: string }> = {
+  confirmado: { type: 'success', texto: 'Confirmaste el enlace. Si ya confirmaste los dos, tu correo nuevo ya está activo.' },
+  parcial: { type: 'info', texto: 'Confirmaste uno de los dos enlaces. Falta el que te mandamos al otro correo.' },
+  error: { type: 'error', texto: 'El enlace venció o ya se usó. Pedí el cambio de correo de nuevo.' },
+}
+
+/** Lee `?correo=` de la URL (`null` del lado del servidor o si no viene). */
+function leerResultadoDelEnlace(): keyof typeof AVISO_CORREO | null {
+  if (typeof window === 'undefined') return null
+  const valor = new URLSearchParams(window.location.search).get('correo')
+  return valor === 'confirmado' || valor === 'parcial' || valor === 'error' ? valor : null
+}
+
 /** Los bloques que se editan por separado (US-21). */
-type BloqueEditable = 'datos' | 'legajo' | 'contrasena'
+type BloqueEditable = 'datos' | 'correo' | 'legajo' | 'contrasena'
 
 /** Pantalla "Mi perfil y legajo". */
 export function PerfilScreen() {
@@ -43,12 +61,26 @@ export function PerfilScreen() {
   /** Lo guardado en esta visita (después de cada "Guardar"); `null` = lo que trajo la carga. */
   const [guardado, setGuardado] = useState<PerfilUsuario | null>(null)
   /** Qué bloques tienen cambios sin guardar (US-21: aviso al salir). */
-  const [conCambios, setConCambios] = useState<Record<BloqueEditable, boolean>>({ datos: false, legajo: false, contrasena: false })
+  const [conCambios, setConCambios] = useState<Record<BloqueEditable, boolean>>({ datos: false, correo: false, legajo: false, contrasena: false })
+  /** Resultado del enlace del correo, si se llegó desde `/auth/confirmar`. */
+  // NOTA: se lee de `window` y no con `useSearchParams` para no obligar a
+  // envolver la página en un <Suspense> (la página es estática). No cambia
+  // la hidratación: del lado del servidor la pantalla está cargando.
+  const [avisoCorreo, setAvisoCorreo] = useState<keyof typeof AVISO_CORREO | null>(leerResultadoDelEnlace)
+  useEffect(() => {
+    // Se saca `?correo=` de la URL para que el aviso no vuelva al recargar.
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has('correo')) return
+    url.searchParams.delete('correo')
+    window.history.replaceState(window.history.state, '', url)
+  }, [])
   const hayCambiosSinGuardar = useMemo(() => Object.values(conCambios).some(Boolean), [conCambios])
 
   // ─── Handlers ───────────────────────────────────────────────────────
   // Callbacks estables por bloque: los bloques los usan en un `useEffect`.
   const marcarDatos = useCallback((hay: boolean) => setConCambios((actual) => (actual.datos === hay ? actual : { ...actual, datos: hay })), [])
+  const marcarCorreo = useCallback((hay: boolean) => setConCambios((actual) => (actual.correo === hay ? actual : { ...actual, correo: hay })), [])
+  const marcarContrasena = useCallback((hay: boolean) => setConCambios((actual) => (actual.contrasena === hay ? actual : { ...actual, contrasena: hay })), [])
   const marcarLegajo = useCallback((hay: boolean) => setConCambios((actual) => (actual.legajo === hay ? actual : { ...actual, legajo: hay })), [])
 
   // ─── Error ──────────────────────────────────────────────────────────
@@ -93,14 +125,26 @@ export function PerfilScreen() {
   return (
     <div className={styles.page} data-testid="perfil" data-cambios-sin-guardar={hayCambiosSinGuardar}>
       <PageHeader title="Mi perfil" subtitle={`${perfil.nombre} ${perfil.apellido}`} breadcrumb={MIGA} />
+      {avisoCorreo && (
+        <Alert
+          type={AVISO_CORREO[avisoCorreo].type}
+          showIcon
+          closable={{ 'aria-label': 'Cerrar el aviso' }}
+          onClose={() => setAvisoCorreo(null)}
+          title={AVISO_CORREO[avisoCorreo].texto}
+          data-testid="perfil-email-enlace"
+        />
+      )}
       <div className={styles.layout}>
         <div className={styles.main}>
-          <DatosPersonalesBloque perfil={perfil} onActualizado={setGuardado} onCambiosSinGuardar={marcarDatos} />
+          <DatosPersonalesBloque perfil={perfil} onActualizado={setGuardado} onCambiosSinGuardar={marcarDatos}>
+            <CambioCorreo perfil={perfil} onActualizado={setGuardado} onCambiosSinGuardar={marcarCorreo} />
+          </DatosPersonalesBloque>
           {/* En móvil, el legajo incompleto va primero y abierto (diseño · 03). */}
           <div className={legajoIncompleto ? styles.primeroEnMovil : undefined}>
             <LegajoBloque legajo={perfil.legajo} defaultOpen={legajoIncompleto} onActualizado={legajoActualizado} onCambiosSinGuardar={marcarLegajo} />
           </div>
-          <AccesoSeguridadBloque email={perfil.email} />
+          <AccesoSeguridadBloque email={perfil.email} onCambiosSinGuardar={marcarContrasena} />
         </div>
         <aside className={styles.aside}>
           <MisRolesBloque roles={perfil.roles} />
