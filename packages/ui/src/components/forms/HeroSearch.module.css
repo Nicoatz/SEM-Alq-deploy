@@ -20,8 +20,6 @@
  */
 
 .form {
-  /* Alto de los campos: el mismo de los selects de /buscar (SearchSidebarFilters, 2.5rem). */
-  --hero-search-control: 2.5rem;
   margin: 0;
 }
 
@@ -134,7 +132,9 @@
   appearance: none;
   display: block;
   width: 100%;
-  height: var(--hero-search-control);
+  /* Alto de los campos (2.5rem): el mismo de los selects de /buscar (SearchSidebarFilters).
+     Se repite en .summary, .input y .submit. */
+  height: 2.5rem;
   padding: 0 calc(var(--rentar-spacing-sm) * 2) 0 calc(var(--rentar-spacing-xs) * 1.5);
   border: 1px solid var(--rentar-color-border-hairline);
   border-radius: var(--rentar-radius-sm);
@@ -202,7 +202,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--rentar-spacing-xs);
-  min-height: var(--hero-search-control);
+  min-height: 2.5rem;
   padding: 0 var(--rentar-spacing-sm);
   border-radius: var(--rentar-radius-pill);
   font-size: var(--rentar-font-size-label);
@@ -410,7 +410,7 @@
 
 .input {
   width: 100%;
-  height: var(--hero-search-control);
+  height: 2.5rem;
   padding: 0 var(--rentar-spacing-sm);
   border: 1px solid var(--rentar-color-border-hairline);
   border-radius: var(--rentar-radius-sm);
@@ -660,7 +660,7 @@
   /* El botón queda a la altura de los selects (las celdas tienen label arriba). */
   .submit {
     width: auto;
-    height: var(--hero-search-control);
+    height: 2.5rem;
   }
 
   /* Acá "Más filtros" está cerca del borde derecho: el panel se abre hacia la izquierda. */

@@ -275,6 +275,20 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
+## (Pendiente de subir) `HeroSearch` sin custom property local (2026-10-21)
+
+- `HeroSearch.module.css` declaraba `--hero-search-control: 2.5rem` en `.form`, y el sistema de
+  diseño avisaba por ser una custom property fuera de `:root`. No es un token de tema y solo la usa
+  `HeroSearch`: se reemplazó por `2.5rem` directo en sus cuatro usos (`.select`, `.summary`,
+  `.input` y `.submit` en la fila única) y se borró la declaración. Mismo valor: sin cambios
+  visuales ni de API (medido con Edge a 1440, 900 y 390 px, antes y después: mismas alturas y
+  capturas idénticas píxel a píxel). Si otro componente necesita ese alto, pasarlo a un token en
+  `:root` (por ejemplo `--rentar-control-height-sm`) en vez de repetir el número.
+- NOTA (ya pasaba antes, sin tocar): en la fila única `.submit` mide **44 px, no 40**. Su
+  `height: 2.5rem` empata en especificidad con `:where(.css-…).ant-btn { height:
+  var(--ant-control-height) }` de antd, que se inyecta después y gana. Igualarlo a los selects es un
+  cambio visual: consultarlo con el PO.
+
 ## Re-sync del 2026-10-16 (`Header#loginHref`): proyecto de la cuenta nueva
 
 - **Desde el 16/10, `config.json` apunta al proyecto de la cuenta nueva:
