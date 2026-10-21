@@ -164,3 +164,7 @@
   line-height: 1.45;
   color: var(--rentar-color-text-secondary);
 }
+
+.formAlert {
+  margin-bottom: 1rem;
+}

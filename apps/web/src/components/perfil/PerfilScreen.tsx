@@ -17,7 +17,9 @@
  * De dónde saca los datos: `perfil.service#getMiPerfil`.
  * Quién lo usa: `app/(app)/panel/perfil/page.tsx`.
  */
+import { useCallback, useMemo, useState } from 'react'
 import { Button, Skeleton } from 'antd'
+import type { LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
 import { PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { estadoLegajo } from '@/lib/perfil/legajo'
@@ -30,9 +32,24 @@ import styles from './PerfilScreen.module.css'
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Mi perfil' }]
 
+/** Los bloques que se editan por separado (US-21). */
+type BloqueEditable = 'datos' | 'legajo' | 'contrasena'
+
 /** Pantalla "Mi perfil y legajo". */
 export function PerfilScreen() {
   const carga = useServiceCall(getMiPerfil)
+
+  // ─── Estado local ───────────────────────────────────────────────────
+  /** Lo guardado en esta visita (después de cada "Guardar"); `null` = lo que trajo la carga. */
+  const [guardado, setGuardado] = useState<PerfilUsuario | null>(null)
+  /** Qué bloques tienen cambios sin guardar (US-21: aviso al salir). */
+  const [conCambios, setConCambios] = useState<Record<BloqueEditable, boolean>>({ datos: false, legajo: false, contrasena: false })
+  const hayCambiosSinGuardar = useMemo(() => Object.values(conCambios).some(Boolean), [conCambios])
+
+  // ─── Handlers ───────────────────────────────────────────────────────
+  // Callbacks estables por bloque: los bloques los usan en un `useEffect`.
+  const marcarDatos = useCallback((hay: boolean) => setConCambios((actual) => (actual.datos === hay ? actual : { ...actual, datos: hay })), [])
+  const marcarLegajo = useCallback((hay: boolean) => setConCambios((actual) => (actual.legajo === hay ? actual : { ...actual, legajo: hay })), [])
 
   // ─── Error ──────────────────────────────────────────────────────────
   if (carga.status === 'error') {
@@ -69,18 +86,19 @@ export function PerfilScreen() {
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
-  const perfil = carga.data
+  const perfil = guardado ?? carga.data
+  const legajoActualizado = (legajo: LegajoUsuario) => setGuardado({ ...perfil, legajo })
   const legajoIncompleto = !estadoLegajo(perfil.legajo).completo
 
   return (
-    <div className={styles.page} data-testid="perfil">
+    <div className={styles.page} data-testid="perfil" data-cambios-sin-guardar={hayCambiosSinGuardar}>
       <PageHeader title="Mi perfil" subtitle={`${perfil.nombre} ${perfil.apellido}`} breadcrumb={MIGA} />
       <div className={styles.layout}>
         <div className={styles.main}>
-          <DatosPersonalesBloque perfil={perfil} />
+          <DatosPersonalesBloque perfil={perfil} onActualizado={setGuardado} onCambiosSinGuardar={marcarDatos} />
           {/* En móvil, el legajo incompleto va primero y abierto (diseño · 03). */}
           <div className={legajoIncompleto ? styles.primeroEnMovil : undefined}>
-            <LegajoBloque legajo={perfil.legajo} defaultOpen={legajoIncompleto} />
+            <LegajoBloque legajo={perfil.legajo} defaultOpen={legajoIncompleto} onActualizado={legajoActualizado} onCambiosSinGuardar={marcarLegajo} />
           </div>
           <AccesoSeguridadBloque email={perfil.email} />
         </div>
