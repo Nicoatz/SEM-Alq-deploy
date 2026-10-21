@@ -41,6 +41,7 @@ import type { ResumenContextoRol, UserRole } from '@rentar/shared-types'
 import { AppShell, RoleContextSwitcher, type AppShellHeaderAction, type UserMenuItem, type UserMenuRoleOption } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
+import { AvisoCambiosProvider, useConfirmarSalida } from '@/lib/navigation/AvisoCambiosProvider'
 import { navItemsByRole, type PanelRole } from '@/lib/navigation/navConfig'
 import { getResumenRoles } from '@/services/panel.service'
 import styles from './PanelLayout.module.css'
@@ -85,9 +86,23 @@ function AltaMobileBar({ onBack, exitHref }: { onBack: () => void; exitHref: str
   )
 }
 
-/** AppShell del panel: menú por rol, UserMenu y cambio de contexto. */
+/**
+ * Layout del panel: el aviso de cambios sin guardar (US-21) envuelve todo,
+ * así el AppShell puede preguntar antes de cerrar sesión.
+ */
 export default function PanelLayout({ children }: { children: ReactNode }) {
+  return (
+    <AvisoCambiosProvider>
+      <PanelShell>{children}</PanelShell>
+    </AvisoCambiosProvider>
+  )
+}
+
+/** AppShell del panel: menú por rol, UserMenu y cambio de contexto. */
+function PanelShell({ children }: { children: ReactNode }) {
   const { user, roles, activeRole, isLoading, logout, switchRole } = useAuth()
+  // US-21: con cambios sin guardar, "Cerrar sesión" pregunta ANTES de signOut.
+  const confirmarSalida = useConfirmarSalida()
   const pathname = usePathname()
   const router = useRouter()
   const [resumenRoles, setResumenRoles] = useState<ResumenContextoRol[]>([])
@@ -179,7 +194,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
       activeKey={activeKey}
       user={{ name: `${user.nombre} ${user.apellido}`, role: activeRole, avatarUrl: user.avatarUrl, subtitle: isPanelRole(activeRole) ? ROLE_LABEL[activeRole] : undefined }}
       userMenuItems={userMenuItems}
-      onLogout={logout}
+      onLogout={() => confirmarSalida(logout)}
       mobileTitle={mobileTitle}
       activeRoleLabel={hasTwoRoles && isPanelRole(activeRole) ? ROLE_LABEL[activeRole] : undefined}
       roleOptions={roleOptions}
