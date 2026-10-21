@@ -120,3 +120,26 @@
     width: 100%;
   }
 }
+
+/* ─── Selector de "Nuevo contrato" ────────────────────────────────────── */
+
+.selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.selectorItem {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}

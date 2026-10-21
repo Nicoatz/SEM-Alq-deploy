@@ -1,0 +1,173 @@
+/* Alta de contrato (Claude Design, "Flujo de contratos" · 02 a 04). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.paso {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.referencia {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-secondary);
+}
+
+.bloqueado {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* ─── Grillas de campos ───────────────────────────────────────────────── */
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  column-gap: 0.75rem;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  column-gap: 0.75rem;
+}
+
+/* ─── Paso 1 · Partes y garantes ──────────────────────────────────────── */
+
+.contexto {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--rentar-status-info-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-info-bg);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+}
+
+.partes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.parte {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.parteAvatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.parteDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.parteNombre {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.parteRol {
+  font-weight: 600;
+  color: var(--rentar-color-blue);
+}
+
+.garante {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+}
+
+.garanteHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.garanteTitulo {
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.agregar {
+  align-self: flex-start;
+}
+
+/* ─── Paso 2 · Condiciones ────────────────────────────────────────────── */
+
+.calculado {
+  display: flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  border-radius: var(--rentar-radius-sm);
+  background: rgba(var(--rentar-color-ink-rgb), 0.05);
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.resumenAjustes {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--rentar-status-money-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-money-bg);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--rentar-color-text-primary);
+}
+
+@media (max-width: 767px) {
+  .contexto {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
