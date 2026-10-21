@@ -275,6 +275,23 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
+## (Pendiente de subir) `StatusTag`: estado `borrador` en `contrato` (2026-10-21)
+
+- `ContractStatus` (`@rentar/shared-types`) suma `borrador`: quedan `borrador`, `pendiente_firma`,
+  `vigente`, `finalizado` y `rescindido`. Se agregó a `statusMeta.contrato` como
+  `{ label: 'Borrador', colorKey: 'neutral', icon: EditFilled }`. El lápiz lo separa de los otros
+  neutros (anulado, cancelada), que usan `StopFilled`. Los otros cuatro no cambian: `pendiente_firma`
+  ya era `warning`, y `rescindido` (`error`, cruz) ya se distinguía de `finalizado` (`info`, bandera).
+- Se actualizaron la unión de `status` en `dtsPropsFor.StatusTag` (`config.json`), el preview
+  (`previews/StatusTag.tsx`), el catálogo `/design-system`, la tabla de `docs/DESIGN.md` y los tests
+  (los cinco estados con su color, y rescindido ≠ finalizado).
+- NOTA: el pedido decía alinear con "el enum `estado_contrato` de la migración del Sprint 3", pero
+  esa migración no está en ninguna rama de `origin`. Hoy `estado_contrato` es una tabla de catálogo
+  (`init_rentar_schema.sql`) con `disponible`, `vigente` y `finalizado` en `seed.sql`. El front quedó
+  con los cinco valores pedidos; está anotado como `TODO(db)` en `status.ts`.
+- Antes decía "no existe un estado `borrador`, quedó fuera del MVP" (`status.ts` y el preview). Lo
+  cambió el pedido del equipo del 21/10. `PropertyStatus` sigue sin `borrador`.
+
 ## Re-sync del 2026-10-21 (`HeroSearch` y `StatusTag`)
 
 - Aprobado por el PO. Sincronizado desde `feature/vistas` en `95d9d73` (commits `61bcb65` y

@@ -1,5 +1,6 @@
 /**
- * StatusTag.test.tsx — `StatusTag` y `getStatusMeta` con estados que no están en `statusMeta`.
+ * StatusTag.test.tsx — `StatusTag` y `getStatusMeta` con estados que no están en `statusMeta` y
+ * los cinco estados de contrato.
  *
  * Sin US en Sprint 0: es robustez del design system. Cubre el crash "Cannot read properties of
  * undefined (reading 'icon')" con un estado desconocido, un estado vacío o un dominio desconocido.
@@ -53,6 +54,32 @@ describe('getStatusMeta', () => {
 
   it('no confunde un estado con una propiedad del prototipo', () => {
     expect(getStatusMeta('contrato', 'constructor' as never)).toMatchObject({ label: 'constructor', colorKey: 'neutral' })
+  })
+})
+
+// ─── Estados de contrato ─────────────────────────────────────────────────
+
+describe('getStatusMeta con domain="contrato"', () => {
+  it('cubre los cinco estados del contrato con su color', () => {
+    const colorByStatus = {
+      borrador: 'neutral',
+      pendiente_firma: 'warning',
+      vigente: 'success',
+      finalizado: 'info',
+      rescindido: 'error',
+    } as const
+    for (const [status, colorKey] of Object.entries(colorByStatus)) {
+      expect(getStatusMeta('contrato', status as keyof typeof colorByStatus).colorKey).toBe(colorKey)
+    }
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('distingue rescindido de finalizado por texto, color e ícono', () => {
+    const finalizado = getStatusMeta('contrato', 'finalizado')
+    const rescindido = getStatusMeta('contrato', 'rescindido')
+    expect(rescindido.label).not.toBe(finalizado.label)
+    expect(rescindido.colorKey).not.toBe(finalizado.colorKey)
+    expect(rescindido.icon).not.toBe(finalizado.icon)
   })
 })
 

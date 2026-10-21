@@ -6,7 +6,7 @@ const labelStyle = { margin: '0 0 8px', fontWeight: 600, fontSize: 13 }
 
 const dominios = [
   { domain: 'propiedad', label: 'Propiedad', estados: ['publicada', 'pausada', 'alquilada', 'alquilada_publicada'] },
-  { domain: 'contrato', label: 'Contrato', estados: ['pendiente_firma', 'vigente', 'finalizado', 'rescindido'] },
+  { domain: 'contrato', label: 'Contrato', estados: ['borrador', 'pendiente_firma', 'vigente', 'finalizado', 'rescindido'] },
   { domain: 'firma', label: 'Firma', estados: ['pendiente', 'firmado', 'rechazado'] },
   { domain: 'cobro', label: 'Cobro', estados: ['pendiente', 'pagado', 'vencido', 'anulado', 'parcial'] },
   { domain: 'reclamo', label: 'Reclamo', estados: ['abierto', 'en_proceso', 'resuelto', 'cerrado'] },
@@ -18,7 +18,7 @@ const dominios = [
 
 /**
  * Todos los estados de los 9 dominios, uno debajo del otro — el set completo para comparar los
- * colores entre sí de un vistazo. Sin "Borrador" en propiedad ni contrato (fuera del MVP).
+ * colores entre sí de un vistazo. Contrato incluye "Borrador"; propiedad no tiene borrador (fuera del MVP).
  * `as never` en `status`: acá el par domain/status sale de una tabla, y el genérico
  * `StatusTag<D>` no puede correlacionar las dos claves del `.map`.
  */
