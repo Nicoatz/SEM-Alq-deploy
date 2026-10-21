@@ -9,7 +9,9 @@
  *   rechazado con el motivo) y cuántas firmas faltan.
  * - Datos principales: propiedad, partes, garantes, vigencia, monto
  *   inicial, depósito, ajuste y día de vencimiento.
- * - El documento (`VisorContrato`) y el historial (`ActivityTimeline`).
+ * - El documento (`VisorContrato`), "Descargar PDF" en cualquier estado
+ *   (`lib/contratos/pdf.ts`, con `jsPDF` cargado al tocarlo) y el historial
+ *   (`ActivityTimeline`).
  * - El locador firma acá (`FirmaContrato`), cancela el envío (si el
  *   locatario no firmó) y reenvía la invitación (una vez por hora).
  * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma,
@@ -34,13 +36,14 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
-import { MailOutlined, RollbackOutlined } from '@ant-design/icons'
+import { DownloadOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { ContratoDetalle, EventoContrato, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
 import { ActivityTimeline, ConfirmActionModal, DetailList, EmptyState, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
 import type { SemanticColorKey } from '@rentar/ui'
 import { fechaCorta, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio, tituloDeEvento } from '@/lib/contratos/firmas'
+import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { tituloContrato } from '@/lib/contratos/plantilla'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
@@ -152,6 +155,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
   const [confirmarCancelar, setConfirmarCancelar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
   const [reenviando, setReenviando] = useState<RolFirmante | null>(null)
+  const [descargando, setDescargando] = useState(false)
   /** "Ahora", para el límite de un reenvío por hora; se renueva cada 30 s. */
   const [ahora, setAhora] = useState(ahoraIso)
 
@@ -190,6 +194,19 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
     } catch (error) {
       setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos cancelar el envío. Probá de nuevo.')
       setCancelando(false)
+    }
+  }
+
+  /** US-07: "permitir descargarlo en PDF en cualquier estado". `jsPDF` se carga recién acá. */
+  async function descargar(): Promise<void> {
+    setDescargando(true)
+    setErrorAccion(null)
+    try {
+      await descargarContratoPdf(contrato)
+    } catch {
+      setErrorAccion('No pudimos armar el PDF. Probá de nuevo; el documento se sigue viendo en la pantalla.')
+    } finally {
+      setDescargando(false)
     }
   }
 
@@ -264,6 +281,11 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina }: Vi
         title={tituloPagina ?? `Contrato ${contrato.code ?? ''}`.trim()}
         subtitle={`${propiedad.address} · ${nombreDe(locatario) || 'Sin locatario'}${condiciones.startDate && contrato.endDate ? ` · del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}` : ''}`}
         breadcrumb={miga}
+        actions={
+          <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
+            Descargar PDF
+          </Button>
+        }
       />
 
       {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-detalle-aviso" />}
