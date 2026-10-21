@@ -275,7 +275,21 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
-## (Pendiente de subir) `HeroSearch` sin custom property local (2026-10-21)
+## Re-sync del 2026-10-21 (`HeroSearch` y `StatusTag`)
+
+- Aprobado por el PO. Sincronizado desde `feature/vistas` en `95d9d73` (commits `61bcb65` y
+  `95d9d73`), camino atómico, mismo comando y `DS_CHROMIUM_PATH` (Edge) que el 16/10.
+- Ancla: la copia local `ds-bundle/_ds_sync.json` de la subida anterior coincidía con el
+  `_ds_sync.json` del proyecto (mismos `bundleSha12`, `styleSha`, 34 render hashes y 102
+  `sourceHashes`), así que se usó como `remote-sync.json`. Verificarlo siempre antes de reusarla.
+- Diff: 34 componentes `unchanged`, 0 a regradear; cambian el bundle, los estilos y aux. Los
+  `.d.ts` de `StatusTag`/`DataTable` salen de `dtsPropsFor` (no cambian) y el JSDoc nuevo de
+  `DataTableColumn#render` no llega al `.prompt.md` (se sintetiza del JSDoc del componente).
+- Render check 34/34 limpias. `conventions.md` validado contra el build, sin cambios. Subidos 178
+  archivos (aviso + 176 + ancla), 0 borrados. No se tocan `templates/`, `uploads/` ni `screenshots/`
+  (son del equipo en Claude Design).
+
+## (Subido el 2026-10-21) `HeroSearch` sin custom property local (2026-10-21)
 
 - `HeroSearch.module.css` declaraba `--hero-search-control: 2.5rem` en `.form`, y el sistema de
   diseño avisaba por ser una custom property fuera de `:root`. No es un token de tema y solo la usa
@@ -289,7 +303,7 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   var(--ant-control-height) }` de antd, que se inyecta después y gana. Igualarlo a los selects es un
   cambio visual: consultarlo con el PO.
 
-## (Pendiente de subir) `StatusTag` tolera estados desconocidos (2026-10-21)
+## (Subido el 2026-10-21) `StatusTag` tolera estados desconocidos (2026-10-21)
 
 - **`getStatusMeta` nunca devuelve `undefined`.** Con un dominio o un estado que no están en
   `statusMeta` (o con `status` vacío), devuelve `{ label: String(status ?? '—'), colorKey:
@@ -603,9 +617,9 @@ autoró una preview para estos tres), muestran solo el nombre del componente. No
 
 - `EmptyState` · `AccionAnchoCompleto` se ve igual que `Default`: `actionBlock` solo actúa debajo de
   640 px de PANTALLA, y la card mide más. La historia queda para documentar la prop (08/10/2026).
-- `check_design_system` avisa por `--hero-search-control: 2.5rem` dentro de `.HeroSearch_form`
-  (`components/forms/HeroSearch.module.css:24`): es una medida interna del componente (el alto de
-  sus controles), no un token del sistema. Se deja donde está (decisión del PO, 08/10/2026).
+- (Resuelto el 2026-10-21) `check_design_system` avisaba por `--hero-search-control: 2.5rem`
+  dentro de `.HeroSearch_form`. Se reemplazó por `2.5rem` directo (ver "HeroSearch sin custom
+  property local"); si el aviso vuelve a aparecer, es una regresión.
 - `Header` muestra el link "Sistema de diseño" en las previews: el componente lo esconde solo en
   producción de `apps/web`. Es esperable.
 
