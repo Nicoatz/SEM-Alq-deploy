@@ -42,7 +42,8 @@ import { AppShell, RoleContextSwitcher, type AppShellHeaderAction, type UserMenu
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { readSessionFromDocument } from '@/lib/auth/session-cookie'
 import { AvisoCambiosProvider, useConfirmarSalida } from '@/lib/navigation/AvisoCambiosProvider'
-import { navItemsByRole, type PanelRole } from '@/lib/navigation/navConfig'
+import { ITEM_MIS_ALQUILERES, navItemsByRole, RUTAS_DEL_ITEM, type PanelRole } from '@/lib/navigation/navConfig'
+import { useCantidadAlquileres } from '@/lib/navigation/useCantidadAlquileres'
 import { getResumenRoles } from '@/services/panel.service'
 import styles from './PanelLayout.module.css'
 
@@ -121,10 +122,17 @@ function PanelShell({ children }: { children: ReactNode }) {
 
   // ─── Menú y UserMenu ────────────────────────────────────────────────
   const panelRoles = useMemo(() => roles.filter(isPanelRole), [roles])
-  const navItems = useMemo(() => (activeRole && isPanelRole(activeRole) ? navItemsByRole[activeRole] : []), [activeRole])
+  // US-27: "Mi alquiler" o "Mis alquileres" según cuántos contratos tenga (ver el hook).
+  const cantidadAlquileres = useCantidadAlquileres(user?.id ?? null, activeRole === 'locatario')
+  const navItems = useMemo(() => {
+    const items = activeRole && isPanelRole(activeRole) ? navItemsByRole[activeRole] : []
+    if (cantidadAlquileres === null || cantidadAlquileres < 2) return items
+    return items.map((item) => (item.key === 'alquiler' ? { ...item, ...ITEM_MIS_ALQUILERES } : item))
+  }, [activeRole, cantidadAlquileres])
 
   const activeKey = useMemo(() => {
-    const matches = navItems.filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    const coincide = (ruta: string) => pathname === ruta || pathname.startsWith(`${ruta}/`)
+    const matches = navItems.filter((item) => [item.href, ...(RUTAS_DEL_ITEM[item.key] ?? [])].some(coincide))
     // Gana el match más específico (href más largo): así "/panel" no le
     // gana a "/panel/propiedades" cuando la ruta activa es esta última.
     const mostSpecific = [...matches].sort((a, b) => b.href.length - a.href.length)[0]
