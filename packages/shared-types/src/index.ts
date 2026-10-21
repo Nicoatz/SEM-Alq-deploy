@@ -298,6 +298,7 @@ export type {
   StatusDomainMap,
 } from './status';
 export type { UsuarioSesion } from './usuario-sesion';
+export type { BloqueoIdentidad, DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from './perfil';
 export type {
   ContactoSolicitud,
   EstadoSolicitud,
