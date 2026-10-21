@@ -101,7 +101,7 @@ export default function PanelLayout({ children }: { children: ReactNode }) {
 /** AppShell del panel: menú por rol, UserMenu y cambio de contexto. */
 function PanelShell({ children }: { children: ReactNode }) {
   const { user, roles, activeRole, isLoading, logout, switchRole } = useAuth()
-  // US-21: con cambios sin guardar, "Cerrar sesión" pregunta ANTES de signOut.
+  // US-21: con cambios sin guardar, "Cerrar sesión" y "Viendo como" preguntan antes.
   const confirmarSalida = useConfirmarSalida()
   const pathname = usePathname()
   const router = useRouter()
@@ -171,11 +171,16 @@ function PanelShell({ children }: { children: ReactNode }) {
     [hasTwoRoles, panelRoles, resumenRoles],
   )
 
-  /** Cambia el rol activo y vuelve al inicio del panel de ese rol. */
+  /**
+   * Cambia el rol activo y vuelve al inicio del panel de ese rol. Con cambios
+   * sin guardar, pregunta antes (US-21); con "Seguir editando" no cambia nada.
+   */
   function handleRoleChange(role: UserRole): void {
     if (!isPanelRole(role)) return
-    switchRole(role)
-    router.push('/panel')
+    confirmarSalida(() => {
+      switchRole(role)
+      router.push('/panel')
+    }, 'cambiar-rol')
   }
 
   // ─── Barra móvil ────────────────────────────────────────────────────
@@ -194,7 +199,7 @@ function PanelShell({ children }: { children: ReactNode }) {
       activeKey={activeKey}
       user={{ name: `${user.nombre} ${user.apellido}`, role: activeRole, avatarUrl: user.avatarUrl, subtitle: isPanelRole(activeRole) ? ROLE_LABEL[activeRole] : undefined }}
       userMenuItems={userMenuItems}
-      onLogout={() => confirmarSalida(logout)}
+      onLogout={() => confirmarSalida(logout, 'cerrar-sesion')}
       mobileTitle={mobileTitle}
       activeRoleLabel={hasTwoRoles && isPanelRole(activeRole) ? ROLE_LABEL[activeRole] : undefined}
       roleOptions={roleOptions}

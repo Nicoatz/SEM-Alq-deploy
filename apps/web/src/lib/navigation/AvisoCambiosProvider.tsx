@@ -15,16 +15,15 @@
  *    UserMenu, las migas y cualquier link de la página. Un listener de clics
  *    en fase de captura sobre `document` frena el clic antes de que llegue
  *    al `<Link>` de Next y abre el modal.
- * 3. **Cerrar sesión** desde el UserMenu: el layout envuelve `onLogout` con
- *    `confirmarAntesDe`, así el modal aparece ANTES de `signOut`; con
- *    "Seguir editando" la sesión no se cierra. No hace falta tocar
- *    `@rentar/ui`: `AppShell` recibe `onLogout` del layout.
+ * 3. **Cerrar sesión y "Viendo como"**: el layout envuelve `onLogout` y el
+ *    cambio de rol con `confirmarAntesDe`, así el modal aparece ANTES de
+ *    `signOut` o de cambiar de panel; con "Seguir editando" no pasa nada. No
+ *    hace falta tocar `@rentar/ui`: `AppShell` y `RoleContextSwitcher`
+ *    reciben esas funciones del layout.
  *
- * NOTA (limitaciones, decisión del PO): NO cubre el botón Atrás del
- * navegador ni el selector "Viendo como" (cambia de rol con `router.push`,
- * sin un link). Atrás se podría cubrir con una entrada extra en el historial
- * y `popstate`, pero es frágil con el router de Next. "Viendo como" se
- * cubriría envolviendo `handleRoleChange` del layout con `confirmarAntesDe`.
+ * NOTA (limitación, decisión del PO): NO cubre el botón Atrás del
+ * navegador. Se podría cubrir con una entrada extra en el historial y
+ * `popstate`, pero es frágil con el router de Next.
  * Tampoco frena los clics con Ctrl/Cmd/Shift ni los links con
  * `target="_blank"`: abren otra pestaña y no se pierde nada.
  *
@@ -37,15 +36,34 @@ import { createContext, useCallback, useContext, useEffect, useId, useMemo, useR
 import { useRouter } from 'next/navigation'
 import { ConfirmActionModal } from '@rentar/ui'
 
+/** Las acciones que pasan por el aviso (además de los links). */
+export type MotivoSalida = 'cerrar-sesion' | 'cambiar-rol'
+
 /** Lo que se quiso hacer y quedó esperando la respuesta del modal. */
-type SalidaPendiente = { tipo: 'navegar'; destino: string } | { tipo: 'accion'; accion: () => void }
+type SalidaPendiente = { tipo: 'navegar'; destino: string } | { tipo: 'accion'; accion: () => void; motivo: MotivoSalida }
+
+/** Textos del modal según qué se quiso hacer. */
+const TEXTOS_SALIDA: Record<'navegar' | MotivoSalida, { descripcion: string; confirmar: string }> = {
+  navegar: {
+    descripcion: 'Si salís ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando.',
+    confirmar: 'Salir sin guardar',
+  },
+  'cerrar-sesion': {
+    descripcion: 'Si cerrás sesión ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando.',
+    confirmar: 'Cerrar sesión sin guardar',
+  },
+  'cambiar-rol': {
+    descripcion: 'Si cambiás de panel ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando.',
+    confirmar: 'Cambiar de panel sin guardar',
+  },
+}
 
 /** Lo que comparte el provider. */
 interface AvisoCambiosContextValue {
   /** Marca (o desmarca) que la pantalla `id` tiene cambios sin guardar. */
   marcar: (id: string, hayCambios: boolean) => void
-  /** Corre `accion` si no hay cambios; si los hay, pregunta antes. */
-  confirmarAntesDe: (accion: () => void) => void
+  /** Corre `accion` si no hay cambios; si los hay, pregunta antes (el texto depende de `motivo`). */
+  confirmarAntesDe: (accion: () => void, motivo: MotivoSalida) => void
 }
 
 const AvisoCambiosContext = createContext<AvisoCambiosContextValue | null>(null)
@@ -119,14 +137,14 @@ export function AvisoCambiosProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // ─── 3. Acciones (cerrar sesión) ────────────────────────────────────
+  // ─── 3. Acciones (cerrar sesión, cambiar de rol) ────────────────────
   const confirmarAntesDe = useCallback(
-    (accion: () => void) => {
+    (accion: () => void, motivo: MotivoSalida) => {
       if (!hayCambios || saliendo.current) {
         accion()
         return
       }
-      setPendiente({ tipo: 'accion', accion })
+      setPendiente({ tipo: 'accion', accion, motivo })
     },
     [hayCambios],
   )
@@ -151,6 +169,7 @@ export function AvisoCambiosProvider({ children }: { children: ReactNode }) {
   }, [hayCambios])
 
   const value = useMemo(() => ({ marcar, confirmarAntesDe }), [marcar, confirmarAntesDe])
+  const textos = TEXTOS_SALIDA[pendiente?.tipo === 'accion' ? pendiente.motivo : 'navegar']
 
   // ─── Render ─────────────────────────────────────────────────────────
   return (
@@ -159,12 +178,8 @@ export function AvisoCambiosProvider({ children }: { children: ReactNode }) {
       <ConfirmActionModal
         open={pendiente !== null}
         title="Tenés cambios sin guardar"
-        description={
-          pendiente?.tipo === 'accion'
-            ? 'Si cerrás sesión ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando.'
-            : 'Si salís ahora, se pierden. Para no perderlos, quedate y tocá Guardar en el bloque que estabas editando.'
-        }
-        confirmLabel={pendiente?.tipo === 'accion' ? 'Cerrar sesión sin guardar' : 'Salir sin guardar'}
+        description={textos.descripcion}
+        confirmLabel={textos.confirmar}
         cancelLabel="Seguir editando"
         danger
         onConfirm={confirmarSalida}
@@ -191,10 +206,10 @@ export function useAvisoCambiosSinGuardar(hayCambios: boolean): void {
 }
 
 /**
- * Para el layout: corre una acción (cerrar sesión) preguntando antes si hay
- * cambios sin guardar. Fuera del provider, la corre directo.
+ * Para el layout: corre una acción (cerrar sesión, cambiar de rol)
+ * preguntando antes si hay cambios sin guardar. Fuera del provider, la corre directo.
  */
-export function useConfirmarSalida(): (accion: () => void) => void {
+export function useConfirmarSalida(): (accion: () => void, motivo: MotivoSalida) => void {
   const contexto = useContext(AvisoCambiosContext)
   return contexto?.confirmarAntesDe ?? ((accion: () => void) => accion())
 }

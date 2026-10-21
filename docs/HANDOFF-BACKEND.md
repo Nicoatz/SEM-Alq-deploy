@@ -265,8 +265,8 @@ según el resultado (el primer enlace de "Secure email change" vuelve como `parc
   bloqueados (no "piden confirmación"); garantías de US-35; el legajo se muestra para todos. Quedan
   fuera documentación (FileDropzone), verificación de teléfono, "Cómo te avisamos", "Resumen de la
   cuenta" y "Dar de baja": no están en US-20 ni US-21.
-- **Aviso al salir:** cubre recargar, cerrar, los links internos y "Cerrar sesión" (el modal
-  aparece antes de `signOut`); **no** cubre el botón Atrás ni el selector "Viendo como"
+- **Aviso al salir:** cubre recargar, cerrar, los links internos, "Cerrar sesión" (el modal
+  aparece antes de `signOut`) y el selector "Viendo como"; **no** cubre el botón Atrás
   (`lib/navigation/AvisoCambiosProvider.tsx`).
 - **Datos sensibles en mock:** el DNI y el ingreso que se editan en el perfil viven solo en memoria
   (no en `localStorage`). Ver §10, "Pendientes del front".
