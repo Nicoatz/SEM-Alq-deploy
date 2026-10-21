@@ -156,3 +156,8 @@
   border-radius: var(--rentar-radius-lg);
   background: var(--rentar-color-bg-surface);
 }
+
+/* Mis alquileres (US-27): los finalizados se muestran atenuados. */
+.atenuado {
+  opacity: 0.55;
+}
