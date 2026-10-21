@@ -1,0 +1,73 @@
+/* Tarjeta de un bloque de "Mi perfil" (Claude Design, "Mi perfil y legajo" · 01 y 03). */
+
+.card {
+  padding: var(--rentar-spacing-lg);
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* ─── Móvil: encabezado plegable (· 03) ───────────────────────────────── */
+
+.toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  color: var(--rentar-color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.toggleTitle {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.toggleEnd {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.chevron,
+.chevronOpen {
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-tertiary);
+  transition: transform var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.bodyMobile {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+/* El título ya está en el botón: se oculta el de FormSection. */
+.bodyMobile h3 {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .card {
+    padding: 0.875rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron,
+  .chevronOpen {
+    transition: none;
+  }
+}

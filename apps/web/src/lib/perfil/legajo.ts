@@ -15,8 +15,8 @@ export type DatoLegajo = 'situacion' | 'ingreso' | 'garantias'
 
 /** Cómo se nombra cada dato faltante en la pantalla. */
 export const NOMBRE_DATO_LEGAJO: Record<DatoLegajo, string> = {
-  situacion: 'situación ocupacional',
-  ingreso: 'ingreso mensual',
+  situacion: 'la situación ocupacional',
+  ingreso: 'el ingreso mensual',
   garantias: 'al menos una garantía',
 }
 
@@ -47,7 +47,7 @@ export function estadoLegajo(legajo: LegajoUsuario): EstadoLegajo {
   return { completo: faltantes.length === 0, faltantes, cargados: total - faltantes.length, total }
 }
 
-/** "Falta la situación ocupacional y el ingreso mensual." — la línea del aviso de legajo incompleto. */
+/** "Faltan la situación ocupacional y el ingreso mensual." — la línea del aviso de legajo incompleto. */
 export function textoFaltantes(faltantes: readonly DatoLegajo[]): string {
   const nombres = faltantes.map((dato) => NOMBRE_DATO_LEGAJO[dato])
   if (nombres.length === 0) return ''

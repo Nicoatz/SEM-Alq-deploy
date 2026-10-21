@@ -1,0 +1,73 @@
+/* "Mi perfil y legajo" (Claude Design, · 01 escritorio y · 03 móvil). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+/* Escritorio: bloques a la izquierda, "Mis roles" a la derecha (· 01). */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 21.25rem);
+  gap: 1.125rem;
+  align-items: start;
+}
+
+.main,
+.aside {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.skeletonCard {
+  padding: var(--rentar-spacing-lg);
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* ─── Error ───────────────────────────────────────────────────────────── */
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Móvil (· 03): una columna, el legajo incompleto primero ─────────── */
+
+@media (max-width: 1023px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 767px) {
+  .main,
+  .aside {
+    gap: 0.75rem;
+  }
+
+  .primeroEnMovil {
+    order: -1;
+  }
+}
