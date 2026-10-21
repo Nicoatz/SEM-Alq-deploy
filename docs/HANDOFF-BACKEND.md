@@ -182,6 +182,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 | `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
 | `GET /contratos`, `GET /contratos/preparar`, `POST /contratos`, `PUT /contratos/:id`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar`, `GET /contratos/:id` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Pendiente** (propuesto, tanda 2 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas. **Bloqueante del esquema** en §7, "US-05" |
+| `GET /contratos/:id` (con firmantes e historial), `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). Mismo bloqueante del esquema que US-05 |
 | Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
 
 ## 6. Status HTTP y errores
@@ -202,6 +203,66 @@ de error:
 
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
+
+### US-07 Firmar contrato de alquiler (Sprint 3, tanda 3, `/panel/contratos/[id]`)
+
+El detalle del contrato, la firma, el rechazo, la cancelación del envío y el reenvío funcionan en
+**modo mock**; la rama real llama a rutas **propuestas** que todavía no existen. Contrato completo en
+[`api-endpoints.md`](api-endpoints.md), "Firma de contratos". Front: `contratos.service.ts`,
+`contrato.adapter.ts`, `components/contratos/DetalleContrato.tsx`, `FirmaContrato.tsx`,
+`VisorContrato.tsx`, `lib/contratos/firmas.ts` y `lib/contratos/paginas.ts`. Necesita lo mismo que
+US-05 (el **bloqueante del esquema** de abajo).
+
+**Lo que le falta al back y a la base**
+
+| # | Qué | Para qué | Dueño |
+|---|---|---|---|
+| 1 | Tabla de **firmas**: `id_contrato`, `rol` (locador / locatario), `id_usuario`, `estado` (pendiente / firmado / rechazado), `fecha_firma`, **`ip`**, `fecha_rechazo`, `motivo_rechazo` (hasta 300), `fecha_ultima_invitacion`. Una fila por parte; se crean al enviar a firmar y se borran al cancelar el envío | Estado de cada firmante, "una parte no firma dos veces", "una vez por hora" | db |
+| 2 | Tabla de **historial** del contrato: `id_contrato`, `tipo` (`creado`, `enviado`, `firmado`, `rechazado`, `reenviado`, `envio_cancelado`, `vigente`), `fecha`, `rol`, `motivo` | "Historial con fecha y hora" | db |
+| 3 | `GET /contratos/:id` con `firmantes`, `historial`, `fecha_envio`, `fecha_firma_completa`, `fecha_fin` y `firmas_registradas`; lo pueden pedir **las dos partes** (un borrador, solo el locador). 404 único para inexistente o ajeno | Detalle (A5) y, en la tanda 4, Mi alquiler | backend |
+| 4 | `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio` y `/reenviar` con los `codigo` de los 409 y el **429** del reenvío | Las acciones | backend |
+| 5 | **Al quedar vigente, en una transacción:** el inmueble pasa a alquilado y sale de `/inmuebles/disponibles`; sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." (el campo existe desde la tanda B del Sprint 2). En mock lo hace `contrato-mock.adapter.ts#pasarAVigenteMock` | US-07, "Contrato vigente" | backend |
+| 6 | Registrar la **IP** de cada firma (del request: `x-forwarded-for` detrás del proxy). No viaja al front | US-07 | backend |
+| 7 | Mails de invitación y reenvío: **no existen**. El front lo dice con `SimulatedFeatureNotice` ("Reenviar la invitación no manda ningún mail") | Cuando haya mails | backend |
+
+**Decisiones del PO de esta tanda**
+
+- Firman el locador y el locatario. Los garantes se muestran como datos, **sin estado de firma**. El
+  contrato pasa a vigente con esas dos firmas. Donde el diseño muestra la tercera firma, el
+  vencimiento del link o mails al garante, gana esta decisión.
+- El locador firma desde el detalle (`/panel/contratos/[id]`); el locatario, desde Mi alquiler
+  (`/panel/alquiler`, tanda 4) con el mismo componente (`FirmaContrato`).
+- El listado ahora linkea pendientes, vigentes y finalizados al detalle. Un borrador abierto por
+  `/[id]` va a `/[id]/editar`.
+
+**Propuestas del front (pendientes del OK del PO)**
+
+- **Rechazo:** quien rechazó **no puede firmar después** (409 `FIRMA_RECHAZADA`). Para destrabarlo, el
+  locador cancela el envío (se permite: el locatario no firmó), corrige si hace falta y lo vuelve a
+  enviar con firmas nuevas. No se puede reenviar la invitación a quien rechazó.
+- **PDF:** dos opciones en evaluación (impresión del navegador o `jsPDF`); "Descargar PDF" todavía no
+  está.
+- **Historial:** `ActivityTimeline` (`@rentar/ui`) muestra la fecha **relativa** contra el reloj real
+  (en mock dice "hace un mes"); la fecha y la hora van en la descripción de cada evento.
+
+**Cómo es una "página" del documento:** por contenido, no por alto de pantalla: las cláusulas se
+agrupan hasta ~800 caracteres sin cortarlas (`lib/contratos/paginas.ts`), así "te faltan 2 páginas"
+es lo mismo a 390 y a 1440 px. CT-2026-0207 tiene 6. El progreso de lectura vive en la pantalla: al
+recargar, empieza de nuevo (el back no lo guarda).
+
+**Contratos anteriores a RentAR** (los 5 vigentes del elenco y CT-2023-0041): no tienen firmas ni
+historial registrados; el detalle lo dice ("no hay registro de las firmas") y no los inventa. Sus
+datos que el elenco no tiene (monto inicial, depósito, día de vencimiento, garantes) se ven "Sin
+dato".
+
+**Modo mock**
+
+- **Reloj:** las firmas, rechazos, reenvíos y cancelaciones se fechan el **23/09/2026 con la hora real**
+  (`lib/utils/fechas.ts#momentoActual`): con el "ahora" fijo (12:00), todas tendrían la misma hora y
+  el límite de una hora nunca vencería. Pasada la medianoche real, la hora vuelve a empezar.
+- **CT-2026-0207** arranca pendiente con 0 firmas e invitaciones del 22/09 a las 11:40 (el primer
+  reenvío ya se puede hacer).
+- La IP no se registra.
 
 ### US-05 Registrar contrato de alquiler (Sprint 3, tanda 2, `/panel/contratos`)
 
@@ -266,7 +327,8 @@ Con eso no se puede:
   tiene `/nuevo` y `/[id]`): `/[id]` queda para el detalle de US-07. Sin `?solicitud=`, `/nuevo`
   muestra un selector de solicitudes aceptadas sin contrato (nada de carga manual).
 - **Después de enviar:** el resultado va dentro del alta (código, firmantes, "Ir a Contratos"). En el
-  listado, pendientes, vigentes y finalizados van sin link hasta la tanda 3.
+  listado, pendientes, vigentes y finalizados van sin link hasta la tanda 3 (desde la tanda 3,
+  linkean al detalle de US-07; el resultado suma "Ver contrato y firmar").
 - **Índice por defecto:** el de la publicación (ICL o IPC); si no tiene, "Sin ajuste".
 - **Guard:** `RequireRole role="locador"` en `/panel/contratos` y subrutas (`layout.tsx`).
 
@@ -983,7 +1045,8 @@ sesión dura hasta cerrarla).
 | `/panel/perfil` (US-20, US-21, Sprint 3) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-legajo`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Correo: `perfil-email-cambio`, `perfil-email-cambiar`, `perfil-email-form`, `perfil-email-input`, `perfil-email-enviar`, `perfil-email-cancelar`, `perfil-email-pendiente`, `perfil-email-simular-confirmacion` (solo mock), `perfil-email-exito`, `perfil-email-error`, `perfil-email-enlace` (aviso al volver de `/auth/confirmar`). Legajo: `perfil-legajo-chip` ("2 de 3"), `perfil-legajo-estado` (con `data-estado="completo\|incompleto"`), `perfil-legajo-faltantes`, `perfil-legajo-ocupacion`, `perfil-legajo-ingresos`, `perfil-legajo-garantias`, `perfil-sin-cargar-<ocupacion\|ingresos\|garantias>`, `perfil-legajo-editar`, `perfil-legajo-form`, `perfil-legajo-ocupacion-input`, `perfil-legajo-ingresos-input`, `perfil-legajo-garantia-<propietaria\|caucion\|otra>`, `perfil-legajo-guardar`, `perfil-legajo-cancelar`, `perfil-legajo-error`, `perfil-legajo-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Borrado: `placeholder-screen` en esta ruta |
 | `/panel/contratos` (US-05, Sprint 3) | `contratos`, `contratos-cargando`, `contratos-error`, `contratos-reintentar`, `contratos-ver-solicitudes`, `contratos-nuevo`, `contratos-tab-<todos\|borradores\|pendientes\|vigentes\|finalizados>`, `contratos-buscar`, `contratos-tabla` (adentro, `data-table-row` / `data-table-card`), `contratos-fila-codigo`, `contratos-continuar` y `contratos-eliminar` (solo borradores; en móvil, `-movil`), `contratos-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`), `contratos-eliminar-error`, `contratos-eliminado`, `contratos-vacio` + `contratos-vacio-solicitudes`, `contratos-sin-resultados`. Borrado: `placeholder-screen` en esta ruta |
 | `/panel/contratos/nuevo` y `/[id]/editar` (US-05, Sprint 3) | Selector (sin `?solicitud=`): `contrato-selector`, `contrato-selector-cargando`, `contrato-selector-error`, `contrato-selector-reintentar`, `contrato-selector-solicitud`, `contrato-selector-iniciar`, `contrato-selector-vacio`, `contrato-selector-solicitudes`, `contrato-selector-volver`. Alta: `contrato-cargando`, `contrato-no-disponible` (409/404, con `contrato-ir-contratos` y `contrato-reintentar`), `contrato-no-editable`, `contrato-alta`, `contrato-wizard` (con `wizard-prev-button`, `wizard-next-button`, `wizard-finish-button`), `contrato-guardar-borrador`, `contrato-eliminar-borrador`, `contrato-borrador-guardado`, `contrato-error`, `contrato-error-paso`. Paso 1: `contrato-paso-partes`, `contrato-contexto`, `contrato-ver-solicitud`, `contrato-parte-locador`, `contrato-parte-locatario`, `contrato-garantias-ofrecidas`, `contrato-garante` (uno por garante, con `contrato-garante-nombre`, `-dni`, `-email` y `-quitar`), `contrato-garante-agregar`, `contrato-garantes-maximo`. Paso 2: `contrato-paso-condiciones`, `contrato-inicio`, `contrato-duracion`, `contrato-fin`, `contrato-monto`, `contrato-deposito`, `contrato-dia-vencimiento`, `contrato-indice-<sin_ajuste\|ICL\|IPC\|CAC>`, `contrato-periodicidad`, `contrato-ajustes`, `contrato-cobro`. Paso 3: `contrato-paso-clausulas`, `contrato-clausulas-contador`, `contrato-ver-completo` (abre `contrato-ver-completo-modal` con `contrato-documento` y `contrato-ver-completo-cerrar`), `contrato-clausula` (con `data-tipo="fija\|editable\|propia"`; adentro, `contrato-clausula-bloqueada`, `-editar`, `-eliminar`, `-titulo`, `-texto`, `-restaurar` y `-error`), `contrato-clausula-agregar`. Paso 4: `contrato-paso-revision`, `contrato-revision-<partes\|garantes\|condiciones\|clausulas>` (cada uno con su `-editar`), `contrato-al-enviar`, `contrato-revision-acepto`, `contrato-revision-acepto-error`, `contrato-enviar-modal` y `contrato-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`). Resultado: `contrato-enviado`, `contrato-enviado-codigo`, `contrato-enviado-firmantes`, `contrato-enviado-ir-contratos` |
-| `/panel/solicitudes`, solicitud aceptada (US-05, Sprint 3) | `solicitudes-detalle-iniciar-contrato-button` / `solicitudes-iniciar-contrato-button` (fila, móvil), `…-continuar-contrato-button` (hay un borrador), `…-contrato-estado` (ya originó un contrato) y `…-contrato-bloqueado` (la propiedad tiene otro). `?pestania=aceptadas` abre esa pestaña |
+| `/panel/solicitudes`, solicitud aceptada (US-05, Sprint 3) | `solicitudes-detalle-iniciar-contrato-button` / `solicitudes-iniciar-contrato-button` (fila, móvil), `…-continuar-contrato-button` (hay un borrador), `…-contrato-estado` (ya originó un contrato; adentro, `…-ver-contrato` lleva al detalle, US-07) y `…-contrato-bloqueado` (la propiedad tiene otro). `?pestania=aceptadas` abre esa pestaña |
+| `/panel/contratos/[id]` (US-07, Sprint 3) | Carga y errores: `contrato-detalle-cargando`, `contrato-no-encontrado` (con `contrato-ir-contratos`), `contrato-detalle-error-carga` (con `contrato-reintentar`). Detalle: `contrato-detalle` (con `data-estado`), `contrato-detalle-aviso`, `contrato-detalle-error`, `contrato-estado` (franja), `contrato-faltan-firmas`, `contrato-firmado-todas`, `contrato-sin-registro`, `contrato-cancelar-envio` (+ `contrato-cancelar-envio-motivo` si está deshabilitado y `contrato-cancelar-envio-modal`), `contrato-firmantes`, `contrato-firmante` (uno por parte, con `data-rol` y `data-estado`; adentro `contrato-firmante-detalle`, `contrato-firmante-estado`, `contrato-firmante-motivo`), `contrato-reenviar` (+ `contrato-reenviar-motivo` si está deshabilitado), `contrato-reenviar-aviso`, `contrato-datos`, `contrato-detalle-garantes`, `contrato-documento-detalle`, `contrato-historial` (+ `contrato-historial-eventos`). Visor: `contrato-visor`, `contrato-visor-pagina`, `contrato-visor-hoja`, `contrato-visor-progreso` (con `data-leidas` y `data-total`), `contrato-visor-anterior`, `contrato-visor-siguiente`, `contrato-visor-numero`. Firma (`FirmaContrato`): `contrato-firma`, `contrato-firma-aviso`, `contrato-firma-faltan`, `contrato-firma-acepto`, `contrato-firma-requisitos`, `contrato-firma-firmar`, `contrato-firma-modal` (+ `contrato-firma-error`), `contrato-firma-rechazar`, `contrato-rechazo-modal` con `contrato-rechazo-motivo`, `contrato-rechazo-motivo-error` y `contrato-rechazo-error`. Los modales, con `confirm-action-ok` / `confirm-action-cancel`. Alta: `contrato-enviado-ver` (resultado) y `contrato-ver-detalle` (un contrato que ya no es borrador) |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.

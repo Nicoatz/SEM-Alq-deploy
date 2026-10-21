@@ -247,7 +247,7 @@ del inmueble** (el usuario sale del token). Antes de hacerlas, ver el **bloquean
 | `PUT /contratos/:id` | pendiente (propuesto) | `#guardarBorrador` (con id) | `ContratoRequest` | 200 `ContratoResponse` | 400, 404, **409** `CONTRATO_NO_EDITABLE` |
 | `DELETE /contratos/:id` | pendiente (propuesto) | `#eliminarBorrador` | — | 204 | 404, **409** `CONTRATO_NO_EDITABLE` |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | `#enviarAFirmar` | — | 200 `ContratoEnviadoResponse` | 400 (falta un dato), 404, **409** `CONTRATO_NO_EDITABLE`, `PROPIEDAD_CON_CONTRATO` |
-| `GET /contratos/:id` | pendiente (propuesto) | `#getContrato` | — | `ContratoResponse` | 404 (no existe o no es suyo: no se distingue) |
+| `GET /contratos/:id` | pendiente (propuesto) | `#getContrato` | — | `ContratoResponse` (desde US-07, `ContratoDetalleResponse`: ver "Firma de contratos") | 404 (no existe o no es suyo: no se distingue) |
 | `GET /solicitudes/recibidas` | conectado; **faltan dos campos** | `solicitudes.service#listarSolicitudesRecibidas` | (sin cambios) | Lo de hoy + `id_contrato`, `estado_contrato` y `inmueble_con_contrato` (propuestos) | (sin cambios) |
 
 **Los 409 llevan `codigo`** en el sobre (`{ success: false, error, codigo }`), como los del perfil. El
@@ -335,6 +335,71 @@ condiciones, clausulas, ultimo_paso }`. Un borrador puede guardarse con datos in
   PO). 409 `PROPIEDAD_CON_CONTRATO` si mientras tanto otro contrato del inmueble quedó vigente o
   pendiente.
 - **`ContratoEnviadoResponse`**: `{ id, codigo, estado: "pendiente_firma" }`.
+
+## Firma de contratos (Sprint 3, US-07) · PROPUESTO
+
+**Ninguna de estas rutas existe todavía.** Propuesta del front (Sprint 3, tanda 3): el detalle y la
+firma funcionan en modo mock y la rama real ya llama a estas rutas. Front: `contratos.service.ts`
+(`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `cancelarEnvio`, `reenviarInvitacion`),
+`contrato.adapter.ts#contratoDetalleDeDto` y los DTO de `backend-dtos.ts` ("Firma de contratos").
+Todas con **Bearer**; el usuario sale del token. **Firman el locador y el locatario** (decisión del
+PO): el garante es un dato del contrato y no firma en el Sprint 3.
+
+| Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
+|---|---|---|---|---|---|---|
+| `GET /contratos/:id` | pendiente (propuesto; amplía el de US-05) | `#getDetalleContrato` (y `#getContrato` del alta) | locador o locatario del contrato; un **borrador, solo el locador** | — | `ContratoDetalleResponse` | **404** si no existe o no es parte (**uno solo**, sin distinguir) |
+| `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
+| `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
+| `POST /contratos/:id/cancelar-envio` | pendiente (propuesto) | `#cancelarEnvio` | **solo el locador** | — | 200 `ContratoDetalleResponse` (`estado: "borrador"`) | 403 (es el locatario), 404, **409** `OTRA_PARTE_FIRMO`, `CONTRATO_NO_PENDIENTE` |
+| `POST /contratos/:id/reenviar` | pendiente (propuesto) | `#reenviarInvitacion` | **solo el locador** | `{ "rol": "locatario" }` | 200 `ContratoDetalleResponse` | 403, 404, **409** `FIRMANTE_NO_PENDIENTE`, `CONTRATO_NO_PENDIENTE`, **429** (menos de una hora desde la última invitación) |
+
+**El historial viene dentro del detalle** (propuesta): no tiene otro uso y así la pantalla hace un
+solo pedido. Las cuatro acciones responden el detalle actualizado, así el front no vuelve a pedirlo.
+
+**`ContratoDetalleResponse`** = `ContratoResponse` (ver "Contratos") más:
+
+```json
+{
+  "fecha_envio": "2026-09-22T11:40:00",
+  "fecha_firma_completa": null,
+  "firmas_registradas": true,
+  "fecha_fin": "2029-09-30",
+  "firmantes": [
+    { "rol": "locador", "id_usuario": 1, "nombre": "Nicolás", "apellido": "Arrieta", "estado": "firmado",
+      "fecha_firma": "2026-09-23T15:47:00", "fecha_rechazo": null, "motivo_rechazo": null,
+      "fecha_ultima_invitacion": "2026-09-22T11:40:00" },
+    { "rol": "locatario", "id_usuario": 3, "nombre": "Julieta", "apellido": "Peralta", "estado": "pendiente",
+      "fecha_firma": null, "fecha_rechazo": null, "motivo_rechazo": null,
+      "fecha_ultima_invitacion": "2026-09-23T15:47:00" }
+  ],
+  "historial": [
+    { "id": 4, "tipo": "firmado", "fecha": "2026-09-23T15:47:00", "rol": "locador", "nombre": "Nicolás Arrieta", "motivo": null },
+    { "id": 3, "tipo": "reenviado", "fecha": "2026-09-23T15:47:00", "rol": "locatario", "nombre": "Julieta Peralta", "motivo": null },
+    { "id": 2, "tipo": "enviado", "fecha": "2026-09-22T11:40:00", "rol": null, "nombre": null, "motivo": null },
+    { "id": 1, "tipo": "creado", "fecha": "2026-09-21T17:22:00", "rol": null, "nombre": null, "motivo": null }
+  ]
+}
+```
+
+- `firmantes[].estado`: `pendiente`, `firmado` o `rechazado`. **La IP se guarda en la base y NO viaja
+  al front** (US-07: "se deben registrar la fecha, la hora y la IP de cada firma").
+- `fecha_ultima_invitacion`: el envío o el último reenvío. Con eso el front explica hasta cuándo no
+  se puede reenviar (una hora después).
+- `historial[].tipo`: `creado`, `enviado`, `firmado`, `rechazado`, `reenviado`, `envio_cancelado` o
+  `vigente`. Del más reciente al más viejo. `motivo` solo en `rechazado`.
+- `fecha_firma_completa`: la de la última firma, cuando firmaron las dos partes ("Firmado por todas
+  las partes el dd/mm/aaaa").
+- `firmas_registradas`: `false` en los contratos cargados antes de RentAR (sin firmas ni historial).
+
+**Reglas que tiene que aplicar el back**
+
+| Acción | Regla (US-07) |
+|---|---|
+| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha, hora e **IP**. Propuesta pendiente del OK del PO: quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`). |
+| Última firma | En **una transacción**: el contrato pasa a `vigente` (con `fecha_firma_completa`); el inmueble, a **alquilado** (deja de salir en `/inmuebles/disponibles`); y sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." |
+| Rechazar | Solo el locatario y solo `pendiente_firma`. Motivo opcional, hasta 300 caracteres (`null` si viene vacío). **No cambia el estado del contrato.** |
+| Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
+| Reenviar | Solo el locador, a un firmante `pendiente` (hoy, el locatario). Una vez por hora por firmante: 429 si pasó menos. Actualiza `fecha_ultima_invitacion`. Hoy no se manda ningún mail (el front lo aclara). |
 
 ## Panel del locador (`/panel`)
 

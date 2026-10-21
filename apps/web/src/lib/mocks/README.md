@@ -58,6 +58,15 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
   diseño). Mientras está pendiente de firma, **Rondeau 480 sigue publicada** (decisión del PO). Su
   monto es el canónico del mapa ($385.000; el wizard del diseño decía $320.000).
+- **Firmas (US-07, tanda 3):** CT-2026-0207 arranca **pendiente con 0 firmas**; las dos partes fueron
+  invitadas el 22/09 a las 11:40 (el primer reenvío ya se puede hacer). Firman Nicolás (desde el
+  detalle, `/panel/contratos/CT-2026-0207`) y Julieta. Las firmas, rechazos y reenvíos hechos en el
+  navegador se guardan en `rentar:mock:contratos` con la fecha del elenco (23/09/2026) y la **hora
+  real** (`momentoActual`). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
+  `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
+  "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
+- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial
+  (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
   contratos" de US-27 (tanda 4) sin inventar gente nueva (decisión del PO).
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
