@@ -39,7 +39,7 @@ import { Alert, Button, Skeleton } from 'antd'
 import { DownloadOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { ContratoDetalle, EventoContrato, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
-import { ActivityTimeline, ConfirmActionModal, DetailList, EmptyState, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
+import { ActivityTimeline, ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
 import type { SemanticColorKey } from '@rentar/ui'
 import { fechaCorta, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio, tituloDeEvento } from '@/lib/contratos/firmas'
@@ -53,7 +53,6 @@ import { cancelarEnvio, getDetalleContrato, reenviarInvitacion } from '@/service
 import { ServiceError } from '@/services/shared/errors'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
-import { IndiceAjuste } from './IndiceAjuste'
 import { VisorContrato } from './VisorContrato'
 import styles from './DetalleContrato.module.css'
 
@@ -271,7 +270,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
       label: 'Ajuste',
       value: (
         <span className={styles.ajuste}>
-          <IndiceAjuste indice={condiciones.adjustmentIndex} />
+          <IndexBadge index={condiciones.adjustmentIndex} />
           {condiciones.adjustmentIndex !== 'sin_ajuste' && condiciones.adjustmentPeriod ? `cada ${MESES_POR_PERIODO[condiciones.adjustmentPeriod]} meses` : null}
         </span>
       ),

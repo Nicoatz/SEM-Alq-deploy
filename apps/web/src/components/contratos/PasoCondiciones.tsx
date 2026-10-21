@@ -24,12 +24,11 @@
 import { DatePicker, Form, InputNumber, Radio, Select } from 'antd'
 import dayjs from 'dayjs'
 import type { CondicionesNuevoContrato, ContratoBorrador, IndiceContrato, PeriodicidadAjuste } from '@rentar/shared-types'
-import { DetailList, FormSection, MoneyAmount, MoneyInput } from '@rentar/ui'
+import { DetailList, FormSection, IndexBadge, MoneyAmount, MoneyInput } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { cantidadAjustes, fechaCorta, fechaFin, fechaPrimerAjuste } from '@/lib/contratos/fechas'
 import { DIA_VENCIMIENTO_MAX, DIA_VENCIMIENTO_MIN, erroresCondiciones } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
-import { IndiceAjuste } from './IndiceAjuste'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link PasoCondiciones}. */
@@ -188,7 +187,7 @@ export function PasoCondiciones({ borrador, onCondicionesChange, mostrarErrores 
                 {primero ? (
                   <>
                     {' '}
-                    por <IndiceAjuste indice={condiciones.adjustmentIndex} />. El primero cae el <strong>{fechaCorta(primero)}</strong>; el monto de cada ajuste se define con el índice de ese momento.
+                    por <IndexBadge index={condiciones.adjustmentIndex} />. El primero cae el <strong>{fechaCorta(primero)}</strong>; el monto de cada ajuste se define con el índice de ese momento.
                   </>
                 ) : (
                   '. El contrato termina antes del primer ajuste.'

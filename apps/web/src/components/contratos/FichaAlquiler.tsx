@@ -22,14 +22,13 @@
 import Image from 'next/image'
 import { HomeOutlined } from '@ant-design/icons'
 import type { ContratoDetalle } from '@rentar/shared-types'
-import { DetailList, MoneyAmount, StatusTag } from '@rentar/ui'
+import { DetailList, IndexBadge, MoneyAmount, StatusTag } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta } from '@/lib/contratos/fechas'
 import { loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
-import { IndiceAjuste } from './IndiceAjuste'
 import styles from './DetalleContrato.module.css'
 
 /** Props comunes: el contrato cargado. */
@@ -109,7 +108,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
             <span className={styles.vieneTitulo}>Próximo ajuste</span>
             {ajuste ? (
               <span className={styles.ajuste}>
-                <strong>{fechaCorta(ajuste.fecha)}</strong> · {textoFaltan(ajuste.dias)} · <IndiceAjuste indice={condiciones.adjustmentIndex} />
+                <strong>{fechaCorta(ajuste.fecha)}</strong> · {textoFaltan(ajuste.dias)} · <IndexBadge index={condiciones.adjustmentIndex} />
                 <span className={styles.valorSecundario}>Monto: a definir</span>
               </span>
             ) : (
@@ -146,7 +145,7 @@ export function CondicionesAlquiler({ contrato }: FichaProps) {
       label: 'Ajuste',
       value: (
         <span className={styles.ajuste}>
-          <IndiceAjuste indice={condiciones.adjustmentIndex} />
+          <IndexBadge index={condiciones.adjustmentIndex} />
           {condiciones.adjustmentIndex !== 'sin_ajuste' ? cadaTexto(contrato.ajusteCadaMeses) : null}
         </span>
       ),

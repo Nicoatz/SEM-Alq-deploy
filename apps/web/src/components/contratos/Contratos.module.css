@@ -65,12 +65,6 @@
   gap: 0.5rem;
 }
 
-.indiceTexto {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--rentar-color-text-secondary);
-}
-
 .acciones {
   display: inline-flex;
   flex-wrap: wrap;

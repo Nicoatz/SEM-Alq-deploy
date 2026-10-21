@@ -22,12 +22,11 @@ import type { ReactNode } from 'react'
 import { Button, Checkbox } from 'antd'
 import { EditOutlined } from '@ant-design/icons'
 import type { ContratoBorrador } from '@rentar/shared-types'
-import { DetailList, MoneyAmount } from '@rentar/ui'
+import { DetailList, IndexBadge, MoneyAmount } from '@rentar/ui'
 import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { contarClausulas, PLANTILLA_NOMBRE } from '@/lib/contratos/plantilla'
 import { MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { dniParaMostrar } from '@/lib/perfil/formato'
-import { IndiceAjuste } from './IndiceAjuste'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link PasoRevision}. */
@@ -108,10 +107,10 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
               label: 'Ajuste',
               value:
                 condiciones.adjustmentIndex === 'sin_ajuste' ? (
-                  'Sin ajuste'
+                  <IndexBadge index="sin_ajuste" />
                 ) : (
                   <span className={styles.ajusteRevision}>
-                    <IndiceAjuste indice={condiciones.adjustmentIndex} />
+                    <IndexBadge index={condiciones.adjustmentIndex} />
                     {condiciones.adjustmentPeriod ? `cada ${MESES_POR_PERIODO[condiciones.adjustmentPeriod]} meses · ${ajustes} ${ajustes === 1 ? 'ajuste' : 'ajustes'}` : 'periodicidad sin elegir'}
                   </span>
                 ),

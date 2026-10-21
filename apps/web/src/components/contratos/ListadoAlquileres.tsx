@@ -24,11 +24,10 @@ import { Button, Skeleton } from 'antd'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { AlquilerResumen } from '@rentar/shared-types'
-import { DataTable, MoneyAmount, PageHeader, StatusTag, type DataTableColumn } from '@rentar/ui'
+import { DataTable, IndexBadge, MoneyAmount, PageHeader, StatusTag, type DataTableColumn } from '@rentar/ui'
 import { fechaCorta } from '@/lib/contratos/fechas'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { listarMisAlquileres } from '@/services/contratos.service'
-import { IndiceAjuste } from './IndiceAjuste'
 import styles from './Contratos.module.css'
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Mis alquileres' }]
@@ -133,10 +132,10 @@ export function ListadoAlquileres() {
         celda(
           alquiler,
           alquiler.adjustmentIndex === 'sin_ajuste' ? (
-            <IndiceAjuste indice="sin_ajuste" />
+            <IndexBadge index="sin_ajuste" />
           ) : alquiler.adjustmentIndex && alquiler.nextAdjustmentDate && !terminado(alquiler) ? (
             <span className={styles.ajuste}>
-              <IndiceAjuste indice={alquiler.adjustmentIndex} />
+              <IndexBadge index={alquiler.adjustmentIndex} />
               {fechaCorta(alquiler.nextAdjustmentDate)}
             </span>
           ) : (

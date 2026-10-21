@@ -29,14 +29,13 @@ import { SearchOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ContratoResumen } from '@rentar/shared-types'
-import { ConfirmActionModal, DataTable, EmptyState, MoneyAmount, PageHeader, StatusTag, type DataTableColumn } from '@rentar/ui'
+import { ConfirmActionModal, DataTable, EmptyState, IndexBadge, MoneyAmount, PageHeader, StatusTag, type DataTableColumn } from '@rentar/ui'
 import { fechaCorta } from '@/lib/contratos/fechas'
 import { coincideBusqueda, contarPorPestania, estaEnPestania, ordenarContratos, PESTANIAS_CONTRATOS, subtituloContratos, type PestaniaContratos } from '@/lib/contratos/listado'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { eliminarBorrador, listarContratos } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { PestaniasSolicitudes } from '@/components/solicitudes/PestaniasSolicitudes'
-import { IndiceAjuste } from './IndiceAjuste'
 import styles from './Contratos.module.css'
 
 /** Detalle de un contrato (US-07). */
@@ -147,10 +146,10 @@ export function ListadoContratos() {
       title: 'Próximo ajuste',
       render: (contrato) =>
         contrato.adjustmentIndex === 'sin_ajuste' ? (
-          <IndiceAjuste indice="sin_ajuste" />
+          <IndexBadge index="sin_ajuste" />
         ) : contrato.adjustmentIndex && contrato.nextAdjustmentDate ? (
           <span className={styles.ajuste}>
-            <IndiceAjuste indice={contrato.adjustmentIndex} />
+            <IndexBadge index={contrato.adjustmentIndex} />
             {fechaCorta(contrato.nextAdjustmentDate)}
           </span>
         ) : (
