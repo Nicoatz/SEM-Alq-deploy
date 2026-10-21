@@ -60,9 +60,11 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   monto es el canónico del mapa ($385.000; el wizard del diseño decía $320.000).
 - **Firmas (US-07, tanda 3):** CT-2026-0207 arranca **pendiente con 0 firmas**; las dos partes fueron
   invitadas el 22/09 a las 11:40 (el primer reenvío ya se puede hacer). Firman Nicolás (desde el
-  detalle, `/panel/contratos/CT-2026-0207`) y Julieta. Las firmas, rechazos y reenvíos hechos en el
-  navegador se guardan en `rentar:mock:contratos` con la fecha del elenco (23/09/2026) y la **hora
-  real** (`momentoActual`). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
+  detalle, `/panel/contratos/CT-2026-0207`) y Julieta (desde **Mi alquiler**, `/panel/alquiler`). Las
+  firmas, rechazos, cancelaciones y reenvíos hechos en el navegador se guardan en
+  `rentar:mock:contratos` con la **fecha y hora reales** (`momentoActual`, decisión del PO): las
+  fechas del elenco quedan solo para lo sembrado. **No hay un contrato sembrado con 1 firma**: se arma
+  en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
   `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
   "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
 - Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial

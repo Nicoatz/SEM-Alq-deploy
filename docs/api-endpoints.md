@@ -347,6 +347,7 @@ PO): el garante es un dato del contrato y no firma en el Sprint 3.
 
 | Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|
+| `GET /contratos?rol=locatario` | pendiente (propuesto) | `#getMiAlquiler` | el usuario como locatario | — | `ContratoResumenResponse[]` (los contratos donde es locatario; el front elige el pendiente de firma o el vigente) | 401 |
 | `GET /contratos/:id` | pendiente (propuesto; amplía el de US-05) | `#getDetalleContrato` (y `#getContrato` del alta) | locador o locatario del contrato; un **borrador, solo el locador** | — | `ContratoDetalleResponse` | **404** si no existe o no es parte (**uno solo**, sin distinguir) |
 | `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
 | `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
@@ -395,7 +396,7 @@ solo pedido. Las cuatro acciones responden el detalle actualizado, así el front
 
 | Acción | Regla (US-07) |
 |---|---|
-| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha, hora e **IP**. Propuesta pendiente del OK del PO: quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`). |
+| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha, hora e **IP**. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador cancela el envío y lo vuelve a enviar. |
 | Última firma | En **una transacción**: el contrato pasa a `vigente` (con `fecha_firma_completa`); el inmueble, a **alquilado** (deja de salir en `/inmuebles/disponibles`); y sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." |
 | Rechazar | Solo el locatario y solo `pendiente_firma`. Motivo opcional, hasta 300 caracteres (`null` si viene vacío). **No cambia el estado del contrato.** |
 | Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
