@@ -51,6 +51,21 @@ export function ahora(): Dayjs {
   return USE_MOCKS ? dayjs(AHORA_ELENCO) : dayjs()
 }
 
+/**
+ * Momento de un hecho nuevo con hora y minuto (una firma, un rechazo, un
+ * reenvío; US-07). Con el backend real, la hora del sistema. En modo mock:
+ * el día del elenco ({@link HOY_ELENCO}) con la hora REAL del reloj.
+ * NOTA: con {@link ahora} (fijo a las 12:00) todas las firmas tendrían la
+ * misma hora y el límite de "un reenvío por hora" (US-07) nunca vencería.
+ * Límite conocido del mock: pasada la medianoche real, la hora vuelve a
+ * empezar en el mismo 23/09.
+ */
+export function momentoActual(): Dayjs {
+  const reloj = dayjs()
+  if (!USE_MOCKS) return reloj
+  return dayjs(HOY_ELENCO).hour(reloj.hour()).minute(reloj.minute()).second(reloj.second())
+}
+
 /** Días que faltan desde hoy hasta `fecha` (negativo si ya pasó). */
 export function diasHasta(fecha: string): number {
   return dayjs(fecha).startOf('day').diff(hoy(), 'day')
