@@ -165,7 +165,20 @@
   color: var(--rentar-color-text-primary);
 }
 
+/* Acciones del encabezado (Guardar y Eliminar borrador). */
+.headerAcciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
 @media (max-width: 767px) {
+  /* PageHeader no deja pasar de línea a sus acciones: en móvil, una debajo de la otra. */
+  .headerAcciones {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
   .contexto {
     flex-direction: column;
     align-items: flex-start;

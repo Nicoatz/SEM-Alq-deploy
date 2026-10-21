@@ -116,8 +116,10 @@
     width: 100%;
   }
 
+  /* PageHeader no deja pasar de línea a sus acciones: en móvil, una debajo de la otra. */
   .headerActions {
-    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

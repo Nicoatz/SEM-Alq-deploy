@@ -68,9 +68,9 @@ function fecha(valor: string | null): string {
 
 /** Nombre del índice dentro del texto. */
 const NOMBRE_INDICE: Record<Exclude<IndiceContrato, 'sin_ajuste'>, string> = {
-  ICL: 'el Índice para Contratos de Locación (ICL) que publica el Banco Central de la República Argentina',
-  IPC: 'el Índice de Precios al Consumidor (IPC) que publica el INDEC',
-  CAC: 'el índice del costo de la construcción de la Cámara Argentina de la Construcción (CAC)',
+  ICL: 'del Índice para Contratos de Locación (ICL) que publica el Banco Central de la República Argentina',
+  IPC: 'del Índice de Precios al Consumidor (IPC) que publica el INDEC',
+  CAC: 'del índice del costo de la construcción de la Cámara Argentina de la Construcción (CAC)',
 }
 
 // ─── Las cláusulas de la plantilla ──────────────────────────────────────
@@ -118,7 +118,7 @@ const CLAUSULAS: readonly ClausulaPlantilla[] = [
       const total = cantidadAjustes(meses, indice, periodo)
       const cada = periodo ? `cada ${MESES_POR_PERIODO[periodo]} meses` : `con la periodicidad ${FALTA}`
       const primero = fechaPrimerAjuste(inicio, meses, indice, periodo)
-      return `El precio se ajusta ${cada} según la variación de ${NOMBRE_INDICE[indice]}, tomando el último valor publicado al momento de cada ajuste. Durante el plazo del contrato habrá ${total} ${total === 1 ? 'ajuste' : 'ajustes'}${primero ? `; el primero, el ${fechaCorta(primero)}` : ''}. RentAR informa el nuevo monto antes de su vencimiento.`
+      return `El precio se ajusta ${cada} según la variación ${NOMBRE_INDICE[indice]}, tomando el último valor publicado al momento de cada ajuste. Durante el plazo del contrato habrá ${total} ${total === 1 ? 'ajuste' : 'ajustes'}${primero ? `; el primero, el ${fechaCorta(primero)}` : ''}. RentAR informa el nuevo monto antes de su vencimiento.`
     },
   },
   {

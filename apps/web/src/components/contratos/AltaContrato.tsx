@@ -276,7 +276,7 @@ function EditorContrato({ inicial, recienGuardado }: EditorContratoProps) {
   }))
 
   const acciones = (
-    <span className={styles.acciones}>
+    <span className={styles.headerAcciones}>
       {borrador.id && (
         <Button danger icon={<DeleteOutlined />} onClick={() => setConfirmarEliminar(true)} disabled={guardando || enviando} data-testid="contrato-eliminar-borrador">
           Eliminar borrador
