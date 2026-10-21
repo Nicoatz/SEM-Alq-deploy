@@ -9,28 +9,40 @@
  *   Cláusulas y Revisión). Se debe mostrar el paso actual y se puede volver
  *   a los pasos anteriores sin perder lo cargado."
  * - Cada paso se valida al tocar "Siguiente"; volver atrás no valida.
+ * - Borrador: "Guardar borrador" en el encabezado de cada paso; el primero
+ *   pasa la URL a `/[id]/editar` (`router.replace`); "Eliminar borrador"
+ *   con confirmación.
+ * - Paso 4: la casilla de revisión es obligatoria y "Enviar a firmar" pide
+ *   confirmación nombrando a los dos firmantes (decisión del PO: locador y
+ *   locatario). Al enviar, el resultado va dentro del alta.
  * Usa `WizardLayout` de `@rentar/ui` (como el alta de propiedad).
  *
  * Aviso de salida (US-21, `AvisoCambiosProvider`): marca cambios mientras
  * haya algo que no está en el borrador guardado.
  *
  * De dónde saca los datos: `contratos.service#prepararContrato` (nuevo) o
- * `#getContrato` (borrador).
+ * `#getContrato` (borrador); guarda con `#guardarBorrador`, `#eliminarBorrador`
+ * y `#enviarAFirmar`.
  * Quién lo usa: `app/(app)/panel/contratos/nuevo/page.tsx` y `[id]/editar/page.tsx`.
  */
 import { useCallback, useMemo, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
+import { DeleteOutlined, SaveOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
-import type { CondicionesNuevoContrato, ContratoBorrador, DatosContrato, GaranteContrato } from '@rentar/shared-types'
-import { EmptyState, PageHeader, WizardLayout } from '@rentar/ui'
+import type { ClausulaContrato, CondicionesNuevoContrato, ContratoBorrador, ContratoEnviado, DatosContrato, GaranteContrato } from '@rentar/shared-types'
+import { ConfirmActionModal, EmptyState, PageHeader, WizardLayout } from '@rentar/ui'
 import { completarClausulas } from '@/lib/contratos/plantilla'
-import { errorDeClausula, errorDeGarantes, erroresCondiciones } from '@/lib/contratos/validaciones'
+import { errorDeClausula, errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
 import { hoy } from '@/lib/utils/fechas'
-import { getContrato, prepararContrato } from '@/services/contratos.service'
+import { eliminarBorrador, enviarAFirmar, getContrato, guardarBorrador, prepararContrato } from '@/services/contratos.service'
+import { ServiceError } from '@/services/shared/errors'
+import { PasoClausulas } from './PasoClausulas'
 import { PasoCondiciones } from './PasoCondiciones'
 import { PasoPartes } from './PasoPartes'
+import { PasoRevision } from './PasoRevision'
+import { ResultadoEnvio } from './ResultadoEnvio'
 import styles from './AltaContrato.module.css'
 
 const MIGA = [
@@ -47,12 +59,17 @@ export const PASOS_CONTRATO = [
   { key: 'revision', title: 'Revisión' },
 ] as const
 
-/** Props de {@link AltaContrato}. Uno de los dos. */
+/** Índice del último paso (Revisión). */
+const ULTIMO_PASO = PASOS_CONTRATO.length - 1
+
+/** Props de {@link AltaContrato}. Uno de los dos ids. */
 interface AltaContratoProps {
   /** Solicitud aceptada de la que nace (`/nuevo?solicitud=`). */
   solicitudId?: string
   /** Borrador a retomar (`/[id]/editar`). */
   contratoId?: string
+  /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
+  recienGuardado?: boolean
 }
 
 /** Lo que se guarda del borrador, en el paso actual. */
@@ -81,26 +98,43 @@ export function errorDelPaso(borrador: ContratoBorrador, paso: number): string |
   return null
 }
 
+/** Mensaje de un error de service, o uno genérico. */
+function mensajeDe(error: unknown, generico: string): string {
+  return error instanceof ServiceError ? error.message : generico
+}
+
 // ─── Editor (con el contrato ya cargado) ────────────────────────────────
 
 /** Props de {@link EditorContrato}. */
 interface EditorContratoProps {
   inicial: ContratoBorrador
+  recienGuardado: boolean
 }
 
 /** El wizard, con el contrato cargado. Se monta de nuevo si cambia el contrato (`key`). */
-function EditorContrato({ inicial }: EditorContratoProps) {
+function EditorContrato({ inicial, recienGuardado }: EditorContratoProps) {
+  const router = useRouter()
+
   // ─── Estado local ───────────────────────────────────────────────────
   const [borrador, setBorrador] = useState<ContratoBorrador>(inicial)
   // US-05: "un borrador se puede retomar desde el paso en que quedó".
-  const [paso, setPaso] = useState(() => Math.min(Math.max(inicial.ultimoPaso, 0), PASOS_CONTRATO.length - 1))
-  /** Pasos en los que ya se tocó "Siguiente": ahí se muestran todos los errores. */
+  const [paso, setPaso] = useState(() => Math.min(Math.max(inicial.ultimoPaso, 0), ULTIMO_PASO))
+  /** Pasos en los que ya se tocó "Siguiente" (o "Enviar"): ahí se muestran todos los errores. */
   const [conErrores, setConErrores] = useState<ReadonlySet<number>>(() => new Set())
   const [errorPaso, setErrorPaso] = useState<string | null>(null)
   /** Lo último guardado (o lo que vino al abrir), para saber si hay cambios. */
-  const [guardado] = useState(() => huella(inicial))
+  const [guardado, setGuardado] = useState(() => huella(inicial))
+  const [guardando, setGuardando] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(recienGuardado ? 'Guardamos el borrador. Lo retomás desde Contratos cuando quieras.' : null)
+  const [errorAccion, setErrorAccion] = useState<string | null>(null)
+  const [acepto, setAcepto] = useState(false)
+  const [confirmarEnvio, setConfirmarEnvio] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [enviado, setEnviado] = useState<ContratoEnviado | null>(null)
+  const [confirmarEliminar, setConfirmarEliminar] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
-  const hayCambios = huella(borrador) !== guardado
+  const hayCambios = !enviado && huella(borrador) !== guardado
   useAvisoCambiosSinGuardar(hayCambios)
 
   // ─── Handlers ───────────────────────────────────────────────────────
@@ -119,6 +153,10 @@ function EditorContrato({ inicial }: EditorContratoProps) {
     })
   }, [])
 
+  const cambiarClausulas = useCallback((clausulas: ClausulaContrato[]) => {
+    setBorrador((actual) => ({ ...actual, clausulas }))
+  }, [])
+
   /** Hacia adelante valida el paso actual; hacia atrás, nunca (US-05: "sin perder lo cargado"). */
   function irAlPaso(siguiente: number): void {
     if (siguiente > paso) {
@@ -133,8 +171,94 @@ function EditorContrato({ inicial }: EditorContratoProps) {
     setPaso(siguiente)
   }
 
+  /** US-05: "Se puede guardar el contrato como borrador desde cualquier paso." */
+  async function guardar(): Promise<void> {
+    setGuardando(true)
+    setErrorAccion(null)
+    setAviso(null)
+    try {
+      const nuevo = await guardarBorrador(borrador.id, datosDe(borrador, paso))
+      setGuardado(huella(nuevo))
+      if (!borrador.id && nuevo.id) {
+        // El primer guardado: la URL pasa a la del borrador, así una recarga lo retoma.
+        router.replace(`/panel/contratos/${encodeURIComponent(nuevo.id)}/editar?guardado=1`)
+        return
+      }
+      setBorrador(nuevo)
+      setAviso('Guardamos el borrador. Lo retomás desde Contratos cuando quieras.')
+    } catch (error) {
+      setErrorAccion(mensajeDe(error, 'No pudimos guardar el borrador. Probá de nuevo.'))
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  /** US-05: "Se puede eliminar un borrador, previa confirmación." */
+  async function eliminar(): Promise<void> {
+    if (!borrador.id) return
+    setEliminando(true)
+    setErrorAccion(null)
+    try {
+      await eliminarBorrador(borrador.id)
+      setGuardado(huella(borrador))
+      router.push('/panel/contratos')
+    } catch (error) {
+      setErrorAccion(mensajeDe(error, 'No pudimos eliminar el borrador. Probá de nuevo.'))
+      setConfirmarEliminar(false)
+    } finally {
+      setEliminando(false)
+    }
+  }
+
+  /** "Enviar a firmar" (US-05, paso 4): la casilla y los datos, y después la confirmación. */
+  function pedirEnvio(): void {
+    setConErrores((actual) => new Set(actual).add(ULTIMO_PASO))
+    if (!acepto) {
+      setErrorPaso(null)
+      return
+    }
+    const error = errorParaEnviar(borrador, hoy().format('YYYY-MM-DD'))
+    if (error) {
+      setErrorPaso(error)
+      return
+    }
+    setErrorPaso(null)
+    setConfirmarEnvio(true)
+  }
+
+  async function enviar(): Promise<void> {
+    setEnviando(true)
+    setErrorAccion(null)
+    try {
+      const resultado = await enviarAFirmar(borrador.id, datosDe(borrador, ULTIMO_PASO))
+      setGuardado(huella(borrador))
+      setEnviado(resultado)
+      setConfirmarEnvio(false)
+    } catch (error) {
+      setErrorAccion(mensajeDe(error, 'No pudimos enviar el contrato. Probá de nuevo.'))
+      setConfirmarEnvio(false)
+    } finally {
+      setEnviando(false)
+    }
+  }
+
   // ─── Render ─────────────────────────────────────────────────────────
-  const pasoConError = errorPaso ? paso : null
+  const nombreLocador = `${borrador.locador.nombre} ${borrador.locador.apellido}`.trim()
+  const nombreLocatario = `${borrador.locatario.nombre} ${borrador.locatario.apellido}`.trim()
+  const titulo = borrador.id ? 'Continuar contrato' : 'Nuevo contrato'
+  const miga = [...MIGA.slice(0, 2), { label: titulo }]
+  const subtitulo = `${borrador.propiedad.address} · ${nombreLocatario}`
+
+  if (enviado) {
+    return (
+      <div className={styles.page}>
+        <PageHeader title="Contrato enviado" subtitle={subtitulo} breadcrumb={miga} />
+        <ResultadoEnvio enviado={enviado} direccion={borrador.propiedad.address} />
+      </div>
+    )
+  }
+
+  const pasoConError = errorPaso && paso < ULTIMO_PASO ? paso : null
   const steps = PASOS_CONTRATO.map((definicion, indice) => ({
     key: definicion.key,
     title: definicion.title,
@@ -144,20 +268,76 @@ function EditorContrato({ inicial }: EditorContratoProps) {
         <PasoPartes borrador={borrador} onGarantesChange={cambiarGarantes} mostrarErrores={conErrores.has(0)} />
       ) : indice === 1 ? (
         <PasoCondiciones borrador={borrador} onCondicionesChange={cambiarCondiciones} mostrarErrores={conErrores.has(1)} />
+      ) : indice === 2 ? (
+        <PasoClausulas borrador={borrador} onClausulasChange={cambiarClausulas} mostrarErrores={conErrores.has(2)} />
       ) : (
-        <p className={styles.referencia}>Este paso se completa en el próximo commit.</p>
+        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} />
       ),
   }))
 
+  const acciones = (
+    <span className={styles.acciones}>
+      {borrador.id && (
+        <Button danger icon={<DeleteOutlined />} onClick={() => setConfirmarEliminar(true)} disabled={guardando || enviando} data-testid="contrato-eliminar-borrador">
+          Eliminar borrador
+        </Button>
+      )}
+      <Button icon={<SaveOutlined />} onClick={() => void guardar()} loading={guardando} disabled={enviando} data-testid="contrato-guardar-borrador">
+        Guardar borrador
+      </Button>
+    </span>
+  )
+
   return (
     <div className={styles.page} data-testid="contrato-alta">
-      <PageHeader
-        title="Nuevo contrato"
-        subtitle={`${borrador.propiedad.address} · ${`${borrador.locatario.nombre} ${borrador.locatario.apellido}`.trim()}`}
-        breadcrumb={MIGA}
+      <PageHeader title={titulo} subtitle={subtitulo} breadcrumb={miga} actions={acciones} />
+      {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-borrador-guardado" />}
+      {errorAccion && <Alert type="error" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setErrorAccion(null)} title={errorAccion} data-testid="contrato-error" />}
+      {errorPaso && (
+        <Alert
+          type="error"
+          showIcon
+          title={paso === ULTIMO_PASO ? 'Falta algo para enviar a firmar' : 'Revisá el paso antes de seguir'}
+          description={errorPaso}
+          data-testid="contrato-error-paso"
+        />
+      )}
+      <WizardLayout
+        steps={steps}
+        currentStep={paso}
+        onStepChange={irAlPaso}
+        onFinish={pedirEnvio}
+        finishLabel="Enviar a firmar"
+        navigableSteps
+        loading={enviando}
+        data-testid="contrato-wizard"
       />
-      {errorPaso && <Alert type="error" showIcon title="Revisá el paso antes de seguir" description={errorPaso} data-testid="contrato-error-paso" />}
-      <WizardLayout steps={steps} currentStep={paso} onStepChange={irAlPaso} navigableSteps data-testid="contrato-wizard" />
+
+      {/* US-05: "Se debe solicitar confirmación antes de enviar a firmar, indicando quiénes deben firmar." */}
+      <ConfirmActionModal
+        open={confirmarEnvio}
+        title="¿Enviar el contrato a firmar?"
+        description={`Lo van a firmar ${nombreLocador} (locador, vos) y ${nombreLocatario} (locatario), cada uno desde su panel. Después de enviarlo ya no se puede editar.`}
+        confirmLabel="Enviar a firmar"
+        cancelLabel="Seguir revisando"
+        confirmLoading={enviando}
+        onConfirm={() => void enviar()}
+        onCancel={() => setConfirmarEnvio(false)}
+        data-testid="contrato-enviar-modal"
+      />
+
+      <ConfirmActionModal
+        open={confirmarEliminar}
+        title="¿Eliminar este borrador?"
+        description={`Se borra el contrato en borrador de ${borrador.propiedad.address} con ${nombreLocatario}. La solicitud aceptada queda como está.`}
+        confirmLabel="Eliminar borrador"
+        cancelLabel="Cancelar"
+        danger
+        confirmLoading={eliminando}
+        onConfirm={() => void eliminar()}
+        onCancel={() => setConfirmarEliminar(false)}
+        data-testid="contrato-eliminar-modal"
+      />
     </div>
   )
 }
@@ -165,7 +345,7 @@ function EditorContrato({ inicial }: EditorContratoProps) {
 // ─── Carga ──────────────────────────────────────────────────────────────
 
 /** Alta de contrato: carga el contrato (nuevo o borrador) y monta el wizard. */
-export function AltaContrato({ solicitudId, contratoId }: AltaContratoProps) {
+export function AltaContrato({ solicitudId, contratoId, recienGuardado = false }: AltaContratoProps) {
   const router = useRouter()
   const cargar = useCallback(() => (contratoId ? getContrato(contratoId) : prepararContrato(solicitudId ?? '')), [contratoId, solicitudId])
   const carga = useServiceCall(cargar)
@@ -230,5 +410,5 @@ export function AltaContrato({ solicitudId, contratoId }: AltaContratoProps) {
     )
   }
 
-  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} />
+  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} recienGuardado={recienGuardado} />
 }

@@ -4,6 +4,8 @@
  *
  * Qué es: el mismo alta en 4 pasos (`AltaContrato`), con el borrador
  * guardado. Si el contrato ya no es borrador, avisa que no se puede editar.
+ * `?guardado=1` llega del primer "Guardar borrador" del alta (que reemplaza
+ * `/nuevo` por esta URL) y muestra el aviso de guardado.
  * NOTA: esta ruta NO está en `docs/MapaDePantallas.pdf` (el mapa solo tiene
  * `/nuevo` y `/[id]`). Decisión del PO, Sprint 3: `/[id]` queda para el
  * detalle de US-07 y el borrador se edita acá (como
@@ -19,8 +21,9 @@ import { AltaContrato } from '@/components/contratos/AltaContrato'
 export const metadata: Metadata = { title: 'Continuar contrato' }
 
 /** Monta el alta con el borrador `id`. */
-export default async function EditarContratoPage({ params }: PageProps<'/panel/contratos/[id]/editar'>) {
+export default async function EditarContratoPage({ params, searchParams }: PageProps<'/panel/contratos/[id]/editar'>) {
   const { id } = await params
+  const { guardado } = await searchParams
   const contratoId = decodeURIComponent(id)
-  return <AltaContrato key={contratoId} contratoId={contratoId} />
+  return <AltaContrato key={contratoId} contratoId={contratoId} recienGuardado={guardado === '1'} />
 }
