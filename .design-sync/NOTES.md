@@ -289,6 +289,24 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   var(--ant-control-height) }` de antd, que se inyecta después y gana. Igualarlo a los selects es un
   cambio visual: consultarlo con el PO.
 
+## (Pendiente de subir) `StatusTag` tolera estados desconocidos (2026-10-21)
+
+- **`getStatusMeta` nunca devuelve `undefined`.** Con un dominio o un estado que no están en
+  `statusMeta` (o con `status` vacío), devuelve `{ label: String(status ?? '—'), colorKey:
+  'neutral', icon: QuestionCircleFilled }` y, solo en desarrollo, un `console.warn` con `domain` y
+  `status`. Antes, un estado nuevo del back rompía la pantalla con "Cannot read properties of
+  undefined (reading 'icon')". El parámetro `status` acepta también `null`/`undefined`; el tipo de
+  retorno sigue siendo `StatusMeta`, que ahora es cierto en ejecución. Usa `Object.hasOwn`, así que un
+  estado como `"constructor"` cae al fallback en vez de devolver algo del prototipo.
+- **`StatusTag`**: si una entrada no tiene ícono, el `Tag` sale sin ícono; si el `colorKey` no
+  tiene clase, usa la de `neutral`. La API no cambia y los estados conocidos se ven igual.
+  `StatusTag` es el único que consume `getStatusMeta`/`statusMeta` en `packages/ui` y `apps/web`.
+- **`DataTable`**: el JSDoc de `columns[].render` aclara que la firma es `render(record)`, **no** la
+  de antd (`render(value, record, index)`). Solo documentación: la API no cambia.
+- **Tests nuevos en `@rentar/ui`** (`npm test --workspace=@rentar/ui`): Vitest + jsdom + Testing
+  Library (`vitest.config.mts`), `src/components/data/StatusTag.test.tsx`.
+  `tsconfig.types.json` excluye los `*.test.ts(x)` para que no lleguen al `.d.ts` de `/design-sync`.
+
 ## Re-sync del 2026-10-16 (`Header#loginHref`): proyecto de la cuenta nueva
 
 - **Desde el 16/10, `config.json` apunta al proyecto de la cuenta nueva:

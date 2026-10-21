@@ -14,5 +14,7 @@
     "paths": {
       "@rentar/shared-types": ["../shared-types/dist/index.d.ts"]
     }
-  }
+  },
+  // Los tests no van en el .d.ts que lee /design-sync.
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx"]
 }

@@ -9,6 +9,7 @@
 import { Tag } from 'antd'
 import type { StatusDomain, StatusDomainMap } from '@rentar/shared-types'
 import type { SemanticColorKey } from '../../tokens/semantic'
+import type { StatusMeta } from '../../tokens/status-meta'
 import { getStatusMeta } from '../../utils/getStatusMeta'
 import styles from './StatusTag.module.css'
 
@@ -60,11 +61,14 @@ interface StatusTagProps<D extends StatusDomain = StatusDomain> {
  * <StatusTag domain="contrato" status="pendiente_firma" />
  */
 export function StatusTag<D extends StatusDomain = StatusDomain>({ domain, status, ...rest }: StatusTagProps<D>) {
+  // `getStatusMeta` nunca devuelve undefined (con un estado desconocido da un
+  // fallback neutro), pero igual no se asume el ícono: si una entrada de
+  // `statusMeta` quedara sin ícono, la etiqueta sale sin él en vez de romper.
   const meta = getStatusMeta(domain, status)
-  const Icon = meta.icon
+  const Icon: StatusMeta['icon'] | undefined = meta.icon
 
   return (
-    <Tag className={TAG_CLASS_BY_KEY[meta.colorKey]} icon={<Icon />} {...rest}>
+    <Tag className={TAG_CLASS_BY_KEY[meta.colorKey] ?? styles.neutral} icon={Icon ? <Icon /> : undefined} {...rest}>
       {meta.label}
     </Tag>
   )
