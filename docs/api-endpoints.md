@@ -230,6 +230,112 @@ front trata cualquier 409 de esta ruta como DNI duplicado.
 entero (reemplaza al anterior). Responde el legajo guardado. 400 si `ingresos` no es un entero mayor
 a 0 (o `null`), o si un código no existe.
 
+## Contratos (Sprint 3, US-05) · PROPUESTO
+
+**Ninguna de estas rutas existe todavía.** Son la propuesta del front (Sprint 3, tanda 2): el listado
+y el alta funcionan en modo mock y la rama real ya llama a estas rutas. Front:
+`services/contratos.service.ts`, `services/adapters/contrato.adapter.ts` y los DTO en
+`services/shared/backend-dtos.ts` ("Contratos"). Todas con **Bearer** y **solo para el locador dueño
+del inmueble** (el usuario sale del token). Antes de hacerlas, ver el **bloqueante del esquema** en
+[`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-05".
+
+| Método y ruta | Estado | Service | Body / query | Respuesta (`data`) | Errores |
+|---|---|---|---|---|---|
+| `GET /contratos` | pendiente (propuesto) | `contratos.service#listarContratos` | — | `ContratoResumenResponse[]` | 401 |
+| `GET /contratos/preparar?id_solicitud=` | pendiente (propuesto) | `#prepararContrato` | `id_solicitud` | `ContratoResponse` sin guardar (`id`, `codigo` y `condiciones` en `null`, `clausulas: []`) | 404 (la solicitud no existe o no es de un inmueble suyo), **409** `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`, `PROPIEDAD_CON_CONTRATO` |
+| `POST /contratos` | pendiente (propuesto) | `#guardarBorrador` (sin id) | `ContratoRequest` | 201 `ContratoResponse` (`estado: "borrador"`) | 400, 404, **409** `SOLICITUD_CON_CONTRATO`, `PROPIEDAD_CON_CONTRATO` |
+| `PUT /contratos/:id` | pendiente (propuesto) | `#guardarBorrador` (con id) | `ContratoRequest` | 200 `ContratoResponse` | 400, 404, **409** `CONTRATO_NO_EDITABLE` |
+| `DELETE /contratos/:id` | pendiente (propuesto) | `#eliminarBorrador` | — | 204 | 404, **409** `CONTRATO_NO_EDITABLE` |
+| `POST /contratos/:id/enviar` | pendiente (propuesto) | `#enviarAFirmar` | — | 200 `ContratoEnviadoResponse` | 400 (falta un dato), 404, **409** `CONTRATO_NO_EDITABLE`, `PROPIEDAD_CON_CONTRATO` |
+| `GET /contratos/:id` | pendiente (propuesto) | `#getContrato` | — | `ContratoResponse` | 404 (no existe o no es suyo: no se distingue) |
+| `GET /solicitudes/recibidas` | conectado; **faltan dos campos** | `solicitudes.service#listarSolicitudesRecibidas` | (sin cambios) | Lo de hoy + `id_contrato`, `estado_contrato` y `inmueble_con_contrato` (propuestos) | (sin cambios) |
+
+**Los 409 llevan `codigo`** en el sobre (`{ success: false, error, codigo }`), como los del perfil. El
+front los traduce en `contrato.adapter.ts#errorDeContrato`; sin `codigo`, usa el más común de cada ruta.
+
+**`ContratoResumenResponse`** (`GET /contratos`), una fila del listado. Sin DNI ni contacto:
+
+```json
+{
+  "id": 207,
+  "codigo": "CT-2026-0207",
+  "estado": "pendiente_firma",
+  "inmueble": { "id": 8, "direccion": "Rondeau", "numero": 480, "piso": "PB", "barrio": "Güemes" },
+  "locatario": { "nombre": "Julieta", "apellido": "Peralta" },
+  "monto_actual": 385000,
+  "fecha_inicio": "2026-10-01",
+  "fecha_fin": "2029-09-30",
+  "indice": "ICL",
+  "proximo_ajuste": "2027-04-01",
+  "id_solicitud": 31
+}
+```
+
+- `estado`: `borrador`, `pendiente_firma`, `vigente`, `finalizado` o `rescindido`.
+- `codigo`: `null` en los borradores (se asigna al enviar a firmar).
+- `indice`: `sin_ajuste`, `ICL`, `IPC` o `CAC`. `proximo_ajuste`: `null` si no quedan ajustes.
+- `monto_actual`: el monto con los ajustes aplicados (en un borrador, el inicial cargado o `null`).
+
+**`ContratoResponse`** (`GET /contratos/:id`, `/preparar`, y la respuesta de `POST` y `PUT`):
+
+```json
+{
+  "id": 207,
+  "codigo": "CT-2026-0207",
+  "estado": "pendiente_firma",
+  "id_solicitud": 31,
+  "fecha_aceptacion_solicitud": "2026-09-21",
+  "inmueble": {
+    "id": 8, "direccion": "Rondeau", "numero": 480, "piso": "PB", "barrio": "Güemes",
+    "precio_publicado": 385000, "indice_publicacion": "ICL",
+    "medios_pago": [1, 4], "dias_gracia": 5, "interes_por_dia": 0.5
+  },
+  "locador": { "id": 1, "nombre": "Nicolás", "apellido": "Arrieta", "numero_documento": "30123456", "email": "nicolas.arrieta@rentar.test", "telefono": "543515550101" },
+  "locatario": { "id": 3, "nombre": "Julieta", "apellido": "Peralta", "numero_documento": "40123456", "email": "julieta.peralta@rentar.test", "telefono": "543515550103" },
+  "garantias_ofrecidas": ["caucion"],
+  "garantes": [{ "nombre_apellido": "Hugo Peralta", "numero_documento": "14902338", "email": "hugo.peralta@rentar.test" }],
+  "condiciones": {
+    "fecha_inicio": "2026-10-01", "duracion_meses": 36, "monto_inicial": 385000, "deposito": 385000,
+    "dia_vencimiento": 10, "indice": "ICL", "periodicidad": "semestral"
+  },
+  "clausulas": [{ "clave": "objeto", "tipo": "fija", "titulo": "Partes, objeto y destino", "texto": "…", "editada": false }],
+  "ultimo_paso": 3
+}
+```
+
+- `locador` y `locatario` salen de `usuario`: el front **no** los manda al guardar.
+- `garantias_ofrecidas`: las que el locatario ofreció en la solicitud (`solicitud_x_garantia`).
+- `medios_pago`: ids de `medio_pago`, como en `/mis-alquileres`.
+- `clausulas`: el texto completo que se firma. Las arma el front con su plantilla
+  (`apps/web/src/lib/contratos/plantilla.ts`); el back las **guarda tal cual**. `clave` es la de la
+  plantilla (`objeto`, `plazo`, `precio`…) o `propia-<n>`.
+- `ultimo_paso`: de 0 a 3, para retomar el borrador donde quedó.
+
+**`ContratoRequest`** (`POST /contratos` y `PUT /contratos/:id`): `{ id_solicitud, garantes,
+condiciones, clausulas, ultimo_paso }`. Un borrador puede guardarse con datos incompletos
+(`condiciones` con campos en `null`). Validaciones que el back tiene que repetir **al enviar**
+(`POST /contratos/:id/enviar` responde 400 con el primer error):
+
+| Dato | Regla (US-05) |
+|---|---|
+| Garantes | Hasta 3. Nombre y apellido, DNI (7 u 8 dígitos) y correo (formato de US-35), los tres obligatorios. Sin repetir DNI ni correo entre garantes. No pueden ser el locador ni el locatario. |
+| `fecha_inicio` | Obligatoria, no anterior a hoy. |
+| `duracion_meses` | Entero mayor a 0. |
+| `monto_inicial` | Entero mayor a 0. |
+| `deposito` | Entero mayor o igual a 0 (puede ser `null`: sin depósito). |
+| `dia_vencimiento` | Entero de 1 a 28. |
+| `periodicidad` | Obligatoria si `indice` no es `sin_ajuste`; `null` si lo es. |
+| Cláusulas | Las editables y las propias, no vacías y de hasta 1.000 caracteres. Las fijas no se pueden cambiar. |
+
+- **Fecha de fin** (la calcula el back al guardar): inicio + N meses − 1 día; si ese día no existe en
+  el mes de destino, el último día de ese mes (31/01 + 1 mes → 28/02). **Ajustes:** floor((N − 1) /
+  período); el primero, en inicio + período. Casos verificados en `lib/contratos/fechas.ts`.
+- **`POST /contratos/:id/enviar`**: pasa a `pendiente_firma`, asigna el código `CT-AAAA-NNNN`
+  (correlativo por año) y lo deja inmutable. **No toca el inmueble** (sigue publicado, decisión del
+  PO). 409 `PROPIEDAD_CON_CONTRATO` si mientras tanto otro contrato del inmueble quedó vigente o
+  pendiente.
+- **`ContratoEnviadoResponse`**: `{ id, codigo, estado: "pendiente_firma" }`.
+
 ## Panel del locador (`/panel`)
 
 Módulos de sprints futuros. En modo real, las funciones devuelven vacío (con `TODO(backend)`) y la

@@ -181,6 +181,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 | `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
+| `GET /contratos`, `GET /contratos/preparar`, `POST /contratos`, `PUT /contratos/:id`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar`, `GET /contratos/:id` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Pendiente** (propuesto, tanda 2 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas. **Bloqueante del esquema** en §7, "US-05" |
 | Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
 
 ## 6. Status HTTP y errores
@@ -201,6 +202,82 @@ de error:
 
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
+
+### US-05 Registrar contrato de alquiler (Sprint 3, tanda 2, `/panel/contratos`)
+
+El listado y el alta en 4 pasos funcionan en **modo mock**; la rama real llama a rutas **propuestas**
+que todavía no existen. Contrato completo (body, respuesta, errores, ejemplos y reglas) en
+[`api-endpoints.md`](api-endpoints.md), "Contratos". Front: `services/contratos.service.ts`,
+`services/adapters/contrato.adapter.ts`, `components/contratos/*`, `lib/contratos/*` y
+`app/(app)/panel/contratos/*`.
+
+**BLOQUEANTE del esquema (antes de hacer las rutas).** Hoy la tabla `contrato` cumple dos funciones
+que chocan:
+
+1. **Guarda las condiciones de la PUBLICACIÓN.** El alta de propiedad (US-01) crea una fila de
+   `contrato` con estado `disponible` y ahí deja precio, expensas, índice, frecuencia, duración,
+   depósito, interés y días de gracia, más `medio_pago_x_contrato`. No es un contrato con nadie.
+2. **`contrato.id_inmueble` es `UNIQUE`**: un inmueble tiene una sola fila de `contrato` en toda su
+   vida.
+
+Con eso no se puede:
+
+- tener un contrato **pendiente de firma mientras la propiedad sigue publicada** (decisión del PO):
+  la única fila es la de la publicación;
+- guardar el **historial** (Rondeau 480 tiene un contrato finalizado, CT-2023-0041, y uno pendiente,
+  CT-2026-0207) ni renovar.
+
+**Propuesta (para hablar con el equipo; no se hizo nada):**
+
+- Las condiciones de la publicación van al inmueble: columnas en `inmueble` (`precio`, `expensas`,
+  `id_tipo_indice`, `meses_ajuste`, `duracion_meses`, `meses_deposito`, `interes_por_dia`,
+  `dias_gracia`) más `medio_pago_x_inmueble`, o una tabla propia `condiciones_publicacion` 1 a 1 con
+  `inmueble`.
+- `contrato` queda solo para contratos reales, **sin el `UNIQUE`** en `id_inmueble`, y la regla "un
+  solo contrato vigente o pendiente de firma por inmueble" se controla en el back (o con un índice
+  único parcial `WHERE estado IN (pendiente_firma, vigente)`).
+- Esto toca US-01, US-02, US-03 y `/inmuebles/disponibles`, que hoy leen las condiciones de
+  `contrato`: hay que migrar los datos y los adaptadores del front (`propiedad.adapter.ts`).
+
+**Lo que le falta al back y a la base**
+
+| # | Qué | Para qué | Dueño |
+|---|---|---|---|
+| 1 | Separar publicación y contrato (bloqueante de arriba) | Contrato pendiente con la propiedad publicada; historial | db + backend |
+| 2 | `estado_contrato`: sumar `borrador`, `pendiente_firma` y `rescindido` (hoy solo hay `disponible`, `vigente` y `finalizado`) | Los estados de US-05 y US-07 | db |
+| 3 | Columnas en `contrato`: `codigo` (único, `CT-AAAA-NNNN`), `id_solicitud` (único: una aceptada origina un solo contrato), `monto_inicial`, `dia_vencimiento`, `periodicidad` (`trimestral`, `semestral`, `anual`), `ultimo_paso`, `fecha_envio` y fechas de alta y cambio | Los datos del alta | db |
+| 4 | Tabla de **garantes** (`id_contrato`, `nombre_apellido`, `numero_documento`, `email`). `contrato_x_usuario` no sirve: exige que sean usuarios, y el garante no tiene cuenta | Paso 1 | db |
+| 5 | Tabla de **cláusulas** (`id_contrato`, `orden`, `clave`, `tipo`, `titulo`, `texto`, `editada`) | Paso 3 | db |
+| 6 | Tabla de **firmas** (firmante, fecha y hora, IP, estado, motivo de rechazo) | US-07 (tanda 3) | db |
+| 7 | `tipo_indice`: el "Sin ajuste" se guarda como `indice_aumento` en `NULL` (o una fila nueva). CAC ya existe (id 3) | Paso 2 | db |
+| 8 | Las 7 rutas de `/contratos` (ver `api-endpoints.md`), con `codigo` en los 409 | Todo US-05 | backend |
+| 9 | `/solicitudes/recibidas`: sumar `id_contrato` y `estado_contrato` (el contrato que originó la solicitud) e `inmueble_con_contrato` (si el inmueble tiene otro vigente o pendiente) | "Iniciar contrato" / "Continuar contrato". Mientras no vengan, en real el botón aparece en toda aceptada y lo frena el 409 de `/preparar` (TODO(backend) en `solicitud.adapter.ts`) | backend |
+| 10 | `AdjustmentIndex` (el índice de la publicación) no tiene CAC: el alta de propiedad solo ofrece ICL e IPC. El contrato sí lo ofrece (`IndiceContrato`). Si la publicación tiene que poder usar CAC, se suma a US-01 y al tipo | Coherencia publicación/contrato | front + PO |
+
+**Decisiones del PO de esta tanda**
+
+- **Firmas:** firman locador y locatario. El garante es un dato del contrato y **no firma** este
+  sprint (la confirmación del paso 4 nombra solo a los dos).
+- **Cláusulas:** solo la plantilla RentAR (fijas, editables y propias). Sin "Subir mi PDF". El texto
+  de la plantilla es un **borrador para revisar con el equipo** (`lib/contratos/plantilla.ts`).
+- **Pendiente de firma:** la propiedad sigue publicada.
+- **Rutas:** `/panel/contratos`, `/panel/contratos/nuevo?solicitud=<id>` y
+  `/panel/contratos/[id]/editar`. **`/[id]/editar` no está en `docs/MapaDePantallas.pdf`** (el mapa
+  tiene `/nuevo` y `/[id]`): `/[id]` queda para el detalle de US-07. Sin `?solicitud=`, `/nuevo`
+  muestra un selector de solicitudes aceptadas sin contrato (nada de carga manual).
+- **Después de enviar:** el resultado va dentro del alta (código, firmantes, "Ir a Contratos"). En el
+  listado, pendientes, vigentes y finalizados van sin link hasta la tanda 3.
+- **Índice por defecto:** el de la publicación (ICL o IPC); si no tiene, "Sin ajuste".
+- **Guard:** `RequireRole role="locador"` en `/panel/contratos` y subrutas (`layout.tsx`).
+
+**Pendiente del front (issue #15):** la regla "mientras el inmueble tenga una solicitud aceptada,
+sigue publicado pero no recibe solicitudes nuevas" (tanda 5 del Sprint 2) **no está en el mock**:
+`solicitudes.service#propiedadSolicitableMock` solo mira el estado de la propiedad. Con SOL-2026-0031
+aceptada, Rondeau 480 sigue recibiendo solicitudes nuevas en mock.
+
+**Datos sensibles:** el DNI de las partes y de los garantes se ve solo en el alta (pasos 1 y 4), nunca
+en el listado. En mock, el DNI de los garantes que se cargan no se guarda en `localStorage` (vive en
+memoria hasta recargar; ver §10).
 
 ### US-20 y US-21 Mi perfil (Sprint 3, tanda 1, `/panel/perfil`)
 
@@ -844,6 +921,10 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
    se editan ahí viven solo en memoria (`services/perfil.service.ts`). La contraseña que se cambia
    en el perfil sí va a `rentar:mock:usuarios`, igual que la del registro (para poder entrar con la
    nueva). En modo real no se guarda nada de esto en el navegador.
+   **Contratos (Sprint 3, tanda 2):** el borrador se guarda en `rentar:mock:contratos` **sin el DNI
+   de los garantes**, que vive en memoria hasta recargar (`services/adapters/contrato-mock.adapter.ts`);
+   al recargar, el borrador pide el DNI de nuevo. El DNI de las partes no se guarda en el contrato:
+   se lee del perfil.
 
 ## 11. Numeración de las User Stories
 
@@ -900,6 +981,9 @@ sesión dura hasta cerrarla).
 | `/panel/solicitudes` (US-36 a US-38, Sprint 2) | `solicitudes`, `solicitudes-tab-<pendientes\|aceptadas\|cerradas\|todas>`, `solicitudes-filtro-propiedad`, `solicitudes-orden`, `solicitudes-grupo`, `solicitudes-fila` (la elegida lleva `aria-current="true"` en el botón del nombre, solo en escritorio), `solicitudes-fila-tiempo` ("hace 3 h", "hace 2 días" o "aceptada el 14/09"), `solicitudes-fila-resumen` (convivientes, mascotas, garantías y si declaró ingresos), `solicitudes-fila-mensaje` (extracto de 2 líneas o "Sin mensaje."). **Acciones de la fila, solo en móvil (<768 px; en escritorio están en el detalle, tanda C):** `solicitudes-aceptar-button`, `solicitudes-aceptar-bloqueado` (envuelve al "Aceptar" deshabilitado cuando la propiedad ya tiene una aceptada; el motivo va en el tooltip), `solicitudes-rechazar-button`, `solicitudes-cancelar-button` (aceptada, US-38), `solicitudes-ver-detalle` (rechazada o cancelada). En todos los anchos: `solicitudes-motivo-rechazo` (rechazada con motivo, truncado a 80), `solicitudes-aviso-aceptar`, `solicitudes-cerradas-aviso` (en "Cerradas", modo real: las canceladas no llegan). Detalle del postulante (panel del costado en escritorio; en móvil, dentro de `solicitudes-detalle-drawer`): `solicitudes-detalle`, `solicitudes-detalle-legajo` (con `solicitudes-detalle-contacto` adentro) o `solicitudes-detalle-sin-legajo`; mientras se piden los datos del postulante, `solicitudes-detalle-cargando`; si fallan, `solicitudes-detalle-error` + `solicitudes-detalle-reintentar`; aceptada en modo real, `solicitudes-detalle-aviso-aceptada`; `solicitudes-detalle-mensaje`, `solicitudes-detalle-motivo-rechazo` (rechazada: el motivo completo o "No escribiste un motivo."), `solicitudes-detalle-aceptar-button`, `solicitudes-detalle-aceptar-bloqueado`, `solicitudes-detalle-rechazar-button`, `solicitudes-detalle-cancelar-button` (solo en mock: en real se oculta, §7 brecha 1). Modales: `solicitudes-aceptar-modal` (en real, con `solicitudes-aceptar-aviso`), `solicitudes-rechazar-modal` (con `solicitudes-rechazar-motivo`, el TextArea opcional de 200), `solicitudes-cancelar-modal`, con `confirm-action-ok` y `confirm-action-cancel` adentro; error de la acción: `solicitudes-accion-error` + `solicitudes-accion-reintentar`; 409: `solicitudes-conflicto`. Estados: `solicitudes-cargando`, `solicitudes-vacio` (con `data-caso` = `sin_propiedades`, `sin_publicadas` o `con_publicadas`; adentro, `solicitudes-vacio-publicar` y/o `solicitudes-vacio-propiedades`), `solicitudes-sin-resultados`, `solicitudes-error`, `solicitudes-reintentar` |
 | `/panel/mis-solicitudes` (US-36, Sprint 2) | `mis-solicitudes`, `mis-solicitudes-tab-<todas\|pendientes\|aceptadas\|cerradas>`, `mis-solicitudes-fila`, `mis-solicitudes-estado-texto`, `mis-solicitudes-motivo-rechazo` (rechazada con motivo; adentro, `mis-solicitudes-motivo-rechazo-texto` y, si pasa de 80, `mis-solicitudes-motivo-rechazo-toggle` con `aria-expanded`), `mis-solicitudes-cancelar-button` (pendiente), `mis-solicitudes-ver-button` (pendiente o aceptada), `mis-solicitudes-ver-similares-button` (rechazada o cancelada), `mis-solicitudes-cancelar-modal` (con `confirm-action-ok` y `confirm-action-cancel`), `mis-solicitudes-accion-error` + `mis-solicitudes-accion-reintentar`, `mis-solicitudes-conflicto`, `mis-solicitudes-cargando`, `mis-solicitudes-vacio`, `mis-solicitudes-vacio-buscar`, `mis-solicitudes-sin-resultados`, `mis-solicitudes-error`, `mis-solicitudes-reintentar`, `mis-solicitudes-cerradas-aviso` (en "Cerradas", modo real). Borrado: `placeholder-screen` en esta ruta |
 | `/panel/perfil` (US-20, US-21, Sprint 3) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-legajo`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Correo: `perfil-email-cambio`, `perfil-email-cambiar`, `perfil-email-form`, `perfil-email-input`, `perfil-email-enviar`, `perfil-email-cancelar`, `perfil-email-pendiente`, `perfil-email-simular-confirmacion` (solo mock), `perfil-email-exito`, `perfil-email-error`, `perfil-email-enlace` (aviso al volver de `/auth/confirmar`). Legajo: `perfil-legajo-chip` ("2 de 3"), `perfil-legajo-estado` (con `data-estado="completo\|incompleto"`), `perfil-legajo-faltantes`, `perfil-legajo-ocupacion`, `perfil-legajo-ingresos`, `perfil-legajo-garantias`, `perfil-sin-cargar-<ocupacion\|ingresos\|garantias>`, `perfil-legajo-editar`, `perfil-legajo-form`, `perfil-legajo-ocupacion-input`, `perfil-legajo-ingresos-input`, `perfil-legajo-garantia-<propietaria\|caucion\|otra>`, `perfil-legajo-guardar`, `perfil-legajo-cancelar`, `perfil-legajo-error`, `perfil-legajo-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Borrado: `placeholder-screen` en esta ruta |
+| `/panel/contratos` (US-05, Sprint 3) | `contratos`, `contratos-cargando`, `contratos-error`, `contratos-reintentar`, `contratos-ver-solicitudes`, `contratos-nuevo`, `contratos-tab-<todos\|borradores\|pendientes\|vigentes\|finalizados>`, `contratos-buscar`, `contratos-tabla` (adentro, `data-table-row` / `data-table-card`), `contratos-fila-codigo`, `contratos-continuar` y `contratos-eliminar` (solo borradores; en móvil, `-movil`), `contratos-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`), `contratos-eliminar-error`, `contratos-eliminado`, `contratos-vacio` + `contratos-vacio-solicitudes`, `contratos-sin-resultados`. Borrado: `placeholder-screen` en esta ruta |
+| `/panel/contratos/nuevo` y `/[id]/editar` (US-05, Sprint 3) | Selector (sin `?solicitud=`): `contrato-selector`, `contrato-selector-cargando`, `contrato-selector-error`, `contrato-selector-reintentar`, `contrato-selector-solicitud`, `contrato-selector-iniciar`, `contrato-selector-vacio`, `contrato-selector-solicitudes`, `contrato-selector-volver`. Alta: `contrato-cargando`, `contrato-no-disponible` (409/404, con `contrato-ir-contratos` y `contrato-reintentar`), `contrato-no-editable`, `contrato-alta`, `contrato-wizard` (con `wizard-prev-button`, `wizard-next-button`, `wizard-finish-button`), `contrato-guardar-borrador`, `contrato-eliminar-borrador`, `contrato-borrador-guardado`, `contrato-error`, `contrato-error-paso`. Paso 1: `contrato-paso-partes`, `contrato-contexto`, `contrato-ver-solicitud`, `contrato-parte-locador`, `contrato-parte-locatario`, `contrato-garantias-ofrecidas`, `contrato-garante` (uno por garante, con `contrato-garante-nombre`, `-dni`, `-email` y `-quitar`), `contrato-garante-agregar`, `contrato-garantes-maximo`. Paso 2: `contrato-paso-condiciones`, `contrato-inicio`, `contrato-duracion`, `contrato-fin`, `contrato-monto`, `contrato-deposito`, `contrato-dia-vencimiento`, `contrato-indice-<sin_ajuste\|ICL\|IPC\|CAC>`, `contrato-periodicidad`, `contrato-ajustes`, `contrato-cobro`. Paso 3: `contrato-paso-clausulas`, `contrato-clausulas-contador`, `contrato-ver-completo` (abre `contrato-ver-completo-modal` con `contrato-documento` y `contrato-ver-completo-cerrar`), `contrato-clausula` (con `data-tipo="fija\|editable\|propia"`; adentro, `contrato-clausula-bloqueada`, `-editar`, `-eliminar`, `-titulo`, `-texto`, `-restaurar` y `-error`), `contrato-clausula-agregar`. Paso 4: `contrato-paso-revision`, `contrato-revision-<partes\|garantes\|condiciones\|clausulas>` (cada uno con su `-editar`), `contrato-al-enviar`, `contrato-revision-acepto`, `contrato-revision-acepto-error`, `contrato-enviar-modal` y `contrato-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`). Resultado: `contrato-enviado`, `contrato-enviado-codigo`, `contrato-enviado-firmantes`, `contrato-enviado-ir-contratos` |
+| `/panel/solicitudes`, solicitud aceptada (US-05, Sprint 3) | `solicitudes-detalle-iniciar-contrato-button` / `solicitudes-iniciar-contrato-button` (fila, móvil), `…-continuar-contrato-button` (hay un borrador), `…-contrato-estado` (ya originó un contrato) y `…-contrato-bloqueado` (la propiedad tiene otro). `?pestania=aceptadas` abre esa pestaña |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
