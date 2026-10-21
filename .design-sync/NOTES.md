@@ -275,7 +275,16 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
-## (Pendiente de subir) `StatusTag`: estado `borrador` en `contrato` (2026-10-21)
+## Re-sync del 2026-10-21, segunda corrida (`StatusTag` con `borrador`)
+
+- Sincronizado desde `feature/vistas` en `5b87c71`, camino atómico, mismo comando y Edge. Ancla
+  local igual a la remota (`bundleSha12` `c3609354a326`).
+- Diff: 33 `unchanged`, 1 `changed` (`StatusTag`, cambió su preview). Se capturó y se calificó
+  `good` en las dos celdas (`Dominios`, `DominiosOscuro`). Render check 34/34 limpias con
+  `--render-sample 0`; `conventions.md` sigue válido (no enumera estados).
+- Subidos 178 archivos (aviso + 176 + ancla), 0 borrados.
+
+## (Subido el 2026-10-21) `StatusTag`: estado `borrador` en `contrato` (2026-10-21)
 
 - `ContractStatus` (`@rentar/shared-types`) suma `borrador`: quedan `borrador`, `pendiente_firma`,
   `vigente`, `finalizado` y `rescindido`. Se agregó a `statusMeta.contrato` como
