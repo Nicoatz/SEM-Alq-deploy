@@ -179,7 +179,7 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
 
 /** El contrato guardado `id` del locador en sesión (no distingue "no existe" de "no es tuyo"). */
 function contratoPropioMock(id: string, ownerId: string): ContratoMock {
-  const contrato = readContratosMock().find((item) => item.id === id)
+  const contrato = buscarContratoMock(id)
   if (!contrato || contrato.ownerId !== ownerId) throw new ServiceError('not_found', CONTRATO_NO_ENCONTRADO_MESSAGE)
   return contrato
 }
@@ -418,6 +418,16 @@ export async function enviarAFirmar(id: string | null, datos: DatosContrato): Pr
 
 // ─── US-07: detalle ─────────────────────────────────────────────────────
 
+/**
+ * Un contrato guardado por su id o por su código. NOTA: en mock, los que se
+ * crean en el navegador tienen un id interno (`BOR-<n>`) y un código
+ * `CT-AAAA-NNNN` al enviarse; la URL del detalle puede traer cualquiera de
+ * los dos (en real, el id es el número de la base).
+ */
+function buscarContratoMock(id: string): ContratoMock | undefined {
+  return readContratosMock().find((item) => item.id === id || item.code === id)
+}
+
 /** Rol del usuario en el contrato guardado, o `null` si no es parte. */
 function rolEnContratoMock(contrato: Pick<ContratoMock, 'ownerId' | 'tenantUserId'>, userId: string): RolFirmante | null {
   if (contrato.ownerId === userId) return 'locador'
@@ -431,7 +441,7 @@ function rolEnContratoMock(contrato: Pick<ContratoMock, 'ownerId' | 'tenantUserI
  * de "no es tuyo" (US-07).
  */
 function contratoDeParteMock(id: string, userId: string): { contrato: ContratoMock; rol: RolFirmante } {
-  const contrato = readContratosMock().find((item) => item.id === id)
+  const contrato = buscarContratoMock(id)
   const rol = contrato ? rolEnContratoMock(contrato, userId) : null
   if (!contrato || !rol || (contrato.status === 'borrador' && rol !== 'locador')) throw new ServiceError('not_found', CONTRATO_NO_ENCONTRADO_MESSAGE)
   return { contrato, rol }
@@ -525,8 +535,7 @@ export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
   if (USE_MOCKS) {
     await delay(400)
     const userId = requireSessionUserId()
-    const guardado = readContratosMock().find((item) => item.id === id)
-    if (guardado) return detalleDeContratoMock(contratoDeParteMock(id, userId).contrato)
+    if (buscarContratoMock(id)) return detalleDeContratoMock(contratoDeParteMock(id, userId).contrato)
     const propiedad = readPropiedadesContratoMock().find((item) => item.rental?.contractId === id)
     const esParte = propiedad && (propiedad.ownerId === userId || propiedad.rental?.tenantUserId === userId)
     const detalle = esParte ? detalleDeAlquilerMock(propiedad) : null
@@ -752,7 +761,7 @@ export async function getMiAlquiler(contratoId?: string): Promise<ContratoDetall
       (propiedad) => propiedad.rental?.tenantUserId === userId && !guardados.some((contrato) => contrato.code === propiedad.rental?.contractId),
     )
     if (contratoId) {
-      const guardado = guardados.find((contrato) => contrato.id === contratoId)
+      const guardado = guardados.find((contrato) => contrato.id === contratoId || contrato.code === contratoId)
       if (guardado) return detalleDeContratoMock(guardado)
       const propiedad = alquileres.find((item) => item.rental?.contractId === contratoId)
       const detalle = propiedad ? detalleDeAlquilerMock(propiedad) : null

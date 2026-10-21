@@ -54,7 +54,7 @@ export function reenvioDisponibleDesde(firmante: Pick<FirmanteContrato, 'ultimaI
  */
 export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): string | null {
   if (firmante.estado === 'firmado') return 'Ya firmó: no hace falta reenviarle la invitación.'
-  if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a invitarlo, cancelá el envío y volvé a enviarlo.'
+  if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a enviarle el contrato, cancelá el envío y envialo de nuevo.'
   const desde = reenvioDisponibleDesde(firmante)
   if (desde && dayjs(ahoraIso).isBefore(dayjs(desde))) {
     return `La invitación se envió a las ${dayjs(firmante.ultimaInvitacion).format('HH:mm')}. Se puede reenviar una vez por hora: de nuevo desde las ${dayjs(desde).format('HH:mm')}.`
