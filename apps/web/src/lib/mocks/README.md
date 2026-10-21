@@ -53,13 +53,15 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 | CT-2026-0148 | Obispo Trejo 1250, 7° B | Sofía Ledesma | vigente | 01/04/2026 → 31/03/2029 | $470.000 | ver "Los alquileres" | `rental` |
 | CT-2026-0133 | Mariano Moreno 285 (de **Sofía**) | Camila Ríos | vigente | 01/12/2025 → 30/11/2028 | $510.000 | ver "Los alquileres" | `rental` |
 | **CT-2026-0207** | Rondeau 480, PB | Julieta Peralta | **pendiente de firma** | 01/10/2026 → 30/09/2029 | $385.000 | ICL semestral (5 ajustes, el primero el 01/04/2027) | `contratos.mock.ts`, desde SOL-2026-0031 |
-| **CT-2023-0041** | Rondeau 480, PB | Camila Ríos | **finalizado** | 01/06/2023 → 31/05/2026 | $240.000 | IPC semestral | `contratos.mock.ts` |
+| **CT-2023-0041** | Rondeau 480, PB | Camila Ríos | **finalizado** | 01/12/2023 → 30/11/2025 (24 meses) | $240.000 | IPC semestral | `contratos.mock.ts` |
 
 - **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
   diseño). Mientras está pendiente de firma, **Rondeau 480 sigue publicada** (decisión del PO). Su
   monto es el canónico del mapa ($385.000; el wizard del diseño decía $320.000).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
   contratos" de US-27 (tanda 4) sin inventar gente nueva (decisión del PO).
+  Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
+  propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
 - **Listado de Nicolás** (`/panel/contratos`): 1 pendiente de firma, 4 vigentes y 1 finalizado. El de
   Sofía: 1 vigente (0133).
 - **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y

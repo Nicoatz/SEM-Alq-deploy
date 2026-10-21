@@ -9,9 +9,12 @@
  *   al 30/09/2029, ICL semestral. Mientras está pendiente de firma, Rondeau
  *   sigue publicada (decisión del PO).
  * - **CT-2023-0041, finalizado:** Rondeau 480, PB, con Camila Ríos, del
- *   01/06/2023 al 31/05/2026. Así Camila tiene un vigente (CT-2026-0133, en
- *   Mariano Moreno 285) y un finalizado: el caso de "dos o más contratos"
- *   de US-27 sin inventar gente nueva (decisión del PO).
+ *   01/12/2023 al 30/11/2025 (24 meses). Así Camila tiene un vigente
+ *   (CT-2026-0133, en Mariano Moreno 285, desde el 01/12/2025) y un
+ *   finalizado: el caso de "dos o más contratos" de US-27 sin inventar gente
+ *   nueva (decisión del PO).
+ *   NOTA: termina el día antes de que empiece CT-2026-0133, así respeta "un
+ *   inquilino pertenece a una sola propiedad" a la vez (mapa; PO, tanda 3).
  *
  * Los 5 vigentes del elenco (CT-2026-0102, 0115, 0121, 0133 y 0148) NO se
  * repiten acá: salen de `propiedades.mock.ts` (`rental`), así el listado de
@@ -100,8 +103,8 @@ export const contratos: ContratoMock[] = [
     tenantName: 'Camila Ríos',
     garantes: [],
     condiciones: {
-      startDate: '2023-06-01',
-      durationMonths: 36,
+      startDate: '2023-12-01',
+      durationMonths: 24,
       // NOTA: el monto con que terminó (el diseño muestra $240.000); los ajustes no se guardan.
       initialAmount: 240000,
       deposit: 240000,
@@ -111,8 +114,8 @@ export const contratos: ContratoMock[] = [
     },
     clausulas: null,
     ultimoPaso: 3,
-    createdAt: '2023-05-20T10:00:00',
-    updatedAt: '2023-05-25T10:00:00',
-    sentAt: '2023-05-25T10:00:00',
+    createdAt: '2023-11-20T10:00:00',
+    updatedAt: '2023-11-25T10:00:00',
+    sentAt: '2023-11-25T10:00:00',
   },
 ]
