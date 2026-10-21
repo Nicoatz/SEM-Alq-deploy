@@ -146,8 +146,8 @@ export function FormularioSolicitud({ propiedad, perfil, exigidas, nombreDueno, 
           <Form.Item name="ocupacion" label="Situación ocupacional">
             <Select options={OCUPACION_OPTIONS} disabled={deshabilitado} data-testid="solicitar-ocupacion" />
           </Form.Item>
-          {/* US-35: entero; 0 = no lo informa. Solo lo ve el dueño de esta propiedad. */}
-          <Form.Item name="ingresos" label="Ingresos aproximados por mes" rules={reglasIngresos} extra="Solo lo ve el dueño de esta propiedad. Dejá 0 si preferís no decirlo.">
+          {/* US-35: entero, opcional y vacío por defecto; vacío o 0 = no lo informa. Solo lo ve el dueño de esta propiedad. */}
+          <Form.Item name="ingresos" label="Ingresos aproximados por mes" rules={reglasIngresos} extra="Solo lo ve el dueño de esta propiedad. Dejalo vacío o poné 0 si preferís no decirlo.">
             <InputNumber<number> prefix="$" controls={false} decimalSeparator="," className={styles.full} disabled={deshabilitado} data-testid="solicitar-ingresos" />
           </Form.Item>
         </div>

@@ -257,7 +257,8 @@ según el resultado (el primer enlace de "Secure email change" vuelve como `parc
 
 - **Ingresos:** en el perfil, 0 falla y vacío pasa (US-21). En la solicitud, un ingreso vacío en el
   perfil se precarga **vacío**, no 0: el 0 de US-35 es "prefiero no informarlo" y lo decide el usuario
-  en cada solicitud.
+  en cada solicitud. El ingreso de la solicitud es **vacío por defecto** también en real, mientras
+  `/preparar` no mande el legajo. Es opcional: vacío y 0 se envían igual (`ingresos: null`).
 - **Legajo completo** (US-20): situación distinta de "-", ingreso cargado y al menos una garantía
   (`lib/perfil/legajo.ts`).
 - **Diseño vs. US** (gana la US): sin "Guardar cambios" global (se guarda por bloque); nombre y DNI

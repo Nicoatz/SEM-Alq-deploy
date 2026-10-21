@@ -7,7 +7,7 @@
  * - `valoresIniciales`: lo que se precarga (del perfil y del legajo,
  *   `prepararSolicitud`) y los valores por defecto que pide la US (1 persona,
  *   sin mascotas, aceptación sin tildar; sin legajo: ocupación "-",
- *   ingresos 0 y garantías sin tildar).
+ *   ingresos vacíos y garantías sin tildar).
  * - `aSolicitudNueva`: lo validado → `SolicitudNueva`.
  *
  * NOTA de privacidad: nada de esto se guarda en `localStorage` ni en
@@ -24,7 +24,11 @@ export interface ValoresSolicitud {
   telefono: string
   email: string
   ocupacion: OcupacionPostulante
-  /** Entero; 0 = no informa. `null` si se borró el campo (cuenta como 0). */
+  /**
+   * Entero; `null` = campo vacío (el valor por defecto, US-35: "por defecto
+   * el monto de ingresos aproximados debe estar vacío"). Es opcional: vacío
+   * y 0 ("prefiero no informarlo") se envían igual, como "no informa".
+   */
   ingresos: number | null
   convivientes: number
   mascotas: boolean
@@ -38,7 +42,7 @@ export interface ValoresSolicitud {
  * Valores con que se abre el formulario (US-35 actualizada):
  * - Teléfono y email, precargados del perfil (editables; solo para esta
  *   solicitud). Sin teléfono, "+54 " para completar (decisión del PO).
- * - Ocupación "-" ("Prefiero no decirlo"), ingresos 0, 1 persona y "No" en
+ * - Ocupación "-" ("Prefiero no decirlo"), ingresos vacíos, 1 persona y "No" en
  *   mascotas: los valores por defecto que pide la US.
  * - Garantías y aceptación, sin tildar (decisión del PO: las exigidas se
  *   señalan, no se marcan solas).
@@ -57,7 +61,9 @@ export function valoresIniciales(
     telefono: telefonoParaPrecargar(perfil?.telefono),
     email: perfil?.email ?? '',
     ocupacion: legajo?.occupation ?? 'sin_informar',
-    ingresos: legajo ? legajo.monthlyIncome : 0,
+    // Vacío por defecto en mock y en real, con o sin legajo (US-35). El 0
+    // lo elige el usuario si prefiere no informarlo.
+    ingresos: legajo?.monthlyIncome ?? null,
     convivientes: CONVIVIENTES_MINIMO,
     mascotas: false,
     detalleMascotas: '',

@@ -54,7 +54,7 @@
 | - Probar enviar una solicitud de alquiler después de aceptar lo que implica su envío (pasa). |
 | - Probar enviar una solicitud de alquiler y verificar que se informe la cantidad de solicitudes pendientes del usuario (pasa). |
 | - Probar enviar una solicitud de alquiler y verificar que por defecto la situación ocupacional sea "-" (pasa). |
-| - Probar enviar una solicitud de alquiler y verificar que por defecto los ingresos aproximados sean "0" (pasa). |
+| - Probar enviar una solicitud de alquiler y verificar que por defecto los ingresos aproximados estén vacíos (pasa). |
 | - Probar enviar una solicitud de alquiler cuando el usuario no tiene solicitudes pendientes y verificar que no aparezca un aviso innecesario (pasa). |
 | - Probar enviar una solicitud de alquiler con un teléfono válido de hasta 15 dígitos, incluyendo el código de país (pasa). |
 | - Probar enviar una solicitud de alquiler ingresando letras, espacios, guiones u otros caracteres no numéricos en el teléfono (falla). |
