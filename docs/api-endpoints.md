@@ -1,4 +1,4 @@
-# Endpoints que usa el frontend — Sprints 1 y 2
+# Endpoints que usa el frontend — Sprints 1 a 3
 
 Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de los bloques
 `@backend` de `apps/web/src/services/*.service.ts` y verificada contra la API de `develop` el
@@ -160,6 +160,75 @@ Notas:
 - **Garantías exigidas:** el inmueble puede exigir garantías (`requiredGuarantees` en el front);
   alcanza con que el postulante ofrezca **al menos una**. **El back no tiene el dato** (ni el alta ni
   la edición lo cargan; `garantias_exigidas` llega vacío): queda para el Sprint 3 (HANDOFF §7).
+
+## Perfil y legajo (Sprint 3, US-20 y US-21) · PROPUESTO
+
+**Ninguna de estas rutas existe todavía.** Son la propuesta del front (Sprint 3, tanda 1): la
+pantalla `/panel/perfil` funciona en modo mock y su rama real ya llama a estas rutas. Cuando el back
+las haga, la conexión es ajustar `services/adapters/perfil.adapter.ts`. Código del front:
+`services/perfil.service.ts`, `services/adapters/perfil.adapter.ts` y los DTO en
+`services/shared/backend-dtos.ts` ("Perfil y legajo"). Todas con **Bearer**: el usuario sale del
+token y no hay forma de pedir ni cambiar el perfil de otro (US-20). Brechas y pasos del dashboard en
+[`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-20 y US-21".
+
+| Método y ruta | Auth | Estado | US | Service | Body | Respuesta (`data`) | Errores |
+|---|---|---|---|---|---|---|---|
+| `GET /usuarios/me/perfil` | Bearer | pendiente (propuesto) | US-20 | `perfil.service#getMiPerfil` | — | `PerfilResponse` (abajo) | 401 |
+| `PATCH /usuarios/me` | Bearer | pendiente (propuesto) | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, **409 `DNI_DUPLICADO`**, **409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO`** |
+| `PATCH /usuarios/me/legajo` | Bearer | pendiente (propuesto) | US-21 | `perfil.service#actualizarLegajo` | `LegajoDto` (el legajo entero) | `LegajoDto` guardado | 400, 401 |
+| Supabase Auth `updateUser({ email }, { emailRedirectTo })` | sesión | listo en el front (sin probar en real) | US-21 | `perfil.service#solicitarCambioDeCorreo` | `{ email }` | `user.new_email` (pendiente) | 422 `email_exists`, 400 `email_address_invalid`, 429 `over_email_send_rate_limit` |
+| Supabase Auth `updateUser({ password, current_password })` | sesión | listo en el front; **bloqueante** (ver abajo) | US-21 | `perfil.service#cambiarContrasena` | `{ password, current_password }` | — | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
+| `GET /solicitudes/preparar?id_inmueble=` | Bearer | conectado; **falta el legajo** | US-35 + US-21 | `solicitudes.service#prepararSolicitud` | — | Lo de hoy + `legajo: LegajoDto \| null` (propuesto) | (sin cambios) |
+
+**`PerfilResponse`** (`GET /usuarios/me/perfil`, también la respuesta de `PATCH /usuarios/me`):
+
+```json
+{
+  "id": 12,
+  "nombre": "Sofía",
+  "apellido": "Ledesma",
+  "email": "sofia.ledesma@rentar.test",
+  "numero_documento": "35123456",
+  "telefono": "5493515550102",
+  "fecha_nacimiento": "1991-02-03",
+  "roles": ["locatario", "locador"],
+  "contrato_bloqueante": { "codigo": "CT-2026-0148", "estado": "vigente" },
+  "legajo": { "ocupacion": "relacion_dependencia", "ingresos": 1450000, "garantias": ["propietaria"] }
+}
+```
+
+- `telefono`: solo dígitos, con código de país (como en las solicitudes). `null` si no tiene.
+- `numero_documento`, `fecha_nacimiento`: `null` si no los tiene (US-20: "Sin cargar").
+- `contrato_bloqueante`: un contrato **vigente o pendiente de firma** del que el usuario es parte
+  (locador o locatario), o `null`. Si hay varios, cualquiera: el front solo lo nombra.
+- `legajo`: `null` si nunca lo cargó. `ocupacion` y `garantias` usan los mismos códigos que las
+  solicitudes (`sin_informar`, `relacion_dependencia`…; `propietaria`, `caucion`, `otra`).
+  `ingresos`: entero mayor a 0, o `null` (US-21: "un número entero mayor a 0, o vacío"; acá el 0 no
+  existe).
+- Es una ruta aparte de `/usuarios/me` **a propósito**: `/me` lo pide el `AuthProvider` en cada
+  cambio de ruta, y el DNI y los ingresos solo se muestran en el perfil (US-20).
+
+**`ActualizarPerfilRequest`** (`PATCH /usuarios/me`): `{ nombre?, apellido?, numero_documento?,
+telefono?, fecha_nacimiento? }`. Solo viaja lo que cambió. El correo **no** va acá (lo cambia
+Supabase Auth). Validaciones que el back tiene que repetir (US-21):
+
+| Campo | Regla | Error |
+|---|---|---|
+| `nombre`, `apellido` | Obligatorios, 2 a 100 caracteres, solo letras, espacios, apóstrofos y guiones | 400 |
+| `numero_documento` | 7 u 8 dígitos | 400 |
+| `numero_documento` | Único en la plataforma | **409**, `codigo: "DNI_DUPLICADO"` |
+| `nombre`, `apellido`, `numero_documento` | No se pueden cambiar si el usuario es parte de un contrato vigente o pendiente de firma | **409**, `codigo: "IDENTIDAD_BLOQUEADA_POR_CONTRATO"` |
+| `telefono` | E.164 sin el "+": 10 a 15 dígitos, solo números; `null` lo borra | 400 |
+| `fecha_nacimiento` | `YYYY-MM-DD`, mayor de 18 años | 400 |
+
+**Errores con `codigo`.** Para distinguir los dos 409 sin leer el texto, el front propone sumar un
+campo `codigo` al sobre de error: `{ "success": false, "error": "Ya existe una cuenta con ese DNI.",
+"codigo": "DNI_DUPLICADO" }`. `apiClient` lo guarda en `ServiceError.apiCode`. Sin `codigo`, el
+front trata cualquier 409 de esta ruta como DNI duplicado.
+
+**`LegajoDto`** (`PATCH /usuarios/me/legajo`): `{ ocupacion, ingresos, garantias }`, el legajo
+entero (reemplaza al anterior). Responde el legajo guardado. 400 si `ingresos` no es un entero mayor
+a 0 (o `null`), o si un código no existe.
 
 ## Panel del locador (`/panel`)
 

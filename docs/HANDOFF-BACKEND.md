@@ -180,6 +180,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
 | `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
+| `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
+| Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
 
 ## 6. Status HTTP y errores
 
@@ -192,13 +194,80 @@ de error:
 | 401 | `unauthorized` | "Tu sesión venció…". En el login, las credenciales inválidas de Supabase (400) dan el mensaje genérico de US-39, que no revela si el mail existe. |
 | 403 | `forbidden` | Sin permiso para esa acción (el guard de rol del front evita llegar a pedirlo). |
 | 404 | `not_found` | Error del servidor con "Reintentar". **Nunca** se interpreta como credenciales incorrectas. |
-| 409 | `conflict` | Registro: mail o DNI ya registrado (el front distingue cuál por el texto del error; ver sección 7). |
+| 409 | `conflict` | Registro: mail o DNI ya registrado (el front distingue cuál por el texto del error; ver sección 7). Perfil (`PATCH /usuarios/me`, propuesto): DNI duplicado o identidad bloqueada por un contrato, distinguidos por el `codigo` del sobre (§7, "US-20 y US-21"). |
 | 5xx / sin respuesta | `server` / `network` | "No pudimos conectarnos con RentAR" + "Reintentar". Si el dispositivo está sin red: "Parece que te quedaste sin internet". |
 
 ## 7. Brechas por US
 
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
+
+### US-20 y US-21 Mi perfil (Sprint 3, tanda 1, `/panel/perfil`)
+
+La pantalla funciona en **modo mock**; la rama real llama a rutas **propuestas** que todavía no
+existen. Contrato completo (body, respuesta, errores y ejemplo) en
+[`api-endpoints.md`](api-endpoints.md), "Perfil y legajo". Front: `services/perfil.service.ts`,
+`services/adapters/perfil.adapter.ts`, `components/perfil/*`, `app/auth/confirmar/route.ts`.
+
+**Lo que el back tiene que hacer**
+
+| # | Qué | Para qué | Dueño |
+|---|---|---|---|
+| 1 | `GET /usuarios/me/perfil` → `PerfilResponse` | Mostrar el perfil (US-20): DNI, teléfono, fecha de nacimiento, roles, contrato que bloquea y legajo. Aparte de `/usuarios/me` para que el DNI y los ingresos no viajen en cada cambio de ruta | backend |
+| 2 | `PATCH /usuarios/me` con 409 `DNI_DUPLICADO` y 409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO` | Editar datos personales (US-21). Repetir las validaciones de la tabla de `api-endpoints.md` | backend |
+| 3 | `PATCH /usuarios/me/legajo` | Editar el legajo (US-21) | backend |
+| 4 | Guardar el legajo: situación ocupacional, ingreso mensual (entero > 0 o `NULL`) y garantías (varias) por usuario. Sugerencia: columnas `id_situacion_ocupacional` e `ingreso_mensual` en `usuario` y una tabla `usuario_x_garantia`, reusando los catálogos de las solicitudes | US-20 / US-21 | db |
+| 5 | Sumar `legajo` a `GET /solicitudes/preparar` (misma forma que `LegajoDto`) | US-21: "los datos del legajo se precargan en las solicitudes nuevas". Mientras no venga, en real el modal usa los valores por defecto de US-35 | backend |
+| 6 | **Sincronizar `usuario.email` con `auth.users.email`** cuando se confirma un cambio de correo (trigger `AFTER UPDATE OF email ON auth.users`, o que `/usuarios/me` y `/me/perfil` lean el correo del token) | Supabase cambia solo `auth.users`; sin esto, el perfil y las solicitudes muestran el correo viejo | backend / db |
+| 7 | Sumar `codigo` al sobre de error (`{ success: false, error, codigo }`) | Distinguir los dos 409 de `PATCH /usuarios/me` sin leer el texto | backend |
+
+**Contraseña: BLOQUEANTE para pasar a real.** El front cambia la contraseña con
+`supabase.auth.updateUser({ password, current_password })`. Supabase **solo verifica la contraseña
+actual si está activa la opción "Require current password when changing password"** (en las
+opciones de contraseña de Authentication del dashboard; guía "Password security" de Supabase. En un
+Auth propio: `GOTRUE_SECURITY_UPDATE_PASSWORD_REQUIRE_CURRENT_PASSWORD=true`). **Sin esa opción, Supabase ignora `current_password` y cambia la contraseña
+aunque la actual esté mal**: la prueba "cambiar la contraseña ingresando mal la actual (falla)" pasaría
+a ser un agujero. Con la opción activa, la actual incorrecta responde **400 `current_password_invalid`**
+(el texto dice "Current password required when setting new password.", engañoso: el front mira el
+`code`, verificado en `supabase/auth`, `internal/api/user.go`). `same_password` y `weak_password`
+son 422. No activar "Secure password change" (pide un código por mail si la sesión tiene más de 24 h:
+el front lo traduce, pero no tiene la pantalla para el código).
+
+**Correo: pasos del dashboard (los hace quien tenga acceso; el front no los toca).** "Secure email
+change" queda **activo** (decisión del PO): Supabase manda un enlace al correo actual y otro al
+nuevo, y el cambio se aplica cuando se confirman los dos. El perfil lo dice así: "Te mandamos un
+enlace a tu correo actual y otro a <nuevo>. El cambio se aplica cuando confirmes los dos."
+
+1. **Authentication → URL Configuration → Redirect URLs:** sumar
+   `http://localhost:3001/auth/confirmar` y la URL de producción `https://<dominio>/auth/confirmar`
+   (si no, Supabase ignora `emailRedirectTo` y manda a la Site URL).
+2. **Authentication → Emails → "Change email address":** cambiar el enlace por
+   `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email_change` (el `RedirectTo` ya trae
+   `?next=/panel/perfil`). Con eso `/auth/confirmar` verifica con `verifyOtp` y el enlace funciona
+   aunque se abra en otro dispositivo. Con la plantilla por defecto (`{{ .ConfirmationURL }}`) también
+   anda, pero solo en el navegador donde se pidió el cambio (flujo PKCE: `?code=`).
+3. Dejar **"Secure email change" activo** (Authentication → Sign In / Providers → Email).
+4. Probar: pedir el cambio desde `/panel/perfil`, confirmar los dos enlaces y verificar que el perfil
+   muestre el correo nuevo (necesita el punto 6 de la tabla para que lo muestre `usuario.email`).
+
+`/auth/confirmar` vuelve a `/panel/perfil?correo=confirmado|parcial|error`: el perfil muestra un aviso
+según el resultado (el primer enlace de "Secure email change" vuelve como `parcial`).
+
+**Decisiones del PO de esta tanda**
+
+- **Ingresos:** en el perfil, 0 falla y vacío pasa (US-21). En la solicitud, un ingreso vacío en el
+  perfil se precarga **vacío**, no 0: el 0 de US-35 es "prefiero no informarlo" y lo decide el usuario
+  en cada solicitud.
+- **Legajo completo** (US-20): situación distinta de "-", ingreso cargado y al menos una garantía
+  (`lib/perfil/legajo.ts`).
+- **Diseño vs. US** (gana la US): sin "Guardar cambios" global (se guarda por bloque); nombre y DNI
+  bloqueados (no "piden confirmación"); garantías de US-35; el legajo se muestra para todos. Quedan
+  fuera documentación (FileDropzone), verificación de teléfono, "Cómo te avisamos", "Resumen de la
+  cuenta" y "Dar de baja": no están en US-20 ni US-21.
+- **Aviso al salir:** cubre recargar, cerrar y los links internos; **no** cubre el botón Atrás ni el
+  selector "Viendo como" (`lib/hooks/useAvisoCambiosSinGuardar.ts`).
+- **Datos sensibles en mock:** el DNI y el ingreso que se editan en el perfil viven solo en memoria
+  (no en `localStorage`). Ver §10, "Pendientes del front".
 
 ### US-39 Iniciar y cerrar sesión
 
@@ -766,6 +835,13 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
    en el alta). Está fijo en inglés en `@rc-component/input-number` (`StepHandler.js`): no pasa por
    el locale `es_ES` ni hay una prop para cambiarlo. El PO decidió dejarlas como están (30/09).
    Revisarlo cuando se actualice antd, por si una versión futura lo expone en el locale o como prop.
+4. **Datos sensibles en `localStorage` en modo mock (Sprint 3, anotado; no se arregla en esta
+   tanda).** En mock, el registro (US-19) guarda la cuenta nueva con el **DNI y la contraseña** en
+   `rentar:mock:usuarios`, y las solicitudes (US-35) guardan el legajo con los **ingresos** en
+   `rentar:mock:solicitudes`. El perfil (US-21) ya no suma datos sensibles: el DNI y el ingreso que
+   se editan ahí viven solo en memoria (`services/perfil.service.ts`). La contraseña que se cambia
+   en el perfil sí va a `rentar:mock:usuarios`, igual que la del registro (para poder entrar con la
+   nueva). En modo real no se guarda nada de esto en el navegador.
 
 ## 11. Numeración de las User Stories
 
@@ -821,6 +897,7 @@ sesión dura hasta cerrarla).
 | `/panel` (locador), tanda 2 | `panel-solicitudes-link` ("N solicitudes nuevas" dentro de `panel-pendientes`, lleva a `/panel/solicitudes`) |
 | `/panel/solicitudes` (US-36 a US-38, Sprint 2) | `solicitudes`, `solicitudes-tab-<pendientes\|aceptadas\|cerradas\|todas>`, `solicitudes-filtro-propiedad`, `solicitudes-orden`, `solicitudes-grupo`, `solicitudes-fila` (la elegida lleva `aria-current="true"` en el botón del nombre, solo en escritorio), `solicitudes-fila-tiempo` ("hace 3 h", "hace 2 días" o "aceptada el 14/09"), `solicitudes-fila-resumen` (convivientes, mascotas, garantías y si declaró ingresos), `solicitudes-fila-mensaje` (extracto de 2 líneas o "Sin mensaje."). **Acciones de la fila, solo en móvil (<768 px; en escritorio están en el detalle, tanda C):** `solicitudes-aceptar-button`, `solicitudes-aceptar-bloqueado` (envuelve al "Aceptar" deshabilitado cuando la propiedad ya tiene una aceptada; el motivo va en el tooltip), `solicitudes-rechazar-button`, `solicitudes-cancelar-button` (aceptada, US-38), `solicitudes-ver-detalle` (rechazada o cancelada). En todos los anchos: `solicitudes-motivo-rechazo` (rechazada con motivo, truncado a 80), `solicitudes-aviso-aceptar`, `solicitudes-cerradas-aviso` (en "Cerradas", modo real: las canceladas no llegan). Detalle del postulante (panel del costado en escritorio; en móvil, dentro de `solicitudes-detalle-drawer`): `solicitudes-detalle`, `solicitudes-detalle-legajo` (con `solicitudes-detalle-contacto` adentro) o `solicitudes-detalle-sin-legajo`; mientras se piden los datos del postulante, `solicitudes-detalle-cargando`; si fallan, `solicitudes-detalle-error` + `solicitudes-detalle-reintentar`; aceptada en modo real, `solicitudes-detalle-aviso-aceptada`; `solicitudes-detalle-mensaje`, `solicitudes-detalle-motivo-rechazo` (rechazada: el motivo completo o "No escribiste un motivo."), `solicitudes-detalle-aceptar-button`, `solicitudes-detalle-aceptar-bloqueado`, `solicitudes-detalle-rechazar-button`, `solicitudes-detalle-cancelar-button` (solo en mock: en real se oculta, §7 brecha 1). Modales: `solicitudes-aceptar-modal` (en real, con `solicitudes-aceptar-aviso`), `solicitudes-rechazar-modal` (con `solicitudes-rechazar-motivo`, el TextArea opcional de 200), `solicitudes-cancelar-modal`, con `confirm-action-ok` y `confirm-action-cancel` adentro; error de la acción: `solicitudes-accion-error` + `solicitudes-accion-reintentar`; 409: `solicitudes-conflicto`. Estados: `solicitudes-cargando`, `solicitudes-vacio` (con `data-caso` = `sin_propiedades`, `sin_publicadas` o `con_publicadas`; adentro, `solicitudes-vacio-publicar` y/o `solicitudes-vacio-propiedades`), `solicitudes-sin-resultados`, `solicitudes-error`, `solicitudes-reintentar` |
 | `/panel/mis-solicitudes` (US-36, Sprint 2) | `mis-solicitudes`, `mis-solicitudes-tab-<todas\|pendientes\|aceptadas\|cerradas>`, `mis-solicitudes-fila`, `mis-solicitudes-estado-texto`, `mis-solicitudes-motivo-rechazo` (rechazada con motivo; adentro, `mis-solicitudes-motivo-rechazo-texto` y, si pasa de 80, `mis-solicitudes-motivo-rechazo-toggle` con `aria-expanded`), `mis-solicitudes-cancelar-button` (pendiente), `mis-solicitudes-ver-button` (pendiente o aceptada), `mis-solicitudes-ver-similares-button` (rechazada o cancelada), `mis-solicitudes-cancelar-modal` (con `confirm-action-ok` y `confirm-action-cancel`), `mis-solicitudes-accion-error` + `mis-solicitudes-accion-reintentar`, `mis-solicitudes-conflicto`, `mis-solicitudes-cargando`, `mis-solicitudes-vacio`, `mis-solicitudes-vacio-buscar`, `mis-solicitudes-sin-resultados`, `mis-solicitudes-error`, `mis-solicitudes-reintentar`, `mis-solicitudes-cerradas-aviso` (en "Cerradas", modo real). Borrado: `placeholder-screen` en esta ruta |
+| `/panel/perfil` (US-20, US-21, Sprint 3) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-legajo`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Correo: `perfil-email-cambio`, `perfil-email-cambiar`, `perfil-email-form`, `perfil-email-input`, `perfil-email-enviar`, `perfil-email-cancelar`, `perfil-email-pendiente`, `perfil-email-simular-confirmacion` (solo mock), `perfil-email-exito`, `perfil-email-error`, `perfil-email-enlace` (aviso al volver de `/auth/confirmar`). Legajo: `perfil-legajo-chip` ("2 de 3"), `perfil-legajo-estado` (con `data-estado="completo\|incompleto"`), `perfil-legajo-faltantes`, `perfil-legajo-ocupacion`, `perfil-legajo-ingresos`, `perfil-legajo-garantias`, `perfil-sin-cargar-<ocupacion\|ingresos\|garantias>`, `perfil-legajo-editar`, `perfil-legajo-form`, `perfil-legajo-ocupacion-input`, `perfil-legajo-ingresos-input`, `perfil-legajo-garantia-<propietaria\|caucion\|otra>`, `perfil-legajo-guardar`, `perfil-legajo-cancelar`, `perfil-legajo-error`, `perfil-legajo-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Borrado: `placeholder-screen` en esta ruta |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.
