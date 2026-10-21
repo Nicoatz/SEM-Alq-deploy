@@ -309,16 +309,19 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
           data-testid="contrato-error-paso"
         />
       )}
-      <WizardLayout
-        steps={steps}
-        currentStep={paso}
-        onStepChange={irAlPaso}
-        onFinish={pedirEnvio}
-        finishLabel="Enviar a firmar"
-        navigableSteps
-        loading={enviando}
-        data-testid="contrato-wizard"
-      />
+      {/* NOTA: el envoltorio solo sirve para mostrar "Anterior" en el paso 4 en móvil (ver `.wizard` en el CSS). */}
+      <div className={styles.wizard}>
+        <WizardLayout
+          steps={steps}
+          currentStep={paso}
+          onStepChange={irAlPaso}
+          onFinish={pedirEnvio}
+          finishLabel="Enviar a firmar"
+          navigableSteps
+          loading={enviando}
+          data-testid="contrato-wizard"
+        />
+      </div>
 
       {/* US-05: "Se debe solicitar confirmación antes de enviar a firmar, indicando quiénes deben firmar." */}
       <ConfirmActionModal
