@@ -16,21 +16,24 @@
  *   de aceptar y el de rechazar": azul lleno con ✓ y blanco con ✕). Si la
  *   propiedad ya tiene una aceptada, Aceptar queda deshabilitado con el
  *   motivo en un tooltip (una sola aceptada por propiedad).
- * - Aceptada: Cancelar solicitud (US-38).
+ * - Aceptada: "Iniciar contrato" (US-05, Sprint 3), o "Continuar contrato" si
+ *   ya hay un borrador; si ya originó un contrato o la propiedad tiene otro
+ *   vigente o pendiente de firma, el motivo en lugar del botón. Además,
+ *   Cancelar solicitud (US-38), si el back lo permite.
  * - Rechazada o cancelada: Ver detalle.
  * Si la rechazó con un motivo (US-37), va debajo de la línea, truncado a 80
  * caracteres (US-36); el completo está en el detalle del postulante.
  * Las acciones de la fila (y "Ver detalle") van solo en móvil (`conAcciones`):
  * en escritorio no entran al lado del resumen (medido a 1280 px en la tanda C)
  * y están en el detalle del costado, con los `data-testid` `solicitudes-detalle-*`.
- * NOTA: "Iniciar contrato" y "Mensaje" de la aceptada no van: contratos y
- * mensajes son de otro sprint.
+ * NOTA: "Mensaje" de la aceptada no va: los mensajes son de otro sprint.
  *
  * Quién lo usa: `GrupoPropiedad` (la fila) y `DetallePostulante` (las acciones).
  */
 import type { MouseEvent } from 'react'
 import { Avatar, Button, Tooltip } from 'antd'
-import { CheckOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons'
+import { CheckOutlined, CloseOutlined, FileAddOutlined, StopOutlined } from '@ant-design/icons'
+import { useRouter } from 'next/navigation'
 import type { Solicitud } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
 import { fechaFilaRecibida, lineaRecibida, textoResumen } from '@/lib/solicitudes/textos'
@@ -41,6 +44,78 @@ import { puedeCancelarAceptada } from '@/services/solicitudes.service'
 import styles from './SolicitudesRecibidas.module.css'
 
 // ─── Acciones ───────────────────────────────────────────────────────────
+
+/** Props de {@link AccionContrato}. */
+interface AccionContratoProps {
+  solicitud: Solicitud
+  largo: boolean
+  testIdPrefix: string
+}
+
+/**
+ * "Iniciar contrato" de una solicitud aceptada (US-05: "se debe poder iniciar
+ * el contrato desde una solicitud aceptada"). Solo aparece si la solicitud no
+ * originó ya un contrato y la propiedad no tiene otro vigente ni pendiente de
+ * firma. Con un borrador de esta solicitud: "Continuar contrato". Si no se
+ * puede, el motivo en lugar del botón.
+ * NOTA: en real, `contrato` y `propiedadConContrato` no llegan todavía
+ * (TODO(backend) en `solicitud.adapter.ts`): el botón aparece y, si no
+ * corresponde, lo frena `/contratos/preparar` con su 409.
+ */
+function AccionContrato({ solicitud, largo, testIdPrefix }: AccionContratoProps) {
+  const router = useRouter()
+  const { contrato } = solicitud
+
+  /** Navega sin abrir además el detalle de la fila. */
+  function ir(href: string) {
+    return (event: MouseEvent) => {
+      event.stopPropagation()
+      router.push(href)
+    }
+  }
+
+  if (contrato && contrato.status !== 'borrador') {
+    return (
+      <span className={styles.contratoNota} data-testid={`${testIdPrefix}-contrato-estado`}>
+        Ya originó un contrato <StatusTag domain="contrato" status={contrato.status} />
+      </span>
+    )
+  }
+  if (contrato) {
+    return (
+      <Button
+        type="primary"
+        size={largo ? 'large' : 'middle'}
+        icon={<FileAddOutlined />}
+        onClick={ir(`/panel/contratos/${encodeURIComponent(contrato.id)}/editar`)}
+        className={styles.actionButton}
+        data-testid={`${testIdPrefix}-continuar-contrato-button`}
+      >
+        Continuar contrato
+      </Button>
+    )
+  }
+  if (solicitud.propiedadConContrato) {
+    return (
+      <span className={styles.contratoNota} data-testid={`${testIdPrefix}-contrato-bloqueado`}>
+        La propiedad ya tiene un contrato vigente o pendiente de firma.
+      </span>
+    )
+  }
+  return (
+    <Button
+      type="primary"
+      size={largo ? 'large' : 'middle'}
+      icon={<FileAddOutlined />}
+      onClick={ir(`/panel/contratos/nuevo?solicitud=${encodeURIComponent(solicitud.id)}`)}
+      className={styles.actionButton}
+      aria-label={`Iniciar el contrato con ${solicitud.applicant.fullName}`}
+      data-testid={`${testIdPrefix}-iniciar-contrato-button`}
+    >
+      Iniciar contrato
+    </Button>
+  )
+}
 
 /** Props de {@link AccionesSolicitudRecibida}. */
 interface AccionesSolicitudRecibidaProps {
@@ -112,20 +187,25 @@ export function AccionesSolicitudRecibida({ solicitud, otraAceptada, onAccion, v
     )
   }
 
-  // US-38: solo si el back deja dar de baja una aceptada (en real, todavía no: brecha 1 de HANDOFF §7).
-  if (puedeCancelarAceptada && puedeHacerAccion('cancelar', 'locador', solicitud.status)) {
+  if (solicitud.status === 'aceptada') {
+    // US-38: "Cancelar solicitud" solo si el back deja dar de baja una aceptada
+    // (en real, todavía no: brecha 1 de HANDOFF §7).
+    const cancelable = puedeCancelarAceptada && puedeHacerAccion('cancelar', 'locador', solicitud.status)
     return (
       <div className={clase}>
-        <Button
-          size={largo ? 'large' : 'middle'}
-          icon={<StopOutlined />}
-          onClick={accion('cancelar')}
-          className={styles.actionButton}
-          aria-label={`Cancelar la solicitud aceptada de ${solicitud.applicant.fullName}`}
-          data-testid={`${testIdPrefix}-cancelar-button`}
-        >
-          Cancelar solicitud
-        </Button>
+        <AccionContrato solicitud={solicitud} largo={largo} testIdPrefix={testIdPrefix} />
+        {cancelable && (
+          <Button
+            size={largo ? 'large' : 'middle'}
+            icon={<StopOutlined />}
+            onClick={accion('cancelar')}
+            className={styles.actionButton}
+            aria-label={`Cancelar la solicitud aceptada de ${solicitud.applicant.fullName}`}
+            data-testid={`${testIdPrefix}-cancelar-button`}
+          >
+            Cancelar solicitud
+          </Button>
+        )}
       </div>
     )
   }
