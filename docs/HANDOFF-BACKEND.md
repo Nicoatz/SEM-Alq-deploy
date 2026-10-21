@@ -183,6 +183,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
 | `GET /contratos`, `GET /contratos/preparar`, `POST /contratos`, `PUT /contratos/:id`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar`, `GET /contratos/:id` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Pendiente** (propuesto, tanda 2 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas. **Bloqueante del esquema** en §7, "US-05" |
 | `GET /contratos/:id` (con firmantes e historial), `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). Mismo bloqueante del esquema que US-05 |
+| `GET /contratos?rol=locatario` y `GET /contratos/:id` (locatario) | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Pendiente** (propuesto, tanda 4 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-27") |
 | Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
 
 ## 6. Status HTTP y errores
@@ -203,6 +204,40 @@ de error:
 
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
+
+### US-27 Consultar mis alquileres (Sprint 3, tanda 4, `/panel/alquiler` y `/panel/alquileres`)
+
+Ficha y listado del locatario en **modo mock**; la rama real llama a rutas **propuestas**. Front:
+`contratos.service.ts` (`getMiAlquiler`, `listarMisAlquileres`, `contarMisAlquileres`),
+`contrato.adapter.ts#alquilerResumenDeDto`, `components/contratos/MiAlquiler.tsx`, `FichaAlquiler.tsx`,
+`ListadoAlquileres.tsx`, `lib/contratos/loQueViene.ts` y `lib/navigation/useCantidadAlquileres.ts`.
+**`GET /mis-alquileres` no se toca:** sigue siendo de las propiedades del locador.
+
+**Lo que le falta al back**
+
+| # | Qué | Para qué | Dueño |
+|---|---|---|---|
+| 1 | `GET /contratos?rol=locatario`: los contratos donde el usuario es locatario (pendientes de firma, vigentes y finalizados), con la misma fila que el listado del locador **más `locador {nombre, apellido}`** (sin DNI ni contacto) | Listado `/panel/alquileres`, el conteo del menú y elegir la ficha directa | backend |
+| 2 | `GET /contratos/:id` para el locatario, con `monto_actual` (con los ajustes aplicados) e `inmueble.foto_principal`; los medios de pago y la parte locadora con `email` y `telefono` ya están en la respuesta propuesta. 404 único para inexistente o ajeno | Ficha | backend |
+| 3 | Día de pago, depósito y garantes de los contratos cargados antes de RentAR: hoy no están en ningún lado. En mock, el día de pago de los vigentes del elenco sale del vencimiento de su cobro (`panel.mock.ts`); el depósito y los garantes se ven "Sin dato" | Condiciones | db |
+
+**Decisiones del PO (tanda 4)**
+
+- **Ficha o listado:** cuentan todos los contratos del usuario como locatario en pendiente de firma,
+  vigente y finalizado. Con uno, la ficha en `/panel/alquiler`; con dos o más, el listado en
+  `/panel/alquileres` y el menú dice "Mis alquileres". La ficha desde el listado es
+  `/panel/alquiler?contrato=<id>`.
+- **Monto del próximo ajuste:** "a definir". **Sin ajuste:** no se muestra la fecha del próximo ajuste.
+- **Menú sin parpadeo:** mientras no se sabe cuántos son, "Mi alquiler" → `/panel/alquiler`, que redirige
+  al listado si son dos o más; `/panel/alquileres` con uno o ninguno vuelve a `/panel/alquiler`.
+- Un finalizado se abre en solo lectura y sin "Lo que viene". Los finalizados del listado se ven
+  atenuados y sin acciones (solo se abre su ficha).
+- La ficha no muestra otras propiedades del locador, solicitudes de terceros ni legajos ajenos.
+
+**"Lo que viene"** (`lib/contratos/loQueViene.ts`, con `hoy()` del reloj único): próximo pago (el primer
+día de pago desde hoy, o desde el inicio si todavía no empezó, y hasta el fin), próximo ajuste (inicio +
+k × período, el primero desde hoy y no después del fin) y fin, cada uno con los días que faltan. Casos
+verificados en el JSDoc.
 
 ### US-07 Firmar contrato de alquiler (Sprint 3, tanda 3, `/panel/contratos/[id]`)
 
@@ -1030,6 +1065,11 @@ Desde el Sprint 2, el código y los docs usan la numeración de Jira (`Documenta
 coincide con la del Sprint 0 y suma las US nuevas (US-41). Cuando algo no tiene US, el código lo
 dice así: "sin US en Sprint 0 (mapa US-xx)".
 
+**Pendiente del PO (anotado en la tanda 4 del Sprint 3, no resuelto acá):** en Jira, **US-27 Consultar
+mis alquileres** está en la épica **"Gestionar notificaciones"** (debería estar en "Gestionar
+alquileres"), y en el backlog corregido **US-27 es "Responder mensaje"**. El código usa la numeración
+de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
+
 ## 12. `data-testid` para Selenium
 
 Las acciones clave de cada pantalla tienen `data-testid`, así los tests no dependen de clases CSS
@@ -1067,7 +1107,8 @@ sesión dura hasta cerrarla).
 | `/panel/contratos/nuevo` y `/[id]/editar` (US-05, Sprint 3) | Selector (sin `?solicitud=`): `contrato-selector`, `contrato-selector-cargando`, `contrato-selector-error`, `contrato-selector-reintentar`, `contrato-selector-solicitud`, `contrato-selector-iniciar`, `contrato-selector-vacio`, `contrato-selector-solicitudes`, `contrato-selector-volver`. Alta: `contrato-cargando`, `contrato-no-disponible` (409/404, con `contrato-ir-contratos` y `contrato-reintentar`), `contrato-no-editable`, `contrato-alta`, `contrato-wizard` (con `wizard-prev-button`, `wizard-next-button`, `wizard-finish-button`), `contrato-guardar-borrador`, `contrato-eliminar-borrador`, `contrato-borrador-guardado`, `contrato-error`, `contrato-error-paso`. Paso 1: `contrato-paso-partes`, `contrato-contexto`, `contrato-ver-solicitud`, `contrato-parte-locador`, `contrato-parte-locatario`, `contrato-garantias-ofrecidas`, `contrato-garante` (uno por garante, con `contrato-garante-nombre`, `-dni`, `-email` y `-quitar`), `contrato-garante-agregar`, `contrato-garantes-maximo`. Paso 2: `contrato-paso-condiciones`, `contrato-inicio`, `contrato-duracion`, `contrato-fin`, `contrato-monto`, `contrato-deposito`, `contrato-dia-vencimiento`, `contrato-indice-<sin_ajuste\|ICL\|IPC\|CAC>`, `contrato-periodicidad`, `contrato-ajustes`, `contrato-cobro`. Paso 3: `contrato-paso-clausulas`, `contrato-clausulas-contador`, `contrato-ver-completo` (abre `contrato-ver-completo-modal` con `contrato-documento` y `contrato-ver-completo-cerrar`), `contrato-clausula` (con `data-tipo="fija\|editable\|propia"`; adentro, `contrato-clausula-bloqueada`, `-editar`, `-eliminar`, `-titulo`, `-texto`, `-restaurar` y `-error`), `contrato-clausula-agregar`. Paso 4: `contrato-paso-revision`, `contrato-revision-<partes\|garantes\|condiciones\|clausulas>` (cada uno con su `-editar`), `contrato-al-enviar`, `contrato-revision-acepto`, `contrato-revision-acepto-error`, `contrato-enviar-modal` y `contrato-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`). Resultado: `contrato-enviado`, `contrato-enviado-codigo`, `contrato-enviado-firmantes`, `contrato-enviado-ir-contratos` |
 | `/panel/solicitudes`, solicitud aceptada (US-05, Sprint 3) | `solicitudes-detalle-iniciar-contrato-button` / `solicitudes-iniciar-contrato-button` (fila, móvil), `…-continuar-contrato-button` (hay un borrador), `…-contrato-estado` (ya originó un contrato; adentro, `…-ver-contrato` lleva al detalle, US-07) y `…-contrato-bloqueado` (la propiedad tiene otro). `?pestania=aceptadas` abre esa pestaña |
 | `/panel/contratos/[id]` (US-07, Sprint 3) | Carga y errores: `contrato-detalle-cargando`, `contrato-no-encontrado` (con `contrato-ir-contratos`), `contrato-detalle-error-carga` (con `contrato-reintentar`). Detalle: `contrato-detalle` (con `data-estado`), `contrato-detalle-aviso`, `contrato-detalle-error`, `contrato-estado` (franja), `contrato-faltan-firmas`, `contrato-firmado-todas`, `contrato-sin-registro`, `contrato-cancelar-envio` (+ `contrato-cancelar-envio-motivo` si está deshabilitado y `contrato-cancelar-envio-modal`), `contrato-firmantes`, `contrato-firmante` (uno por parte, con `data-rol` y `data-estado`; adentro `contrato-firmante-detalle`, `contrato-firmante-estado`, `contrato-firmante-motivo`), `contrato-reenviar` (+ `contrato-reenviar-motivo` si está deshabilitado), `contrato-reenviar-aviso`, `contrato-datos`, `contrato-detalle-garantes`, `contrato-documento-detalle`, `contrato-historial` (+ `contrato-historial-eventos`). Visor: `contrato-visor`, `contrato-visor-pagina`, `contrato-visor-hoja`, `contrato-visor-progreso` (con `data-leidas` y `data-total`), `contrato-visor-anterior`, `contrato-visor-siguiente`, `contrato-visor-numero`. Firma (`FirmaContrato`): `contrato-firma`, `contrato-firma-aviso`, `contrato-firma-faltan`, `contrato-firma-acepto`, `contrato-firma-requisitos`, `contrato-firma-firmar`, `contrato-firma-modal` (+ `contrato-firma-error`), `contrato-firma-rechazar`, `contrato-rechazo-modal` con `contrato-rechazo-motivo`, `contrato-rechazo-motivo-error` y `contrato-rechazo-error`. Los modales, con `confirm-action-ok` / `confirm-action-cancel`. Alta: `contrato-enviado-ver` (resultado) y `contrato-ver-detalle` (un contrato que ya no es borrador). Rechazo: `contrato-rechazo-explicacion` (en la franja, para las dos partes). PDF: `contrato-descargar-pdf` (encabezado, en cualquier estado) |
-| `/panel/alquiler` (US-07, Sprint 3; base de US-27) | `mi-alquiler-cargando`, `mi-alquiler-vacio` (con `mi-alquiler-buscar` y `mi-alquiler-solicitudes`), `mi-alquiler-no-encontrado` y `mi-alquiler-error` (con `mi-alquiler-ir` y `mi-alquiler-reintentar`). Con contrato, los mismos testids del detalle (`contrato-detalle`, `contrato-firma`, `contrato-firma-rechazar`…) |
+| `/panel/alquiler` (US-07 y US-27, Sprint 3) | `mi-alquiler-cargando`, `mi-alquiler-vacio` ("Todavía no tenés un contrato activo", con `mi-alquiler-buscar`), `mi-alquiler-no-encontrado` y `mi-alquiler-error` (con `mi-alquiler-ir` y `mi-alquiler-reintentar`). Ficha: `mi-alquiler-propiedad` (con `mi-alquiler-direccion`, `mi-alquiler-estado`, `mi-alquiler-codigo`), `mi-alquiler-lo-que-viene` (con `mi-alquiler-proximo-pago`, `mi-alquiler-proximo-ajuste` —no está sin ajuste— y `mi-alquiler-fin`), `mi-alquiler-condiciones`, `mi-alquiler-locador` (con `mi-alquiler-locador-email` y `-telefono`), y los mismos testids del detalle (`contrato-detalle`, `contrato-firmantes`, `contrato-firma`, `contrato-firma-rechazar`, `contrato-descargar-pdf`…) |
+| `/panel/alquileres` (US-27, Sprint 3) | `mis-alquileres`, `mis-alquileres-cargando`, `mis-alquileres-error` (+ `mis-alquileres-reintentar`), `mis-alquileres-tabla` (filas clickeables; adentro `mis-alquileres-direccion` y `mis-alquileres-estado`), en móvil `mis-alquileres-ficha-movil` (la dirección) y `mis-alquileres-ver-movil` (no en los finalizados). Mis propiedades: `mis-propiedades-ver-contrato` |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
 Para ver todos: `grep -rn "data-testid" apps/web/src packages/ui/src`.

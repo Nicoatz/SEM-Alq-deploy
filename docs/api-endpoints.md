@@ -402,6 +402,22 @@ solo pedido. Las cuatro acciones responden el detalle actualizado, así el front
 | Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
 | Reenviar | Solo el locador, a un firmante `pendiente` (hoy, el locatario). Una vez por hora por firmante: 429 si pasó menos. Actualiza `fecha_ultima_invitacion`. Hoy no se manda ningún mail (el front lo aclara). |
 
+## Mis alquileres (Sprint 3, US-27) · PROPUESTO
+
+Ficha y listado del locatario. Front: `contratos.service.ts` (`listarMisAlquileres`,
+`contarMisAlquileres`, `getMiAlquiler`). **`GET /mis-alquileres` no cambia**: es de las propiedades del
+locador.
+
+| Método y ruta | Estado | Service | Respuesta (`data`) | Errores |
+|---|---|---|---|---|
+| `GET /contratos?rol=locatario` | pendiente (propuesto) | `#listarMisAlquileres`, `#contarMisAlquileres`, `#getMiAlquiler` (sin id) | `ContratoResumenResponse[]` de los contratos donde el usuario es **locatario**, **con `locador: { nombre, apellido }`** | 401 |
+| `GET /contratos/:id` | pendiente (propuesto; ver "Firma de contratos") | `#getMiAlquiler(id)` | `ContratoDetalleResponse` + `monto_actual` + `inmueble.foto_principal` | 404 único (no existe o no es su locatario) |
+
+- Estados que cuentan: `pendiente_firma`, `vigente` y `finalizado` (el front filtra si llegan otros).
+- Con uno, el front muestra la ficha; con dos o más, el listado. El front ordena (pendientes, vigentes,
+  finalizados).
+- `locador` en la fila: solo nombre y apellido. El contacto (`email`, `telefono`) viene en el detalle.
+
 ## Panel del locador (`/panel`)
 
 Módulos de sprints futuros. En modo real, las funciones devuelven vacío (con `TODO(backend)`) y la
