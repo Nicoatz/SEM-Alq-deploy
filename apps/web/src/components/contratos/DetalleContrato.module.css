@@ -1,0 +1,410 @@
+/* Detalle del contrato y firma (Claude Design, "Flujo de contratos" · 05, 06 y 09). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.bloqueado {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* ─── Franja de estado ────────────────────────────────────────────────── */
+
+.franja {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 0.875rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.franjaPendiente {
+  border-color: var(--rentar-status-warning-border);
+  background: var(--rentar-status-warning-bg);
+}
+
+.franjaVigente {
+  border-color: var(--rentar-status-success-border);
+  background: var(--rentar-status-success-bg);
+}
+
+.franjaTexto {
+  flex: 1 1 16rem;
+  font-size: 0.90625rem;
+  line-height: 1.45;
+  color: var(--rentar-color-text-primary);
+}
+
+.franjaAccion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+.motivo {
+  max-width: 22rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Grilla ──────────────────────────────────────────────────────────── */
+
+.grilla {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 1.125rem;
+  align-items: start;
+}
+
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.tarjetaEncabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.tarjetaTitulo {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.tarjetaPie {
+  padding-top: 0.25rem;
+}
+
+.valorCompuesto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.valorSecundario {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--rentar-color-text-secondary);
+}
+
+.ajuste {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ─── Firmantes ───────────────────────────────────────────────────────── */
+
+.firmantes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.firmante {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.08);
+}
+
+.firmante:last-child {
+  border-bottom: none;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--rentar-radius-pill);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--rentar-status-info-ink);
+  background: var(--rentar-status-info-bg);
+}
+
+.avatar[data-estado='firmado'] {
+  color: var(--rentar-status-success-ink);
+  background: var(--rentar-status-success-bg);
+}
+
+.avatar[data-estado='rechazado'] {
+  color: var(--rentar-status-error-ink);
+  background: var(--rentar-status-error-bg);
+}
+
+.firmanteDatos {
+  display: flex;
+  flex: 1 1 11rem;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.firmanteNombre {
+  font-size: 0.96875rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.motivoRechazo {
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--rentar-status-error-ink);
+  overflow-wrap: anywhere;
+}
+
+.reenvio {
+  display: flex;
+  flex-basis: 100%;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  padding-left: 3.25rem;
+}
+
+/* ─── Visor ───────────────────────────────────────────────────────────── */
+
+.visor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.visorBarra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.visorArchivo {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.visorPagina {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.visorProgreso {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.hoja {
+  min-height: 18rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface-alt);
+}
+
+.hojaTitulo {
+  margin: 0 0 1rem;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.hojaClausula {
+  margin: 0 0 0.875rem;
+  font-size: 0.90625rem;
+  line-height: 1.6;
+  color: var(--rentar-color-text-primary);
+  text-align: justify;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.hojaFin {
+  margin: 0.5rem 0 0;
+  font-size: 0.8125rem;
+  text-align: center;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.visorFaltan {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-status-warning-ink);
+}
+
+.visorNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.visorNumeros {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.visorNumero {
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.25rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.15);
+  border-radius: var(--rentar-radius-pill);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-primary);
+  background: var(--rentar-color-bg-surface);
+  cursor: pointer;
+}
+
+.visorNumero:disabled {
+  color: var(--rentar-color-text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.visorNumero:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+.visorNumeroActual {
+  border-color: var(--rentar-color-blue);
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  background: rgba(var(--rentar-color-blue-rgb), 0.08);
+}
+
+/* ─── Firma ───────────────────────────────────────────────────────────── */
+
+.firma {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-blue-rgb), 0.3);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.firmaAcciones {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.firmaAyuda {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.error {
+  margin: 0.25rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-error);
+}
+
+/* ─── Móvil ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  .grilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .franjaAccion {
+    align-items: stretch;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .reenvio {
+    padding-left: 0;
+  }
+
+  .hoja {
+    min-height: 14rem;
+    padding: 1rem;
+  }
+
+  .visorNav {
+    justify-content: center;
+  }
+
+  /*
+   * Claude Design · 09: en móvil, la casilla y "Firmar contrato" quedan
+   * fijos abajo, para que firmar nunca quede fuera de la pantalla.
+   */
+  .firmaAcciones {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--rentar-z-sticky);
+    margin: 0 -1rem -1rem;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+    border-radius: 0 0 var(--rentar-radius-lg) var(--rentar-radius-lg);
+    background: var(--rentar-color-bg-surface);
+  }
+}

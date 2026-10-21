@@ -11,8 +11,8 @@
  * - orden por defecto: pendientes de firma primero, el resto por fecha de fin;
  * - sin contratos: mensaje con acceso a las solicitudes aceptadas;
  * - borradores con "Continuar" y "Eliminar" (con confirmación).
- * Pendientes, vigentes y finalizados van sin link hasta el detalle (US-07,
- * tanda 3; decisión del PO).
+ * Pendientes, vigentes y finalizados linkean a su detalle
+ * (`/panel/contratos/[id]`, US-07, tanda 3): el código y "Ver contrato".
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 01): PageHeader con
  * "Ver solicitudes aceptadas" y "Nuevo contrato", pestañas con contador,
@@ -26,6 +26,7 @@
 import { useMemo, useState } from 'react'
 import { Alert, Button, Input, Skeleton } from 'antd'
 import { SearchOutlined } from '@ant-design/icons'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import type { ContratoResumen } from '@rentar/shared-types'
 import { ConfirmActionModal, DataTable, EmptyState, MoneyAmount, PageHeader, StatusTag, type DataTableColumn } from '@rentar/ui'
@@ -37,6 +38,11 @@ import { ServiceError } from '@/services/shared/errors'
 import { PestaniasSolicitudes } from '@/components/solicitudes/PestaniasSolicitudes'
 import { IndiceAjuste } from './IndiceAjuste'
 import styles from './Contratos.module.css'
+
+/** Detalle de un contrato (US-07). */
+function detalleHref(contrato: Pick<ContratoResumen, 'id'>): string {
+  return `/panel/contratos/${encodeURIComponent(contrato.id)}`
+}
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Contratos' }]
 
@@ -116,9 +122,15 @@ export function ListadoContratos() {
       render: (contrato) => (
         <span className={styles.propiedad}>
           <span className={styles.direccion}>{contrato.propertyAddress}</span>
-          <span className={styles.codigo} data-testid="contratos-fila-codigo">
-            {contrato.code ?? 'Borrador sin código'}
-          </span>
+          {contrato.status === 'borrador' ? (
+            <span className={styles.codigo} data-testid="contratos-fila-codigo">
+              {contrato.code ?? 'Borrador sin código'}
+            </span>
+          ) : (
+            <Link href={detalleHref(contrato)} className={styles.codigoLink} data-testid="contratos-fila-codigo">
+              {contrato.code}
+            </Link>
+          )}
         </span>
       ),
     },
@@ -149,9 +161,13 @@ export function ListadoContratos() {
       key: 'acciones',
       title: '',
       hideInCard: true,
-      // Solo los borradores tienen acciones: el detalle llega con US-07 (decisión del PO).
+      // Borradores: continuar o eliminar. El resto: su detalle (US-07).
       render: (contrato) =>
-        contrato.status === 'borrador' ? (
+        contrato.status !== 'borrador' ? (
+          <Button size="small" onClick={() => router.push(detalleHref(contrato))} data-testid="contratos-ver">
+            Ver contrato
+          </Button>
+        ) : (
           <span className={styles.acciones}>
             <Button size="small" type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(contrato.id)}/editar`)} data-testid="contratos-continuar">
               Continuar
@@ -160,7 +176,7 @@ export function ListadoContratos() {
               Eliminar
             </Button>
           </span>
-        ) : null,
+        ),
     },
   ]
 
@@ -259,7 +275,11 @@ export function ListadoContratos() {
                 </span>
               )}
               cardActions={(contrato) =>
-                contrato.status === 'borrador' ? (
+                contrato.status !== 'borrador' ? (
+                  <Button onClick={() => router.push(detalleHref(contrato))} data-testid="contratos-ver-movil">
+                    Ver contrato
+                  </Button>
+                ) : (
                   <span className={styles.acciones}>
                     <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(contrato.id)}/editar`)} data-testid="contratos-continuar-movil">
                       Continuar
@@ -268,7 +288,7 @@ export function ListadoContratos() {
                       Eliminar
                     </Button>
                   </span>
-                ) : null
+                )
               }
               data-testid="contratos-tabla"
             />

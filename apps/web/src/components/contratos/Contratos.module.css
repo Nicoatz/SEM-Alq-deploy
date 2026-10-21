@@ -47,6 +47,17 @@
   color: var(--rentar-color-text-secondary);
 }
 
+.codigoLink {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--rentar-color-blue);
+}
+
+.codigoLink:hover,
+.codigoLink:focus-visible {
+  text-decoration: underline;
+}
+
 .ajuste {
   display: inline-flex;
   flex-wrap: wrap;
