@@ -298,6 +298,30 @@ export type {
   StatusDomainMap,
 } from './status';
 export type { UsuarioSesion } from './usuario-sesion';
+export type { BloqueoIdentidad, DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from './perfil';
+export type {
+  AlquilerResumen,
+  ClausulaContrato,
+  CondicionesCobroPropiedad,
+  CondicionesNuevoContrato,
+  ContratoBorrador,
+  ContratoDeSolicitud,
+  ContratoDetalle,
+  ContratoEnviado,
+  ContratoResumen,
+  DatosContrato,
+  EventoContrato,
+  FirmanteContrato,
+  GaranteContrato,
+  IndiceContrato,
+  MiAlquiler,
+  ParteContrato,
+  PeriodicidadAjuste,
+  PropiedadDelContrato,
+  RolFirmante,
+  TipoClausula,
+  TipoEventoContrato,
+} from './contrato';
 export type {
   ContactoSolicitud,
   EstadoSolicitud,

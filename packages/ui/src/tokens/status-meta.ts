@@ -9,6 +9,7 @@ import {
   CheckCircleFilled,
   ClockCircleFilled,
   CloseCircleFilled,
+  EditFilled,
   ExclamationCircleFilled,
   FlagFilled,
   PauseCircleFilled,
@@ -55,9 +56,14 @@ export const statusMeta: StatusMetaMap = {
     alquilada_publicada: { label: 'Alquilada · publicada', colorKey: 'info', icon: CalendarOutlined },
   },
   contrato: {
+    // Neutro: todavía no compromete a nadie. El lápiz lo separa de los otros neutros
+    // (anulado, cancelada), que llevan el ícono de "detenido".
+    borrador: { label: 'Borrador', colorKey: 'neutral', icon: EditFilled },
     pendiente_firma: { label: 'Pendiente de firma', colorKey: 'warning', icon: ClockCircleFilled },
     vigente: { label: 'Vigente', colorKey: 'success', icon: CheckCircleFilled },
     finalizado: { label: 'Finalizado', colorKey: 'info', icon: FlagFilled },
+    // Rescindido se distingue de finalizado por color (error vs. info) y por ícono: finalizado
+    // terminó en su fecha (bandera), rescindido se cortó antes (cruz).
     rescindido: { label: 'Rescindido', colorKey: 'error', icon: CloseCircleFilled },
   },
   firma: {

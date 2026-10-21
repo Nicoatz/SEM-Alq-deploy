@@ -14,6 +14,18 @@ import styles from './DataTable.module.css'
 export interface DataTableColumn<T> {
   key: string
   title: string
+  /**
+   * Dibuja la celda a partir de la fila entera: la firma es `render(record)`.
+   *
+   * NOTA: **no es la firma de antd** (`render(value, record, index)`). Acá la
+   * columna no tiene `dataIndex`, así que no hay `value` que pasar, y la misma
+   * función dibuja la celda de la tabla y el valor de la tarjeta móvil. Si se
+   * escribe al estilo antd, `(value, record) => …`, el primer parámetro recibe
+   * la fila y `record` llega `undefined`.
+   *
+   * @example
+   * { key: 'estado', title: 'Estado', render: (propiedad) => <StatusTag domain="propiedad" status={propiedad.status} /> }
+   */
   render: (record: T) => ReactNode
   /**
    * `true` = la columna no se repite como par label/valor en la tarjeta

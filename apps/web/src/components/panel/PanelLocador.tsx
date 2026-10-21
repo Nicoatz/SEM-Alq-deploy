@@ -32,7 +32,7 @@ import type { PropiedadLocador, ResumenCobros, ResumenReclamos, SolicitudPanel }
 import { StatCard } from '@rentar/ui'
 import { formatARS } from '@rentar/ui/src/utils/formatARS'
 import { useServiceCall, type EstadoServicio } from '@/lib/hooks/useServiceCall'
-import { diasDesde, esDelMesActual, fechaLarga, hoy, nombreMes, textoDias } from '@/lib/utils/fechas'
+import { ahora, diasDesde, esDelMesActual, fechaLarga, hoy, nombreMes, textoDias } from '@/lib/utils/fechas'
 import { getEventosContratos, getResumenCobros, getResumenReclamos, getSolicitudesPendientes } from '@/services/panel.service'
 import { listarMisPropiedades } from '@/services/propiedades.service'
 import { Bloque, BloqueCargando, BloqueError, ContratosProximos, ProximosCobros, ReclamosRecientes } from './BloquesPanel'
@@ -43,11 +43,11 @@ import styles from './Panel.module.css'
 
 /**
  * "Buen día" hasta las 13, "Buenas tardes" hasta las 20, después "Buenas noches".
- * NOTA: usa la hora real a propósito: el "hoy" fijo del modo mock fija la
- * fecha (los días de atraso), no la hora del día.
+ * NOTA: la hora sale del reloj único (`ahora()`): en mock, el "hoy" fijo
+ * fija la fecha (los días de atraso), no la hora del día.
  */
 function saludo(): string {
-  const hora = new Date().getHours()
+  const hora = ahora().hour()
   if (hora < 13) return 'Buen día'
   if (hora < 20) return 'Buenas tardes'
   return 'Buenas noches'

@@ -9,6 +9,7 @@
  * Entra desde: el ítem "Solicitudes" del menú del locador y el link "N
  * solicitudes nuevas" del panel.
  */
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { RequireRole } from '@/components/auth/RequireRole'
 import { SolicitudesRecibidas } from '@/components/solicitudes/SolicitudesRecibidas'
@@ -20,7 +21,10 @@ export const metadata: Metadata = { title: 'Solicitudes' }
 export default function SolicitudesPage() {
   return (
     <RequireRole role="locador">
-      <SolicitudesRecibidas />
+      {/* Suspense: lee `?pestania=` (desde Contratos, US-05) con useSearchParams. */}
+      <Suspense>
+        <SolicitudesRecibidas />
+      </Suspense>
     </RequireRole>
   )
 }

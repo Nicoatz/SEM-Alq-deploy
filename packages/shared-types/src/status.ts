@@ -28,10 +28,17 @@ export type PropertyStatus = 'publicada' | 'pausada' | 'alquilada' | 'alquilada_
 /**
  * Estado del contrato de alquiler entre locador, locatario y garante.
  *
- * NOTA: no existe un estado `borrador` — quedó fuera del alcance del MVP.
+ * Ciclo: `borrador` (el locador lo está armando, todavía no se mandó a firmar) →
+ * `pendiente_firma` → `vigente` → `finalizado` (terminó en su fecha) o `rescindido`
+ * (se cortó antes).
+ *
+ * NOTA: `borrador` se sumó el 21/10/2026 a pedido del equipo (antes había quedado fuera del
+ * MVP). Los valores siguen los del estado de contrato pedido para el Sprint 3; hoy la base
+ * todavía tiene la tabla `estado_contrato` con otros valores (`disponible`, `vigente`,
+ * `finalizado`, ver `supabase/seed.sql`). TODO(db): alinear la base con estos cinco valores.
  * No confundir con `EstadoContrato` (modelo del back, tabla `contrato`).
  */
-export type ContractStatus = 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
+export type ContractStatus = 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
 
 /** Estado de la firma electrónica de un firmante individual dentro de un contrato. */
 export type SignatureStatus = 'pendiente' | 'firmado' | 'rechazado'

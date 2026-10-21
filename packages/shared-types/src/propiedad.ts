@@ -243,6 +243,11 @@ export interface PropiedadLocador {
   publishedAt: string
   /** Nombre del locatario; solo para alquiladas (US-02). */
   tenantName: string | null
+  /**
+   * Id del contrato vigente, para "Ver contrato" (`/panel/contratos/[id]`,
+   * US-07; tanda 4 del Sprint 3). `null` si no está alquilada o no se sabe.
+   */
+  contractId: string | null
   /** Estado del pago del período actual; solo para alquiladas (US-02). */
   paymentStatus: EstadoPago | null
   /** Vencimiento (fecha ISO) del período actual; solo para alquiladas. */

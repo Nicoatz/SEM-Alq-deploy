@@ -66,6 +66,8 @@ import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
 import { readMockCollection, saveMockRecord } from './shared/mockStore'
+import { contratoDeSolicitudMock, propiedadConContratoActivoMock } from './adapters/contrato-mock.adapter'
+import { perfilMockDe } from './perfil.service'
 import { requireSessionUserId } from './shared/session'
 import { readUsuariosMock } from './usuarios.service'
 
@@ -144,13 +146,20 @@ function aVista(solicitud: SolicitudMock, vista: VistaSolicitud): Solicitud {
   const propiedad = readPropiedadesMockConBorradas().find((item) => item.id === solicitud.propertyId) ?? null
   // La cuenta del postulante, para el DNI que ve el locador (US-35 actualizada).
   const postulante = vista === 'locador-detalle' ? (readUsuariosMock().find((item) => item.id === solicitud.applicantUserId) ?? null) : null
-  return solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
+  const vistaBase = solicitudMockToSolicitud(solicitud, propiedad, vista, postulante)
+  if (vista === 'locador-lista' || vista === 'locador-detalle') {
+    // US-05: para "Iniciar contrato" / "Continuar contrato", el locador
+    // necesita saber si esta solicitud ya originó un contrato y si la
+    // propiedad tiene otro vigente o pendiente de firma.
+    const contrato = contratoDeSolicitudMock(solicitud.id)
+    return { ...vistaBase, contrato, propiedadConContrato: !contrato && propiedadConContratoActivoMock(solicitud.propertyId) }
+  }
+  return vistaBase
 }
 
 /**
- * "Ahora" en el elenco: el 23/09/2026 a las 12:00 (`AHORA_ELENCO`), así una
- * solicitud recién enviada dice "hace menos de 1 h" (US-36) y ordena después
- * de las del día (la más nueva del elenco es de las 11:35).
+ * "Ahora" en el elenco: el reloj único (`ahora()`, el 23/09/2026 con la hora real), así una
+ * solicitud recién enviada dice "hace menos de 1 h" (US-36).
  */
 function ahoraMock(): string {
   return ahora().format('YYYY-MM-DDTHH:mm:ss')
@@ -257,22 +266,29 @@ async function cambiarEstadoReal(solicitudId: string, accion: AccionSolicitud, v
  * NOTA: no detecta una solicitud duplicada (el back no lo hace en `/preparar`):
  * eso lo dice el botón del detalle y, si se escapa, el 409 del envío.
  * TODO(db): `garantiasExigidas` llega vacío en real (el esquema no las guarda).
+ * TODO(backend): sumar el legajo del usuario a la respuesta (US-21: "los
+ * datos del legajo se precargan en las solicitudes nuevas"); hasta entonces,
+ * en real `legajo` es `null`.
  */
 export async function prepararSolicitud(propertyId: string): Promise<PreparacionSolicitud> {
   if (USE_MOCKS) {
     await delay(300)
     const userId = requireSessionUserId()
     const propiedad = propiedadSolicitableMock(propertyId, userId)
-    const usuario = readUsuariosMock().find((item) => item.id === userId)
+    // El perfil completo (con el DNI y el legajo vigentes, incluso los
+    // editados en "Mi perfil" que viven solo en memoria: ver `perfil.service`).
+    const perfil = perfilMockDe(userId)
     return {
       perfil: {
-        nombre: usuario?.nombre ?? '',
-        apellido: usuario?.apellido ?? '',
-        dni: usuario?.dni ?? null,
-        telefono: usuario?.telefono ?? null,
-        email: usuario?.email ?? '',
+        nombre: perfil?.nombre ?? '',
+        apellido: perfil?.apellido ?? '',
+        dni: perfil?.dni ?? null,
+        telefono: perfil?.telefono ?? null,
+        email: perfil?.email ?? '',
       },
       garantiasExigidas: propiedad.requiredGuarantees ?? [],
+      // US-21: el legajo del perfil se precarga en la solicitud nueva.
+      legajo: perfil?.legajo ?? null,
     }
   }
   try {

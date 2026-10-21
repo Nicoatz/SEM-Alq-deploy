@@ -171,7 +171,13 @@ function Locatario({ propiedad }: { propiedad: PropiedadLocador }) {
   return (
     <span className={styles.stack}>
       <span className={styles.tenant}>{propiedad.tenantName}</span>
-      <Link href="/panel/contratos" className={styles.inlineLink} onClick={cortarClick}>
+      {/* US-07: el detalle del contrato; sin id (no vino del back), el listado de contratos. */}
+      <Link
+        href={propiedad.contractId ? `/panel/contratos/${encodeURIComponent(propiedad.contractId)}` : '/panel/contratos'}
+        className={styles.inlineLink}
+        onClick={cortarClick}
+        data-testid="mis-propiedades-ver-contrato"
+      >
         Ver contrato
       </Link>
     </span>

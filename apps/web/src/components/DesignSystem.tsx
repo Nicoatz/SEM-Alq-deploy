@@ -182,7 +182,7 @@ const semanticColors: SemanticSwatch[] = [
   { name: 'Warning', hex: '#92400E', text: '#ffffff', usage: 'pausada, pendiente_firma, pendiente, en_proceso.' },
   { name: 'Error', hex: '#9F1239', text: '#ffffff', usage: 'rescindido, rechazado, vencido, abierto, vencida.' },
   { name: 'Info', hex: '#004D98', text: '#ffffff', usage: 'alquilada, alquilada_publicada, finalizado — reusa el azul de marca.' },
-  { name: 'Neutral', hex: 'rgba(18,32,46,0.5)', text: '#ffffff', usage: 'anulado, cerrado, cancelada.' },
+  { name: 'Neutral', hex: 'rgba(18,32,46,0.5)', text: '#ffffff', usage: 'borrador, anulado, cerrado, cancelada.' },
   { name: 'Money', hex: '#8C6B1D', text: '#ffffff', usage: 'MoneyAmount con emphasis, nunca para estados.' },
 ]
 
@@ -815,7 +815,7 @@ export default function DesignSystem() {
                 <StatusGroup
                   domain="contrato"
                   label="Contrato"
-                  statuses={['pendiente_firma', 'vigente', 'finalizado', 'rescindido']}
+                  statuses={['borrador', 'pendiente_firma', 'vigente', 'finalizado', 'rescindido']}
                 />
                 <StatusGroup domain="firma" label="Firma" statuses={['pendiente', 'firmado', 'rechazado']} />
                 <StatusGroup domain="cobro" label="Cobro" statuses={['pendiente', 'pagado', 'vencido', 'anulado', 'parcial']} />
@@ -1185,6 +1185,8 @@ export default function DesignSystem() {
                   <MoneyAmount amount={580000} size="lg" emphasis />
                   <IndexBadge index="ICL" />
                   <IndexBadge index="IPC" />
+                  <IndexBadge index="CAC" />
+                  <IndexBadge index="sin_ajuste" />
                 </div>
               </div>
 
@@ -1251,6 +1253,11 @@ export default function DesignSystem() {
               <p className={styles.subheading}>ActivityTimeline</p>
               <div className={styles.chipDemoCard}>
                 <ActivityTimeline events={demoActivityEvents} />
+              </div>
+
+              <p className={styles.subheading}>ActivityTimeline · dateFormat=&quot;absolute&quot;</p>
+              <div className={styles.chipDemoCard}>
+                <ActivityTimeline events={demoActivityEvents} dateFormat="absolute" />
               </div>
 
               <p className={styles.subheading}>EmptyState</p>

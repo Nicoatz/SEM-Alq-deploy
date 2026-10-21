@@ -24,7 +24,7 @@
 export const MOCK_KEY_PREFIX = 'rentar:mock:'
 
 /** Colecciones que se pueden persistir. Cada una se guarda en `rentar:mock:<nombre>`. */
-export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes'
+export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes' | 'perfiles' | 'contratos'
 
 /**
  * `true` solo en el navegador.
@@ -82,8 +82,25 @@ export function saveMockRecord<T extends { id: string }>(collection: MockCollect
 }
 
 /**
+ * Borra un registro guardado en el navegador (por ejemplo, un borrador de
+ * contrato eliminado, US-05). Solo borra lo que se creó en el navegador: un
+ * registro del elenco vuelve a aparecer al leer (es la base fija).
+ * Devuelve `false` si no se pudo escribir en `localStorage`.
+ */
+export function deleteMockRecord(collection: MockCollection, id: string): boolean {
+  if (!isBrowser()) return false
+  try {
+    const stored = readStored<{ id: string }>(collection).filter((item) => item.id !== id)
+    window.localStorage.setItem(MOCK_KEY_PREFIX + collection, JSON.stringify(stored))
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
  * Borra todo lo guardado con el prefijo `rentar:mock:` (las colecciones de
- * cuentas, propiedades y solicitudes) y deja solo el elenco
+ * cuentas, propiedades, solicitudes, perfiles y contratos) y deja solo el elenco
  * original. Lo usa el botón "Reiniciar datos de prueba" de las herramientas
  * de desarrollo (`components/dev/DevTools.tsx`).
  */

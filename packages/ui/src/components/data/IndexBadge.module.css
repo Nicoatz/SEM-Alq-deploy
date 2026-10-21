@@ -15,3 +15,9 @@
   font-size: 0.75rem;
   opacity: 0.7;
 }
+
+/* "Sin ajuste" no es un índice: se ve neutro. */
+.sinAjuste {
+  background: var(--rentar-status-neutral-bg);
+  color: var(--rentar-status-neutral-ink);
+}
