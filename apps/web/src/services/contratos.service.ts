@@ -5,7 +5,7 @@
  * aceptada, el borrador (guardar, retomar y eliminar) y el envío a firmar.
  * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
  * alquiler (detalle, firmar, rechazar, cancelar el envío y reenviar la
- * invitación).
+ * invitación), y Mi alquiler del locatario (`getMiAlquiler`, base de US-27).
  * De dónde saca los datos:
  * - Modo mock: los vigentes del elenco (`propiedades.mock.ts`, `rental`),
  *   `contratos.mock.ts` y los borradores del navegador, a través de
@@ -57,6 +57,7 @@ import {
   siguienteCodigoMock,
 } from './adapters/contrato-mock.adapter'
 import {
+  ALQUILER_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_PENDIENTE_MESSAGE,
@@ -560,7 +561,7 @@ function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, Firma
  * desde el detalle; el locatario, desde Mi alquiler). La pantalla ya pidió
  * leer hasta la última página, la casilla y la confirmación.
  * - "Se deben registrar la fecha, la hora y la IP de cada firma": lo hace el
- *   back. En mock, la fecha y la hora (ver `momentoActual`); la IP no.
+ *   back. En mock, la fecha y la hora reales (ver `momentoActual`); la IP no.
  * - "Una parte no puede firmar más de una vez el mismo contrato": 409.
  * - "Cuando firman todas las partes, el contrato pasa a 'vigente'": la
  *   propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas
@@ -720,5 +721,62 @@ export async function reenviarInvitacion(id: string, rol: RolFirmante): Promise<
     return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/reenviar`, { method: 'POST', body }))
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'FIRMANTE_NO_PENDIENTE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
+  }
+}
+
+// ─── US-07 (y base de US-27): Mi alquiler ───────────────────────────────
+
+/** Estados que muestra Mi alquiler sin elegir (US-27: "un solo contrato pendiente de firma o vigente"). */
+const ESTADOS_MI_ALQUILER = ['pendiente_firma', 'vigente'] as const
+
+/**
+ * Mi alquiler (`/panel/alquiler`): el contrato del que el usuario en sesión
+ * es LOCATARIO, para verlo y firmarlo o rechazarlo (US-07: "el locatario
+ * firma desde Mi alquiler").
+ * - Sin `contratoId`: el pendiente de firma o vigente (primero el
+ *   pendiente); `null` si no tiene ninguno.
+ * - Con `contratoId` (`?contrato=`, lo va a usar el listado de US-27 en la
+ *   tanda 4): ese contrato, si es suyo como locatario.
+ * NOTA: si tiene dos o más, US-27 pide el listado `/panel/alquileres`
+ * (tanda 4); hasta entonces se muestra el primero.
+ * @backend GET /api/v1/contratos?rol=locatario   (no existe — propuesto) → ContratoResumenResponse[] (los contratos donde es locatario)
+ * @backend GET /api/v1/contratos/:id   (no existe — propuesto) → ContratoDetalleResponse
+ * @throws {ServiceError} `not_found` "No encontramos este alquiler." si el contrato no existe o no es suyo (sin distinguir).
+ */
+export async function getMiAlquiler(contratoId?: string): Promise<ContratoDetalle | null> {
+  if (USE_MOCKS) {
+    await delay(400)
+    const userId = requireSessionUserId()
+    const guardados = readContratosMock().filter((contrato) => contrato.tenantUserId === userId && contrato.status !== 'borrador')
+    const alquileres = readPropiedadesContratoMock().filter(
+      (propiedad) => propiedad.rental?.tenantUserId === userId && !guardados.some((contrato) => contrato.code === propiedad.rental?.contractId),
+    )
+    if (contratoId) {
+      const guardado = guardados.find((contrato) => contrato.id === contratoId)
+      if (guardado) return detalleDeContratoMock(guardado)
+      const propiedad = alquileres.find((item) => item.rental?.contractId === contratoId)
+      const detalle = propiedad ? detalleDeAlquilerMock(propiedad) : null
+      if (!detalle) throw new ServiceError('not_found', ALQUILER_NO_ENCONTRADO_MESSAGE)
+      return detalle
+    }
+    for (const estado of ESTADOS_MI_ALQUILER) {
+      const guardado = guardados.find((contrato) => contrato.status === estado)
+      if (guardado) return detalleDeContratoMock(guardado)
+      const propiedad = alquileres.find((item) => item.rental?.contractStatus === estado)
+      if (propiedad) return detalleDeAlquilerMock(propiedad)
+    }
+    return null
+  }
+  try {
+    let id = contratoId
+    if (!id) {
+      const mios = await apiRequest<ContratoResumenResponse[]>('/contratos', { query: { rol: 'locatario' } })
+      const elegido = ESTADOS_MI_ALQUILER.map((estado) => mios.find((dto) => dto.estado === estado)).find(Boolean)
+      if (!elegido) return null
+      id = String(elegido.id)
+    }
+    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}`))
+  } catch (error) {
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', noEncontrado: ALQUILER_NO_ENCONTRADO_MESSAGE })
   }
 }

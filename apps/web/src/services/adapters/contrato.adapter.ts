@@ -46,6 +46,8 @@ import { barrioDe, medioPagoFromId } from './propiedad.adapter'
 // ─── Mensajes (en español, listos para mostrar) ─────────────────────────
 
 export const CONTRATO_NO_ENCONTRADO_MESSAGE = 'No encontramos este contrato.'
+/** Mi alquiler (US-07 / US-27): el contrato no existe o el usuario no es su locatario. */
+export const ALQUILER_NO_ENCONTRADO_MESSAGE = 'No encontramos este alquiler.'
 export const SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE = 'No encontramos esa solicitud entre las de tus propiedades.'
 export const SOLICITUD_NO_ACEPTADA_MESSAGE = 'Solo se puede iniciar un contrato desde una solicitud aceptada.'
 export const SOLICITUD_CON_CONTRATO_MESSAGE = 'Esta solicitud ya originó un contrato: una solicitud aceptada puede originar uno solo.'
