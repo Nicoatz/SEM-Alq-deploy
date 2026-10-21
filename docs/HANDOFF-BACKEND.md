@@ -821,13 +821,13 @@ Los puntos 9 a 12 y 14 tienen un texto de issue para GitHub (lo abre el PO).
 
 No se arreglaron en el PR del QA; quedan anotados para cuando toque:
 
-1. **Bloqueo por rol de las páginas del locador.** Hoy solo `/panel/propiedades` y
-   `/panel/propiedades/[id]` están envueltas en `RequireRole role="locador"` (y, desde el Sprint 2,
-   `/panel/solicitudes` y `/panel/propiedades/[id]/editar`). Contratos,
-   Cobros, Reclamos, Mensajes, Reportes y Suscripción son placeholders sin bloqueo: un locatario no
-   las ve en el menú (`navConfig.tsx`), pero entra si escribe la URL. Cuando cada una se implemente,
-   envolverla en `RequireRole` (y que el back responda 403 a un locatario, ver §6), salvo las que
-   también sean del locatario (Contratos, Cobros, Reclamos y Mensajes lo van a ser con su panel).
+1. **Bloqueo por rol de las páginas del locador (actualizado en el Sprint 3, tanda 2).** Con
+   `RequireRole role="locador"`: `/panel/propiedades` (listado, detalle y edición), `/panel/solicitudes`,
+   `/panel/reportes` y `/panel/suscripcion` (tanda 2) y `/panel/contratos` con todas sus subrutas
+   (un `layout.tsx`, tanda 2). **Sin guard a propósito:** Cobros, Reclamos y Mensajes, porque también
+   van a ser del locatario con su panel; cuando se implementen, cada pantalla decide qué muestra según
+   el rol activo (y el back responde 403 a lo que no corresponda, ver §6). Un locatario no las ve en
+   el menú (`navConfig.tsx`), pero hoy entra si escribe la URL: son placeholders.
 2. **Doble "Publicar propiedad" en Mis propiedades.** En escritorio aparece en el encabezado del
    panel (`AppShell#headerAction`, regla de roles del 27/09) y otra vez en el `PageHeader` de la
    pantalla (`mis-propiedades-publicar`); en móvil, además del menú, está el CTA fijo de abajo
