@@ -45,7 +45,7 @@ import { tituloContrato } from '@/lib/contratos/plantilla'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { dniParaMostrar } from '@/lib/perfil/formato'
-import { momentoActual } from '@/lib/utils/fechas'
+import { ahoraIso } from '@/lib/utils/fechas'
 import { cancelarEnvio, getDetalleContrato, reenviarInvitacion } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { FirmaContrato } from './FirmaContrato'
@@ -66,11 +66,6 @@ interface DetalleContratoProps {
 /** "Nombre Apellido" de una parte. */
 function nombreDe(parte: ContratoDetalle['locador']): string {
   return `${parte.nombre} ${parte.apellido}`.trim()
-}
-
-/** Ahora, en ISO con hora (para saber si ya se puede reenviar). */
-function ahoraIso(): string {
-  return momentoActual().format('YYYY-MM-DDTHH:mm:ss')
 }
 
 /** Color del punto de cada evento del historial. */

@@ -62,8 +62,8 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   invitadas el 22/09 a las 11:40 (el primer reenvío ya se puede hacer). Firman Nicolás (desde el
   detalle, `/panel/contratos/CT-2026-0207`) y Julieta (desde **Mi alquiler**, `/panel/alquiler`). Las
   firmas, rechazos, cancelaciones y reenvíos hechos en el navegador se guardan en
-  `rentar:mock:contratos` con la **fecha y hora reales** (`momentoActual`, decisión del PO): las
-  fechas del elenco quedan solo para lo sembrado. **No hay un contrato sembrado con 1 firma**: se arma
+  `rentar:mock:contratos` con el reloj único (`ahora()`: el 23/09/2026 con la **hora real**,
+  decisión del PO). **No hay un contrato sembrado con 1 firma**: se arma
   en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
   `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
   "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
@@ -168,11 +168,12 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
   Sprint 3 (tanda 2): pendientes 3 (Matías y Diego en Rondeau 480; Sofía en Fructuoso Rivera 785),
   aceptadas 2 (Julieta en Rondeau 480, con contrato; Diego en Fructuoso Rivera 785, sin contrato),
   cerradas 2. Como Rondeau ya tiene una aceptada, ahí no se puede aceptar otra.
-- **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** el "ahora" del elenco es el
-  23/09/2026 a las **12:00** (`AHORA_ELENCO` en `lib/utils/fechas.ts`; `hoy()` sigue a las 00:00).
-  0039 (Sofía en Fructuoso Rivera 785, 09:00) dice "hace 3 h"; 0040 (Diego vuelve a solicitar
-  Rondeau 480 después del rechazo de la 0033, 11:35) dice "hace menos de 1 h"; la de Matías (0032,
-  19/09) dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
+- **Tiempo en horas (US-36, tanda C de correcciones del Sprint 2):** desde la tanda 3 del Sprint 3
+  hay **un solo reloj** (`lib/utils/fechas.ts#ahora`): en mock, la fecha es el 23/09/2026 y la hora,
+  la real (`hoy()` es esa fecha a las 00:00). 0039 (Sofía en Fructuoso Rivera 785, 09:00) y 0040
+  (Diego vuelve a solicitar Rondeau 480 después del rechazo de la 0033, 11:35) dicen "hace N h"
+  **según la hora a la que se mire** (a las 12:00, "hace 3 h" y "hace menos de 1 h", como antes; antes
+  de su hora, "hace menos de 1 h"); la de Matías (0032, 19/09) dice "hace 3 días". Sofía ofrece tres garantías y Diego, dos, para el resumen de la fila.
 - **Una sola aceptada por propiedad:** como Fructuoso Rivera 785 ya tiene la de Diego, si Julieta
   le manda una (el recorrido de la tanda 1), su "Aceptar" aparece deshabilitado hasta que Nicolás
   cancele la de Diego (US-38).

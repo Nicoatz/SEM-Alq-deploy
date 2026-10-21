@@ -220,8 +220,8 @@ export const solicitudes: SolicitudMock[] = [
 
   // ─── Tanda C de correcciones del testing del Sprint 2 (US-36) ─────────
   // Dos pendientes del mismo "hoy", para ver el tiempo en horas (el "ahora"
-  // del elenco es el 23/09 a las 12:00, `AHORA_ELENCO`): una de hace 3 h y
-  // otra de hace menos de 1 h. La de varios días es la de Matías (0032).
+  // del mock es el 23/09 con la hora real, `ahora()`: a las 12:00, una es de
+  // hace 3 h y otra de hace menos de 1 h). La de varios días es la de Matías (0032).
   // NOTA: no son de Julieta: sobre Fructuoso Rivera 785 no tiene ninguna
   // (ahí se prueba el envío de US-35) y en Rondeau 480 ya tiene la 0031.
   {

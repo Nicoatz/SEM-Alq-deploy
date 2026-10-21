@@ -41,7 +41,7 @@ import {
   type PropiedadMock,
 } from '@/lib/mocks'
 import { fechaFin, fechaPrimerAjuste, MESES_POR_PERIODO, proximoAjuste } from '@/lib/contratos/fechas'
-import { momentoActual } from '@/lib/utils/fechas'
+import { ahoraIso } from '@/lib/utils/fechas'
 import { deleteMockRecord, readMockCollection, saveMockRecord } from '../shared/mockStore'
 import { formatAddress } from './propiedad-mock.adapter'
 
@@ -226,11 +226,11 @@ export function periodicidadDePublicacion(propiedad: Pick<PropiedadMock, 'adjust
 }
 
 /**
- * Fecha y hora ISO REALES de un hecho nuevo en mock (borradores, envíos,
- * firmas, rechazos, cancelaciones y reenvíos; ver `momentoActual`).
+ * Fecha y hora ISO de un hecho nuevo en mock (borradores, envíos, firmas,
+ * rechazos, cancelaciones y reenvíos): el reloj único (`lib/utils/fechas.ts#ahora`).
  */
 export function ahoraIsoMock(): string {
-  return momentoActual().format('YYYY-MM-DDTHH:mm:ss')
+  return ahoraIso()
 }
 
 // ─── Firmas e historial (US-07) ─────────────────────────────────────────

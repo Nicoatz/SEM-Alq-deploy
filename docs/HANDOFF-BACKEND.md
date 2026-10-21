@@ -242,9 +242,10 @@ US-05 (el **bloqueante del esquema** de abajo).
   invitación a quien rechazó.
 - **Historial con fecha y hora:** `ActivityTimeline` suma `dateFormat="absolute"` (cambio de
   `@rentar/ui` aprobado; se sube en el `/design-sync` de fin de sprint, ver `.design-sync/NOTES.md`).
-- **Reloj:** lo que hace el usuario en la sesión (crear, enviar, firmar, rechazar, cancelar, reenviar)
-  se registra con la **fecha y hora reales**, también en mock. Las fechas del elenco quedan solo para
-  los datos sembrados.
+- **Reloj (un solo reloj, `lib/utils/fechas.ts#ahora`):** en real, el reloj del sistema. En mock, la
+  **fecha del "hoy" del mock (23/09/2026) con la hora real**: los eventos de la sesión, la validación
+  "inicio no anterior a hoy" del alta y los días que faltan. El límite de un reenvío por hora usa la
+  hora real. (Corrige lo dicho antes en esta tanda: "fecha y hora reales también en mock".)
 - El listado ahora linkea pendientes, vigentes y finalizados al detalle. Un borrador abierto por
   `/[id]` va a `/[id]/editar`.
 
@@ -263,9 +264,9 @@ dato".
 
 **Modo mock**
 
-- **Reloj:** las firmas, rechazos, reenvíos, cancelaciones, borradores y envíos se registran con la
-  **fecha y hora reales** (`lib/utils/fechas.ts#momentoActual`), aunque "hoy" del elenco sea el
-  23/09/2026 (decisión del PO).
+- **Reloj:** las firmas, rechazos, reenvíos, cancelaciones, borradores y envíos se registran con
+  `ahora()`: el 23/09/2026 con la hora real. Si el reloj real pasa la medianoche, la hora vuelve a
+  00:00 del mismo 23/09: un reenvío "anterior" a la última invitación no queda bloqueado.
 - **CT-2026-0207** arranca pendiente con 0 firmas e invitaciones del 22/09 a las 11:40 (el primer
   reenvío ya se puede hacer). No hay un contrato sembrado con 1 firma (decisión del PO): el caso
   "cancelar cuando el locatario ya firmó" se arma en la prueba (SOL-2026-0034 → enviar → firma Diego

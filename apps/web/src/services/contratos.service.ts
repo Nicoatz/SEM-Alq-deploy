@@ -35,7 +35,7 @@ import type {
 } from '@rentar/shared-types'
 import dayjs from 'dayjs'
 import { fechaFin } from '@/lib/contratos/fechas'
-import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioDisponibleDesde } from '@/lib/contratos/firmas'
+import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from '@/lib/contratos/firmas'
 import { completarClausulas } from '@/lib/contratos/plantilla'
 import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
@@ -570,7 +570,7 @@ function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, Firma
  * desde el detalle; el locatario, desde Mi alquiler). La pantalla ya pidió
  * leer hasta la última página, la casilla y la confirmación.
  * - "Se deben registrar la fecha, la hora y la IP de cada firma": lo hace el
- *   back. En mock, la fecha y la hora reales (ver `momentoActual`); la IP no.
+ *   back. En mock, el "hoy" del elenco con la hora real (`ahora()`); la IP no.
  * - "Una parte no puede firmar más de una vez el mismo contrato": 409.
  * - "Cuando firman todas las partes, el contrato pasa a 'vigente'": la
  *   propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas
@@ -716,8 +716,7 @@ export async function reenviarInvitacion(id: string, rol: RolFirmante): Promise<
     const firma = firmas[rol]
     if (rol === 'locador' || firma.estado !== 'pendiente') throw new ServiceError('conflict', FIRMANTE_NO_PENDIENTE_MESSAGE, 'FIRMANTE_NO_PENDIENTE')
     const ahora = ahoraIsoMock()
-    const desde = reenvioDisponibleDesde(firma)
-    if (desde && ahora < desde) throw new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
+    if (reenvioBloqueado(firma, ahora)) throw new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
     return guardarAccionMock({
       ...contrato,
       firmas: { ...firmas, [rol]: { ...firma, ultimaInvitacion: ahora } },

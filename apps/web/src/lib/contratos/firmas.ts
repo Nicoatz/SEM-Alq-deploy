@@ -47,6 +47,20 @@ export function reenvioDisponibleDesde(firmante: Pick<FirmanteContrato, 'ultimaI
 }
 
 /**
+ * `true` si pasó menos de una hora desde la última invitación (US-07: "como
+ * máximo una vez por hora").
+ * NOTA: en mock la fecha es fija (23/09/2026) y la hora es la real: si el
+ * reloj real pasó la medianoche, "ahora" queda antes de la última
+ * invitación; eso no se toma como bloqueo.
+ */
+export function reenvioBloqueado(firmante: Pick<FirmanteContrato, 'ultimaInvitacion'>, ahoraIso: string): boolean {
+  const desde = reenvioDisponibleDesde(firmante)
+  if (!desde || !firmante.ultimaInvitacion) return false
+  const ahora = dayjs(ahoraIso)
+  return !ahora.isBefore(dayjs(firmante.ultimaInvitacion)) && ahora.isBefore(dayjs(desde))
+}
+
+/**
  * ¿Se puede reenviar la invitación a este firmante? (US-07: "a un firmante
  * pendiente, como máximo una vez por hora. Mientras no pueda reenviar, el
  * botón debe explicar por qué".)
@@ -55,8 +69,8 @@ export function reenvioDisponibleDesde(firmante: Pick<FirmanteContrato, 'ultimaI
 export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): string | null {
   if (firmante.estado === 'firmado') return 'Ya firmó: no hace falta reenviarle la invitación.'
   if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a enviarle el contrato, cancelá el envío y envialo de nuevo.'
-  const desde = reenvioDisponibleDesde(firmante)
-  if (desde && dayjs(ahoraIso).isBefore(dayjs(desde))) {
+  if (reenvioBloqueado(firmante, ahoraIso)) {
+    const desde = reenvioDisponibleDesde(firmante) ?? ahoraIso
     return `La invitación se envió a las ${dayjs(firmante.ultimaInvitacion).format('HH:mm')}. Se puede reenviar una vez por hora: de nuevo desde las ${dayjs(desde).format('HH:mm')}.`
   }
   return null

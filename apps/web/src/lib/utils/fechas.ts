@@ -21,47 +21,36 @@ import { USE_MOCKS } from '@/services/shared/config'
 export const HOY_ELENCO = '2026-09-23'
 
 /**
- * "Ahora" del elenco en modo mock: el mismo día que {@link HOY_ELENCO}, a
- * las 12:00. Lo usan los textos en horas ("hace 3 h", US-36), que con
- * {@link hoy} (a las 00:00) no tendrían horas para contar.
- */
-export const AHORA_ELENCO = '2026-09-23T12:00:00'
-
-/**
- * Hoy, a las 00:00 (así las cuentas de días no dependen de la hora).
- *
- * NOTA: en modo mock (`NEXT_PUBLIC_USE_MOCKS`, el default) es FIJO:
- * {@link HOY_ELENCO}. Con la fecha real, los datos del elenco se
- * desacomodarían solos día a día (un cobro pendiente pasaría a vencido, los
- * "19 días de atraso" pasarían a 20) y los tests de Selenium, que comparan
- * esos textos, dejarían de ser estables. Con el backend real
- * (`NEXT_PUBLIC_USE_MOCKS=false`) es la fecha del sistema.
- */
-export function hoy(): Dayjs {
-  return (USE_MOCKS ? dayjs(HOY_ELENCO) : dayjs()).startOf('day')
-}
-
-/**
- * Ahora, con la hora. En modo mock es FIJO: {@link AHORA_ELENCO} (por lo
- * mismo que {@link hoy}); con el backend real, la hora del sistema.
- * NOTA: para cuentas de días se sigue usando {@link hoy}; esto es solo para
- * los textos en horas.
+ * EL reloj de la app: ahora, con la hora. Todo lo que necesita "ahora" u
+ * "hoy" pasa por acá (decisión del PO, tanda 3 del Sprint 3: un solo reloj).
+ * - Modo real (`NEXT_PUBLIC_USE_MOCKS=false`): la hora del sistema.
+ * - Modo mock (el default): la FECHA es la del elenco ({@link HOY_ELENCO}) y
+ *   la HORA es la real. Así los datos del elenco no se desacomodan día a
+ *   día (los "19 días de atraso" siguen siendo 19 y los tests de Selenium,
+ *   estables) y lo que pasa en la sesión (crear, enviar, firmar, rechazar,
+ *   cancelar o reenviar un contrato; enviar o responder una solicitud) queda
+ *   con una hora de verdad: el límite de "un reenvío por hora" (US-07) se
+ *   cumple con el reloj real.
+ * NOTA: los textos "hace N h" de las solicitudes del elenco (US-36) dependen
+ * de la hora a la que se mire (antes eran contra un 12:00 fijo).
  */
 export function ahora(): Dayjs {
-  return USE_MOCKS ? dayjs(AHORA_ELENCO) : dayjs()
+  const reloj = dayjs()
+  if (!USE_MOCKS) return reloj
+  return dayjs(HOY_ELENCO).hour(reloj.hour()).minute(reloj.minute()).second(reloj.second()).millisecond(reloj.millisecond())
 }
 
 /**
- * Momento REAL de algo que hace el usuario en la sesión (crear o enviar un
- * contrato, firmar, rechazar, cancelar el envío, reenviar; US-05 y US-07),
- * en los dos modos.
- * NOTA (decisión del PO, tanda 3 del Sprint 3): lo que pasa en la sesión se
- * registra con la fecha y la hora reales, aunque en mock "hoy" sea el
- * 23/09/2026. Las fechas del elenco quedan solo para los datos sembrados.
- * Así también funciona el límite de "un reenvío por hora".
+ * Hoy, a las 00:00 (así las cuentas de días no dependen de la hora). Sale de
+ * {@link ahora}: en mock es el {@link HOY_ELENCO}; en real, la fecha del sistema.
  */
-export function momentoActual(): Dayjs {
-  return dayjs()
+export function hoy(): Dayjs {
+  return ahora().startOf('day')
+}
+
+/** {@link ahora} en ISO con hora (`2026-09-23T16:14:05`), para guardar fechas de eventos. */
+export function ahoraIso(): string {
+  return ahora().format('YYYY-MM-DDTHH:mm:ss')
 }
 
 /** Días que faltan desde hoy hasta `fecha` (negativo si ya pasó). */
