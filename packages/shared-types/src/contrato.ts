@@ -3,7 +3,8 @@
  * `/panel/contratos` y el alta en 4 pasos.
  *
  * Qué es: TIPOS DE VISTA DEL FRONT. Cubren US-05 Registrar contrato de
- * alquiler (listado, inicio desde una solicitud aceptada, alta y borrador).
+ * alquiler (listado, inicio desde una solicitud aceptada, alta y borrador) y
+ * US-07 Firmar contrato de alquiler (detalle, firmantes, historial y firma).
  * No confundir con `CondicionesContrato` de `propiedad.ts`: esas son las
  * condiciones que el locador cargó al PUBLICAR (US-01); acá están las del
  * contrato real con un locatario.
@@ -20,7 +21,7 @@
  */
 import type { AdjustmentIndex, MedioPagoConRecargo } from './propiedad'
 import type { GarantiaOfrecida } from './solicitud'
-import type { ContractStatus } from './status'
+import type { ContractStatus, SignatureStatus } from './status'
 
 /**
  * Índice de ajuste del contrato (US-05: "Sin ajuste, ICL, IPC o CAC").
@@ -189,4 +190,70 @@ export interface ContratoEnviado {
 export interface ContratoDeSolicitud {
   id: string
   status: ContractStatus
+}
+
+// ─── US-07 Firmar contrato de alquiler ──────────────────────────────────
+
+/** Quién firma (decisión del PO: el locador y el locatario; el garante no firma en el Sprint 3). */
+export type RolFirmante = 'locador' | 'locatario'
+
+/** Una de las dos partes que firman, con el estado de su firma. */
+export interface FirmanteContrato {
+  rol: RolFirmante
+  userId: string
+  /** Nombre y apellido. */
+  nombre: string
+  /** US-07: "pendiente, firmado (con fecha y hora) o rechazado (con el motivo)". Es el dominio `firma` de `StatusTag`. */
+  estado: SignatureStatus
+  /** Fecha y hora ISO de la firma; `null` si no firmó. La IP la guarda el back y no se muestra. */
+  firmadoEl: string | null
+  /** Fecha y hora ISO del rechazo; `null` si no rechazó. */
+  rechazadoEl: string | null
+  /** Motivo del rechazo (opcional, hasta 300 caracteres); `null` si no dio uno. */
+  motivoRechazo: string | null
+  /** Fecha y hora ISO de la última invitación (el envío o un reenvío); `null` si nunca se invitó. */
+  ultimaInvitacion: string | null
+}
+
+/** Qué pasó en el contrato (US-07: "creación, envío a firmar, firmas, rechazos, reenvíos y cancelaciones"). */
+export type TipoEventoContrato = 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
+
+/** Un evento del historial del contrato. */
+export interface EventoContrato {
+  id: string
+  tipo: TipoEventoContrato
+  /** Fecha y hora ISO. */
+  fecha: string
+  /** Quién (en firmas y rechazos) o a quién (en reenvíos); `null` en el resto. */
+  rol: RolFirmante | null
+  nombre: string | null
+  /** Motivo del rechazo; `null` en el resto. */
+  motivo: string | null
+}
+
+/**
+ * El detalle de un contrato (`/panel/contratos/[id]`, US-07): lo del alta
+ * más los firmantes y el historial.
+ */
+export interface ContratoDetalle extends ContratoBorrador {
+  /** Fecha y hora ISO en que se envió a firmar; `null` si es borrador o no se registró. */
+  enviadoEl: string | null
+  /**
+   * Fecha y hora ISO de la última firma, cuando firmaron todas las partes
+   * (US-07: "Firmado por todas las partes el dd/mm/aaaa"); `null` si faltan
+   * firmas o no se registró.
+   */
+  firmadoPorTodasEl: string | null
+  /**
+   * `false` en los contratos anteriores a RentAR (los vigentes y el
+   * finalizado del elenco): no hay registro de firmas ni historial, y no se
+   * inventan.
+   */
+  firmasRegistradas: boolean
+  /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
+  firmantes: FirmanteContrato[]
+  /** Del más reciente al más viejo. */
+  historial: EventoContrato[]
+  /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
+  endDate: string | null
 }

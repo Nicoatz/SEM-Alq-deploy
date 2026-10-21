@@ -23,7 +23,7 @@ adaptadores de `apps/web/src/services/adapters/` (ver `docs/HANDOFF-BACKEND.md`)
 | `CreateInmuebleCompletoPayload` (cuerpo de `POST /api/v1/inmuebles`) | `PropiedadNueva` | `propiedad.adapter.ts#propiedadNuevaToCreateInmueble` |
 | Solicitud (tabla y rutas propuestas en `docs/api-endpoints.md`, "Solicitudes") | `Solicitud`, `SolicitudNueva`, `EstadoSolicitud` | `solicitud.adapter.ts` (contra el DTO propuesto `SolicitudResponse`) |
 | Perfil y legajo (rutas propuestas en `docs/api-endpoints.md`, "Perfil") | `PerfilUsuario`, `LegajoUsuario`, `DatosPersonalesCambios` | `perfil.adapter.ts` (contra el DTO propuesto `PerfilResponse`) |
-| Contrato (rutas propuestas en `docs/api-endpoints.md`, "Contratos") | `ContratoResumen`, `ContratoBorrador`, `DatosContrato`, `ContratoEnviado`, `IndiceContrato` | `contrato.adapter.ts` (contra los DTO propuestos `ContratoResumenResponse` y `ContratoResponse`) |
+| Contrato (rutas propuestas en `docs/api-endpoints.md`, "Contratos") | `ContratoResumen`, `ContratoBorrador`, `DatosContrato`, `ContratoEnviado`, `IndiceContrato`; US-07: `ContratoDetalle`, `FirmanteContrato`, `EventoContrato` | `contrato.adapter.ts` (contra los DTO propuestos `ContratoResumenResponse` y `ContratoResponse`) |
 | Cobros, reclamos, solicitudes (tablas de sprints futuros) | `ResumenCobros`, `ResumenReclamos`, `EventoContratoPanel`, `SolicitudPanel` | Ninguno todavía: en modo real `/panel` los muestra vacíos (ver `apps/web/src/services/panel.service.ts`). |
 | `TipoInmueble` (`tipo_inmueble`) | `PropertyType` | `propiedad.adapter.ts#propertyTypeFromTipoId` |
 | `TagInmueble` (`tags_inmueble`) | `CharacteristicKey` | `propiedad.adapter.ts#characteristicFromTagDescripcion` (lectura) y `#tagIdFromCharacteristic` (alta) |
