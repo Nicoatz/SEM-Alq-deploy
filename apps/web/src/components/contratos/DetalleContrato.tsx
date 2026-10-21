@@ -310,7 +310,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
       {/* Franja de estado (Claude Design · 05): lo primero mientras faltan firmas. */}
       {pendiente ? (
         <div className={`${styles.franja} ${styles.franjaPendiente}`} data-testid="contrato-estado">
-          <StatusTag domain="contrato" status="pendiente_firma" />
+          {!esFicha && <StatusTag domain="contrato" status="pendiente_firma" />}
           <span className={styles.franjaTexto}>
             <span data-testid="contrato-faltan-firmas">
               {faltan === 1 ? 'Falta' : 'Faltan'} <strong>{faltan} de {contrato.firmantes.length} firmas</strong>.
@@ -342,14 +342,14 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         </div>
       ) : contrato.status === 'vigente' && contrato.firmadoPorTodasEl ? (
         <div className={`${styles.franja} ${styles.franjaVigente}`} data-testid="contrato-estado">
-          <StatusTag domain="contrato" status="vigente" />
+          {!esFicha && <StatusTag domain="contrato" status="vigente" />}
           <span className={styles.franjaTexto} data-testid="contrato-firmado-todas">
             Firmado por todas las partes el {fechaCorta(contrato.firmadoPorTodasEl)}.
           </span>
         </div>
       ) : (
         <div className={styles.franja} data-testid="contrato-estado">
-          <StatusTag domain="contrato" status={contrato.status} />
+          {!esFicha && <StatusTag domain="contrato" status={contrato.status} />}
           {!contrato.firmasRegistradas && (
             <span className={styles.franjaTexto} data-testid="contrato-sin-registro">
               Contrato anterior a RentAR: no hay registro de las firmas ni del historial.
