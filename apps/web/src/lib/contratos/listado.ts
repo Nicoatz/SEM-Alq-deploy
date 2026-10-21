@@ -10,7 +10,9 @@
  *   del locatario."
  * - "Por defecto, el listado muestra primero los pendientes de firma y
  *   después el resto, ordenado por fecha de fin."
- * Quién lo usa: `components/contratos/ListadoContratos.tsx`.
+ * Y el orden de Mis alquileres (US-27, {@link ordenarAlquileres}).
+ * Quién lo usa: `components/contratos/ListadoContratos.tsx`,
+ * `ListadoAlquileres.tsx` y la rama mock de `contratos.service.ts`.
  */
 import type { ContractStatus, ContratoResumen } from '@rentar/shared-types'
 
@@ -93,4 +95,23 @@ export function subtituloContratos(contadores: Record<PestaniaContratos, number>
   agregar(contadores.vigentes, 'vigente', 'vigentes')
   agregar(contadores.finalizados, 'finalizado', 'finalizados')
   return partes.join(' · ')
+}
+
+/** Orden de los estados en Mis alquileres (US-27). */
+const ORDEN_ALQUILER: Partial<Record<ContractStatus, number>> = { pendiente_firma: 0, vigente: 1, finalizado: 2, rescindido: 3 }
+
+/**
+ * Orden de Mis alquileres (US-27: "pendientes de firma, después vigentes y
+ * al final finalizados"). Dentro de cada estado, por fecha de fin (la más
+ * cercana primero; en los finalizados, el más reciente primero).
+ */
+export function ordenarAlquileres<T extends Pick<ContratoResumen, 'status' | 'endDate' | 'propertyAddress'>>(alquileres: readonly T[]): T[] {
+  return [...alquileres].sort((a, b) => {
+    const estado = (ORDEN_ALQUILER[a.status] ?? 9) - (ORDEN_ALQUILER[b.status] ?? 9)
+    if (estado !== 0) return estado
+    const finA = a.endDate ?? ''
+    const finB = b.endDate ?? ''
+    if (finA === finB) return a.propertyAddress.localeCompare(b.propertyAddress, 'es')
+    return a.status === 'finalizado' ? finB.localeCompare(finA) : finA.localeCompare(finB)
+  })
 }
