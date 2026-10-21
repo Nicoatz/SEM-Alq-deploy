@@ -78,6 +78,10 @@ function AccionContrato({ solicitud, largo, testIdPrefix }: AccionContratoProps)
     return (
       <span className={styles.contratoNota} data-testid={`${testIdPrefix}-contrato-estado`}>
         Ya originó un contrato <StatusTag domain="contrato" status={contrato.status} />
+        {/* US-07: el detalle del contrato, con sus firmas. */}
+        <Button type="link" size="small" onClick={ir(`/panel/contratos/${encodeURIComponent(contrato.id)}`)} data-testid={`${testIdPrefix}-ver-contrato`}>
+          Ver contrato
+        </Button>
       </span>
     )
   }
