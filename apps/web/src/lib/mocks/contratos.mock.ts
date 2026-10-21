@@ -23,10 +23,43 @@
  * Quién lo usa: la rama mock de `services/contratos.service.ts` (a través de
  * `services/adapters/contrato-mock.adapter.ts`). Ninguna pantalla lo importa.
  *
+ * US-07 (tanda 3): CT-2026-0207 arranca pendiente de firma con 0 firmas
+ * (`firmas` y `eventos`). CT-2023-0041 no tiene registro de firmas ni
+ * historial: es anterior a RentAR y no se inventan.
+ *
  * TODO(db): son filas de `contrato` + garantes + cláusulas + firmas, que
  * hoy no existen en el esquema (HANDOFF §7, US-05).
  */
-import type { ClausulaContrato, CondicionesNuevoContrato, ContractStatus, GaranteContrato } from '@rentar/shared-types'
+import type {
+  ClausulaContrato,
+  CondicionesNuevoContrato,
+  ContractStatus,
+  GaranteContrato,
+  RolFirmante,
+  SignatureStatus,
+  TipoEventoContrato,
+} from '@rentar/shared-types'
+
+/** La firma de una parte, como la guardaría el back (US-07). En mock no hay IP. */
+export interface FirmaMock {
+  estado: SignatureStatus
+  /** Fecha y hora ISO; `null` si no firmó. */
+  firmadoEl: string | null
+  rechazadoEl: string | null
+  motivoRechazo: string | null
+  /** Fecha y hora ISO de la última invitación (envío o reenvío). */
+  ultimaInvitacion: string | null
+}
+
+/** Un evento del historial (US-07). El nombre de quien firma se resuelve al leer. */
+export interface EventoMock {
+  id: string
+  tipo: TipoEventoContrato
+  /** Fecha y hora ISO. */
+  fecha: string
+  rol: RolFirmante | null
+  motivo: string | null
+}
 
 /**
  * Un contrato como lo guardaría el back. JSON puro: los borradores que se
@@ -59,6 +92,15 @@ export interface ContratoMock {
   updatedAt: string
   /** Fecha y hora ISO en que se envió a firmar; `null` si es borrador. */
   sentAt: string | null
+  /**
+   * Firmas de las dos partes (US-07). Sin el campo: no hay registro (los
+   * borradores y los anteriores a RentAR, como CT-2023-0041).
+   */
+  firmas?: Record<RolFirmante, FirmaMock>
+  /** Historial (US-07), en el orden en que pasó. Sin el campo, se arma con `createdAt` y `sentAt`. */
+  eventos?: EventoMock[]
+  /** Fecha y hora ISO de la última firma, cuando firmaron todas las partes. */
+  firmadoPorTodasEl?: string | null
 }
 
 /** Los contratos del elenco que no salen de `propiedades.mock.ts` (ver el encabezado). */
@@ -91,6 +133,16 @@ export const contratos: ContratoMock[] = [
     createdAt: '2026-09-21T17:22:00',
     updatedAt: '2026-09-22T11:40:00',
     sentAt: '2026-09-22T11:40:00',
+    // US-07 (tanda 3): arranca pendiente con 0 firmas. Las dos partes fueron
+    // invitadas al enviarlo, así que el primer reenvío ya se puede hacer.
+    firmas: {
+      locador: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
+      locatario: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
+    },
+    eventos: [
+      { id: 'ev-0207-1', tipo: 'creado', fecha: '2026-09-21T17:22:00', rol: null, motivo: null },
+      { id: 'ev-0207-2', tipo: 'enviado', fecha: '2026-09-22T11:40:00', rol: null, motivo: null },
+    ],
   },
   {
     id: 'CT-2023-0041',

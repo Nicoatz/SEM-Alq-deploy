@@ -624,5 +624,84 @@ export interface ContratoEnviadoResponse {
   estado: 'pendiente_firma'
 }
 
-/** Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`). */
-export type CodigoErrorContrato = 'SOLICITUD_NO_ACEPTADA' | 'SOLICITUD_CON_CONTRATO' | 'PROPIEDAD_CON_CONTRATO' | 'CONTRATO_NO_EDITABLE'
+/**
+ * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
+ * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
+ * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
+ * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
+ * el envío) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
+ */
+export type CodigoErrorContrato =
+  | 'SOLICITUD_NO_ACEPTADA'
+  | 'SOLICITUD_CON_CONTRATO'
+  | 'PROPIEDAD_CON_CONTRATO'
+  | 'CONTRATO_NO_EDITABLE'
+  | 'CONTRATO_NO_PENDIENTE'
+  | 'YA_FIRMO'
+  | 'FIRMA_RECHAZADA'
+  | 'OTRA_PARTE_FIRMO'
+  | 'FIRMANTE_NO_PENDIENTE'
+
+// ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────
+// NOTA: no existen (Sprint 3, tanda 3). Contrato en `docs/api-endpoints.md`
+// ("Contratos", US-07). Firman el locador y el locatario (decisión del PO).
+
+/** Rol de quien firma. */
+export type RolFirmanteDto = 'locador' | 'locatario'
+
+/** Una parte que firma, con el estado de su firma. La IP la guarda el back y NO viaja al front. */
+export interface FirmanteDto {
+  rol: RolFirmanteDto
+  id_usuario: number
+  nombre: string
+  apellido: string | null
+  estado: 'pendiente' | 'firmado' | 'rechazado'
+  /** Fecha y hora ISO de la firma (la registra el back, con la IP). */
+  fecha_firma: string | null
+  fecha_rechazo: string | null
+  motivo_rechazo: string | null
+  /** Fecha y hora ISO de la última invitación (el envío o un reenvío): el front calcula desde cuándo se puede reenviar. */
+  fecha_ultima_invitacion: string | null
+}
+
+/** Un evento del historial del contrato. */
+export interface EventoContratoDto {
+  id: number
+  tipo: 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
+  /** Fecha y hora ISO. */
+  fecha: string
+  rol: RolFirmanteDto | null
+  /** Nombre y apellido de quien firmó o rechazó, o a quien se le reenvió. */
+  nombre: string | null
+  motivo: string | null
+}
+
+/**
+ * `GET /contratos/:id` con lo de US-07 (propuesto): el mismo `ContratoResponse`
+ * más los firmantes y el historial, en una sola respuesta (el historial no
+ * tiene otro uso que este detalle). También es la respuesta de firmar,
+ * rechazar, cancelar el envío y reenviar.
+ * Lo pueden pedir el locador y el locatario del contrato; un borrador, solo el locador.
+ */
+export interface ContratoDetalleResponse extends ContratoResponse {
+  fecha_envio: string | null
+  /** Fecha y hora de la última firma, cuando firmaron todas las partes. */
+  fecha_firma_completa: string | null
+  /** `false` en los contratos cargados antes de RentAR: sin firmas ni historial. */
+  firmas_registradas: boolean
+  fecha_fin: string | null
+  firmantes: FirmanteDto[]
+  /** Del más reciente al más viejo. */
+  historial: EventoContratoDto[]
+}
+
+/** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
+export interface RechazarFirmaRequest {
+  /** Opcional, hasta 300 caracteres; `null` sin motivo. */
+  motivo: string | null
+}
+
+/** Cuerpo de `POST /contratos/:id/reenviar` (propuesto). Hoy solo `locatario`: el locador es quien reenvía. */
+export interface ReenviarInvitacionRequest {
+  rol: RolFirmanteDto
+}

@@ -20,6 +20,7 @@ export type ServiceErrorCode =
   | 'forbidden' // 403
   | 'not_found' // 404
   | 'conflict' // 409
+  | 'too_many_requests' // 429 (ej. reenviar la invitación a firmar antes de la hora, US-07)
   | 'server' // 5xx o cualquier otro status inesperado
   | 'network' // el backend no respondió (apagado, CORS, sin red)
 
@@ -48,5 +49,6 @@ export function errorCodeFromHttpStatus(status: number): ServiceErrorCode {
   if (status === 403) return 'forbidden'
   if (status === 404) return 'not_found'
   if (status === 409) return 'conflict'
+  if (status === 429) return 'too_many_requests'
   return 'server'
 }

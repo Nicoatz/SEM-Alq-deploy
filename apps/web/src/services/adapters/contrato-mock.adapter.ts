@@ -20,14 +20,28 @@
  * el borrador pide el DNI de nuevo. El DNI de las partes no se guarda en el
  * contrato: se lee del perfil al abrirlo.
  *
- * Cubre: US-05 Registrar contrato de alquiler (y US-21, el bloqueo).
+ * US-07 (tanda 3): las firmas y el historial viven en el mismo registro
+ * (`firmas`, `eventos`). Cuando firman las dos partes, este adaptador
+ * refleja lo que en real hace el back ({@link pasarAVigenteMock}): la
+ * propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas.
+ *
+ * Cubre: US-05 Registrar contrato de alquiler, US-07 Firmar contrato de
+ * alquiler (y US-21, el bloqueo).
  * Quién lo usa: la rama mock de `contratos.service.ts`, `solicitudes.service.ts`
  * y `perfil.service.ts`. Nunca las pantallas.
  */
-import type { ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste } from '@rentar/shared-types'
-import { contratos as contratosElenco, propiedades as propiedadesElenco, type ContratoMock, type PropiedadMock } from '@/lib/mocks'
-import { fechaFin, proximoAjuste } from '@/lib/contratos/fechas'
-import { ahora } from '@/lib/utils/fechas'
+import type { ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
+import {
+  contratos as contratosElenco,
+  propiedades as propiedadesElenco,
+  solicitudes as solicitudesElenco,
+  type ContratoMock,
+  type EventoMock,
+  type FirmaMock,
+  type PropiedadMock,
+} from '@/lib/mocks'
+import { fechaFin, fechaPrimerAjuste, MESES_POR_PERIODO, proximoAjuste } from '@/lib/contratos/fechas'
+import { momentoActual } from '@/lib/utils/fechas'
 import { deleteMockRecord, readMockCollection, saveMockRecord } from '../shared/mockStore'
 import { formatAddress } from './propiedad-mock.adapter'
 
@@ -193,14 +207,17 @@ export function contratosDeLocadorMock(ownerId: string, nombreDe: (userId: strin
     .filter((propiedad) => propiedad.ownerId === ownerId)
     .map(resumenDeAlquiler)
     .filter((item): item is ContratoResumen => item !== null)
-  const guardados = readContratosMock()
-    .filter((contrato) => contrato.ownerId === ownerId)
+  const guardados = readContratosMock().filter((contrato) => contrato.ownerId === ownerId)
+  // Un contrato que pasó a vigente en el navegador también está en `rental`: se lista una sola vez.
+  const codigosGuardados = new Set(guardados.map((contrato) => contrato.code))
+  const deAlquileresSinRepetir = deAlquileres.filter((item) => !codigosGuardados.has(item.id))
+  const filasGuardadas = guardados
     .map((contrato) => {
       const propiedad = propiedades.find((item) => item.id === contrato.propertyId)
       const nombre = (contrato.tenantUserId && nombreDe(contrato.tenantUserId)) || contrato.tenantName
       return resumenDeContrato(contrato, propiedad, nombre, hoyIso)
     })
-  return [...deAlquileres, ...guardados]
+  return [...deAlquileresSinRepetir, ...filasGuardadas]
 }
 
 /** Periodicidad de la publicación, para precargar el paso 2. */
@@ -208,7 +225,84 @@ export function periodicidadDePublicacion(propiedad: Pick<PropiedadMock, 'adjust
   return periodicidadDeMeses(propiedad.adjustmentEveryMonths)
 }
 
-/** "Ahora" del elenco (23/09/2026 12:00) en ISO con hora, para `createdAt` / `updatedAt` de los borradores. */
+/**
+ * Fecha y hora ISO de un hecho nuevo en mock (borradores, envíos, firmas):
+ * el 23/09/2026 del elenco con la hora real (ver `momentoActual`).
+ */
 export function ahoraIsoMock(): string {
-  return ahora().format('YYYY-MM-DDTHH:mm:ss')
+  return momentoActual().format('YYYY-MM-DDTHH:mm:ss')
+}
+
+// ─── Firmas e historial (US-07) ─────────────────────────────────────────
+
+/** Las dos firmas al enviar a firmar: pendientes e invitadas en ese momento. */
+export function firmasAlEnviar(fecha: string): Record<RolFirmante, FirmaMock> {
+  const pendiente: FirmaMock = { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: fecha }
+  return { locador: { ...pendiente }, locatario: { ...pendiente } }
+}
+
+/**
+ * El historial guardado. Los contratos guardados antes de la tanda 3 no lo
+ * tienen: se arma con lo que sí hay (`createdAt` y `sentAt`).
+ */
+export function eventosDe(contrato: ContratoMock): EventoMock[] {
+  if (contrato.eventos) return contrato.eventos
+  const eventos: EventoMock[] = [{ id: `ev-${contrato.id}-1`, tipo: 'creado', fecha: contrato.createdAt, rol: null, motivo: null }]
+  if (contrato.sentAt) eventos.push({ id: `ev-${contrato.id}-2`, tipo: 'enviado', fecha: contrato.sentAt, rol: null, motivo: null })
+  return eventos
+}
+
+/** El historial con un evento nuevo al final. */
+export function conEvento(contrato: ContratoMock, tipo: TipoEventoContrato, fecha: string, rol: RolFirmante | null = null, motivo: string | null = null): EventoMock[] {
+  const actuales = eventosDe(contrato)
+  return [...actuales, { id: `ev-${contrato.id}-${actuales.length + 1}`, tipo, fecha, rol, motivo }]
+}
+
+/** US-07: "un mensaje automático de que la propiedad ya fue alquilada" (va en `mensaje_rechazo`). */
+export const MENSAJE_PROPIEDAD_ALQUILADA = 'La propiedad ya fue alquilada.'
+
+/**
+ * Lo que pasa cuando el contrato queda vigente (US-07), como lo haría el back:
+ * - la propiedad pasa a `alquilada` (sin "Disponible desde": deja de
+ *   aparecer en `/buscar`) y gana su `rental`, así Mis propiedades, el panel
+ *   y el bloqueo del perfil la leen como las alquiladas del elenco;
+ * - sus solicitudes pendientes pasan a `rechazada` con
+ *   {@link MENSAJE_PROPIEDAD_ALQUILADA}.
+ * @returns `false` si `localStorage` está lleno o bloqueado.
+ */
+export function pasarAVigenteMock(contrato: ContratoMock, fecha: string): boolean {
+  const propiedad = readPropiedadesContratoMock().find((item) => item.id === contrato.propertyId)
+  if (!propiedad || !contrato.code) return false
+  const { condiciones } = contrato
+  const inicio = condiciones.startDate ?? fecha.slice(0, 10)
+  const fin = fechaFin(inicio, condiciones.durationMonths) ?? inicio
+  const indice = condiciones.adjustmentIndex
+  const conIndiceDeLaPublicacion = indice === 'ICL' || indice === 'IPC'
+  const guardoPropiedad = saveMockRecord('propiedades', {
+    ...propiedad,
+    status: 'alquilada',
+    availableFrom: null,
+    // El panel calcula los ajustes con el índice y la periodicidad de la propiedad: se toman los del contrato.
+    ...(conIndiceDeLaPublicacion && condiciones.adjustmentPeriod
+      ? { adjustmentIndex: indice, adjustmentEveryMonths: MESES_POR_PERIODO[condiciones.adjustmentPeriod] }
+      : {}),
+    rental: {
+      contractId: contrato.code,
+      contractStatus: 'vigente',
+      tenantName: contrato.tenantName,
+      tenantUserId: contrato.tenantUserId,
+      startDate: inicio,
+      endDate: fin,
+      currentAmount: condiciones.initialAmount ?? 0,
+      // NOTA: `rental` pide una fecha; sin ajuste (o CAC), el panel muestra el vencimiento.
+      nextAdjustmentDate: fechaPrimerAjuste(inicio, condiciones.durationMonths, indice, condiciones.adjustmentPeriod) ?? fin,
+    },
+  })
+  if (!guardoPropiedad) return false
+  const pendientes = readMockCollection('solicitudes', solicitudesElenco).filter(
+    (solicitud) => solicitud.propertyId === contrato.propertyId && solicitud.status === 'pendiente',
+  )
+  return pendientes.every((solicitud) =>
+    saveMockRecord('solicitudes', { ...solicitud, status: 'rechazada', respondedAt: fecha, rejectionMessage: MENSAJE_PROPIEDAD_ALQUILADA }),
+  )
 }
