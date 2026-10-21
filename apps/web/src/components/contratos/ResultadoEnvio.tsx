@@ -38,9 +38,15 @@ export function ResultadoEnvio({ enviado, direccion }: ResultadoEnvioProps) {
       <p className={styles.referencia} data-testid="contrato-enviado-firmantes">
         Lo firman {firmantes}. Ya no se puede editar. {direccion} sigue publicada mientras el contrato está pendiente de firma.
       </p>
-      <Button type="primary" onClick={() => router.push('/panel/contratos')} data-testid="contrato-enviado-ir-contratos">
-        Ir a Contratos
-      </Button>
+      <span className={styles.acciones}>
+        {/* US-07: desde el detalle, el locador firma y sigue las firmas. */}
+        <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(enviado.id)}`)} data-testid="contrato-enviado-ver">
+          Ver contrato y firmar
+        </Button>
+        <Button onClick={() => router.push('/panel/contratos')} data-testid="contrato-enviado-ir-contratos">
+          Ir a Contratos
+        </Button>
+      </span>
     </div>
   )
 }

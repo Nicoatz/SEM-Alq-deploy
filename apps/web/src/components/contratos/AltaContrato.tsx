@@ -70,6 +70,8 @@ interface AltaContratoProps {
   contratoId?: string
   /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
   recienGuardado?: boolean
+  /** `true` al llegar de "Cancelar envío" del detalle (`?envio=cancelado`, US-07): muestra el aviso. */
+  envioCancelado?: boolean
 }
 
 /** Lo que se guarda del borrador, en el paso actual. */
@@ -109,10 +111,11 @@ function mensajeDe(error: unknown, generico: string): string {
 interface EditorContratoProps {
   inicial: ContratoBorrador
   recienGuardado: boolean
+  envioCancelado: boolean
 }
 
 /** El wizard, con el contrato cargado. Se monta de nuevo si cambia el contrato (`key`). */
-function EditorContrato({ inicial, recienGuardado }: EditorContratoProps) {
+function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContratoProps) {
   const router = useRouter()
 
   // ─── Estado local ───────────────────────────────────────────────────
@@ -125,7 +128,11 @@ function EditorContrato({ inicial, recienGuardado }: EditorContratoProps) {
   /** Lo último guardado (o lo que vino al abrir), para saber si hay cambios. */
   const [guardado, setGuardado] = useState(() => huella(inicial))
   const [guardando, setGuardando] = useState(false)
-  const [aviso, setAviso] = useState<string | null>(recienGuardado ? 'Guardamos el borrador. Lo retomás desde Contratos cuando quieras.' : null)
+  const [aviso, setAviso] = useState<string | null>(() => {
+    // US-07: "el contrato vuelve a 'borrador' y se borran las firmas registradas".
+    if (envioCancelado) return 'Cancelaste el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.'
+    return recienGuardado ? 'Guardamos el borrador. Lo retomás desde Contratos cuando quieras.' : null
+  })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
   const [acepto, setAcepto] = useState(false)
   const [confirmarEnvio, setConfirmarEnvio] = useState(false)
@@ -345,7 +352,7 @@ function EditorContrato({ inicial, recienGuardado }: EditorContratoProps) {
 // ─── Carga ──────────────────────────────────────────────────────────────
 
 /** Alta de contrato: carga el contrato (nuevo o borrador) y monta el wizard. */
-export function AltaContrato({ solicitudId, contratoId, recienGuardado = false }: AltaContratoProps) {
+export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, envioCancelado = false }: AltaContratoProps) {
   const router = useRouter()
   const cargar = useCallback(() => (contratoId ? getContrato(contratoId) : prepararContrato(solicitudId ?? '')), [contratoId, solicitudId])
   const carga = useServiceCall(cargar)
@@ -398,11 +405,20 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false }
         <div className={styles.bloqueado} data-testid="contrato-no-editable">
           <EmptyState
             title="Este contrato ya no se puede editar"
-            description={`${contrato.code ?? 'El contrato'} ya se envió a firmar. Para cambiar algo, el envío se tiene que cancelar (llega con la firma, en la próxima tanda).`}
+            description={
+              contrato.status === 'pendiente_firma'
+                ? `${contrato.code ?? 'El contrato'} ya se envió a firmar. Para cambiar algo, cancelá el envío desde su detalle (mientras el locatario no haya firmado).`
+                : `${contrato.code ?? 'El contrato'} ya no es un borrador.`
+            }
             action={
-              <Button type="primary" onClick={() => router.push('/panel/contratos')} data-testid="contrato-ir-contratos">
-                Ir a Contratos
-              </Button>
+              <span className={styles.acciones}>
+                <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(contrato.id ?? '')}`)} data-testid="contrato-ver-detalle">
+                  Ver contrato
+                </Button>
+                <Button onClick={() => router.push('/panel/contratos')} data-testid="contrato-ir-contratos">
+                  Ir a Contratos
+                </Button>
+              </span>
             }
           />
         </div>
@@ -410,5 +426,5 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false }
     )
   }
 
-  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} recienGuardado={recienGuardado} />
+  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} recienGuardado={recienGuardado} envioCancelado={envioCancelado} />
 }
