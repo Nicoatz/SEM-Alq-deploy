@@ -172,7 +172,7 @@ function FormularioDatos({ perfil, avisoBloqueo, onGuardado, onCancelar, onCambi
   // ─── Render ─────────────────────────────────────────────────────────
   return (
     <Form<ValoresDatos> form={form} layout="vertical" initialValues={iniciales} onFinish={guardar} requiredMark={false} disabled={guardando} data-testid="perfil-datos-form">
-      {avisoBloqueo}
+      {avisoBloqueo && <div className={styles.formAlert}>{avisoBloqueo}</div>}
       {error && <Alert type="error" showIcon title={error} className={styles.formAlert} data-testid="perfil-datos-error" />}
       <div className={styles.grid}>
         <Form.Item name="nombre" label="Nombre" rules={reglasNombrePerfil(MENSAJES.nombreVacio)}>
