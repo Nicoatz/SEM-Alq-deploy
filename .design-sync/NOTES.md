@@ -275,17 +275,27 @@ Preparación del `/design-sync` del Sprint 2 (2026-10-08, `feature/vistas` con `
   container query (sigue al ancho de la historia), pero el panel flotante o la hoja y el lugar de
   "Dormitorios" siguen al ancho del viewport de la card (media query + `matchMedia`).
 
-## Pendiente (Sprint 3): `IndexBadge` con CAC y "Sin ajuste" (2026-10-21)
+## Para el `/design-sync` del cierre del Sprint 3 (lista exacta)
 
-**No se tocó `@rentar/ui`.** Se hace al final del Sprint 3, junto con lo que surja de `@rentar/ui`,
-en un solo `/design-sync` (decisión del PO, tanda 3).
-- El alta de contrato (US-05) ofrece cuatro opciones de ajuste: Sin ajuste, ICL, IPC y CAC.
-  `IndexBadge` solo conoce ICL e IPC, así que hoy CAC y "Sin ajuste" se muestran como texto
-  (`apps/web/src/components/contratos/IndiceAjuste.tsx`).
-- Qué falta: sumar `CAC` (Índice del Costo de la Construcción, con su explicación en el tooltip) y
-  una variante "Sin ajuste" a `IndexBadge`. Después, `IndiceAjuste` pasa a usar el badge para los
-  cuatro. Al subir: actualizar el preview (`previews/IndexBadge.tsx`), el catálogo `/design-system`
-  y la unión de `index` si está en `dtsPropsFor`.
+Componentes de `@rentar/ui` cambiados en el Sprint 3 que **todavía no se subieron** (los de
+`StatusTag` y `HeroSearch` del 21/10 ya están subidos, ver abajo). Correr `/design-sync` después del
+merge de `feature/vistas` en `develop`:
+
+| Componente | Cambio | Preview |
+|---|---|---|
+| `IndexBadge` | `index` acepta `'ICL' \| 'IPC' \| 'CAC' \| 'sin_ajuste'` (tipo `IndiceContrato` de `@rentar/shared-types`; antes `AdjustmentIndex`, que sigue entrando). CAC con su explicación; "Sin ajuste" en neutro (`--rentar-status-neutral-*`) | `previews/IndexBadge.tsx`: historia nueva `Contrato` |
+| `ActivityTimeline` | prop opcional `dateFormat` (`'relative' \| 'absolute'`, por defecto `'relative'`) | `previews/ActivityTimeline.tsx`: historia nueva `FechaAbsoluta` |
+
+Sin APIs exclusivas de React 19 (regla del 09/10): los dos cambios son props y estilos. Ningún otro
+componente cambió. Si `dtsPropsFor` de `config.json` llegara a listar alguno de los dos, actualizar
+la unión (hoy no los lista).
+
+## Hecho (Sprint 3, cierre): `IndexBadge` con CAC y "Sin ajuste" (2026-10-21)
+
+- El alta de contrato (US-05) ofrece cuatro opciones de ajuste: Sin ajuste, ICL, IPC y CAC. Antes,
+  CAC y "Sin ajuste" se mostraban como texto (`IndiceAjuste.tsx`, que se borró): ahora el alta, la
+  revisión, el listado de contratos, el detalle, Mi alquiler y Mis alquileres usan `IndexBadge` para
+  los cuatro. Ejemplo en `/design-system`.
 - NOTA: en el back, `AdjustmentIndex` (`@rentar/shared-types`) tampoco tiene CAC (HANDOFF §7, US-05).
 
 ## Pendiente de subir (Sprint 3): `ActivityTimeline` con `dateFormat` (2026-10-21)

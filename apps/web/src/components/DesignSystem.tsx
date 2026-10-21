@@ -1185,6 +1185,8 @@ export default function DesignSystem() {
                   <MoneyAmount amount={580000} size="lg" emphasis />
                   <IndexBadge index="ICL" />
                   <IndexBadge index="IPC" />
+                  <IndexBadge index="CAC" />
+                  <IndexBadge index="sin_ajuste" />
                 </div>
               </div>
 
