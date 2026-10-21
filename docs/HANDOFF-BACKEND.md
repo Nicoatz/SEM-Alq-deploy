@@ -257,9 +257,10 @@ aparte de ~132 KB gzip, fuera de la carga inicial de todas las páginas (verific
 TODO(backend): cuando el back guarde el contrato firmado (con fecha, hora e IP), conviene que el PDF
 lo genere el back (`GET /contratos/:id/pdf`) y el front solo lo descargue.
 
-**Alta en móvil (fix de esta tanda, US-05):** `WizardLayout` (`@rentar/ui`) esconde "Anterior" en el
-último paso debajo de 768 px; en el alta de contrato se vuelve a mostrar con CSS local
-(`AltaContrato.module.css`, `.wizard`). El alta de propiedad sigue como estaba.
+**Alta en móvil (US-05):** debajo de 768 px, `WizardLayout` (`@rentar/ui`, diseño Alta · 09) esconde
+"Anterior" en el último paso. Se mantiene así (decisión del PO, tanda 4): en la Revisión se vuelve con
+el "Editar" de cada bloque, y el alta de contrato y la de propiedad se comportan igual. (En la tanda 3
+se había mostrado con CSS local; se revirtió.)
 
 **Cómo es una "página" del documento:** por contenido, no por alto de pantalla: las cláusulas se
 agrupan hasta ~800 caracteres sin cortarlas (`lib/contratos/paginas.ts`), así "te faltan 2 páginas"

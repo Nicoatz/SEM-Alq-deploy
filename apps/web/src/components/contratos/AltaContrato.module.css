@@ -372,19 +372,3 @@
   font-weight: 700;
   color: var(--rentar-color-text-primary);
 }
-
-/* ─── Wizard en móvil ────────────────────────────────────────────────── */
-
-/*
- * NOTA (testing de la tanda 3 del Sprint 3, PO): debajo de 768 px,
- * `WizardLayout` (@rentar/ui, Alta · 09) esconde "Anterior" en el último
- * paso ("solo queda el primario"). En el contrato, desde la Revisión hay que
- * poder volver con "Anterior" en los 4 pasos, así que acá se vuelve a mostrar
- * (sin tocar packages/ui; el alta de propiedad sigue como estaba). Comparte la
- * barra fija con "Enviar a firmar", mitad y mitad.
- */
-@media (max-width: 767px) {
-  .wizard.wizard :global([data-testid='wizard-prev-button']) {
-    display: inline-flex;
-  }
-}
