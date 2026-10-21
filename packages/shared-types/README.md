@@ -5,7 +5,7 @@ Tipos TypeScript compartidos del monorepo. Conviven dos familias, que **no se me
 | Familia | Dónde | Qué representa | Quién la escribe |
 |---|---|---|---|
 | **Modelos del back** | `src/index.ts` (la parte de arriba) | Una fila de una tabla de Supabase, o una respuesta de `apps/api`. Nombres en español con `snake_case` (`id_inmueble`, `created_at`). | Backend |
-| **Tipos de vista del front** | `src/propiedad.ts`, `src/usuario-sesion.ts`, `src/status.ts`, `src/filters.ts`, `src/neighborhood.ts`, `src/panel.ts`, `src/solicitud.ts`, `src/perfil.ts` | Lo que una pantalla necesita mostrar, ya armado. Campos en inglés con `camelCase`. | Frontend |
+| **Tipos de vista del front** | `src/propiedad.ts`, `src/usuario-sesion.ts`, `src/status.ts`, `src/filters.ts`, `src/neighborhood.ts`, `src/panel.ts`, `src/solicitud.ts`, `src/perfil.ts`, `src/contrato.ts` | Lo que una pantalla necesita mostrar, ya armado. Campos en inglés con `camelCase`. | Frontend |
 
 Las pantallas de `apps/web` **solo** usan tipos de vista. El puente entre las dos familias son los
 adaptadores de `apps/web/src/services/adapters/` (ver `docs/HANDOFF-BACKEND.md`).
@@ -23,6 +23,7 @@ adaptadores de `apps/web/src/services/adapters/` (ver `docs/HANDOFF-BACKEND.md`)
 | `CreateInmuebleCompletoPayload` (cuerpo de `POST /api/v1/inmuebles`) | `PropiedadNueva` | `propiedad.adapter.ts#propiedadNuevaToCreateInmueble` |
 | Solicitud (tabla y rutas propuestas en `docs/api-endpoints.md`, "Solicitudes") | `Solicitud`, `SolicitudNueva`, `EstadoSolicitud` | `solicitud.adapter.ts` (contra el DTO propuesto `SolicitudResponse`) |
 | Perfil y legajo (rutas propuestas en `docs/api-endpoints.md`, "Perfil") | `PerfilUsuario`, `LegajoUsuario`, `DatosPersonalesCambios` | `perfil.adapter.ts` (contra el DTO propuesto `PerfilResponse`) |
+| Contrato (rutas propuestas en `docs/api-endpoints.md`, "Contratos") | `ContratoResumen`, `ContratoBorrador`, `DatosContrato`, `ContratoEnviado`, `IndiceContrato` | `contrato.adapter.ts` (contra los DTO propuestos `ContratoResumenResponse` y `ContratoResponse`) |
 | Cobros, reclamos, solicitudes (tablas de sprints futuros) | `ResumenCobros`, `ResumenReclamos`, `EventoContratoPanel`, `SolicitudPanel` | Ninguno todavía: en modo real `/panel` los muestra vacíos (ver `apps/web/src/services/panel.service.ts`). |
 | `TipoInmueble` (`tipo_inmueble`) | `PropertyType` | `propiedad.adapter.ts#propertyTypeFromTipoId` |
 | `TagInmueble` (`tags_inmueble`) | `CharacteristicKey` | `propiedad.adapter.ts#characteristicFromTagDescripcion` (lectura) y `#tagIdFromCharacteristic` (alta) |

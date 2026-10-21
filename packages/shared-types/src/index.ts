@@ -300,6 +300,22 @@ export type {
 export type { UsuarioSesion } from './usuario-sesion';
 export type { BloqueoIdentidad, DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from './perfil';
 export type {
+  ClausulaContrato,
+  CondicionesCobroPropiedad,
+  CondicionesNuevoContrato,
+  ContratoBorrador,
+  ContratoDeSolicitud,
+  ContratoEnviado,
+  ContratoResumen,
+  DatosContrato,
+  GaranteContrato,
+  IndiceContrato,
+  ParteContrato,
+  PeriodicidadAjuste,
+  PropiedadDelContrato,
+  TipoClausula,
+} from './contrato';
+export type {
   ContactoSolicitud,
   EstadoSolicitud,
   GarantiaOfrecida,
