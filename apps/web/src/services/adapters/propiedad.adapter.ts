@@ -486,6 +486,10 @@ export function misAlquileresItemToPropiedadLocador(item: MisAlquileresItem): Pr
     imageSrc: item.foto_principal ?? PLACEHOLDER_PHOTO_SRC,
     publishedAt: '',
     tenantName: locatario ? `${locatario.nombre} ${locatario.apellido ?? ''}`.trim() : null,
+    // NOTA: hoy `contrato` también guarda las condiciones de la publicación
+    // (bloqueante del esquema, HANDOFF §7 US-05): solo es un contrato real si está alquilada.
+    // TODO(backend): confirmar que `contrato.id` es el que va a abrir `GET /contratos/:id` (US-07).
+    contractId: alquilada ? String(item.contrato.id) : null,
     paymentStatus: null,
     paymentDueDate: null,
     daysOverdue: null,
