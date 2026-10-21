@@ -52,18 +52,16 @@ export function ahora(): Dayjs {
 }
 
 /**
- * Momento de un hecho nuevo con hora y minuto (una firma, un rechazo, un
- * reenvío; US-07). Con el backend real, la hora del sistema. En modo mock:
- * el día del elenco ({@link HOY_ELENCO}) con la hora REAL del reloj.
- * NOTA: con {@link ahora} (fijo a las 12:00) todas las firmas tendrían la
- * misma hora y el límite de "un reenvío por hora" (US-07) nunca vencería.
- * Límite conocido del mock: pasada la medianoche real, la hora vuelve a
- * empezar en el mismo 23/09.
+ * Momento REAL de algo que hace el usuario en la sesión (crear o enviar un
+ * contrato, firmar, rechazar, cancelar el envío, reenviar; US-05 y US-07),
+ * en los dos modos.
+ * NOTA (decisión del PO, tanda 3 del Sprint 3): lo que pasa en la sesión se
+ * registra con la fecha y la hora reales, aunque en mock "hoy" sea el
+ * 23/09/2026. Las fechas del elenco quedan solo para los datos sembrados.
+ * Así también funciona el límite de "un reenvío por hora".
  */
 export function momentoActual(): Dayjs {
-  const reloj = dayjs()
-  if (!USE_MOCKS) return reloj
-  return dayjs(HOY_ELENCO).hour(reloj.hour()).minute(reloj.minute()).second(reloj.second())
+  return dayjs()
 }
 
 /** Días que faltan desde hoy hasta `fecha` (negativo si ya pasó). */

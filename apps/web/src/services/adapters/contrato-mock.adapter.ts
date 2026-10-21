@@ -226,8 +226,8 @@ export function periodicidadDePublicacion(propiedad: Pick<PropiedadMock, 'adjust
 }
 
 /**
- * Fecha y hora ISO de un hecho nuevo en mock (borradores, envíos, firmas):
- * el 23/09/2026 del elenco con la hora real (ver `momentoActual`).
+ * Fecha y hora ISO REALES de un hecho nuevo en mock (borradores, envíos,
+ * firmas, rechazos, cancelaciones y reenvíos; ver `momentoActual`).
  */
 export function ahoraIsoMock(): string {
   return momentoActual().format('YYYY-MM-DDTHH:mm:ss')
