@@ -21,6 +21,7 @@ export class UsuarioController {
     }
   }
 
+  
   async obtenerMiPerfil(
     req: Request,
     res: Response,
@@ -28,17 +29,14 @@ export class UsuarioController {
   ): Promise<void> {
     try {
       const user = (req as any).user as AuthenticatedUser;
-  
+
+      const usuario = await usuarioService.obtenerMiPerfil(user.authUserId);
+
       res.status(200).json({
         success: true,
         message: 'Datos del usuario obtenidos exitosamente.',
         data: {
-          id: user.id,
-          nombre: user.nombre,
-          apellido: user.apellido,
-          email: user.email,
-          numero_documento: user.numero_documento,
-          telefono: user.telefono,
+          ...usuario,
           roles: user.roles
         }
       });
@@ -46,6 +44,7 @@ export class UsuarioController {
       next(error);
     }
   }
+
 }
 
 

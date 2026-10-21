@@ -56,6 +56,18 @@ export class UsuarioService {
       email: data.email.trim().toLowerCase()
     });
   }
+
+  async obtenerMiPerfil(authUserId: string): Promise<UsuarioDTO> {
+    const usuario = await this.repository.findByAuthUserId(authUserId);
+  
+    if (!usuario) {
+      const error = new Error('No se encontró el perfil del usuario autenticado.');
+      (error as any).statusCode = 404;
+      throw error;
+    }
+  
+    return usuario;
+  }
 }
 
 export const usuarioService = new UsuarioService();
