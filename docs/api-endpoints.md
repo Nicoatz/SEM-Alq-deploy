@@ -233,7 +233,9 @@ la US-21 como referencia:
 | Body no vacío; el `email`, la contraseña, los roles y el `id` no se tocan | Hecho: **400** si viene vacío o con un campo fuera de la lista |
 | Valores de texto no vacíos (se guardan con `trim()`) | Hecho: **400** |
 | Nombre, apellido y DNI bloqueados si el usuario está en un contrato vigente o pendiente de firma | Hecho: **409** con un mensaje que explica el motivo (`contratoRepository#tieneContratoQueBloqueaEdicion`: estados de contrato 2 `vigente` y 4 `pendiente de firma`). Sin `codigo` |
-| Teléfono E.164, 10 a 15 dígitos | Hecho, **con el "+"**: el regex es `^\+[1-9]\d{9,14}$` (ver discrepancia abajo) |
+| Nombre y apellido: 2 a 100 caracteres, solo letras, espacios, apóstrofos y guiones | Hecho: **400** (`\p{L}`, acepta tildes y la `ñ`) |
+| DNI de 7 u 8 dígitos | Hecho: **400** |
+| Teléfono E.164, 10 a 15 dígitos, solo números | Hecho, **sin el "+"** (regex `^[1-9]\d{9,14}$`): el "+" visible y fijo es cosa del front, igual que en las solicitudes |
 | Fecha de nacimiento `AAAA-MM-DD`, real y mayor de 18 años | Hecho: **400** |
 | DNI duplicado | Hecho: **409** (`23505` de Postgres). Sin `codigo` |
 | Usuario sin fila en `usuario` | **404** |
@@ -242,17 +244,25 @@ Cambios de base y tipos que trae la rama: la migración `20261021120000_agregar_
 agrega el estado de contrato `4 = pendiente de firma` (el seed solo tenía 1 disponible, 2 vigente y
 3 finalizado), y `UpdateUsuarioPayload` ya está en `packages/shared-types/src`.
 
-Lo que **todavía falta** (cerrarlo antes de pasar el estado a "conectado"):
+**Cumplimiento de la US-21:** el back cubre todos los criterios de aceptación de edición de datos
+personales (nombre, apellido, DNI, teléfono, fecha de nacimiento y bloqueo por contrato). El cambio
+de correo y de contraseña no pasan por este endpoint (los maneja Supabase Auth).
 
-| Brecha | Dueño |
-|---|---|
-| **Teléfono con "+".** El back de este `PATCH` exige `+5493511234567`; el resto del contrato (solicitudes, `PerfilResponse`) usa solo dígitos, sin "+". Hay que definir uno: la US-21 dice "prefijo + visible y no editable", así que lo razonable es que el front muestre el "+" fijo y mande solo dígitos, y que el back acepte `^[1-9]\d{9,14}$` y guarde sin "+". | backend / front |
-| Falta `codigo` en el sobre de error para distinguir `DNI_DUPLICADO` de `IDENTIDAD_BLOQUEADA_POR_CONTRATO` (el front, sin `codigo`, trata cualquier 409 como DNI duplicado). | backend |
-| Nombre y apellido: faltan las reglas de 2 a 100 caracteres y solo letras, espacios, apóstrofos y guiones. DNI: falta la de 7 u 8 dígitos. | backend |
-| `telefono: null` no se acepta (cada valor tiene que ser un texto no vacío), así que no se puede borrar el teléfono. | backend |
-| La respuesta es el usuario plano, no `PerfilResponse` (falta `GET /usuarios/me/perfil`, que sigue pendiente). | backend |
-| La comprobación de contrato bloqueante se hace aunque el valor no cambie: mandar el mismo nombre de siempre con un contrato vigente da 409. | backend |
-| El Swagger declara `bearerAuth` (el definido en `config/swagger.ts` es `SupabaseBearerAuth`) y no documenta el sobre del 200. | backend |
+**A acordar con el front** (no son criterios de la US-21: salen de la propuesta de esta misma
+sección, así que no bloquean el endpoint, pero hay que cerrarlos antes de pasar el estado a
+"conectado"):
+
+| Tema | Hoy en el back | Propuesta del front | Dueño |
+|---|---|---|---|
+| `codigo` en el sobre de error | El 409 de DNI duplicado y el de contrato bloqueante solo se distinguen por el texto | `DNI_DUPLICADO` e `IDENTIDAD_BLOQUEADA_POR_CONTRATO` (ver "Errores con `codigo`") | backend / front |
+| Borrar el teléfono | `telefono: null` da 400 | `null` lo borra | backend / front |
+| Forma de la respuesta | Usuario plano más `roles` | `PerfilResponse`, que viene con `GET /usuarios/me/perfil` (US-20, otra rama) | backend / front |
+
+**Brecha de documentación del back:** el Swagger declara `bearerAuth` (el esquema definido en
+`config/swagger.ts` es `SupabaseBearerAuth`) y no describe el cuerpo de la respuesta 200.
+
+**Observación (no es un criterio de la US):** el service consulta los contratos aunque el valor
+enviado sea igual al actual, así que reenviar el mismo nombre con un contrato vigente da 409.
 
 **Errores con `codigo`.** Para distinguir los dos 409 sin leer el texto, el front propone sumar un
 campo `codigo` al sobre de error: `{ "success": false, "error": "Ya existe una cuenta con ese DNI.",

@@ -18,7 +18,7 @@ const router = Router();
  *     tags:
  *       - Usuarios
  *     security:
- *       - bearerAuth: []
+ *       - SupabaseBearerAuth: []
  *     responses:
  *       200:
  *         description: Perfil del usuario obtenido exitosamente.
@@ -101,7 +101,7 @@ router.get(
  *     tags:
  *       - Usuarios
  *     security:
- *       - bearerAuth: []
+ *       - SupabaseBearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -125,9 +125,9 @@ router.get(
  *                 description: Nuevo número de documento. No modificable si existe un contrato bloqueante.
  *               telefono:
  *                 type: string
- *                 pattern: '^\\+[1-9]\\d{9,14}$'
- *                 example: "+5493511234567"
- *                 description: Número en formato internacional E.164, comenzando con + y seguido de entre 10 y 15 dígitos en total.
+ *                 pattern: '^[1-9]\d{9,14}$'
+ *                 example: "5493511234567"
+ *                 description:  Número telefónico de entre 10 y 15 dígitos, sin el signo + ni otros símbolos.
  *               fecha_nacimiento:
  *                 type: string
  *                 format: date
