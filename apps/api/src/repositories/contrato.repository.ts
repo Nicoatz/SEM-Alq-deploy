@@ -8,6 +8,7 @@ export interface IContratoRepository {
   getMediosPagoByContratoId(contratoId: number): Promise<MedioPagoDTO[]>;
   getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null>;
   delete(id: number): Promise<boolean>;
+  tieneContratoQueBloqueaEdicion(usuarioId: number): Promise<boolean>;
 }
 
 export class ContratoRepository implements IContratoRepository {
@@ -84,6 +85,22 @@ export class ContratoRepository implements IContratoRepository {
     if (error) throw error;
     return (count ?? 0) > 0;
   }
+
+  async tieneContratoQueBloqueaEdicion(
+    usuarioId: number
+  ): Promise<boolean> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('contrato_x_usuario')
+      .select('id, contrato!inner(estado)')
+      .eq('id_usuario', usuarioId)
+      .in('contrato.estado', [2, 4])
+      .limit(1);
+  
+    if (error) throw error;
+  
+    return (data ?? []).length > 0;
+  }
+  
 }
 
 export const contratoRepository = new ContratoRepository();

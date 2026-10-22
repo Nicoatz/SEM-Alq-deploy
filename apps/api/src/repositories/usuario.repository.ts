@@ -1,4 +1,4 @@
-import { CreateUsuarioDTO, RolDTO, UsuarioDTO } from '../dtos';
+import { CreateUsuarioDTO, RolDTO, UsuarioDTO, UpdateUsuarioDTO } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
 
 const ROL_LOCATARIO_ID = 0;
@@ -7,6 +7,7 @@ export interface IUsuarioRepository {
   create(data: CreateUsuarioDTO): Promise<UsuarioDTO>;
   findByAuthUserId(authUserId: string): Promise<UsuarioDTO | null>;
   getRolesByUsuarioId(usuarioId: number): Promise<RolDTO[]>;
+  updateByAuthUserId(authUserId: string, data: UpdateUsuarioDTO): Promise<UsuarioDTO>;
 }
 
 export class UsuarioRepository implements IUsuarioRepository {
@@ -20,6 +21,35 @@ export class UsuarioRepository implements IUsuarioRepository {
     if (error) throw error;
     return data as UsuarioDTO | null;
   }
+  
+  async updateByAuthUserId(
+    authUserId: string,
+    data: UpdateUsuarioDTO
+  ): Promise<UsuarioDTO> {
+    const { data: usuario, error } = await getSupabaseAdmin()
+      .from('usuario')
+      .update(data)
+      .eq('auth_user_id', authUserId)
+      .select(
+        'id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento'
+      )
+      .maybeSingle();
+
+    if (error) {
+      const err = new Error(error.message);
+      (err as any).statusCode = error.code === '23505' ? 409 : 400;
+      throw err;
+    }
+
+    if (!usuario) {
+      const err = new Error('No se encontró el perfil del usuario autenticado.');
+      (err as any).statusCode = 404;
+      throw err;
+    }
+
+    return usuario as UsuarioDTO;
+  }
+
 
   async getRolesByUsuarioId(usuarioId: number): Promise<RolDTO[]> {
     const supabase = getSupabaseAdmin();

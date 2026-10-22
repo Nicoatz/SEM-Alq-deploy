@@ -29,6 +29,14 @@ export interface CreateUsuarioPayload {
   acepta_terminos: boolean;
 }
 
+export interface UpdateUsuarioPayload {
+  nombre?: string;
+  apellido?: string;
+  numero_documento?: string;
+  telefono?: string;
+  fecha_nacimiento?: string;
+}
+
 export interface UsuarioXRol {
   id_usuario: number;
   id_rol: number;

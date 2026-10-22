@@ -176,7 +176,7 @@ token y no hay forma de pedir ni cambiar el perfil de otro (US-20). Brechas y pa
 | Método y ruta | Auth | Estado | US | Service | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|---|
 | `GET /usuarios/me/perfil` | Bearer | pendiente (propuesto) | US-20 | `perfil.service#getMiPerfil` | — | `PerfilResponse` (abajo) | 401 |
-| `PATCH /usuarios/me` | Bearer | pendiente (propuesto) | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, **409 `DNI_DUPLICADO`**, **409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO`** |
+| `PATCH /usuarios/me` | Bearer | **en curso en `feature/modificar_usuario`** (primera versión, ver nota abajo) | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, **409 `DNI_DUPLICADO`**, **409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO`** |
 | `PATCH /usuarios/me/legajo` | Bearer | pendiente (propuesto) | US-21 | `perfil.service#actualizarLegajo` | `LegajoDto` (el legajo entero) | `LegajoDto` guardado | 400, 401 |
 | Supabase Auth `updateUser({ email }, { emailRedirectTo })` | sesión | listo en el front (sin probar en real) | US-21 | `perfil.service#solicitarCambioDeCorreo` | `{ email }` | `user.new_email` (pendiente) | 422 `email_exists`, 400 `email_address_invalid`, 429 `over_email_send_rate_limit` |
 | Supabase Auth `updateUser({ password, current_password })` | sesión | listo en el front; **bloqueante** (ver abajo) | US-21 | `perfil.service#cambiarContrasena` | `{ password, current_password }` | — | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
@@ -222,6 +222,37 @@ Supabase Auth). Validaciones que el back tiene que repetir (US-21):
 | `nombre`, `apellido`, `numero_documento` | No se pueden cambiar si el usuario es parte de un contrato vigente o pendiente de firma | **409**, `codigo: "IDENTIDAD_BLOQUEADA_POR_CONTRATO"` |
 | `telefono` | E.164 sin el "+": 10 a 15 dígitos, solo números; `null` lo borra | 400 |
 | `fecha_nacimiento` | `YYYY-MM-DD`, mayor de 18 años | 400 |
+
+**Estado del back en `feature/modificar_usuario` (`usuarioService#actualizarMiPerfil`).** Ya existe
+`PATCH /usuarios/me`: actualiza por `authUserId` solo `nombre`, `apellido`, `numero_documento`,
+`telefono` y `fecha_nacimiento`, y responde `200` con el usuario más `roles`. Lo que valida hoy, con
+la US-21 como referencia:
+
+| Regla (US-21) | Estado en el back |
+|---|---|
+| Body no vacío; el `email`, la contraseña, los roles y el `id` no se tocan | Hecho: **400** si viene vacío o con un campo fuera de la lista |
+| Valores de texto no vacíos (se guardan con `trim()`) | Hecho: **400** |
+| Nombre, apellido y DNI bloqueados si el usuario está en un contrato vigente o pendiente de firma | Hecho: **409** con un mensaje que explica el motivo (`contratoRepository#tieneContratoQueBloqueaEdicion`: estados de contrato 2 `vigente` y 4 `pendiente de firma`). Sin `codigo` |
+| Teléfono E.164, 10 a 15 dígitos | Hecho, **con el "+"**: el regex es `^\+[1-9]\d{9,14}$` (ver discrepancia abajo) |
+| Fecha de nacimiento `AAAA-MM-DD`, real y mayor de 18 años | Hecho: **400** |
+| DNI duplicado | Hecho: **409** (`23505` de Postgres). Sin `codigo` |
+| Usuario sin fila en `usuario` | **404** |
+
+Cambios de base y tipos que trae la rama: la migración `20261021120000_agregar_estado_pendiente_firma.sql`
+agrega el estado de contrato `4 = pendiente de firma` (el seed solo tenía 1 disponible, 2 vigente y
+3 finalizado), y `UpdateUsuarioPayload` ya está en `packages/shared-types/src`.
+
+Lo que **todavía falta** (cerrarlo antes de pasar el estado a "conectado"):
+
+| Brecha | Dueño |
+|---|---|
+| **Teléfono con "+".** El back de este `PATCH` exige `+5493511234567`; el resto del contrato (solicitudes, `PerfilResponse`) usa solo dígitos, sin "+". Hay que definir uno: la US-21 dice "prefijo + visible y no editable", así que lo razonable es que el front muestre el "+" fijo y mande solo dígitos, y que el back acepte `^[1-9]\d{9,14}$` y guarde sin "+". | backend / front |
+| Falta `codigo` en el sobre de error para distinguir `DNI_DUPLICADO` de `IDENTIDAD_BLOQUEADA_POR_CONTRATO` (el front, sin `codigo`, trata cualquier 409 como DNI duplicado). | backend |
+| Nombre y apellido: faltan las reglas de 2 a 100 caracteres y solo letras, espacios, apóstrofos y guiones. DNI: falta la de 7 u 8 dígitos. | backend |
+| `telefono: null` no se acepta (cada valor tiene que ser un texto no vacío), así que no se puede borrar el teléfono. | backend |
+| La respuesta es el usuario plano, no `PerfilResponse` (falta `GET /usuarios/me/perfil`, que sigue pendiente). | backend |
+| La comprobación de contrato bloqueante se hace aunque el valor no cambie: mandar el mismo nombre de siempre con un contrato vigente da 409. | backend |
+| El Swagger declara `bearerAuth` (el definido en `config/swagger.ts` es `SupabaseBearerAuth`) y no documenta el sobre del 200. | backend |
 
 **Errores con `codigo`.** Para distinguir los dos 409 sin leer el texto, el front propone sumar un
 campo `codigo` al sobre de error: `{ "success": false, "error": "Ya existe una cuenta con ese DNI.",
