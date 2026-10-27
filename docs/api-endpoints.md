@@ -381,16 +381,18 @@ condiciones, clausulas, ultimo_paso }`. Un borrador puede guardarse con datos in
 
 ## Firma de contratos (Sprint 3, US-07) · PROPUESTO
 
-**Ninguna de estas rutas existe todavía.** Propuesta del front (Sprint 3, tanda 3): el detalle y la
-firma funcionan en modo mock y la rama real ya llama a estas rutas. Front: `contratos.service.ts`
+Las rutas de detalle de US-07 y las acciones de firma siguen propuestas; el listado del locatario
+ahora usa `GET /alquileres-locatario` (US-27), que está implementado. El detalle y la firma funcionan
+en modo mock y la rama real todavía llama a las rutas de US-07. Front: `contratos.service.ts`
 (`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `cancelarEnvio`, `reenviarInvitacion`),
 `contrato.adapter.ts#contratoDetalleDeDto` y los DTO de `backend-dtos.ts` ("Firma de contratos").
-Todas con **Bearer**; el usuario sale del token. **Firman el locador y el locatario** (decisión del
-PO): el garante es un dato del contrato y no firma en el Sprint 3.
+Todas con **Bearer**; el usuario sale del token. Pueden firmar el locador, un único locatario y los
+garantes asociados. Los endpoints de firma siguen propuestos y no forman parte de la implementación
+actual de US-27.
 
 | Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|
-| `GET /contratos?rol=locatario` | pendiente (propuesto) | `#getMiAlquiler` | el usuario como locatario | — | `ContratoResumenResponse[]` (los contratos donde es locatario; el front elige el pendiente de firma o el vigente) | 401 |
+| `GET /alquileres-locatario[?estado=]` | implementado para US-27 | `AlquilerLocatarioService#listar` | el usuario autenticado como locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
 | `GET /contratos/:id` | pendiente (propuesto; amplía el de US-05) | `#getDetalleContrato` (y `#getContrato` del alta) | locador o locatario del contrato; un **borrador, solo el locador** | — | `ContratoDetalleResponse` | **404** si no existe o no es parte (**uno solo**, sin distinguir) |
 | `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
 | `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
@@ -445,21 +447,22 @@ solo pedido. Las cuatro acciones responden el detalle actualizado, así el front
 | Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
 | Reenviar | Solo el locador, a un firmante `pendiente` (hoy, el locatario). Una vez por hora por firmante: 429 si pasó menos. Actualiza `fecha_ultima_invitacion`. Hoy no se manda ningún mail (el front lo aclara). |
 
-## Mis alquileres (Sprint 3, US-27) · PROPUESTO
+## Alquileres del locatario (Sprint 3, US-27)
 
-Ficha y listado del locatario. Front: `contratos.service.ts` (`listarMisAlquileres`,
-`contarMisAlquileres`, `getMiAlquiler`). **`GET /mis-alquileres` no cambia**: es de las propiedades del
-locador.
+`GET /alquileres-locatario` y `GET /alquileres-locatario/:idContrato` están implementados en el
+backend con Bearer y alcance derivado del usuario autenticado. La ruta `/mis-alquileres` no cambia:
+sigue listando propiedades del locador. La integración del service del frontend con las nuevas rutas
+queda pendiente.
 
 | Método y ruta | Estado | Service | Respuesta (`data`) | Errores |
 |---|---|---|---|---|
-| `GET /contratos?rol=locatario` | pendiente (propuesto) | `#listarMisAlquileres`, `#contarMisAlquileres`, `#getMiAlquiler` (sin id) | `ContratoResumenResponse[]` de los contratos donde el usuario es **locatario**, **con `locador: { nombre, apellido }`** | 401 |
-| `GET /contratos/:id` | pendiente (propuesto; ver "Firma de contratos") | `#getMiAlquiler(id)` | `ContratoDetalleResponse` + `monto_actual` + `inmueble.foto_principal` | 404 único (no existe o no es su locatario) |
+| `GET /alquileres-locatario?estado=` | implementado | `AlquilerLocatarioService#listar` | `AlquilerLocatarioItemDTO[]`; filtro opcional `pendiente_firma`, `vigente` o `finalizado`; orden pendiente → vigente → finalizado | 400 filtro inválido; 401 |
+| `GET /alquileres-locatario/:idContrato` | implementado | `AlquilerLocatarioService#obtenerDetalle` | `DetalleAlquilerLocatarioDTO`: contrato, inmueble, locador, condiciones, fechas, medios de pago, garantes, estado de firmas y `puede_firmar`; el PDF se devuelve como URL firmada temporal si está almacenado | 400 ID inválido; 401; 404 único para contrato inexistente o ajeno |
 
-- Estados que cuentan: `pendiente_firma`, `vigente` y `finalizado` (el front filtra si llegan otros).
-- Con uno, el front muestra la ficha; con dos o más, el listado. El front ordena (pendientes, vigentes,
-  finalizados).
-- `locador` en la fila: solo nombre y apellido. El contacto (`email`, `telefono`) viene en el detalle.
+- El acceso se limita por `contrato_x_usuario` con `tipo_firmante = 2`; no se acepta un ID de usuario enviado por el cliente.
+- La API devuelve fechas ISO, no días restantes; el frontend calcula los días. El vencimiento usa `dias_para_vencimiento` desde la fecha de disponibilidad del monto. La mora queda fuera de esta iteración.
+- La firma del locatario solo se habilita si locador y locatario conformaron el mismo hash del PDF vigente y el locatario sigue pendiente de firma. La acción de firmar pertenece a US-07.
+- Requiere aplicar la migración `20261026000000_us27_alquileres_locatario.sql`. El alta actual de propiedades crea contratos de oferta, pero no asigna locatario; las relaciones deben generarse al formalizar el contrato en los flujos de US-05/US-07.
 
 ## Panel del locador (`/panel`)
 

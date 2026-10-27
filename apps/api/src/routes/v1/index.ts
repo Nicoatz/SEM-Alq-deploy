@@ -6,11 +6,13 @@ import usuariosRoutes from './usuarios.routes';
 import registrarUsuarioRoutes from './registrar-usuario.routes';
 import locadoresRoutes from './locadores.routes';
 import solicitudesRoutes from './solicitudes.routes';
+import alquileresLocatarioRoutes from './alquileres-locatario.routes';
 
 const v1Router = Router();
 
 // Rutas versión 1
 v1Router.use('/mis-alquileres', misAlquileresRoutes);
+v1Router.use('/alquileres-locatario', alquileresLocatarioRoutes);
 v1Router.use('/inmuebles', inmueblesRoutes);
 v1Router.use('/usuarios', usuariosRoutes);
 v1Router.use('/registrar-usuario', registrarUsuarioRoutes);

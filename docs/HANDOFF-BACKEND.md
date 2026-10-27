@@ -184,7 +184,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (`PATCH /usuarios/me` en curso en `feature/modificar_usuario`; el resto propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
 | `GET /contratos`, `GET /contratos/preparar`, `POST /contratos`, `PUT /contratos/:id`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar`, `GET /contratos/:id` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Pendiente** (propuesto, tanda 2 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas. **Bloqueante del esquema** en §7, "US-05" |
 | `GET /contratos/:id` (con firmantes e historial), `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). Mismo bloqueante del esquema que US-05 |
-| `GET /contratos?rol=locatario` y `GET /contratos/:id` (locatario) | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Pendiente** (propuesto, tanda 4 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-27") |
+| `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Implementado en API** (26/10): Bearer, pertenencia por `contrato_x_usuario`, filtro por estado, detalle con 404 indistinguible y Swagger. Pendiente aplicar migración `20261026000000_us27_alquileres_locatario.sql` e integrar las llamadas del frontend |
 | Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
 
 ## 6. Status HTTP y errores
@@ -208,19 +208,20 @@ datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde es
 
 ### US-27 Consultar mis alquileres (Sprint 3, tanda 4, `/panel/alquiler` y `/panel/alquileres`)
 
-Ficha y listado del locatario en **modo mock**; la rama real llama a rutas **propuestas**. Front:
+Ficha y listado del locatario en **modo mock**; el frontend todavía llama a rutas **propuestas** y debe migrarse a `/alquileres-locatario`. Front:
 `contratos.service.ts` (`getMiAlquiler`, `listarMisAlquileres`, `contarMisAlquileres`),
 `contrato.adapter.ts#alquilerResumenDeDto`, `components/contratos/MiAlquiler.tsx`, `FichaAlquiler.tsx`,
 `ListadoAlquileres.tsx`, `lib/contratos/loQueViene.ts` y `lib/navigation/useCantidadAlquileres.ts`.
 **`GET /mis-alquileres` no se toca:** sigue siendo de las propiedades del locador.
 
-**Lo que le falta al back**
+**Estado del backend y dependencias pendientes**
 
 | # | Qué | Para qué | Dueño |
 |---|---|---|---|
-| 1 | `GET /contratos?rol=locatario`: los contratos donde el usuario es locatario (pendientes de firma, vigentes y finalizados), con la misma fila que el listado del locador **más `locador {nombre, apellido}`** (sin DNI ni contacto) | Listado `/panel/alquileres`, el conteo del menú y elegir la ficha directa | backend |
-| 2 | `GET /contratos/:id` para el locatario, con `monto_actual` (con los ajustes aplicados) e `inmueble.foto_principal`; los medios de pago y la parte locadora con `email` y `telefono` ya están en la respuesta propuesta. 404 único para inexistente o ajeno | Ficha | backend |
-| 3 | Día de pago, depósito y garantes de los contratos cargados antes de RentAR: hoy no están en ningún lado. En mock, el día de pago de los vigentes del elenco sale del vencimiento de su cobro (`panel.mock.ts`); el depósito y los garantes se ven "Sin dato" | Condiciones | db |
+| 1 | Aplicar `20261026000000_us27_alquileres_locatario.sql` en Supabase | Persistir plazo de vencimiento, PDF privado, conformidad/firma por participante e historial de ajustes | db |
+| 2 | Conectar `contratos.service.ts` del frontend a `GET /alquileres-locatario` y `GET /alquileres-locatario/:idContrato` | Listado, conteo y ficha real | front |
+| 3 | El flujo actual de alta crea contratos de oferta, pero no inserta `contrato_x_usuario` para locador/locatario; formalización US-05/US-07 debe crear esas relaciones para que US-27 encuentre alquileres | Alimentar el endpoint con contratos reales | backend |
+| 4 | El endpoint expone `puede_firmar`, pero las acciones de conformidad y firma pertenecen a las rutas de US-07, que siguen propuestas | Acción "Firmar contrato" | backend (US-07) |
 
 **Decisiones del PO (tanda 4)**
 
@@ -235,10 +236,11 @@ Ficha y listado del locatario en **modo mock**; la rama real llama a rutas **pro
   atenuados y sin acciones (solo se abre su ficha).
 - La ficha no muestra otras propiedades del locador, solicitudes de terceros ni legajos ajenos.
 
-**"Lo que viene"** (`lib/contratos/loQueViene.ts`, con `hoy()` del reloj único): próximo pago (el primer
-día de pago desde hoy, o desde el inicio si todavía no empezó, y hasta el fin), próximo ajuste (inicio +
-k × período, el primero desde hoy y no después del fin) y fin, cada uno con los días que faltan. Casos
-verificados en el JSDoc.
+**"Lo que viene"** (`lib/contratos/loQueViene.ts`, con `hoy()` del reloj único): la API entrega las
+fechas de próximo pago, ajuste y fin; el frontend calcula los días restantes. El vencimiento se calcula
+sumando `dias_para_vencimiento` desde la disponibilidad mensual del monto (primer día del período, o
+fecha efectiva del último ajuste si es posterior), y continúa contando días al pasar de mes. El interés
+por mora queda fuera de esta iteración.
 
 ### US-07 Firmar contrato de alquiler (Sprint 3, tanda 3, `/panel/contratos/[id]`)
 
@@ -256,7 +258,7 @@ US-05 (el **bloqueante del esquema** de abajo).
 | 1 | Tabla de **firmas**: `id_contrato`, `rol` (locador / locatario), `id_usuario`, `estado` (pendiente / firmado / rechazado), `fecha_firma`, **`ip`**, `fecha_rechazo`, `motivo_rechazo` (hasta 300), `fecha_ultima_invitacion`. Una fila por parte; se crean al enviar a firmar y se borran al cancelar el envío | Estado de cada firmante, "una parte no firma dos veces", "una vez por hora" | db |
 | 2 | Tabla de **historial** del contrato: `id_contrato`, `tipo` (`creado`, `enviado`, `firmado`, `rechazado`, `reenviado`, `envio_cancelado`, `vigente`), `fecha`, `rol`, `motivo` | "Historial con fecha y hora" | db |
 | 3 | `GET /contratos/:id` con `firmantes`, `historial`, `fecha_envio`, `fecha_firma_completa`, `fecha_fin` y `firmas_registradas`; lo pueden pedir **las dos partes** (un borrador, solo el locador). 404 único para inexistente o ajeno | Detalle (A5) y Mi alquiler | backend |
-| 3b | `GET /contratos?rol=locatario`: los contratos donde el usuario es **locatario** (misma fila que el listado del locador). Sin `rol`, como hoy: los del locador | Mi alquiler (`/panel/alquiler`) elige el pendiente de firma o el vigente | backend |
+| 3b | `GET /alquileres-locatario`: listado de contratos donde el usuario autenticado es **locatario**; reemplaza la ruta propuesta `GET /contratos?rol=locatario` para US-27. US-07 todavía requiere su detalle extendido de contrato | Mi alquiler (`/panel/alquiler`) elige el pendiente de firma o el vigente | backend |
 | 4 | `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio` y `/reenviar` con los `codigo` de los 409 y el **429** del reenvío | Las acciones | backend |
 | 5 | **Al quedar vigente, en una transacción:** el inmueble pasa a alquilado y sale de `/inmuebles/disponibles`; sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." (el campo existe desde la tanda B del Sprint 2). En mock lo hace `contrato-mock.adapter.ts#pasarAVigenteMock` | US-07, "Contrato vigente" | backend |
 | 6 | Registrar la **IP** de cada firma (del request: `x-forwarded-for` detrás del proxy). No viaja al front | US-07 | backend |
@@ -264,9 +266,9 @@ US-05 (el **bloqueante del esquema** de abajo).
 
 **Decisiones del PO de esta tanda**
 
-- Firman el locador y el locatario. Los garantes se muestran como datos, **sin estado de firma**. El
-  contrato pasa a vigente con esas dos firmas. Donde el diseño muestra la tercera firma, el
-  vencimiento del link o mails al garante, gana esta decisión.
+- Pueden firmar el locador, un único locatario y los garantes asociados al contrato. El listado de
+  US-27 expone el estado de firma de cada participante; los endpoints para registrar esas firmas
+  siguen fuera de esta implementación.
 - El locador firma desde el detalle (`/panel/contratos/[id]`); el locatario, desde **Mi alquiler**
   (`/panel/alquiler`, desde esta tanda) con el mismo componente (`FirmaContrato`). Mi alquiler es la
   base de la ficha de US-27 (tanda 4: condiciones, "Lo que viene" y el listado con varios). Sin

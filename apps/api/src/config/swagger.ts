@@ -77,6 +77,88 @@ const options: swaggerJsdoc.Options = {
               }
             }
           }
+        },
+        AlquilerLocatarioItem: {
+          type: 'object',
+          required: ['id_contrato', 'codigo', 'estado', 'inmueble', 'locador', 'monto_actual'],
+          properties: {
+            id_contrato: { type: 'integer' },
+            codigo: { type: 'string' },
+            estado: { type: 'string', enum: ['pendiente_firma', 'vigente', 'finalizado'] },
+            inmueble: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                direccion: { type: 'string' },
+                numero: { type: 'integer' },
+                piso: { type: 'string', nullable: true },
+                barrio: { type: 'string' },
+                ciudad: { type: 'string' },
+                foto_principal: { type: 'string', format: 'uri', nullable: true }
+              }
+            },
+            locador: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                nombre: { type: 'string' },
+                apellido: { type: 'string', nullable: true },
+                email: { type: 'string', format: 'email' },
+                telefono: { type: 'string', nullable: true }
+              }
+            },
+            monto_actual: { type: 'number', format: 'double' },
+            expensas: { type: 'number', format: 'double' },
+            fecha_inicio_contrato: { type: 'string', format: 'date', nullable: true },
+            fecha_fin_contrato: { type: 'string', format: 'date', nullable: true },
+            deposito: { type: 'number', format: 'double', nullable: true },
+            indice_ajuste: { type: 'string', nullable: true },
+            frecuencia_ajuste: { type: 'string', nullable: true },
+            fecha_ultimo_ajuste: { type: 'string', format: 'date', nullable: true },
+            fecha_proximo_ajuste: { type: 'string', format: 'date', nullable: true }
+          }
+        },
+        AlquilerLocatarioDetalle: {
+          allOf: [
+            { $ref: '#/components/schemas/AlquilerLocatarioItem' },
+            {
+              type: 'object',
+              properties: {
+                dias_para_vencimiento: { type: 'integer', nullable: true },
+                fecha_proximo_vencimiento_pago: { type: 'string', format: 'date', nullable: true },
+                pdf_url: { type: 'string', format: 'uri', nullable: true },
+                medios_pago: { type: 'array', items: { type: 'string' } },
+                garantes: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      nombre: { type: 'string' },
+                      apellido: { type: 'string', nullable: true },
+                      email: { type: 'string', format: 'email' },
+                      telefono: { type: 'string', nullable: true }
+                    }
+                  }
+                },
+                firmas: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      tipo: { type: 'string', enum: ['locador', 'locatario', 'garante'] },
+                      estado: { type: 'string', enum: ['pendiente', 'firmado', 'rechazado', 'desconocido'] },
+                      fecha_conformidad: { type: 'string', format: 'date-time', nullable: true },
+                      fecha_firma: { type: 'string', format: 'date-time', nullable: true },
+                      fecha_rechazo: { type: 'string', format: 'date-time', nullable: true },
+                      motivo_rechazo: { type: 'string', nullable: true }
+                    }
+                  }
+                },
+                puede_firmar: { type: 'boolean' },
+                monto_proximo_ajuste: { type: 'string', enum: ['a definir'], nullable: true }
+              }
+            }
+          ]
         }
       }
     }
