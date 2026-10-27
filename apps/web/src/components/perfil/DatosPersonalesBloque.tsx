@@ -13,6 +13,12 @@
  *   DNI bloqueados con un contrato vigente o pendiente de firma, explicando
  *   el motivo; mensaje de éxito o de error en español. Al cambiar nombre o
  *   apellido, el UserMenu se actualiza (`refrescarUsuario`).
+ *
+ * NOTA (bloqueo en modo real): `GET /usuarios/me` todavía no dice si hay un
+ * contrato que bloquea (TODO(backend) en `perfil.adapter.ts`). Los campos se
+ * muestran editables y, si el PATCH responde el 409 de contrato, el bloque
+ * muestra el aviso y deshabilita nombre, apellido y DNI hasta salir de la
+ * pantalla (`bloqueoDescubierto`).
  * De dónde saca los datos: `PerfilUsuario` (lo pasa `PerfilScreen`); guarda
  * con `perfil.service#actualizarDatosPersonales`.
  * Quién lo usa: `PerfilScreen.tsx`.
@@ -24,11 +30,11 @@ import dayjs from 'dayjs'
 import type { DatosPersonalesCambios, PerfilUsuario } from '@rentar/shared-types'
 import { DetailList } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
-import { dniParaMostrar, fechaParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
+import { dniParaMostrar, fechaParaMostrar, telefonoParaMostrar, tieneCodigoPais } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
 import { aE164, formatoTelefonoEnCampo, MENSAJES_SOLICITUD, telefonoParaPrecargar, telefonoValido } from '@/lib/validation/solicitud.rules'
 import { esMayorDeEdad, MENSAJES, reglasDni, reglasNombrePerfil, soloDigitos } from '@/lib/validation/usuario.rules'
-import { actualizarDatosPersonales } from '@/services/perfil.service'
+import { actualizarDatosPersonales, CAMPO_NO_BORRABLE } from '@/services/perfil.service'
 import { ServiceError } from '@/services/shared/errors'
 import { BloquePerfil } from './BloquePerfil'
 import styles from './BloquesPerfil.module.css'
@@ -55,13 +61,23 @@ interface ValoresDatos {
   fechaNacimiento: Dayjs | null
 }
 
+/**
+ * Teléfono guardado → lo que se precarga en el campo. Un teléfono sin código
+ * de país (modo real, los 10 dígitos del seed) se precarga tal cual: no se le
+ * agrega el 54 (decisión del PO; si el usuario no lo toca, no viaja).
+ */
+function telefonoInicial(telefono: string | null): string {
+  if (telefono && !tieneCodigoPais(telefono)) return formatoTelefonoEnCampo(telefono)
+  return telefonoParaPrecargar(telefono)
+}
+
 /** Perfil → valores del formulario (lo que restaura Cancelar). */
 function valoresDe(perfil: PerfilUsuario): ValoresDatos {
   return {
     nombre: perfil.nombre,
     apellido: perfil.apellido,
     dni: perfil.dni ?? '',
-    telefono: telefonoParaPrecargar(perfil.telefono),
+    telefono: telefonoInicial(perfil.telefono),
     fechaNacimiento: perfil.fechaNacimiento ? dayjs(perfil.fechaNacimiento) : null,
   }
 }
@@ -82,8 +98,9 @@ function cambiosEntre(perfil: PerfilUsuario, valores: ValoresDatos): DatosPerson
   if (valores.apellido.trim() !== perfil.apellido) cambios.apellido = valores.apellido.trim()
   const dni = soloDigitos(valores.dni)
   if (dni && dni !== perfil.dni) cambios.dni = dni
+  // Se comparan los dígitos: el guardado puede no tener "+" (sin código de país).
   const telefono = telefonoDelCampo(valores.telefono)
-  if (telefono !== perfil.telefono) cambios.telefono = telefono
+  if (soloDigitos(telefono ?? '') !== soloDigitos(perfil.telefono ?? '')) cambios.telefono = telefono
   const fecha = valores.fechaNacimiento ? valores.fechaNacimiento.format('YYYY-MM-DD') : null
   if (fecha !== perfil.fechaNacimiento) cambios.fechaNacimiento = fecha
   return cambios
@@ -113,8 +130,14 @@ const reglasFechaPerfil = [
   },
 ]
 
-/** Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). */
-function textoBloqueo(lock: NonNullable<PerfilUsuario['identityLock']>): string {
+/**
+ * Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). Sin
+ * el contrato (modo real: el bloqueo se supo por el 409), un texto general.
+ */
+function textoBloqueo(lock: PerfilUsuario['identityLock']): string {
+  if (!lock) {
+    return 'Sos parte de un contrato vigente o pendiente de firma. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.'
+  }
   const estado = lock.contractStatus === 'vigente' ? 'vigente' : 'pendiente de firma'
   return `Sos parte del contrato ${lock.contractCode}, ${estado}. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.`
 }
@@ -122,7 +145,11 @@ function textoBloqueo(lock: NonNullable<PerfilUsuario['identityLock']>): string 
 /** Props de {@link FormularioDatos}. */
 interface FormularioDatosProps {
   perfil: PerfilUsuario
+  /** Nombre, apellido y DNI no se pueden cambiar (contrato vigente o pendiente de firma). */
+  bloqueado: boolean
   avisoBloqueo: ReactNode
+  /** El back respondió el 409 de contrato: el bloque pasa a bloqueado. */
+  onBloqueoDescubierto: () => void
   onGuardado: (perfil: PerfilUsuario, cambioElNombre: boolean) => void
   onCancelar: () => void
   onCambiosSinGuardar: (hayCambios: boolean) => void
@@ -133,14 +160,13 @@ interface FormularioDatosProps {
  * tocar "Editar" y se desmonta al guardar o cancelar, así cada edición
  * arranca de lo guardado (US-21: "Cancelar restaura los valores guardados").
  */
-function FormularioDatos({ perfil, avisoBloqueo, onGuardado, onCancelar, onCambiosSinGuardar }: FormularioDatosProps) {
+function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto, onGuardado, onCancelar, onCambiosSinGuardar }: FormularioDatosProps) {
   const [form] = Form.useForm<ValoresDatos>()
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const iniciales = useMemo(() => valoresDe(perfil), [perfil])
   const valores = Form.useWatch([], form) as Partial<ValoresDatos> | undefined
-  const bloqueado = perfil.identityLock !== null
   const hayCambios = valores !== undefined && Object.keys(cambiosEntre(perfil, { ...iniciales, ...valores })).length > 0
 
   useEffect(() => {
@@ -162,10 +188,20 @@ function FormularioDatos({ perfil, avisoBloqueo, onGuardado, onCancelar, onCambi
       const actualizado = await actualizarDatosPersonales(cambios)
       onGuardado(actualizado, cambios.nombre !== undefined || cambios.apellido !== undefined)
     } catch (excepcion) {
-      const mensaje = excepcion instanceof ServiceError ? excepcion.message : 'No pudimos guardar los cambios. Probá de nuevo.'
-      if (excepcion instanceof ServiceError && excepcion.apiCode === 'DNI_DUPLICADO') form.setFields([{ name: 'dni', errors: [mensaje] }])
-      setError(mensaje)
       setGuardando(false)
+      const codigo = excepcion instanceof ServiceError ? excepcion.apiCode : undefined
+      if (codigo === 'IDENTIDAD_BLOQUEADA_POR_CONTRATO') {
+        // El aviso de bloqueo ya explica el motivo: nombre, apellido y DNI
+        // vuelven a lo guardado y se deshabilitan; lo demás se puede guardar.
+        form.setFieldsValue({ nombre: iniciales.nombre, apellido: iniciales.apellido, dni: iniciales.dni })
+        onBloqueoDescubierto()
+        return
+      }
+      const mensaje = excepcion instanceof ServiceError ? excepcion.message : 'No pudimos guardar los cambios. Probá de nuevo.'
+      if (codigo === 'DNI_DUPLICADO') form.setFields([{ name: 'dni', errors: [mensaje] }])
+      if (codigo === CAMPO_NO_BORRABLE.telefono) form.setFields([{ name: 'telefono', errors: [mensaje] }])
+      if (codigo === CAMPO_NO_BORRABLE.fechaNacimiento) form.setFields([{ name: 'fechaNacimiento', errors: [mensaje] }])
+      setError(mensaje)
     }
   }
 
@@ -222,7 +258,9 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
   // ─── Estado local ───────────────────────────────────────────────────
   const [editando, setEditando] = useState(false)
   const [exito, setExito] = useState<string | null>(null)
-  const bloqueado = perfil.identityLock !== null
+  /** Modo real: el PATCH respondió el 409 de contrato en esta visita (ver la NOTA del encabezado). */
+  const [bloqueoDescubierto, setBloqueoDescubierto] = useState(false)
+  const bloqueado = perfil.identityLock !== null || bloqueoDescubierto
 
   // ─── Handlers ───────────────────────────────────────────────────────
   function editar(): void {
@@ -261,7 +299,7 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
     },
   ]
 
-  const avisoBloqueo = perfil.identityLock && (
+  const avisoBloqueo = bloqueado && (
     <div className={`${styles.notice} ${styles.noticeWarning}`} data-testid="perfil-bloqueo-contrato">
       <span className={styles.noticeTitle}>Nombre, apellido y DNI bloqueados</span>
       <span>{textoBloqueo(perfil.identityLock)}</span>
@@ -294,7 +332,9 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
           // ─── Render: edición ──────────────────────────────────────────
           <FormularioDatos
             perfil={perfil}
+            bloqueado={bloqueado}
             avisoBloqueo={avisoBloqueo}
+            onBloqueoDescubierto={() => setBloqueoDescubierto(true)}
             onGuardado={guardado}
             onCancelar={() => setEditando(false)}
             onCambiosSinGuardar={onCambiosSinGuardar}

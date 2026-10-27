@@ -18,13 +18,24 @@ import type { CreateFotoPayload, EstadoAlquiler } from '@rentar/shared-types'
 /**
  * Respuesta de `GET /api/v1/usuarios/me` (existe): el usuario del token con
  * sus roles. Copia del `data` que arma `usuarioController.obtenerMiPerfil`
- * (`apps/api/src/controllers/usuario.controller.ts`).
+ * (`apps/api/src/controllers/usuario.controller.ts`). Desde el Sprint 3 trae
+ * también los datos personales (US-20); la sesión usa solo id, nombre,
+ * apellido, email y roles, y el perfil usa todo (ver `PerfilResponse`).
  */
 export interface UsuarioMeResponse {
   id: number
   nombre: string
   apellido?: string | null
   email: string
+  /** 7 u 8 dígitos (la columna es única). */
+  numero_documento?: string | null
+  /**
+   * Solo dígitos, sin "+" (el back valida `^[1-9]\d{9,14}$`). Los usuarios
+   * del seed tienen 10 dígitos SIN código de país ("3511112233").
+   */
+  telefono?: string | null
+  /** `YYYY-MM-DD`. */
+  fecha_nacimiento?: string | null
   /** Descripciones de la tabla `rol`: `'locatario'`, `'locador'` o `'administrador'`. */
   roles: string[]
 }
@@ -437,12 +448,13 @@ export interface UpdateInmueblePayload {
 }
 
 // ─── Perfil y legajo (US-20, US-21) ─────────────────────────────────────
-// NOTA: PROPUESTOS por el front (Sprint 3): el back todavía no tiene estas
-// rutas. Contrato completo en `docs/api-endpoints.md` ("Perfil") y en
-// `docs/HANDOFF-BACKEND.md` §7. Mismos códigos de ocupación y garantía que
-// las solicitudes, así el legajo pasa del perfil a la solicitud sin traducir.
+// NOTA: `GET` y `PATCH /usuarios/me` existen desde el Sprint 3 (develop,
+// 917e8ff). El legajo y el bloqueo de identidad NO: siguen propuestos
+// (`docs/api-endpoints.md`, "Perfil", y `docs/HANDOFF-BACKEND.md` §7). Mismos
+// códigos de ocupación y garantía que las solicitudes, así el legajo pasa del
+// perfil a la solicitud sin traducir.
 
-/** El legajo como lo guardaría el back (propuesto). */
+/** El legajo como lo guardaría el back (propuesto; hoy lo usan las solicitudes). */
 export interface LegajoDto {
   ocupacion: OcupacionDto
   /** Entero mayor que 0, o `null` si no lo cargó (US-21). */
@@ -451,42 +463,28 @@ export interface LegajoDto {
 }
 
 /**
- * Respuesta de `GET /api/v1/usuarios/me/perfil` (no existe — propuesto).
- * Solo el usuario del token: no hay forma de pedir el perfil de otro (US-20).
+ * Respuesta de `GET /api/v1/usuarios/me` y de `PATCH /api/v1/usuarios/me`
+ * (existen) tal como la usa el perfil. Solo el usuario del token: no hay
+ * forma de pedir el perfil de otro (US-20).
+ * TODO(backend): sumar `bloqueo_identidad` (el contrato vigente o pendiente
+ * de firma que bloquea nombre, apellido y DNI, US-21) y el legajo.
  */
-export interface PerfilResponse {
-  id: number
-  nombre: string
-  apellido: string | null
-  email: string
-  numero_documento: string | null
-  /** Solo dígitos, con código de país (igual que en `SolicitudResponse`). */
-  telefono: string | null
-  /** `YYYY-MM-DD`. */
-  fecha_nacimiento: string | null
-  /** Descripciones de la tabla `rol`, igual que `/usuarios/me`. */
-  roles: string[]
-  /**
-   * El contrato vigente o pendiente de firma del que el usuario es parte
-   * (locador o locatario), si hay uno: bloquea nombre, apellido y DNI (US-21).
-   * Si hay varios, cualquiera (el front solo lo nombra).
-   */
-  contrato_bloqueante: { codigo: string; estado: 'vigente' | 'pendiente_firma' } | null
-  /** `null` si nunca lo cargó. */
-  legajo: LegajoDto | null
-}
+export type PerfilResponse = UsuarioMeResponse
 
 /**
- * Cuerpo de `PATCH /api/v1/usuarios/me` (no existe — propuesto). Solo los
- * campos que cambian. El correo NO va acá: lo cambia Supabase Auth.
+ * Cuerpo de `PATCH /api/v1/usuarios/me` (existe). Solo los campos que
+ * cambian: un campo de más, un body vacío o un valor vacío es un 400 (no se
+ * puede borrar un dato mandando `""` ni `null`). El correo NO va acá: lo
+ * cambia Supabase Auth.
  */
 export interface ActualizarPerfilRequest {
   nombre?: string
   apellido?: string
   numero_documento?: string
-  /** E.164 sin el "+" ni separadores, 10 a 15 dígitos. */
-  telefono?: string | null
-  fecha_nacimiento?: string | null
+  /** Sin el "+" ni separadores, 10 a 15 dígitos (`^[1-9]\d{9,14}$`). */
+  telefono?: string
+  /** `YYYY-MM-DD`, mayor de 18 años. */
+  fecha_nacimiento?: string
 }
 
 /** Cuerpo de `PATCH /api/v1/usuarios/me/legajo` (no existe — propuesto). Reemplaza el legajo entero. */
@@ -494,9 +492,11 @@ export type ActualizarLegajoRequest = LegajoDto
 
 /**
  * Código de error de negocio que el front propone que el back mande en el
- * sobre (`{ success: false, error, codigo }`), para distinguir dos 409 de la
- * misma ruta sin leer el texto. Lo lee `apiClient` y lo guarda en
- * `ServiceError.apiCode`.
+ * sobre. TODO(backend): hoy los dos 409 de `PATCH /usuarios/me` llegan sin
+ * código y el adaptador los distingue por el texto (`perfil.adapter.ts`). El
+ * front pide mandarlo en el sobre (`{ success: false, error, codigo }`),
+ * para distinguir los dos 409 sin leer el texto. Lo lee `apiClient` y lo
+ * guarda en `ServiceError.apiCode`.
  */
 export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
 

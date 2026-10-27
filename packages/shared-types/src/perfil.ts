@@ -73,7 +73,12 @@ export interface PerfilUsuario {
    * no hay un cambio en curso.
    */
   pendingEmail: string | null
-  /** Teléfono canónico E.164 (`+543515550101`); `null` = no cargado. */
+  /**
+   * Teléfono canónico E.164 (`+543515550101`); `null` = no cargado.
+   * NOTA: en modo real, si el back lo guardó sin código de país (los 10
+   * dígitos del seed), llegan los dígitos tal cual, SIN "+"
+   * (`telefonoDelBack` en `apps/web/src/lib/perfil/formato.ts`).
+   */
   telefono: string | null
   /** Fecha de nacimiento ISO `YYYY-MM-DD`; `null` = no cargada. */
   fechaNacimiento: string | null

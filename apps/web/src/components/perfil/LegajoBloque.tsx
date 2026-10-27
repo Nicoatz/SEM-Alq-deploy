@@ -15,6 +15,12 @@
  * guarda con `perfil.service#actualizarLegajo`.
  * Quién lo usa: `PerfilScreen.tsx`.
  *
+ * NOTA (modo real): el back todavía no tiene legajo (`LEGAJO_SE_PUEDE_GUARDAR`).
+ * El bloque se ve en solo lectura, "Sin cargar", con el aviso "El legajo
+ * todavía no se puede guardar": sin Editar, sin "Completar", sin el estado
+ * completo/incompleto ni la lista de lo que falta (el usuario no puede
+ * completarlo). Decisión del PO; en mock queda todo como estaba.
+ *
  * NOTA (diseño vs. US): el diseño suma documentación (FileDropzone) y otras
  * garantías ("recibo de sueldo", "garante con recibo"). Manda la US: las
  * garantías son las de US-35 y no hay archivos en esta tanda.
@@ -26,7 +32,7 @@ import { DetailList, MoneyAmount } from '@rentar/ui'
 import { estadoLegajo, textoFaltantes } from '@/lib/perfil/legajo'
 import { GARANTIA_LABEL, GARANTIA_OPTIONS, OCUPACION_LABEL, OCUPACION_OPTIONS } from '@/lib/validation/solicitud.rules'
 import { reglasIngresoLegajo } from '@/lib/validation/usuario.rules'
-import { actualizarLegajo } from '@/services/perfil.service'
+import { actualizarLegajo, LEGAJO_SE_PUEDE_GUARDAR } from '@/services/perfil.service'
 import { ServiceError } from '@/services/shared/errors'
 import { BloquePerfil } from './BloquePerfil'
 import styles from './BloquesPerfil.module.css'
@@ -199,12 +205,14 @@ export function LegajoBloque({ legajo, defaultOpen = false, onActualizado, onCam
   }
 
   // ─── Render ─────────────────────────────────────────────────────────
+  /** "Completar" abre la edición; en real no hay edición (ver la NOTA del encabezado). */
+  const completar = LEGAJO_SE_PUEDE_GUARDAR ? editar : undefined
   const items = [
     {
       label: 'Situación ocupacional',
       value:
         legajo.occupation === 'sin_informar' ? (
-          <SinCargar campo="ocupacion" onCompletar={editar} />
+          <SinCargar campo="ocupacion" onCompletar={completar} />
         ) : (
           <span data-testid="perfil-legajo-ocupacion">{OCUPACION_LABEL[legajo.occupation]}</span>
         ),
@@ -213,7 +221,7 @@ export function LegajoBloque({ legajo, defaultOpen = false, onActualizado, onCam
       label: 'Ingreso mensual declarado',
       value:
         legajo.monthlyIncome === null ? (
-          <SinCargar campo="ingresos" onCompletar={editar} />
+          <SinCargar campo="ingresos" onCompletar={completar} />
         ) : (
           <span data-testid="perfil-legajo-ingresos">
             <MoneyAmount amount={legajo.monthlyIncome} />
@@ -224,7 +232,7 @@ export function LegajoBloque({ legajo, defaultOpen = false, onActualizado, onCam
       label: 'Garantías que podés ofrecer',
       value:
         legajo.guarantees.length === 0 ? (
-          <SinCargar campo="garantias" onCompletar={editar} />
+          <SinCargar campo="garantias" onCompletar={completar} />
         ) : (
           <span data-testid="perfil-legajo-garantias">{legajo.guarantees.map((garantia) => GARANTIA_LABEL[garantia]).join(', ')}</span>
         ),
@@ -236,22 +244,30 @@ export function LegajoBloque({ legajo, defaultOpen = false, onActualizado, onCam
       testId="perfil-legajo"
       title="Mi legajo"
       description="Se precarga en cada solicitud que envíes. El dueño lo ve recién cuando te postulás, nunca antes."
-      badge={<ChipLegajo legajo={legajo} />}
+      badge={LEGAJO_SE_PUEDE_GUARDAR ? <ChipLegajo legajo={legajo} /> : undefined}
       defaultOpen={defaultOpen}
     >
       <div className={styles.stack}>
         {exito && !editando && (
           <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setExito(null)} title={exito} data-testid="perfil-legajo-exito" />
         )}
-        <AvisoLegajo legajo={legajo} />
+        {LEGAJO_SE_PUEDE_GUARDAR ? (
+          <AvisoLegajo legajo={legajo} />
+        ) : (
+          <div className={styles.notice} data-testid="perfil-legajo-no-disponible">
+            <span>El legajo todavía no se puede guardar.</span>
+          </div>
+        )}
         {!editando ? (
           <>
             <DetailList items={items} column={1} />
-            <div className={styles.actions}>
-              <Button onClick={editar} data-testid="perfil-legajo-editar">
-                Editar legajo
-              </Button>
-            </div>
+            {LEGAJO_SE_PUEDE_GUARDAR && (
+              <div className={styles.actions}>
+                <Button onClick={editar} data-testid="perfil-legajo-editar">
+                  Editar legajo
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           <FormularioLegajo legajo={legajo} onGuardado={guardado} onCancelar={() => setEditando(false)} onCambiosSinGuardar={onCambiosSinGuardar} />

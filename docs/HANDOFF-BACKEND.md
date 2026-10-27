@@ -181,7 +181,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
 | `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
-| `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (`PATCH /usuarios/me` en curso en `feature/modificar_usuario`; el resto propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
+| `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Sin bloqueo en el GET ni `codigo` en los 409 (§7, "US-20 y US-21") |
+| `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-21) | **Pendiente** (propuesto): en real el legajo se ve "Sin cargar" |
 | `GET /contratos`, `GET /contratos/preparar`, `POST /contratos`, `PUT /contratos/:id`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar`, `GET /contratos/:id` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Pendiente** (propuesto, tanda 2 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas. **Bloqueante del esquema** en §7, "US-05" |
 | `GET /contratos/:id` (con firmantes e historial), `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). Mismo bloqueante del esquema que US-05 |
 | `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Implementado en API** (26/10): Bearer, pertenencia por `contrato_x_usuario`, filtro por estado, detalle con 404 indistinguible y Swagger. Pendiente aplicar migración `20261026000000_us27_alquileres_locatario.sql` e integrar las llamadas del frontend |
@@ -399,24 +400,30 @@ aceptada, Rondeau 480 sigue recibiendo solicitudes nuevas en mock.
 en el listado. En mock, el DNI de los garantes que se cargan no se guarda en `localStorage` (vive en
 memoria hasta recargar; ver §10).
 
-### US-20 y US-21 Mi perfil (Sprint 3, tanda 1, `/panel/perfil`)
+### US-20 y US-21 Mi perfil (Sprint 3, tanda 1, `/panel/perfil`; conectado en `feature/conexion-perfil`)
 
-La pantalla funciona en **modo mock**; la rama real llama a rutas **propuestas** que todavía no
-existen. Contrato completo (body, respuesta, errores y ejemplo) en
-[`api-endpoints.md`](api-endpoints.md), "Perfil y legajo". Front: `services/perfil.service.ts`,
-`services/adapters/perfil.adapter.ts`, `components/perfil/*`, `app/auth/confirmar/route.ts`.
+Los datos personales están **conectados**: `GET /usuarios/me` y `PATCH /usuarios/me` (develop,
+917e8ff). El legajo y el bloqueo en el GET siguen **propuestos**. Contrato, validaciones del back y
+cómo traduce el front cada error en [`api-endpoints.md`](api-endpoints.md), "Perfil y legajo".
+Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `components/perfil/*`,
+`app/auth/confirmar/route.ts`.
 
-**Lo que el back tiene que hacer**
+**Brechas que siguen**
 
-| # | Qué | Para qué | Dueño |
-|---|---|---|---|
-| 1 | `GET /usuarios/me/perfil` → `PerfilResponse` | Mostrar el perfil (US-20): DNI, teléfono, fecha de nacimiento, roles, contrato que bloquea y legajo. Aparte de `/usuarios/me` para que el DNI y los ingresos no viajen en cada cambio de ruta | backend |
-| 2 | `PATCH /usuarios/me` con 409 `DNI_DUPLICADO` y 409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO` (**primera versión en `feature/modificar_usuario`**: ya actualiza, valida nombre, apellido, DNI, teléfono (sin "+"), edad y bloqueo por contrato y devuelve 400/404/409; cumple la US-21; el `codigo` del 409 y el resto se acuerdan con el front, ver `api-endpoints.md`) | Editar datos personales (US-21). Repetir las validaciones de la tabla de `api-endpoints.md` | backend |
-| 3 | `PATCH /usuarios/me/legajo` | Editar el legajo (US-21) | backend |
-| 4 | Guardar el legajo: situación ocupacional, ingreso mensual (entero > 0 o `NULL`) y garantías (varias) por usuario. Sugerencia: columnas `id_situacion_ocupacional` e `ingreso_mensual` en `usuario` y una tabla `usuario_x_garantia`, reusando los catálogos de las solicitudes | US-20 / US-21 | db |
-| 5 | Sumar `legajo` a `GET /solicitudes/preparar` (misma forma que `LegajoDto`) | US-21: "los datos del legajo se precargan en las solicitudes nuevas". Mientras no venga, en real el modal usa los valores por defecto de US-35 | backend |
-| 6 | **Sincronizar `usuario.email` con `auth.users.email`** cuando se confirma un cambio de correo (trigger `AFTER UPDATE OF email ON auth.users`, o que `/usuarios/me` y `/me/perfil` lean el correo del token) | Supabase cambia solo `auth.users`; sin esto, el perfil y las solicitudes muestran el correo viejo | backend / db |
-| 7 | Sumar `codigo` al sobre de error (`{ success: false, error, codigo }`) | Distinguir los dos 409 de `PATCH /usuarios/me` sin leer el texto | backend |
+| # | Qué | Para qué | Mientras tanto, en el front | Dueño |
+|---|---|---|---|---|
+| 1 | **Legajo:** `PATCH /usuarios/me/legajo`, `legajo` en `GET /usuarios/me` y en `GET /solicitudes/preparar`. Para guardarlo, sugerencia: columnas `id_situacion_ocupacional` e `ingreso_mensual` en `usuario` y una tabla `usuario_x_garantia`, reusando los catálogos de las solicitudes | US-20 / US-21: ver y editar el legajo y precargarlo en las solicitudes nuevas | En real el bloque se ve en solo lectura, "Sin cargar", con el aviso "El legajo todavía no se puede guardar": sin Editar, sin "Completar" y sin el estado completo/incompleto (decisión del PO, `LEGAJO_SE_PUEDE_GUARDAR`). La solicitud usa los valores por defecto de US-35 | backend / db |
+| 2 | **Bloqueo en el GET:** que `GET /usuarios/me` traiga `bloqueo_identidad` (el contrato vigente o pendiente de firma que bloquea, o `null`) | US-21 pide mostrar el bloqueo y el motivo **antes** de editar | Los campos se ven editables. Si el PATCH responde el 409 de contrato, aparece el aviso y nombre, apellido y DNI se deshabilitan hasta salir de la pantalla | backend |
+| 3 | **`codigo` en los 409** (`DNI_DUPLICADO`, `IDENTIDAD_BLOQUEADA_POR_CONTRATO`) en el sobre de error | Distinguir los dos 409 sin leer el texto. Hoy el del DNI es el mensaje crudo de Postgres (23505) | El adaptador mira el texto: "contrato" → bloqueo; "23505" o "duplicate key" → DNI repetido. Nunca se muestra el texto crudo | backend |
+| 4 | **Borrar el teléfono o la fecha de nacimiento** (hoy `""` o `null` dan 400) | US-20 muestra "Sin cargar" para un dato que no está; hoy no hay forma de volver a ese estado | El front frena antes del back: "Por ahora no se puede borrar el teléfono, solo cambiarlo" (y lo mismo con la fecha) | backend |
+| 5 | **Teléfonos del seed sin código de país** ("3511112233", 10 dígitos) | US-20 pide mostrar el teléfono en E.123 (`+54 351 …`), y eso necesita el código de país | Se muestran tal cual, sin "+" y sin inventar el 54. Si el usuario no toca el campo, el número no viaja; si lo cambia, se guarda con el código que escriba. Corregir el seed (anteponer `54`) lo resuelve | db |
+| 6 | **Sincronizar `usuario.email` con `auth.users.email`** cuando se confirma un cambio de correo (trigger `AFTER UPDATE OF email ON auth.users`, o que `/usuarios/me` lea el correo del token). Issue #24, punto 3 | Supabase cambia solo `auth.users`; sin esto, el perfil y las solicitudes muestran el correo viejo | — | backend / db |
+| 7 | **Swagger de `PATCH /usuarios/me`:** el ejemplo muestra el teléfono con "+" (`"+5493511234567"`), pero el back lo rechaza | Que el que lea Swagger no mande un 400 | El front lo manda sin "+" | backend |
+
+Resuelto en esta tanda: el `GET` y el `PATCH` existen, los dos devuelven la misma forma (el usuario
+más `roles`), el back repite las validaciones de US-21 y el bloqueo por contrato contempla el estado
+4 "pendiente de firma" (migración `20261021120000`). La ruta aparte `/usuarios/me/perfil` que había
+propuesto el front ya no hace falta: el back amplió `/me`.
 
 **Contraseña: BLOQUEANTE para pasar a real.** El front cambia la contraseña con
 `supabase.auth.updateUser({ password, current_password })`. Supabase **solo verifica la contraseña
@@ -869,6 +876,7 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Usuario `nicoartaz+test3009@gmail.com` (QA de `develop` en real, 30/09, `feature/vistas`: registro, login/logout, alta con 3 fotos y pase a locador) | **20**; `usuario_x_rol` **23** (locatario) y **24** (locador) | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmueble "Calle QA 30-09 1234" (Güemes, usuario 20, publicado) | inmueble **8**; `foto_inmueble` **22, 23 y 24**; `inmueble_x_tag` **8**; `contrato` **8**; `medio_pago_x_contrato` **10** | cada tabla |
 | Archivos del bucket `fotos-propiedades` del inmueble 8 | los 3 de `foto_inmueble` 22 a 24 (carpeta `6ac3e808-…`, del usuario 20) | `storage.objects` |
+| Usuario `rentar.qa+test-perfil-2210@example.com` (verificación real del perfil, 22/10, `feature/conexion-perfil`). Se le cambiaron nombre, teléfono y fecha durante la prueba y **se dejaron como estaban**: "Perfil Prueba", DNI 41200777, teléfono `3515550177` (10 dígitos, sin código de país, como el seed) y fecha 1995-05-10. **Borrarlo al cerrar el Sprint 3** | **31**; `usuario_x_rol` de locatario | Supabase Auth, `usuario` y `usuario_x_rol` |
 | Inmueble "[TEST] Carga de prueba de feature/conexion-back" | inmueble **4** | `inmueble` |
 | Sus filas asociadas | `inmueble_x_tag` **5 y 6**; `foto_inmueble` **10, 11 y 12**; `contrato` **4**; `medio_pago_x_contrato` **5 y 6** | cada tabla |
 | Inmuebles con datos que no son verosímiles (vistos en la prueba de la landing, 06/10): **17** ($ 1.000.000.000 por mes, 10 m²) y **13** (PH de 20 ambientes y 15 dormitorios, dirección "bispo Trejo al 1200"). Corregir o borrar | inmuebles **13 y 17** | `inmueble`, `contrato` y asociadas |
