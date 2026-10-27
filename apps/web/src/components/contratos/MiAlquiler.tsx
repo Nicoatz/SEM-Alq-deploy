@@ -17,6 +17,8 @@
  *   firmas (y la firma, si falta la suya: `FirmaContrato`), documento, PDF e
  *   historial. Un finalizado, en solo lectura y sin "Lo que viene".
  *
+ * - En real (`GET /alquileres-locatario`): sin firma en línea ni PDF armado
+ *   en el navegador (decisiones del PO, ver `DetalleContrato.tsx`).
  * De dónde saca los datos: `contratos.service#getMiAlquiler`.
  * Quién lo usa: `app/(app)/panel/alquiler/page.tsx`.
  */
@@ -112,11 +114,14 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
   }
 
   const { contrato } = resultado
+  // NOTA: en real, `/alquileres-locatario` solo responde contratos donde la
+  // sesión es el locatario y no repite sus datos: el rol es ese, sin comparar ids.
+  const miRol = contrato.datosApi ? 'locatario' : rolEnContrato(contrato, user?.id)
   return (
     <VistaContrato
       key={`${contrato.id}-${contrato.status}`}
       inicial={contrato}
-      miRol={rolEnContrato(contrato, user?.id)}
+      miRol={miRol}
       miga={miga}
       titulo="Mi alquiler"
       vista="locatario"

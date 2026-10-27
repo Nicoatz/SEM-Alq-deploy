@@ -20,6 +20,13 @@
  * - Un borrador abierto por esta URL va a `/[id]/editar`.
  * Decisión del PO (Sprint 3): firman el locador y el locatario; los garantes
  * se muestran como datos, sin estado de firma.
+ * Ficha del locatario en modo real (`contrato.datosApi`, US-27): decisiones
+ * del PO para la conexión de `/alquileres-locatario`:
+ * - Sin "Firmar contrato" ni "Rechazar" (aunque el back diga `puede_firmar`):
+ *   un aviso "La firma todavía no está disponible en línea". TODO(backend): US-07.
+ * - "Descargar PDF" baja el PDF del back (`pdfUrl`); sin él, deshabilitado.
+ *   No se arma con jsPDF: sin las cláusulas saldría otro documento.
+ * - Sin cláusulas ni historial (el back no los manda): se dice, no se inventan.
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 05 y 09): la franja de
  * estado arriba, firmantes y datos a la izquierda, documento e historial a
@@ -203,7 +210,11 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
     }
   }
 
-  /** US-07: "permitir descargarlo en PDF en cualquier estado". `jsPDF` se carga recién acá. */
+  /**
+   * US-07: "permitir descargarlo en PDF en cualquier estado". `jsPDF` se carga
+   * recién acá. Solo en mock y en el detalle del locador: con `datosApi`, el
+   * botón es un link al PDF del back (ver `botonPdf`).
+   */
   async function descargar(): Promise<void> {
     setDescargando(true)
     setErrorAccion(null)
@@ -279,8 +290,30 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   ]
 
   // ─── Render ─────────────────────────────────────────────────────────
+  const { datosApi } = contrato
+  // Decisión del PO: en real no hay firma en línea (US-07 no existe en la API).
+  const firmaEnLinea = datosApi === null
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
   const esFicha = vista === 'locatario'
+  // Decisión del PO: en real, el PDF es el del back (`pdfUrl`); si no hay, el botón queda deshabilitado.
+  const botonPdf = !datosApi ? (
+    <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
+      Descargar PDF
+    </Button>
+  ) : datosApi.pdfUrl ? (
+    <Button icon={<DownloadOutlined />} href={datosApi.pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="contrato-descargar-pdf">
+      Descargar PDF
+    </Button>
+  ) : (
+    <span className={styles.franjaAccion}>
+      <Button icon={<DownloadOutlined />} disabled data-testid="contrato-descargar-pdf">
+        Descargar PDF
+      </Button>
+      <span className={styles.motivo} data-testid="contrato-pdf-no-disponible">
+        El PDF todavía no está disponible
+      </span>
+    </span>
+  )
   // US-27: un finalizado (o rescindido) se ve en solo lectura, sin "Lo que viene".
   const terminado = contrato.status === 'finalizado' || contrato.status === 'rescindido'
 
@@ -294,11 +327,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
             : `${propiedad.address} · ${nombreDe(locatario) || 'Sin locatario'}${condiciones.startDate && contrato.endDate ? ` · del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}` : ''}`
         }
         breadcrumb={miga}
-        actions={
-          <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
-            Descargar PDF
-          </Button>
-        }
+        actions={botonPdf}
       />
 
       {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-detalle-aviso" />}
@@ -311,10 +340,15 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         <div className={`${styles.franja} ${styles.franjaPendiente}`} data-testid="contrato-estado">
           {!esFicha && <StatusTag domain="contrato" status="pendiente_firma" />}
           <span className={styles.franjaTexto}>
-            <span data-testid="contrato-faltan-firmas">
-              {faltan === 1 ? 'Falta' : 'Faltan'} <strong>{faltan} de {contrato.firmantes.length} firmas</strong>.
-              {contrato.enviadoEl ? ` Enviado el ${fechaCorta(contrato.enviadoEl)}.` : ''}
-            </span>{' '}
+            {contrato.firmasRegistradas ? (
+              <span data-testid="contrato-faltan-firmas">
+                {faltan === 1 ? 'Falta' : 'Faltan'} <strong>{faltan} de {contrato.firmantes.length} firmas</strong>.
+                {contrato.enviadoEl ? ` Enviado el ${fechaCorta(contrato.enviadoEl)}.` : ''}
+              </span>
+            ) : (
+              // En real, firmas en `desconocido` (anteriores a la migración de US-27): no se inventa cuántas faltan.
+              <span data-testid="contrato-firmas-sin-registro">Todavía no hay registro del estado de cada firma.</span>
+            )}{' '}
             {/* Propuesta aprobada por el PO: quien rechaza no firma después; el locador cancela y reenvía. */}
             {rechazoLocatario ? (
               <strong data-testid="contrato-rechazo-explicacion">
@@ -351,7 +385,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
           {!esFicha && <StatusTag domain="contrato" status={contrato.status} />}
           {!contrato.firmasRegistradas && (
             <span className={styles.franjaTexto} data-testid="contrato-sin-registro">
-              Contrato anterior a RentAR: no hay registro de las firmas ni del historial.
+              {datosApi ? 'Todavía no hay registro del estado de cada firma.' : 'Contrato anterior a RentAR: no hay registro de las firmas ni del historial.'}
             </span>
           )}
         </div>
@@ -436,7 +470,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         </div>
 
         <div className={styles.columna}>
-          {firmaPendienteMia && miRol ? (
+          {firmaPendienteMia && miRol && firmaEnLinea ? (
             <FirmaContrato
               key={contrato.id}
               contratoId={contrato.id ?? ''}
@@ -452,7 +486,20 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               <h2 id="contrato-documento-titulo" className={styles.tarjetaTitulo}>
                 Documento
               </h2>
-              <VisorContrato titulo={titulo} codigo={contrato.code} clausulas={contrato.clausulas} />
+              {datosApi ? (
+                <>
+                  {pendiente && (
+                    // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
+                    <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
+                  )}
+                  {/* TODO(backend): el detalle no trae las cláusulas; el documento es el PDF que guarda el back. */}
+                  <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
+                    {datosApi.pdfUrl ? 'El texto del contrato está en el PDF: descargalo desde el botón de arriba.' : 'El texto del contrato se va a poder ver en el PDF cuando esté disponible.'}
+                  </p>
+                </>
+              ) : (
+                <VisorContrato titulo={titulo} codigo={contrato.code} clausulas={contrato.clausulas} />
+              )}
             </section>
           )}
 
@@ -461,7 +508,10 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               Historial
             </h2>
             {contrato.historial.length === 0 ? (
-              <p className={styles.valorSecundario}>Sin historial registrado: el contrato es anterior a RentAR.</p>
+              <p className={styles.valorSecundario}>
+                {/* TODO(backend): `/alquileres-locatario/:id` no trae el historial de US-07. */}
+                {datosApi ? 'El historial del contrato todavía no está disponible.' : 'Sin historial registrado: el contrato es anterior a RentAR.'}
+              </p>
             ) : (
               <ActivityTimeline events={eventosDelHistorial(contrato.historial)} dateFormat="absolute" data-testid="contrato-historial-eventos" />
             )}

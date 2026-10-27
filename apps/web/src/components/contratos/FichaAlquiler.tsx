@@ -15,6 +15,10 @@
  *   ({@link LoQueVieneAlquiler}). No va en un contrato finalizado.
  * NOTA: solo datos de ESTE contrato: nada de otras propiedades del locador,
  * solicitudes de terceros ni legajos ajenos.
+ * En real (`contrato.datosApi`): las fechas de "Lo que viene" son las que
+ * calcula el back (los días que faltan, con `hoy()`); el pago vence a los N
+ * días de cada período (no un día fijo del mes, ver HANDOFF §7) y los medios
+ * de pago, las expensas y la frecuencia son los textos del back.
  *
  * Lo arma `VistaContrato` (`DetalleContrato.tsx`) con `vista="locatario"`;
  * la firma, el documento, el PDF y el historial son los mismos que ve el locador.
@@ -25,7 +29,7 @@ import type { ContratoDetalle } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount, StatusTag } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta } from '@/lib/contratos/fechas'
-import { loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
+import { fechaDesdeHoy, loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
@@ -76,9 +80,9 @@ export function EncabezadoAlquiler({ contrato }: FichaProps) {
 
 /** "Lo que viene" (US-27): próximo pago, próximo ajuste y fin, con los días que faltan. */
 export function LoQueVieneAlquiler({ contrato }: FichaProps) {
-  const { condiciones } = contrato
+  const { condiciones, datosApi } = contrato
   const hoyIso = hoy().format('YYYY-MM-DD')
-  const { pago, ajuste, fin } = loQueViene({
+  const calculado = loQueViene({
     hoyIso,
     inicio: condiciones.startDate,
     fin: contrato.endDate,
@@ -86,6 +90,11 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
     indice: condiciones.adjustmentIndex,
     cadaMeses: contrato.ajusteCadaMeses,
   })
+  // Decisión del PO: en real, el pago y el ajuste son las fechas que calcula el back; acá solo se cuentan los días.
+  const pago = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoVencimientoPago) : calculado.pago
+  const ajuste = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoAjuste) : calculado.ajuste
+  const { fin } = calculado
+  const tienePlazoDePago = datosApi ? datosApi.diasParaVencimiento !== null : condiciones.paymentDueDay !== null
   return (
     <section className={styles.tarjeta} aria-labelledby="mi-alquiler-viene-titulo" data-testid="mi-alquiler-lo-que-viene">
       <h2 id="mi-alquiler-viene-titulo" className={styles.tarjetaTitulo}>
@@ -99,7 +108,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
               <strong>{fechaCorta(pago.fecha)}</strong> · {textoFaltan(pago.dias)}
             </span>
           ) : (
-            <span className={styles.valorSecundario}>{condiciones.paymentDueDay ? 'No quedan pagos en este contrato.' : 'Sin dato del día de pago.'}</span>
+            <span className={styles.valorSecundario}>{tienePlazoDePago ? 'No quedan pagos en este contrato.' : 'Sin dato del vencimiento del pago.'}</span>
           )}
         </li>
         {/* US-27: "contrato sin ajuste → no se muestra la fecha de próximo ajuste". */}
@@ -133,24 +142,41 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
 
 /** Las condiciones del contrato (US-27). */
 export function CondicionesAlquiler({ contrato }: FichaProps) {
-  const { condiciones, propiedad } = contrato
+  const { condiciones, propiedad, datosApi } = contrato
   const vigencia = condiciones.startDate && contrato.endDate ? `Desde el ${fechaCorta(condiciones.startDate)} hasta el ${fechaCorta(contrato.endDate)}` : 'Sin dato'
-  const medios = propiedad.cobro.paymentMethods.map((medio) => MEDIO_PAGO_CORTO[medio.method] + (medio.surchargePct > 0 ? ` (+${medio.surchargePct} %)` : ''))
+  // En real, los nombres de `medio_pago` del contrato, tal como los manda el back.
+  const medios = datosApi
+    ? datosApi.mediosPago
+    : propiedad.cobro.paymentMethods.map((medio) => MEDIO_PAGO_CORTO[medio.method] + (medio.surchargePct > 0 ? ` (+${medio.surchargePct} %)` : ''))
+  /**
+   * En real el back no guarda un día fijo (US-05: de 1 a 28) sino un plazo en
+   * días desde que el monto está disponible: se dice eso, sin convertirlo en
+   * un día del mes. Tema a decidir con el equipo (HANDOFF §7, US-05).
+   */
+  const vencimiento = datosApi
+    ? {
+        label: 'Vencimiento del pago',
+        value: datosApi.diasParaVencimiento === null ? 'Sin dato' : `Vence a los ${datosApi.diasParaVencimiento} ${datosApi.diasParaVencimiento === 1 ? 'día' : 'días'} de cada período`,
+      }
+    : { label: 'Día de pago', value: condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes` }
+  // "cada N meses" si se reconoce la frecuencia; si no, el texto del back tal cual ("cada 6 meses" / "Semestral").
+  const frecuencia = contrato.ajusteCadaMeses ? cadaTexto(contrato.ajusteCadaMeses) : (datosApi?.frecuenciaAjuste ?? '')
   const sinRegistro = !contrato.firmasRegistradas && contrato.garantes.length === 0
   const items = [
     { label: 'Vigencia', value: vigencia },
     { label: 'Monto actual', value: contrato.montoActual === null ? 'Sin dato' : <MoneyAmount amount={contrato.montoActual} emphasis /> },
+    ...(datosApi ? [{ label: 'Expensas', value: <MoneyAmount amount={datosApi.expensas} /> }] : []),
     { label: 'Depósito', value: condiciones.deposit === null ? 'Sin dato' : <MoneyAmount amount={condiciones.deposit} /> },
     {
       label: 'Ajuste',
       value: (
         <span className={styles.ajuste}>
           <IndexBadge index={condiciones.adjustmentIndex} />
-          {condiciones.adjustmentIndex !== 'sin_ajuste' ? cadaTexto(contrato.ajusteCadaMeses) : null}
+          {condiciones.adjustmentIndex !== 'sin_ajuste' ? frecuencia : null}
         </span>
       ),
     },
-    { label: 'Día de pago', value: condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes` },
+    vencimiento,
     { label: 'Medios de pago', value: medios.length === 0 ? 'Sin dato' : medios.join(' · ') },
     {
       label: contrato.garantes.length === 1 ? 'Garante' : 'Garantes',

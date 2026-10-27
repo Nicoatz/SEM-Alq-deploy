@@ -8,6 +8,9 @@
  * de fin del contrato. Cada fecha indica cuántos días faltan". "Hoy" lo pasa
  * quien llama (en la app, `hoy()` del reloj único de `lib/utils/fechas.ts`).
  *
+ * En modo real las fechas del pago y del ajuste las calcula el back: la
+ * ficha solo cuenta los días con {@link fechaDesdeHoy}.
+ *
  * Quién lo usa: la ficha del locatario (`components/contratos/DetalleContrato.tsx`)
  * y `ListadoAlquileres.tsx` (próximo ajuste).
  */
@@ -104,8 +107,18 @@ export function proximoAjusteQueViene(datos: Pick<DatosLoQueViene, 'hoyIso' | 'i
  * @returns `null` si no hay fecha de fin o ya pasó.
  */
 export function finQueViene(datos: Pick<DatosLoQueViene, 'hoyIso' | 'fin'>): FechaQueViene | null {
-  if (!datos.fin || datos.fin < datos.hoyIso) return null
-  return { fecha: datos.fin, dias: diasEntre(datos.hoyIso, datos.fin) }
+  return fechaDesdeHoy(datos.hoyIso, datos.fin)
+}
+
+/**
+ * Una fecha ya calculada (por el back, en modo real: `fecha_proximo_vencimiento_pago`
+ * y `fecha_proximo_ajuste`) con los días que faltan desde hoy.
+ * Caso verificado: hoy 27/10/2026, fecha 05/11/2026 → faltan 9.
+ * @returns `null` si no hay fecha o ya pasó.
+ */
+export function fechaDesdeHoy(hoyIso: string, fecha: string | null): FechaQueViene | null {
+  if (!fecha || fecha < hoyIso) return null
+  return { fecha, dias: diasEntre(hoyIso, fecha) }
 }
 
 /** Las tres fechas de "Lo que viene" (US-27). */
