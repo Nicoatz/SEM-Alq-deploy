@@ -317,6 +317,7 @@ export type {
   ContratoDetalle,
   ContratoEnviado,
   ContratoResumen,
+  DatosAlquilerApi,
   DatosContrato,
   EventoContrato,
   FirmanteContrato,

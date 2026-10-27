@@ -532,11 +532,6 @@ export interface ContratoResumenResponse {
   estado: EstadoContratoDto
   inmueble: InmuebleContratoDto
   locatario: { nombre: string; apellido: string | null }
-  /**
-   * Nombre del locador (propuesto, US-27): lo necesita Mis alquileres
-   * (`GET /contratos?rol=locatario`). Sin contacto ni DNI en la fila.
-   */
-  locador?: { nombre: string; apellido: string | null } | null
   monto_actual: number | null
   fecha_inicio: string | null
   fecha_fin: string | null
@@ -713,4 +708,88 @@ export interface RechazarFirmaRequest {
 /** Cuerpo de `POST /contratos/:id/reenviar` (propuesto). Hoy solo `locatario`: el locador es quien reenvía. */
 export interface ReenviarInvitacionRequest {
   rol: RolFirmanteDto
+}
+
+// ─── Alquileres del locatario (US-27) · EXISTE ──────────────────────────
+// `GET /alquileres-locatario` y `GET /alquileres-locatario/:idContrato`
+// (develop, 066c032, 26/10). Copia de `apps/api/src/dtos/alquiler-locatario.dto.ts`:
+// si el back cambia algo, se actualiza acá y en `adapters/contrato.adapter.ts`.
+
+/** Estado del contrato visto por el locatario. El back no manda borradores ni rescindidos. */
+export type EstadoAlquilerLocatarioDto = 'pendiente_firma' | 'vigente' | 'finalizado'
+
+/**
+ * Estado de la firma de una parte. `desconocido`: relaciones cargadas antes
+ * de la migración de US-27, sin registro de si hubo firma.
+ */
+export type EstadoFirmaLocatarioDto = 'pendiente' | 'firmado' | 'rechazado' | 'desconocido'
+
+/** Query de `GET /alquileres-locatario`. Sin filtro, los tres estados. */
+export interface AlquileresLocatarioQuery {
+  estado?: EstadoAlquilerLocatarioDto
+}
+
+/** Una parte en las firmas del detalle (sin nombre: el del locador sale de `locador`). */
+export interface FirmaAlquilerDto {
+  tipo: 'locador' | 'locatario' | 'garante'
+  estado: EstadoFirmaLocatarioDto
+  /** Fecha y hora ISO en que dio conformidad al PDF (paso previo a firmar, US-07). */
+  fecha_conformidad: string | null
+  fecha_firma: string | null
+  fecha_rechazo: string | null
+  motivo_rechazo: string | null
+}
+
+/** Una fila de `GET /alquileres-locatario` (ya ordenada: pendiente → vigente → finalizado). */
+export interface AlquilerLocatarioItemResponse {
+  id_contrato: number
+  /** Hoy es `String(id_contrato)`, no `CT-AAAA-NNNN`. */
+  codigo: string
+  estado: EstadoAlquilerLocatarioDto
+  inmueble: {
+    id: number
+    direccion: string
+    numero: number
+    piso: string | null
+    barrio: string
+    ciudad: string
+    /** URL pública del bucket de fotos; `null` si no tiene. */
+    foto_principal: string | null
+  }
+  locador: {
+    id: number
+    nombre: string
+    apellido: string | null
+    email: string
+    /** Solo dígitos, como lo guarda `usuario.telefono` (con o sin código de país). */
+    telefono: string | null
+  }
+  monto_actual: number
+  expensas: number
+  fecha_inicio_contrato: string | null
+  fecha_fin_contrato: string | null
+  deposito: number | null
+  /** Descripción de `tipo_indice` ("ICL (Índice de Contratos de Locación)"); `null` sin índice. */
+  indice_ajuste: string | null
+  /** Texto libre de `contrato.frecuencia_ajuste` ("Semestral", "Anual"…). */
+  frecuencia_ajuste: string | null
+  fecha_ultimo_ajuste: string | null
+  fecha_proximo_ajuste: string | null
+}
+
+/** `GET /alquileres-locatario/:idContrato`: la fila más lo de la ficha. Sin cláusulas. */
+export interface AlquilerLocatarioDetalleResponse extends AlquilerLocatarioItemResponse {
+  /** Plazo en días desde que el monto está disponible (no un día fijo del mes). */
+  dias_para_vencimiento: number | null
+  fecha_proximo_vencimiento_pago: string | null
+  /** URL firmada y temporal del PDF (bucket privado `contratos-pdf`); `null` si no hay PDF. */
+  pdf_url: string | null
+  /** Nombres de `medio_pago` ("Transferencia bancaria", "Efectivo"…). */
+  medios_pago: string[]
+  garantes: { nombre: string; apellido: string | null; email: string; telefono: string | null }[]
+  /** Locador, locatario y garantes. */
+  firmas: FirmaAlquilerDto[]
+  /** Si el locatario podría firmar ya (las dos conformidades sobre el mismo PDF). La firma (US-07) no existe en la API. */
+  puede_firmar: boolean
+  monto_proximo_ajuste: 'a definir' | null
 }

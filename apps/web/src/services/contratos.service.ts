@@ -12,8 +12,10 @@
  *   `contratos.mock.ts` y los borradores del navegador, a través de
  *   `adapters/contrato-mock.adapter.ts` (ver ahí la NOTA de datos sensibles:
  *   el DNI de los garantes no se guarda en `localStorage`).
- * - Modo real: rutas PROPUESTAS de `apps/api` (todavía no existen). Contrato
- *   de cada una en `docs/api-endpoints.md`, "Contratos".
+ * - Modo real: US-27 (Mis alquileres) contra `GET /alquileres-locatario`
+ *   (EXISTE desde el 26/10). Lo de US-05 y US-07, contra rutas PROPUESTAS
+ *   de `apps/api` (todavía no existen). Contrato de cada una en
+ *   `docs/api-endpoints.md`, "Contratos" y "Alquileres del locatario".
  * Quién lo usa: `components/contratos/*` y `app/(app)/panel/contratos/*`.
  *
  * NOTA (decisiones del PO, Sprint 3): firman el locador y el locatario; el
@@ -64,7 +66,7 @@ import {
 } from './adapters/contrato-mock.adapter'
 import {
   ALQUILER_NO_ENCONTRADO_MESSAGE,
-  alquilerResumenDeDto,
+  alquilerResumenDeItem,
   CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_PENDIENTE_MESSAGE,
@@ -73,11 +75,12 @@ import {
   contratoEnviadoDeDto,
   contratoResumenDeDto,
   datosToContratoRequest,
+  errorDeMiAlquiler,
   errorDeContrato,
   FIRMA_ERROR_GENERICO_MESSAGE,
   FIRMA_RECHAZADA_MESSAGE,
   FIRMANTE_NO_PENDIENTE_MESSAGE,
-  MIS_ALQUILERES_ERROR_MESSAGE,
+  miAlquilerDeDetalle,
   OTRA_PARTE_FIRMO_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
   REENVIO_MUY_PRONTO_MESSAGE,
@@ -92,6 +95,8 @@ import { formatAddress, mainPhotoSrc } from './adapters/propiedad-mock.adapter'
 import { perfilMockDe } from './perfil.service'
 import { apiRequest } from './shared/apiClient'
 import type {
+  AlquilerLocatarioDetalleResponse,
+  AlquilerLocatarioItemResponse,
   ContratoDetalleResponse,
   ContratoEnviadoResponse,
   ContratoResponse,
@@ -484,6 +489,8 @@ function detalleDeContratoMock(contrato: ContratoMock): ContratoDetalle {
     // NOTA: en mock los ajustes no se calculan: el monto actual es el inicial.
     montoActual: contrato.condiciones.initialAmount,
     ajusteCadaMeses: cadaMesesDe(contrato.condiciones),
+    // En mock, la ficha calcula las fechas y arma el PDF en el navegador.
+    datosApi: null,
   }
 }
 
@@ -552,6 +559,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     montoActual: rental.currentAmount,
     // El elenco ajusta cada 4 o 12 meses (la periodicidad del contrato de RentAR no tiene 4).
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : propiedad.adjustmentEveryMonths,
+    datosApi: null,
   }
 }
 
@@ -787,12 +795,22 @@ function misContratosMock(userId: string): { guardados: ContratoMock[]; alquiler
 }
 
 /**
+ * Rama real: los contratos del usuario como locatario, sin filtro (los tres
+ * estados de US-27). Lo usan el listado, la cuenta del menú y Mi alquiler.
+ */
+function alquileresLocatarioApi(): Promise<AlquilerLocatarioItemResponse[]> {
+  return apiRequest<AlquilerLocatarioItemResponse[]>('/alquileres-locatario')
+}
+
+/**
  * US-27 — Mis alquileres (`/panel/alquileres`): los contratos del usuario
  * como locatario, ordenados (pendientes de firma, vigentes y al final los
  * finalizados). Cada fila con dirección, barrio, locador, estado, monto
  * actual, vigencia y próximo ajuste. Sin datos de otras propiedades del
  * locador ni de otros postulantes.
- * @backend GET /api/v1/contratos?rol=locatario   (no existe — propuesto) → ContratoResumenResponse[] con `locador`
+ * @backend GET /api/v1/alquileres-locatario   (existe) → AlquilerLocatarioItemResponse[]
+ * NOTA: el back ya los manda ordenados (pendiente → vigente → finalizado); se
+ * vuelven a ordenar con `ordenarAlquileres` para que mock y real usen la misma regla.
  * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
  */
 export async function listarMisAlquileres(): Promise<AlquilerResumen[]> {
@@ -801,17 +819,16 @@ export async function listarMisAlquileres(): Promise<AlquilerResumen[]> {
     return ordenarAlquileres(contratosDeLocatarioMock(requireSessionUserId(), nombreDeCuenta, hoyIso(), ESTADOS_MIS_ALQUILERES))
   }
   try {
-    const dtos = await apiRequest<ContratoResumenResponse[]>('/contratos', { query: { rol: 'locatario' } })
-    return ordenarAlquileres(dtos.filter((dto) => ESTADOS_MIS_ALQUILERES.includes(dto.estado)).map(alquilerResumenDeDto))
+    return ordenarAlquileres((await alquileresLocatarioApi()).map(alquilerResumenDeItem))
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', generico: MIS_ALQUILERES_ERROR_MESSAGE })
+    throw errorDeMiAlquiler(error, { detalle: false })
   }
 }
 
 /**
  * Cuántos contratos tiene el usuario como locatario (para el menú: "Mi
- * alquiler" o "Mis alquileres", US-27).
- * @backend GET /api/v1/contratos?rol=locatario   (no existe — propuesto)
+ * alquiler" o "Mis alquileres", US-27). En real, el largo del listado sin filtro.
+ * @backend GET /api/v1/alquileres-locatario   (existe)
  */
 export async function contarMisAlquileres(): Promise<number> {
   if (USE_MOCKS) {
@@ -829,9 +846,9 @@ export async function contarMisAlquileres(): Promise<number> {
  *   `/panel/alquileres`).
  * - Con `contratoId` (`?contrato=`, desde el listado): la ficha de ese
  *   contrato, si es suyo como locatario.
- * @backend GET /api/v1/contratos?rol=locatario   (no existe — propuesto) → ContratoResumenResponse[]
- * @backend GET /api/v1/contratos/:id   (no existe — propuesto) → ContratoDetalleResponse
- * @throws {ServiceError} `not_found` "No encontramos este alquiler." si el contrato no existe o el usuario no es su locatario (US-27: "sin distinguir si el contrato existe").
+ * @backend GET /api/v1/alquileres-locatario   (existe) → AlquilerLocatarioItemResponse[] (sin `contratoId`, para saber cuántos tiene)
+ * @backend GET /api/v1/alquileres-locatario/:idContrato   (existe) → AlquilerLocatarioDetalleResponse
+ * @throws {ServiceError} `not_found` "No encontramos este alquiler." si el contrato no existe, el usuario no es su locatario o el id no es válido (US-27: "sin distinguir si el contrato existe").
  */
 export async function getMiAlquiler(contratoId?: string): Promise<MiAlquiler> {
   if (USE_MOCKS) {
@@ -851,18 +868,21 @@ export async function getMiAlquiler(contratoId?: string): Promise<MiAlquiler> {
     const unico = guardados[0] ? detalleDeContratoMock(guardados[0]) : alquileres[0] ? detalleDeAlquilerMock(alquileres[0]) : null
     return unico ? { tipo: 'uno', contrato: unico } : { tipo: 'ninguno' }
   }
-  try {
-    let id = contratoId
-    if (!id) {
-      const mios = (await apiRequest<ContratoResumenResponse[]>('/contratos', { query: { rol: 'locatario' } })).filter((dto) =>
-        ESTADOS_MIS_ALQUILERES.includes(dto.estado),
-      )
-      if (mios.length === 0) return { tipo: 'ninguno' }
-      if (mios.length > 1) return { tipo: 'varios', cantidad: mios.length }
-      id = String(mios[0].id)
+  let id = contratoId
+  if (!id) {
+    let mios: AlquilerLocatarioItemResponse[]
+    try {
+      mios = await alquileresLocatarioApi()
+    } catch (error) {
+      throw errorDeMiAlquiler(error, { detalle: false })
     }
-    return { tipo: 'uno', contrato: contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}`)) }
+    if (mios.length === 0) return { tipo: 'ninguno' }
+    if (mios.length > 1) return { tipo: 'varios', cantidad: mios.length }
+    id = String(mios[0].id_contrato)
+  }
+  try {
+    return { tipo: 'uno', contrato: miAlquilerDeDetalle(await apiRequest<AlquilerLocatarioDetalleResponse>(`/alquileres-locatario/${encodeURIComponent(id)}`)) }
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', noEncontrado: ALQUILER_NO_ENCONTRADO_MESSAGE, generico: MIS_ALQUILERES_ERROR_MESSAGE })
+    throw errorDeMiAlquiler(error, { detalle: true })
   }
 }
