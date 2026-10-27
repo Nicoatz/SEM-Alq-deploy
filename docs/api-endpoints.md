@@ -368,6 +368,11 @@ Todas con **Bearer**; el usuario sale del token. Pueden firmar el locador, un ú
 garantes asociados. Los endpoints de firma siguen propuestos y no forman parte de la implementación
 actual de US-27.
 
+> NOTA (front, 27/10): que firmen los garantes está **pendiente de confirmar con el PO**. La decisión
+> vigente del Sprint 3 es que firman el locador y el locatario, y el garante es un dato del contrato.
+> El front sigue esa decisión (en la ficha real de Mi alquiler, los garantes se muestran como datos,
+> sin estado de firma). Lo habla el PO con backend.
+
 | Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|
 | `GET /alquileres-locatario[?estado=]` | implementado para US-27 | `AlquilerLocatarioService#listar` | el usuario autenticado como locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
@@ -429,13 +434,38 @@ solo pedido. Las cuatro acciones responden el detalle actualizado, así el front
 
 `GET /alquileres-locatario` y `GET /alquileres-locatario/:idContrato` están implementados en el
 backend con Bearer y alcance derivado del usuario autenticado. La ruta `/mis-alquileres` no cambia:
-sigue listando propiedades del locador. La integración del service del frontend con las nuevas rutas
-queda pendiente.
+sigue listando propiedades del locador. **El front está conectado** (27/10, `feature/vistas`):
+`contratos.service.ts` (`listarMisAlquileres`, `contarMisAlquileres` y `getMiAlquiler`),
+`contrato.adapter.ts` (`alquilerResumenDeItem`, `miAlquilerDeDetalle` y `errorDeMiAlquiler`) y los
+DTO en `backend-dtos.ts` ("Alquileres del locatario"). Las rutas propuestas `GET /contratos?rol=locatario`
+y `GET /contratos/:id` ya no se usan para US-27 (siguen propuestas para US-05 y US-07, del lado del locador).
 
-| Método y ruta | Estado | Service | Respuesta (`data`) | Errores |
-|---|---|---|---|---|
-| `GET /alquileres-locatario?estado=` | implementado | `AlquilerLocatarioService#listar` | `AlquilerLocatarioItemDTO[]`; filtro opcional `pendiente_firma`, `vigente` o `finalizado`; orden pendiente → vigente → finalizado | 400 filtro inválido; 401 |
-| `GET /alquileres-locatario/:idContrato` | implementado | `AlquilerLocatarioService#obtenerDetalle` | `DetalleAlquilerLocatarioDTO`: contrato, inmueble, locador, condiciones, fechas, medios de pago, garantes, estado de firmas y `puede_firmar`; el PDF se devuelve como URL firmada temporal si está almacenado | 400 ID inválido; 401; 404 único para contrato inexistente o ajeno |
+| Método y ruta | Estado | Service (back) | Service (front) | Respuesta (`data`) | Errores |
+|---|---|---|---|---|---|
+| `GET /alquileres-locatario?estado=` | **conectado** | `AlquilerLocatarioService#listar` | `#listarMisAlquileres`, `#contarMisAlquileres` (el menú) y `#getMiAlquiler` sin id (¿ninguno, uno o varios?). Siempre sin filtro | `AlquilerLocatarioItemDTO[]`; filtro opcional `pendiente_firma`, `vigente` o `finalizado`; orden pendiente → vigente → finalizado | 400 filtro inválido (el front lo muestra como error genérico); 401 |
+| `GET /alquileres-locatario/:idContrato` | **conectado** | `AlquilerLocatarioService#obtenerDetalle` | `#getMiAlquiler(id)` | `DetalleAlquilerLocatarioDTO`: contrato, inmueble, locador, condiciones, fechas, medios de pago, garantes, estado de firmas y `puede_firmar`; el PDF se devuelve como URL firmada temporal si está almacenado | 400 ID inválido y 404 → el front muestra el mismo "No encontramos este alquiler"; 401 |
+
+**Cómo usa el front cada campo** (decisiones del PO para la conexión):
+
+- `codigo`: se muestra tal cual. Hoy es `String(id)`; falta el formato `CT-AAAA-NNNN` de US-05.
+- `locador.telefono`: mismo criterio que el perfil (con código de país, E.164; sin él, tal cual).
+- `inmueble.foto_principal`: directo al bucket, como las tarjetas.
+- `fecha_proximo_vencimiento_pago` y `fecha_proximo_ajuste`: "Lo que viene" usa esas fechas y cuenta
+  los días con el "hoy" del front. El monto del ajuste se muestra "a definir". Sin índice (`indice_ajuste`
+  en `null`), no se muestra la fecha del ajuste.
+- `dias_para_vencimiento`: en las condiciones, "Vence a los N días de cada período" (no hay "día de
+  pago" fijo; ver HANDOFF §7, US-05).
+- `firmas[]`: se muestran el locador y el locatario. Los garantes se descartan de las firmas (se ven
+  como datos). Un estado `desconocido` en cualquiera de los dos → "Todavía no hay registro del estado
+  de cada firma".
+- `puede_firmar`: **no se usa**. Como no existen las acciones de US-07, en real no hay "Firmar
+  contrato" ni "Rechazar": un aviso "La firma todavía no está disponible en línea."
+- `pdf_url`: "Descargar PDF" abre ese archivo; en `null`, el botón queda deshabilitado con "El PDF
+  todavía no está disponible". En real el PDF **no** se arma con jsPDF (no hay cláusulas).
+
+**Brechas** (detalle en HANDOFF §7, US-27): acciones de firma (US-07); cláusulas e historial en el
+detalle; código `CT-AAAA-NNNN`; día de pago fijo vs. plazo en días; `contrato_x_usuario` que el alta
+de contratos todavía no crea; usuario de prueba con contratos en Supabase Auth (HANDOFF §9).
 
 - El acceso se limita por `contrato_x_usuario` con `tipo_firmante = 2`; no se acepta un ID de usuario enviado por el cliente.
 - La API devuelve fechas ISO, no días restantes; el frontend calcula los días. El vencimiento usa `dias_para_vencimiento` desde la fecha de disponibilidad del monto. La mora queda fuera de esta iteración.
