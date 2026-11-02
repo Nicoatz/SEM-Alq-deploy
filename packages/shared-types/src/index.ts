@@ -151,6 +151,15 @@ export interface Contrato {
   fecha_inicio_contrato?: string | null;
   fecha_fin_contrato?: string | null;
   estado?: number | null;
+  /** Día del mes en que vence el pago (1 a 28). Ver US-05 (paso 2) y US-27. */
+  dias_para_vencimiento?: number | null;
+  /** Código CT-AAAA-NNNN: se asigna al enviar a firmar, el borrador no lo tiene. */
+  codigo?: string | null;
+  /** Solicitud aceptada que originó el contrato (US-05). La oferta no la tiene. */
+  id_solicitud?: number | null;
+  /** Último paso del alta (1 a 4) para retomar el borrador. */
+  ultimo_paso_borrador?: number | null;
+  activo?: boolean;
 }
 
 /**

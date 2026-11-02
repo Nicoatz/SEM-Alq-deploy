@@ -7,6 +7,7 @@ import registrarUsuarioRoutes from './registrar-usuario.routes';
 import locadoresRoutes from './locadores.routes';
 import solicitudesRoutes from './solicitudes.routes';
 import alquileresLocatarioRoutes from './alquileres-locatario.routes';
+import contratosRoutes from './contratos.routes';
 
 const v1Router = Router();
 
@@ -18,5 +19,6 @@ v1Router.use('/usuarios', usuariosRoutes);
 v1Router.use('/registrar-usuario', registrarUsuarioRoutes);
 v1Router.use('/locadores', locadoresRoutes);
 v1Router.use('/solicitudes', solicitudesRoutes);
+v1Router.use('/contratos', contratosRoutes);
 
 export default v1Router;

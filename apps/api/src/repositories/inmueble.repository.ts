@@ -310,7 +310,9 @@ async eliminarLogicamente(
       .select('*, contrato!inner(monto_alquiler, indice_aumento)', { count: 'exact' })
       .eq('activo', true)
       .eq('contrato.activo', true)
-      .neq('contrato.estado', 3)
+      // NOTA: solo la oferta (estado 1) alimenta el listado y sus filtros de precio e índice;
+      // el contrato en curso (negociado o firmado) no debe influir en la publicación.
+      .eq('contrato.estado', 1)
       .in('estado_alquiler', [
         'publicado',
         'publicado/alquilado'
