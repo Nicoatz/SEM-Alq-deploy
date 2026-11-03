@@ -115,6 +115,33 @@ interface FilaParte {
   usuario: ParteContratoResponse | null;
 }
 
+/**
+ * Una fila del listado del locador (US-43): el contrato con su inmueble, su locatario (solo
+ * nombre y apellido) y el último ajuste aplicado. Nunca trae DNI ni contacto.
+ */
+export interface FilaListadoContrato {
+  id: number;
+  codigo: string | null;
+  estado: number;
+  id_solicitud: number | null;
+  monto_alquiler: number | null;
+  fecha_inicio_contrato: string | null;
+  fecha_fin_contrato: string | null;
+  frecuencia_ajuste: string | null;
+  /** Descripción de `tipo_indice` (ej. "ICL (Índice de Contratos de Locación)"); `null` = sin ajuste. */
+  indice: string | null;
+  inmueble: {
+    id: number;
+    direccion: string;
+    numero: number;
+    piso: string | null;
+    barrio: string;
+  };
+  locatario: { nombre: string; apellido: string } | null;
+  /** Fecha y monto del último ajuste aplicado; `null` si no hubo ninguno. */
+  ultimo_ajuste: { fecha_efectiva: string; monto_nuevo: number } | null;
+}
+
 const numeroONull = (valor: unknown): number | null =>
   valor === null || valor === undefined ? null : Number(valor);
 
@@ -129,6 +156,7 @@ export interface IContratoRepository {
     data: GuardarBorradorRequest
   ): Promise<GuardarBorradorResultado>;
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
+  findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
   crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf>;
   descargarPdf(path: string): Promise<ArchivoDescargado>;
@@ -308,6 +336,81 @@ export class ContratoRepository implements IContratoRepository {
       pdf,
       ultimo_paso: fila.ultimo_paso_borrador ?? null,
     };
+  }
+
+  /**
+   * Los contratos de las propiedades del locador para el listado (US-43): borrador, pendiente de
+   * firma, vigente y finalizado. La oferta (estado 1) es la publicación, no un contrato, y no se
+   * devuelve. Solo se piden nombre y apellido del locatario: el DNI y el contacto no salen de acá.
+   */
+  async findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]> {
+    const supabase = getSupabaseAdmin();
+
+    const { data, error } = await supabase
+      .from('contrato')
+      .select(
+        `id, codigo, estado, id_solicitud, monto_alquiler, fecha_inicio_contrato, fecha_fin_contrato,
+         frecuencia_ajuste,
+         indice:tipo_indice(descripcion),
+         inmueble:inmueble!contrato_id_inmueble_fkey!inner(id, id_locador, direccion, numero, piso, barrio),
+         partes:contrato_x_usuario(tipo_firmante, usuario(nombre, apellido))`
+      )
+      .eq('inmueble.id_locador', idLocador)
+      .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
+      .eq('activo', true);
+    if (error) throw error;
+
+    const filas = (data ?? []) as unknown as (Omit<FilaListadoContrato, 'indice' | 'locatario' | 'ultimo_ajuste' | 'inmueble'> & {
+      indice: { descripcion: string } | { descripcion: string }[] | null;
+      inmueble: FilaListadoContrato['inmueble'];
+      partes: { tipo_firmante: number; usuario: { nombre: string; apellido: string } | null }[] | null;
+    })[];
+    if (filas.length === 0) return [];
+
+    // El último ajuste de cada contrato: el de fecha efectiva más reciente.
+    const { data: ajustes, error: errorAjustes } = await supabase
+      .from('ajuste_contrato')
+      .select('id_contrato, fecha_efectiva, monto_nuevo')
+      .in('id_contrato', filas.map(fila => fila.id))
+      .order('fecha_efectiva', { ascending: false })
+      .order('id', { ascending: false });
+    if (errorAjustes) throw errorAjustes;
+
+    const ultimoAjustePorContrato = new Map<number, { fecha_efectiva: string; monto_nuevo: number }>();
+    for (const ajuste of (ajustes ?? []) as { id_contrato: number; fecha_efectiva: string; monto_nuevo: number }[]) {
+      if (!ultimoAjustePorContrato.has(ajuste.id_contrato)) {
+        ultimoAjustePorContrato.set(ajuste.id_contrato, {
+          fecha_efectiva: ajuste.fecha_efectiva,
+          monto_nuevo: Number(ajuste.monto_nuevo),
+        });
+      }
+    }
+
+    return filas.map(fila => {
+      const indice = Array.isArray(fila.indice) ? fila.indice[0] : fila.indice;
+      const locatario = fila.partes?.find(parte => parte.tipo_firmante === 2)?.usuario ?? null;
+
+      return {
+        id: fila.id,
+        codigo: fila.codigo ?? null,
+        estado: fila.estado,
+        id_solicitud: fila.id_solicitud ?? null,
+        monto_alquiler: numeroONull(fila.monto_alquiler),
+        fecha_inicio_contrato: fila.fecha_inicio_contrato ?? null,
+        fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
+        frecuencia_ajuste: fila.frecuencia_ajuste ?? null,
+        indice: indice?.descripcion ?? null,
+        inmueble: {
+          id: fila.inmueble.id,
+          direccion: fila.inmueble.direccion,
+          numero: fila.inmueble.numero,
+          piso: fila.inmueble.piso,
+          barrio: fila.inmueble.barrio,
+        },
+        locatario: locatario ? { nombre: locatario.nombre, apellido: locatario.apellido } : null,
+        ultimo_ajuste: ultimoAjustePorContrato.get(fila.id) ?? null,
+      };
+    });
   }
 
   /** El PDF cargado en el contrato, con una URL firmada para la vista previa (`null` si no hay). */

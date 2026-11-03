@@ -1,12 +1,21 @@
 import { createHash, randomUUID } from 'crypto';
 
-import type { ContratoBorradorResponse, ContratoDTO, UrlSubidaPdfResponse } from '../dtos';
+import type {
+  ContratoBorradorResponse,
+  ContratoDTO,
+  ContratoResumenResponse,
+  EstadoContratoResponse,
+  IndiceContratoResponse,
+  UrlSubidaPdfResponse,
+} from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import {
   ESTADO_CONTRATO,
+  FilaListadoContrato,
   IContratoRepository,
   contratoRepository,
 } from '../repositories/contrato.repository';
+import { calcularFechaProximoAjuste } from './alquiler-locatario.service';
 import { hoyEnArgentina, validarGuardarBorrador } from './contrato-borrador.validacion';
 import {
   MAX_PDF_BYTES,
@@ -14,6 +23,74 @@ import {
   validarArchivoPdf,
   validarRegistrarPdf,
 } from './contrato-pdf.validacion';
+
+const ESTADO_POR_ID: Record<number, EstadoContratoResponse> = {
+  [ESTADO_CONTRATO.BORRADOR]: 'borrador',
+  [ESTADO_CONTRATO.PENDIENTE_FIRMA]: 'pendiente_firma',
+  [ESTADO_CONTRATO.VIGENTE]: 'vigente',
+  [ESTADO_CONTRATO.FINALIZADO]: 'finalizado',
+};
+
+/** US-43: pendientes de firma primero, después borradores y al final el resto. */
+const PRIORIDAD_LISTADO: Record<EstadoContratoResponse, number> = {
+  pendiente_firma: 0,
+  borrador: 1,
+  vigente: 2,
+  finalizado: 2,
+};
+
+/** El índice del listado sale de la sigla de `tipo_indice.descripcion` ("ICL (Índice de…)"). */
+function indiceDelListado(descripcion: string | null): IndiceContratoResponse {
+  const sigla = descripcion?.trim().split(/[\s(]/)[0].toUpperCase();
+  return sigla === 'ICL' || sigla === 'IPC' || sigla === 'CAC' ? sigla : 'sin_ajuste';
+}
+
+/** Fecha ISO `YYYY-MM-DD`: se compara como texto, sin zonas horarias. Los `null` van al final. */
+function compararFechas(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : 1;
+}
+
+function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | null {
+  const estado = ESTADO_POR_ID[fila.estado];
+  // NOTA: un estado desconocido no se muestra (nunca la oferta, estado 1).
+  if (!estado) return null;
+
+  const indice = indiceDelListado(fila.indice);
+
+  // Con ajuste, el monto actual es el del último ajuste aplicado; si no hubo, el inicial.
+  const montoActual = fila.ultimo_ajuste?.monto_nuevo ?? fila.monto_alquiler;
+
+  // NOTA: sin índice no hay ajuste; un finalizado ya no se ajusta. Si el próximo ajuste cae
+  // después del fin del contrato, ya no quedan ajustes.
+  let proximoAjuste: string | null = null;
+  if (indice !== 'sin_ajuste' && estado !== 'finalizado') {
+    proximoAjuste = calcularFechaProximoAjuste(
+      fila.fecha_inicio_contrato,
+      fila.ultimo_ajuste?.fecha_efectiva ?? null,
+      fila.frecuencia_ajuste
+    );
+    if (proximoAjuste && fila.fecha_fin_contrato && proximoAjuste > fila.fecha_fin_contrato) {
+      proximoAjuste = null;
+    }
+  }
+
+  return {
+    id: fila.id,
+    codigo: fila.codigo,
+    estado,
+    inmueble: fila.inmueble,
+    locatario: fila.locatario,
+    monto_actual: montoActual,
+    fecha_inicio_contrato: fila.fecha_inicio_contrato,
+    fecha_fin_contrato: fila.fecha_fin_contrato,
+    indice,
+    proximo_ajuste: proximoAjuste,
+    id_solicitud: fila.id_solicitud,
+  };
+}
 
 export class ContratoService {
   constructor(private readonly contratoRepo: IContratoRepository = contratoRepository) {}
@@ -42,6 +119,34 @@ export class ContratoService {
     if (!Number.isInteger(idContrato) || idContrato < 1) {
       this.throwError('El identificador del contrato no es válido.', 400);
     }
+  }
+
+  /**
+   * US-43 · Listado de los contratos del locador, sin las ofertas (estado 1). Solo los de sus
+   * propiedades y sin DNI ni contacto. Orden por defecto: pendientes de firma, borradores y el
+   * resto por fecha de fin. Los filtros, los conteos y la búsqueda los resuelve el front sobre
+   * esta lista (un locador tiene pocos contratos).
+   */
+  async listar(user: AuthenticatedUser): Promise<ContratoResumenResponse[]> {
+    if (!user?.id) {
+      this.throwError('Debe iniciar sesión para consultar contratos.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwError('Se requiere el rol locador para consultar contratos.', 403);
+    }
+
+    const filas = await this.contratoRepo.findListadoByLocadorId(user.id);
+
+    return filas
+      .map(resumenDeFila)
+      .filter((resumen): resumen is ContratoResumenResponse => resumen !== null)
+      .sort(
+        (a, b) =>
+          PRIORIDAD_LISTADO[a.estado] - PRIORIDAD_LISTADO[b.estado] ||
+          compararFechas(a.fecha_fin_contrato, b.fecha_fin_contrato) ||
+          a.id - b.id
+      );
   }
 
   /**

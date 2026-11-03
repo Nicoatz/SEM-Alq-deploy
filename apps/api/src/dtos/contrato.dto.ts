@@ -79,6 +79,40 @@ export interface ParteContratoResponse {
   telefono: string | null;
 }
 
+// ─── US-43: listado de contratos del locador ───
+
+/** Índice de ajuste del contrato en el listado; `sin_ajuste` cuando no tiene índice. */
+export type IndiceContratoResponse = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC';
+
+/**
+ * Una fila de `GET /contratos` (US-43). Sin DNI ni datos de contacto del locatario ni de los
+ * garantes: el listado solo muestra el nombre del locatario.
+ */
+export interface ContratoResumenResponse {
+  id: number;
+  /** `null` en los borradores: el código se asigna al enviar a firmar. */
+  codigo: string | null;
+  estado: EstadoContratoResponse;
+  inmueble: {
+    id: number;
+    direccion: string;
+    numero: number;
+    piso: string | null;
+    barrio: string;
+  };
+  /** `null` si el contrato todavía no tiene locatario cargado. */
+  locatario: { nombre: string; apellido: string } | null;
+  /** Último ajuste aplicado o, si no hubo, el monto inicial. `null` en un borrador sin monto. */
+  monto_actual: number | null;
+  fecha_inicio_contrato: string | null;
+  fecha_fin_contrato: string | null;
+  indice: IndiceContratoResponse;
+  /** `null` si no hay ajuste (sin índice, finalizado, sin fecha de inicio o ya no quedan). */
+  proximo_ajuste: string | null;
+  /** Solicitud de origen; `null` en los contratos anteriores a US-05. */
+  id_solicitud: number | null;
+}
+
 export interface GaranteResponse extends GaranteRequest {
   id: number;
 }

@@ -297,7 +297,7 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 | `PATCH /contratos/:id` | **implementado** | `{ paso?, condiciones?, garantes? }`: solo lo que cambia | 200 `ContratoBorradorResponse` | 400, 404, **409** |
 | `POST /contratos/:id/pdf/url-subida` | **implementado** | — | `{ path, token, url_firmada, tamano_maximo_bytes }` | 404, **409** |
 | `PUT /contratos/:id/pdf` | **implementado** | `{ path, nombre }` | 200 `ContratoBorradorResponse` | 400, 404, **409**, **413** |
-| `GET /contratos` | pendiente (propuesto) | — | `ContratoResumenResponse[]` | 401 |
+| `GET /contratos` | **implementado** (US-43) | — | `ContratoResumenResponse[]` (sin las ofertas, estado 1; ver abajo) | 401, 403 |
 | `DELETE /contratos/:id` | pendiente (propuesto) | — | 204 | 404, **409** |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | — | 200 `ContratoEnviadoResponse` | 400, 404, **409** |
 | `GET /solicitudes/recibidas` | conectado; **faltan dos campos** | (sin cambios) | Lo de hoy + `id_contrato`, `estado_contrato` y `inmueble_con_contrato` (propuestos) | (sin cambios) |
@@ -369,9 +369,10 @@ en Vercel acepta cuerpos de hasta 4,5 MB.
 
 ## Contratos: rutas propuestas todavía no implementadas (US-05)
 
-`GET /contratos`, `DELETE /contratos/:id` y `POST /contratos/:id/enviar` siguen **propuestas**.
+`DELETE /contratos/:id` y `POST /contratos/:id/enviar` siguen **propuestas**.
 
-**`ContratoResumenResponse`** (`GET /contratos`), una fila del listado. Sin DNI ni contacto:
+**`ContratoResumenResponse`** (`GET /contratos`, **implementado**, US-43): una fila del listado.
+Solo contratos de las propiedades del locador, **sin las ofertas** (estado 1) y sin DNI ni contacto:
 
 ```json
 {
@@ -381,20 +382,26 @@ en Vercel acepta cuerpos de hasta 4,5 MB.
   "inmueble": { "id": 8, "direccion": "Rondeau", "numero": 480, "piso": "PB", "barrio": "Güemes" },
   "locatario": { "nombre": "Julieta", "apellido": "Peralta" },
   "monto_actual": 385000,
-  "fecha_inicio": "2026-10-01",
-  "fecha_fin": "2029-09-30",
+  "fecha_inicio_contrato": "2026-10-01",
+  "fecha_fin_contrato": "2029-09-30",
   "indice": "ICL",
   "proximo_ajuste": "2027-04-01",
   "id_solicitud": 31
 }
 ```
 
-- `estado`: `borrador`, `pendiente_firma`, `vigente`, `finalizado` o `rescindido`.
-- `codigo`: `null` en los borradores (se asigna al enviar a firmar).
-- `indice`: `sin_ajuste`, `ICL`, `IPC` o `CAC`. `proximo_ajuste`: `null` si no quedan ajustes.
-- `monto_actual`: el monto con los ajustes aplicados (en un borrador, el inicial cargado).
-- **Nombres de campo:** los del front en esta propuesta; al implementarla, seguir los de
-  `ContratoBorradorResponse` (el back define el contrato).
+- `estado`: `borrador`, `pendiente_firma`, `vigente` o `finalizado`.
+- `codigo`: `null` en los borradores (se asigna al enviar a firmar). `locatario`: `null` si no hay uno cargado.
+- `indice`: `sin_ajuste`, `ICL`, `IPC` o `CAC`. `proximo_ajuste`: `null` si no hay ajuste (sin índice,
+  finalizado, sin fecha de inicio) o si ya no quedan antes del fin.
+- `monto_actual`: el `monto_nuevo` del último `ajuste_contrato`; si no hubo, el inicial (en un borrador
+  sin monto, `null`).
+- **Orden** (US-43): pendientes de firma, borradores y el resto por `fecha_fin_contrato`.
+- **Los filtros por estado, los conteos, "por vencer" y la búsqueda no son del back:** el front los
+  resuelve sobre la lista completa (`lib/contratos/listado.ts`).
+- **Nombres de campo:** `fecha_inicio_contrato` / `fecha_fin_contrato` (como `ContratoBorradorResponse`),
+  distintos de `fecha_inicio` / `fecha_fin` de la propuesta anterior del front.
+- No hay `rescindido`: el esquema no tiene ese estado.
 
 **`POST /contratos/:id/enviar`** (propuesto): valida lo obligatorio y que el **PDF esté cargado**
 (responde 400 con el primer error), pasa a `pendiente_firma`, asigna el código `CT-AAAA-NNNN`

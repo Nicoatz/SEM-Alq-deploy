@@ -183,7 +183,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 | `GET /usuarios/me/perfil`, `PATCH /usuarios/me`, `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-20, US-21, Sprint 3) | **Pendiente** (`PATCH /usuarios/me` en curso en `feature/modificar_usuario`; el resto propuesto, tanda 1 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-20 y US-21") |
 | `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Implementado en API** (03/11): registro del contrato (iniciar, consultar, editar por pasos y cargar el PDF). Contrato de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos", y guía en [`registrar_contrato_front.md`](registrar_contrato_front.md). El front en real todavía llama a las rutas de su propuesta: tiene que adaptarse (el back define el contrato) |
-| `GET /contratos`, `DELETE /contratos/:id`, `POST /contratos/:id/enviar` | `/panel/contratos` (US-05, Sprint 3) | **Pendiente** (propuesto): en mock funciona; la rama real ya llama a estas rutas (§7, "US-05") |
+| `GET /contratos` | `/panel/contratos` (US-43) | **Implementado en API** (03/11): Bearer + rol locador; sin ofertas (estado 1) ni bajas lógicas; sin DNI ni contacto; ya ordenado. Campos en [`api-endpoints.md`](api-endpoints.md), `ContratoResumenResponse`. El front en real tiene que adaptarse (`fecha_inicio_contrato` / `fecha_fin_contrato`, sin `rescindido`) |
+| `DELETE /contratos/:id`, `POST /contratos/:id/enviar` | `/panel/contratos` (US-05, Sprint 3) | **Pendiente** (propuesto): en mock funciona; la rama real ya llama a estas rutas (§7, "US-05") |
 | `GET /contratos/:id` (con firmantes e historial), `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). El bloqueante del esquema ya está resuelto (§7, "US-05") |
 | `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Implementado en API** (26/10): Bearer, pertenencia por `contrato_x_usuario`, filtro por estado, detalle con 404 indistinguible y Swagger. Pendiente aplicar migración `20261026000000_us27_alquileres_locatario.sql` e integrar las llamadas del frontend |
 | Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
@@ -330,8 +331,17 @@ solicitud aceptada, consultarlo, editarlo por pasos (garantes y condiciones) y c
 de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos"; guía para integrar en
 [`registrar_contrato_front.md`](registrar_contrato_front.md); explicación del modelo y de los cambios en
 la base en [`registrar_contrato_desarrollo.md`](registrar_contrato_desarrollo.md). **Todavía no existen**
-el listado (`GET /contratos`), descartar un borrador (`DELETE /contratos/:id`) ni enviar a firmar
-(`POST /contratos/:id/enviar`).
+descartar un borrador (`DELETE /contratos/:id`) ni enviar a firmar (`POST /contratos/:id/enviar`).
+
+**Listado del locador (US-43, 03/11/2026).** `GET /contratos` está **implementado** (Bearer + rol
+locador). Devuelve los contratos de las propiedades del locador en estados borrador, pendiente de firma,
+vigente y finalizado: **no** las ofertas (estado 1) ni los de baja lógica (`activo = false`, p. ej. los de
+un inmueble eliminado, US-04). Sin DNI ni contacto. Ya viene ordenado (pendientes de firma, borradores y
+el resto por fecha de fin). Los filtros, los conteos, "por vencer" y la búsqueda los resuelve el front
+sobre la lista completa. Campos y reglas: `api-endpoints.md`, `ContratoResumenResponse`. Cambios para el
+front: los campos son `fecha_inicio_contrato` y `fecha_fin_contrato` (no `fecha_inicio` / `fecha_fin`),
+`estado` no tiene `rescindido`, y `GET /contratos?rol=locatario` **no existe** (el locatario usa
+`GET /alquileres-locatario`).
 
 El front (`services/contratos.service.ts`, `services/adapters/contrato.adapter.ts`,
 `components/contratos/*`, `lib/contratos/*` y `app/(app)/panel/contratos/*`) funciona en **modo mock**.
@@ -391,7 +401,7 @@ si hay un contrato pendiente de firma).
 | # | Qué | Para qué | Dueño |
 |---|---|---|---|
 | 6 | Tabla de **firmas** del locador y el locatario (fecha y hora, IP, estado, motivo de rechazo, última invitación) | US-07 (tanda 3) | db |
-| 8 | Las rutas que faltan: `GET /contratos`, `DELETE /contratos/:id` y `POST /contratos/:id/enviar` (valida lo obligatorio y que haya PDF, asigna `CT-AAAA-NNNN` y pasa a pendiente de firma) | Cerrar US-05 | backend |
+| 8 | Las rutas que faltan: `DELETE /contratos/:id` y `POST /contratos/:id/enviar` (`GET /contratos` ya está, US-43) (valida lo obligatorio y que haya PDF, asigna `CT-AAAA-NNNN` y pasa a pendiente de firma) | Cerrar US-05 | backend |
 | 9 | `/solicitudes/recibidas`: sumar `id_contrato` y `estado_contrato` (el contrato que originó la solicitud) e `inmueble_con_contrato` (si el inmueble tiene otro vigente o pendiente) | "Iniciar contrato" / "Continuar contrato". Mientras no vengan, en real el botón aparece en toda aceptada y lo frena el 409 de `POST /contratos` (TODO(backend) en `solicitud.adapter.ts`) | backend |
 | 10 | `AdjustmentIndex` (el índice de la publicación) no tiene CAC: el alta de propiedad solo ofrece ICL e IPC. El contrato sí lo ofrece (`IndiceContrato`). Si la publicación tiene que poder usar CAC, se suma a US-01 y al tipo | Coherencia publicación/contrato | front + PO |
 

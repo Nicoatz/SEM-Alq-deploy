@@ -1,6 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { ApiResponse, ContratoBorradorResponse, ContratoDTO, UrlSubidaPdfResponse } from '../dtos';
+import {
+  ApiResponse,
+  ContratoBorradorResponse,
+  ContratoDTO,
+  ContratoResumenResponse,
+  UrlSubidaPdfResponse,
+} from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { contratoService } from '../services/contrato.service';
 
@@ -9,6 +15,22 @@ export class ContratoController {
     const rawId = req.params.id;
     const id = typeof rawId === 'string' ? Number(rawId) : NaN;
     return Number.isInteger(id) && id > 0 ? id : null;
+  }
+
+  /** GET /contratos · US-43: los contratos del locador (sin las ofertas). */
+  async listar(
+    req: Request,
+    res: Response<ApiResponse<ContratoResumenResponse[]>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const user = (req as any).user as AuthenticatedUser;
+      const contratos = await contratoService.listar(user);
+
+      res.status(200).json({ success: true, data: contratos });
+    } catch (error) {
+      next(error);
+    }
   }
 
   /** GET /contratos/:id · US-05: el contrato en curso del locador, para retomar el borrador. */
