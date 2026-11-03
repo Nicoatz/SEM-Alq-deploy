@@ -355,10 +355,24 @@ propiedades): cada inmueble tiene **dos filas** en `contrato`.
 
 Las dos filas se garantizan con índices únicos parciales. El contrato en curso nace de la oferta (no la
 modifica), así el precio público no cambia mientras se negocia, y al terminar el contrato la propiedad
-vuelve con la misma oferta. Migraciones: `20261102000000` a `20261103000000` (ver
+vuelve con la misma oferta. Migraciones: `20261102000000` a `20261103000001` (ver
 `registrar_contrato_desarrollo.md`). Endpoints existentes ajustados: listado y detalle de propiedades
 (leen la oferta), "Mis alquileres" del locador y la baja lógica de propiedades (US-04, que ahora da 409
 si hay un contrato pendiente de firma).
+
+**Ajustes del 03/11/2026** (pedidos del equipo; ya aplicados en la base, migración
+`20261103000001_us05_borrador_nulos_y_codigos`, y en la API):
+
+- **Borrador incompleto:** la duración, el monto inicial y el plazo de vencimiento aceptan `null` al guardar
+  (`PATCH /contratos/:id`). `contrato.monto_alquiler` pasó a admitir `NULL` solo en un borrador (un `CHECK`
+  exige monto en todo contrato que no sea borrador). Lo obligatorio se exige al enviar a firmar.
+- **`dias_para_vencimiento` es un plazo en días**, como lo usa `/alquileres-locatario` (US-27): los días que
+  tiene el locatario para pagar desde que el monto queda disponible, no el día del mes. El registro se
+  alineó con US-27 (rango de 1 a 28, por defecto 10 días) y la US-05 se corrigió en ese sentido.
+- **`codigo` en los 409:** el sobre de error pasa a ser `{ success, message, error, codigo }`. Códigos de
+  contratos: `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`, `PROPIEDAD_CON_BORRADOR`,
+  `PROPIEDAD_CON_CONTRATO`, `PROPIEDAD_SIN_OFERTA`, `CONTRATO_DUPLICADO` y `CONTRATO_NO_EDITABLE`. El manejador
+  de errores lo incluye en cualquier error que lo traiga (ver §10, punto 7).
 
 **Lo que se hizo en la base**
 
