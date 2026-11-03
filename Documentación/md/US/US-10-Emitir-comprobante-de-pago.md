@@ -12,7 +12,7 @@
 | - Si el usuario intenta acceder por URL a un comprobante que no es suyo, se debe mostrar "No encontramos este comprobante", sin distinguir si existe. |
 | - El locador y el locatario ven el mismo comprobante. |
 | *Contenido* |
-| - Encabezado: logo y datos de RentAR, número de comprobante, fecha y hora de emisión y estado (pagado, pago parcial o anulado). |
+| - Encabezado: logo y datos de RentAR, número de comprobante, fecha y hora de emisión y estado (pagado). |
 | - Locatario: nombre y apellido, DNI, correo y teléfono. |
 | - Locador: nombre y apellido, DNI o CUIT, correo y teléfono. |
 | - Propiedad y período: domicilio completo de la propiedad, código y vigencia del contrato, y período imputado con su rango de fechas y su fecha de vencimiento. |
@@ -31,10 +31,7 @@
 | - Probar acceder por URL al comprobante de otro contrato y verificar que se muestre "No encontramos este comprobante" (pasa). |
 | - Probar verificar que el comprobante muestre los datos de las dos partes, la propiedad, el contrato, el período, el detalle, el total en números y en letras, el medio y la fecha de pago (pasa). |
 | - Probar verificar que un cobro con mora muestre los intereses en una línea aparte (pasa). |
-| - Probar registrar un pago parcial y verificar que el comprobante indique "Pago parcial" con el saldo pendiente (pasa). |
 | - Probar intentar modificar un comprobante emitido (falla). |
 | - Probar imprimir el comprobante y verificar que se imprima solo la hoja en A4 (pasa). |
 | - Probar descargar el PDF y verificar que tenga el mismo contenido que la hoja y el número en el nombre del archivo (pasa). |
 | - Probar consultar el comprobante en un ancho de 390 px y descargar el PDF (pasa). |
-| - Probar anular un cobro y verificar que su comprobante quede marcado como anulado, con el motivo, y que conserve su número (pasa). |
-| - Probar anular un cobro, registrar uno nuevo y verificar que el nuevo comprobante tome el número siguiente (pasa). |
