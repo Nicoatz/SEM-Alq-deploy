@@ -43,6 +43,8 @@ export const errorHandler = (
   res.status(statusCode).json({
     success: false,
     message: 'Error en la solicitud',
-    error: message
+    error: message,
+    // Los errores de negocio con un motivo identificable (409 de contratos) lo traen en `codigo`.
+    ...(typeof err.codigo === 'string' ? { codigo: err.codigo } : {})
   });
 };

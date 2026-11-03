@@ -1,16 +1,15 @@
 import type {
-  ClausulaRequest,
   CondicionesBorradorRequest,
   GaranteRequest,
   GuardarBorradorRequest,
   PeriodicidadAjuste,
-  TipoClausula,
 } from '../dtos';
 
 /**
  * Validación de formato del borrador del contrato (US-05). Funciones puras: no tocan la base.
- * Las reglas que necesitan datos (dueño, estado, garantes distintos de las partes, cláusulas
- * fijas) las aplica la función SQL `guardar_borrador_contrato`.
+ * Las reglas que necesitan datos (dueño, estado, garantes distintos de las partes) las aplica la
+ * función SQL `guardar_borrador_contrato`. El PDF del paso 3 se valida en
+ * `contrato-pdf.validacion.ts`.
  *
  * Un borrador puede guardarse incompleto (US-05): acá solo se valida lo que llega, nunca que
  * falte algo. Lo obligatorio se exige al enviar a firmar.
@@ -20,14 +19,9 @@ import type {
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DNI = /^[0-9]{7,8}$/;
 const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
-const CLAVE = /^[a-z0-9_-]{1,50}$/i;
 const PERIODICIDADES: PeriodicidadAjuste[] = ['trimestral', 'semestral', 'anual'];
-const TIPOS_CLAUSULA: TipoClausula[] = ['fija', 'editable', 'propia'];
 
 export const MAX_GARANTES = 3;
-/** US-05, paso 3: máximo por cláusula editable o propia. */
-export const MAX_CARACTERES_CLAUSULA = 1000;
-const MAX_CLAUSULAS = 60;
 // numeric(12, 2) y fechas razonables: evitan un error de la base por desborde.
 const MAX_MONTO = 9_999_999_999;
 const MAX_DURACION_MESES = 600;
@@ -75,10 +69,12 @@ function validarCondiciones(crudo: unknown, hoy: string): CondicionesBorradorReq
     salida.fecha_inicio_contrato = valor;
   }
 
+  // NOTA: duración, monto y plazo de vencimiento aceptan `null` (borran el valor): un borrador puede
+  // guardarse incompleto y lo obligatorio se exige al enviar a firmar.
   if ('duracion_meses' in crudo) {
     const valor = crudo.duracion_meses;
     // US-05, paso 2: entero mayor a 0.
-    if (!esEntero(valor) || valor <= 0 || valor > MAX_DURACION_MESES) {
+    if (valor !== null && (!esEntero(valor) || valor <= 0 || valor > MAX_DURACION_MESES)) {
       fallar(`La duración debe ser un número entero de meses mayor a 0 y hasta ${MAX_DURACION_MESES}.`);
     }
     salida.duracion_meses = valor;
@@ -87,7 +83,7 @@ function validarCondiciones(crudo: unknown, hoy: string): CondicionesBorradorReq
   if ('monto_alquiler' in crudo) {
     const valor = crudo.monto_alquiler;
     // US-05, paso 2: monto inicial entero mayor a 0.
-    if (!esEntero(valor) || valor <= 0 || valor > MAX_MONTO) {
+    if (valor !== null && (!esEntero(valor) || valor <= 0 || valor > MAX_MONTO)) {
       fallar('El monto inicial del alquiler debe ser un número entero mayor a 0.');
     }
     salida.monto_alquiler = valor;
@@ -104,9 +100,10 @@ function validarCondiciones(crudo: unknown, hoy: string): CondicionesBorradorReq
 
   if ('dias_para_vencimiento' in crudo) {
     const valor = crudo.dias_para_vencimiento;
-    // US-05, paso 2: día de vencimiento del pago entre 1 y 28.
-    if (!esEntero(valor) || valor < 1 || valor > 28) {
-      fallar('El día de vencimiento del pago debe estar entre 1 y 28.');
+    // US-05, paso 2: plazo de vencimiento del pago, en días, entre 1 y 28. Es el mismo campo que
+    // US-27 usa como plazo en días (no el día del mes).
+    if (valor !== null && (!esEntero(valor) || valor < 1 || valor > 28)) {
+      fallar('El plazo de vencimiento del pago debe ser un número entero de días entre 1 y 28.');
     }
     salida.dias_para_vencimiento = valor;
   }
@@ -179,49 +176,6 @@ function validarGarantes(crudo: unknown): GaranteRequest[] {
   });
 }
 
-function validarClausulas(crudo: unknown): ClausulaRequest[] {
-  if (!Array.isArray(crudo)) fallar('Las cláusulas deben enviarse como una lista.');
-  if (crudo.length > MAX_CLAUSULAS) fallar(`El contrato no puede tener más de ${MAX_CLAUSULAS} cláusulas.`);
-
-  const claves = new Set<string>();
-
-  return crudo.map((item, indice) => {
-    const numero = indice + 1;
-    if (!esObjeto(item)) fallar(`La cláusula ${numero} no es válida.`);
-    const { clave, tipo, titulo, texto, editada } = item;
-
-    if (typeof clave !== 'string' || !CLAVE.test(clave)) fallar(`La cláusula ${numero} no tiene una clave válida.`);
-    if (claves.has(clave)) fallar(`La clave "${clave}" está repetida entre las cláusulas.`);
-    claves.add(clave);
-
-    if (!TIPOS_CLAUSULA.includes(tipo as TipoClausula)) {
-      fallar(`El tipo de la cláusula ${numero} debe ser fija, editable o propia.`);
-    }
-    if (typeof titulo !== 'string' || !titulo.trim() || titulo.trim().length > 150) {
-      fallar(`El título de la cláusula ${numero} es obligatorio (hasta 150 caracteres).`);
-    }
-    if (typeof texto !== 'string' || !texto.trim()) {
-      fallar(`El texto de la cláusula ${numero} no puede estar vacío.`);
-    }
-    // US-05, paso 3: las editables y las propias, hasta 1.000 caracteres.
-    if (tipo !== 'fija' && (texto as string).length > MAX_CARACTERES_CLAUSULA) {
-      fallar(`El texto de la cláusula ${numero} no puede superar los ${MAX_CARACTERES_CLAUSULA} caracteres.`);
-    }
-    if (editada !== undefined && typeof editada !== 'boolean') {
-      fallar(`El campo editada de la cláusula ${numero} debe ser verdadero o falso.`);
-    }
-
-    return {
-      clave,
-      tipo: tipo as TipoClausula,
-      titulo: (titulo as string).trim(),
-      // El texto se guarda tal cual: lo que se firma no se recorta ni se normaliza.
-      texto: texto as string,
-      editada: tipo === 'fija' ? false : editada ?? false,
-    };
-  });
-}
-
 /**
  * Valida el cuerpo de `PATCH /contratos/:id` y devuelve solo lo que corresponde guardar.
  * @throws Error con `statusCode` 400 y un mensaje para mostrar al locador.
@@ -238,7 +192,6 @@ export function validarGuardarBorrador(cuerpo: unknown, hoy: string): GuardarBor
   }
   if ('condiciones' in cuerpo) salida.condiciones = validarCondiciones(cuerpo.condiciones, hoy);
   if ('garantes' in cuerpo) salida.garantes = validarGarantes(cuerpo.garantes);
-  if ('clausulas' in cuerpo) salida.clausulas = validarClausulas(cuerpo.clausulas);
 
   if (Object.keys(salida).length === 0) fallar('No hay datos para guardar.');
   return salida;

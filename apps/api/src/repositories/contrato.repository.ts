@@ -1,16 +1,19 @@
 import {
-  ClausulaResponse,
   ContratoBorradorResponse,
   ContratoDTO,
+  ContratoPdfResponse,
   EstadoContratoResponse,
   GaranteResponse,
   GuardarBorradorRequest,
   MedioPagoDTO,
   ParteContratoResponse,
-  TipoClausula,
   UsuarioDTO,
 } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
+import { BUCKET_CONTRATOS_PDF, MAX_PDF_BYTES } from '../services/contrato-pdf.validacion';
+
+/** Cuánto dura la URL firmada para ver el PDF en la vista previa del paso 4. */
+const SEGUNDOS_URL_PDF = 300;
 
 /**
  * Ids de `estado_contrato`. Ver docs/gestion_contrato.md (sección 2).
@@ -30,11 +33,15 @@ const ESTADOS_EN_CURSO: number[] = [
   ESTADO_CONTRATO.BORRADOR,
 ];
 
-/** Respuesta de la función SQL `iniciar_contrato`: cada regla de negocio trae su status HTTP. */
+/**
+ * Respuesta de la función SQL `iniciar_contrato`: cada regla de negocio trae su status HTTP y, en
+ * los 409, un `codigo` que identifica el motivo (ver `registrar_contrato_front.md`, sección 6).
+ */
 export interface IniciarContratoResultado {
   success: boolean;
   statusCode: number;
   message: string;
+  codigo?: string;
   contrato_id?: number;
 }
 
@@ -43,6 +50,44 @@ export interface GuardarBorradorResultado {
   success: boolean;
   statusCode: number;
   message: string;
+  codigo?: string;
+}
+
+/** Respuesta de la función SQL `registrar_pdf_contrato`. */
+export interface RegistrarPdfResultado {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  codigo?: string;
+  /** Ruta del PDF que reemplaza este registro, para borrarlo de Storage. */
+  pdf_anterior?: string | null;
+}
+
+/** Datos del PDF que valida la API antes de registrarlo en el contrato. */
+export interface DatosPdf {
+  path: string;
+  sha256: string;
+  nombre: string;
+  tamano: number;
+}
+
+/** Lo mínimo del contrato para decidir si se puede cargar un PDF. */
+export interface ContratoParaPdf {
+  estado: number | null;
+  pdf_storage_path: string | null;
+}
+
+/** Resultado de descargar el PDF subido para validarlo. */
+export type ArchivoDescargado =
+  | { estado: 'ok'; archivo: Buffer }
+  | { estado: 'no_encontrado' }
+  | { estado: 'demasiado_grande' };
+
+/** Datos para subir un PDF directo a Storage. */
+export interface UrlSubidaPdf {
+  path: string;
+  token: string;
+  url_firmada: string;
 }
 
 const ESTADO_POR_ID: Record<number, EstadoContratoResponse> = {
@@ -84,6 +129,11 @@ export interface IContratoRepository {
     data: GuardarBorradorRequest
   ): Promise<GuardarBorradorResultado>;
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
+  findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
+  crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf>;
+  descargarPdf(path: string): Promise<ArchivoDescargado>;
+  eliminarPdf(path: string): Promise<void>;
+  registrarPdf(idContrato: number, idLocador: number, datos: DatosPdf): Promise<RegistrarPdfResultado>;
   create(data: Omit<ContratoDTO, 'id'>, mediosPagoIds: number[]): Promise<ContratoDTO>;
   getMediosPagoByContratoId(contratoId: number): Promise<MedioPagoDTO[]>;
   getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null>;
@@ -154,8 +204,8 @@ export class ContratoRepository implements IContratoRepository {
 
   /**
    * Guarda el borrador (US-05, desde cualquier paso) en una transacción. Las reglas que
-   * necesitan la base (dueño, estado, garantes distintos de las partes, cláusulas fijas)
-   * las aplica la función SQL `guardar_borrador_contrato`.
+   * necesitan la base (dueño, estado, garantes distintos de las partes) las aplica la función
+   * SQL `guardar_borrador_contrato`.
    */
   async guardarBorrador(
     idContrato: number,
@@ -173,7 +223,7 @@ export class ContratoRepository implements IContratoRepository {
 
   /**
    * El contrato en curso del locador con todo lo que necesita el alta (partes, garantes,
-   * condiciones, cláusulas y garantías ofrecidas). `null` si no existe o no es de su propiedad:
+   * condiciones, PDF y garantías ofrecidas). `null` si no existe o no es de su propiedad:
    * no se distingue, para no revelar que existe. La oferta (estado 1) tampoco se devuelve.
    */
   async findBorradorCompleto(
@@ -196,7 +246,7 @@ export class ContratoRepository implements IContratoRepository {
     const fila = data as unknown as FilaContratoConInmueble | null;
     if (!fila?.inmueble || fila.inmueble.id_locador !== idLocador) return null;
 
-    const [partes, garantes, clausulas, medios, garantias] = await Promise.all([
+    const [partes, garantes, medios, garantias, pdf] = await Promise.all([
       supabase
         .from('contrato_x_usuario')
         .select('tipo_firmante, usuario(id, nombre, apellido, numero_documento, email, telefono)')
@@ -206,11 +256,6 @@ export class ContratoRepository implements IContratoRepository {
         .select('id, nombre, apellido, dni, email')
         .eq('id_contrato', idContrato)
         .order('id'),
-      supabase
-        .from('clausula_contrato')
-        .select('clave, tipo, titulo, texto, editada')
-        .eq('id_contrato', idContrato)
-        .order('orden'),
       supabase.from('medio_pago_x_contrato').select('id_medio_pago').eq('id_contrato', idContrato),
       fila.id_solicitud
         ? supabase
@@ -218,8 +263,9 @@ export class ContratoRepository implements IContratoRepository {
             .select('tipo_garantia(nombre)')
             .eq('id_solicitud', fila.id_solicitud)
         : Promise.resolve({ data: [], error: null }),
+      this.armarPdf(fila),
     ]);
-    for (const consulta of [partes, garantes, clausulas, medios, garantias]) {
+    for (const consulta of [partes, garantes, medios, garantias]) {
       if (consulta.error) throw consulta.error;
     }
 
@@ -250,7 +296,7 @@ export class ContratoRepository implements IContratoRepository {
         fecha_inicio_contrato: fila.fecha_inicio_contrato ?? null,
         fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
         duracion_meses: fila.duracion_meses ?? null,
-        monto_alquiler: Number(fila.monto_alquiler),
+        monto_alquiler: numeroONull(fila.monto_alquiler),
         deposito: numeroONull(fila.deposito),
         dias_para_vencimiento: fila.dias_para_vencimiento ?? null,
         indice_aumento: fila.indice_aumento ?? null,
@@ -259,11 +305,95 @@ export class ContratoRepository implements IContratoRepository {
         dias_gracia: fila.dias_gracia ?? null,
         interes_por_dia: numeroONull(fila.interes_por_dia),
       },
-      clausulas: ((clausulas.data ?? []) as { clave: string; tipo: TipoClausula; titulo: string; texto: string; editada: boolean }[]).map(
-        (clausula): ClausulaResponse => ({ ...clausula })
-      ),
+      pdf,
       ultimo_paso: fila.ultimo_paso_borrador ?? null,
     };
+  }
+
+  /** El PDF cargado en el contrato, con una URL firmada para la vista previa (`null` si no hay). */
+  private async armarPdf(fila: FilaContratoConInmueble): Promise<ContratoPdfResponse | null> {
+    if (!fila.pdf_storage_path) return null;
+
+    const { data, error } = await getSupabaseAdmin()
+      .storage.from(BUCKET_CONTRATOS_PDF)
+      .createSignedUrl(fila.pdf_storage_path, SEGUNDOS_URL_PDF);
+    if (error || !data) throw error ?? new Error('No se pudo firmar la URL del PDF.');
+
+    return {
+      nombre: fila.pdf_nombre_original ?? 'contrato.pdf',
+      tamano_bytes: Number(fila.pdf_tamano_bytes ?? 0),
+      subido_en: fila.pdf_subido_en ?? '',
+      url: data.signedUrl,
+    };
+  }
+
+  /**
+   * Lo mínimo del contrato del locador para decidir si se puede cargar un PDF: su estado y el
+   * PDF que tiene. `null` si no existe o no es de su propiedad (no se distingue).
+   */
+  async findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('contrato')
+      .select('estado, pdf_storage_path, inmueble:inmueble!contrato_id_inmueble_fkey(id_locador)')
+      .eq('id', idContrato)
+      .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
+      .eq('activo', true)
+      .maybeSingle();
+    if (error) throw error;
+
+    const fila = data as unknown as (ContratoParaPdf & { inmueble: { id_locador: number } | null }) | null;
+    if (!fila?.inmueble || fila.inmueble.id_locador !== idLocador) return null;
+    return { estado: fila.estado, pdf_storage_path: fila.pdf_storage_path };
+  }
+
+  /** URL firmada para que el navegador suba el PDF directo al bucket (no pasa por la API). */
+  async crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf> {
+    const { data, error } = await getSupabaseAdmin()
+      .storage.from(BUCKET_CONTRATOS_PDF)
+      .createSignedUploadUrl(path);
+    if (error || !data) throw error ?? new Error('No se pudo crear la URL de subida.');
+    return { path: data.path, token: data.token, url_firmada: data.signedUrl };
+  }
+
+  /**
+   * Descarga el archivo subido para validarlo. Si pesa más del tope no lo pasa a memoria: el
+   * bucket ya limita el tamaño, pero la API no debe confiar en eso.
+   */
+  async descargarPdf(path: string): Promise<ArchivoDescargado> {
+    const { data, error } = await getSupabaseAdmin().storage.from(BUCKET_CONTRATOS_PDF).download(path);
+    if (error || !data) return { estado: 'no_encontrado' };
+    if (data.size > MAX_PDF_BYTES) return { estado: 'demasiado_grande' };
+    return { estado: 'ok', archivo: Buffer.from(await data.arrayBuffer()) };
+  }
+
+  /** Borra un PDF de Storage. Nunca falla: un archivo suelto no debe romper el guardado. */
+  async eliminarPdf(path: string): Promise<void> {
+    try {
+      await getSupabaseAdmin().storage.from(BUCKET_CONTRATOS_PDF).remove([path]);
+    } catch (error) {
+      console.error(`[contrato] No se pudo borrar el PDF ${path} de Storage:`, error);
+    }
+  }
+
+  /**
+   * Registra el PDF en el borrador (US-05, paso 3). El dueño y el estado (solo borrador) los
+   * valida la función SQL `registrar_pdf_contrato`, en la misma transacción que el cambio.
+   */
+  async registrarPdf(
+    idContrato: number,
+    idLocador: number,
+    datos: DatosPdf
+  ): Promise<RegistrarPdfResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('registrar_pdf_contrato', {
+      p_id_contrato: idContrato,
+      p_id_locador: idLocador,
+      p_path: datos.path,
+      p_sha256: datos.sha256,
+      p_nombre: datos.nombre,
+      p_tamano: datos.tamano,
+    });
+    if (error) throw error;
+    return data as RegistrarPdfResultado;
   }
 
   async create(

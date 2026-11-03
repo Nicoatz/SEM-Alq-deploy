@@ -140,7 +140,8 @@ export interface InmuebleXTag {
 export interface Contrato {
   id: number;
   id_inmueble: number;
-  monto_alquiler: number;
+  /** `null` solo en un borrador (estado 5): se puede guardar incompleto. */
+  monto_alquiler: number | null;
   expensas: number;
   indice_aumento?: number | null;
   frecuencia_ajuste?: string | null;
@@ -160,6 +161,12 @@ export interface Contrato {
   /** Último paso del alta (1 a 4) para retomar el borrador. */
   ultimo_paso_borrador?: number | null;
   activo?: boolean;
+  /** PDF del contrato (US-05, paso 3), en el bucket privado `contratos-pdf`. */
+  pdf_storage_path?: string | null;
+  pdf_sha256?: string | null;
+  pdf_nombre_original?: string | null;
+  pdf_tamano_bytes?: number | null;
+  pdf_subido_en?: string | null;
 }
 
 /**
@@ -261,6 +268,11 @@ export interface ApiResponse<T> {
   message?: string;
   data?: T;
   error?: string | null;
+  /**
+   * Identifica el motivo de un error de negocio (hoy, los 409 de contratos: `SOLICITUD_NO_ACEPTADA`,
+   * `CONTRATO_NO_EDITABLE`...) para que el cliente no tenga que leer el texto de `error`.
+   */
+  codigo?: string;
 }
 
 // ─── Tipos de vista del front (apps/web + packages/ui) ───────────────────────

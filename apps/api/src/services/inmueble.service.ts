@@ -474,7 +474,9 @@ export class InmuebleService {
                 apellido: locatario.apellido
               }
             : null,
-          monto_alquiler: contrato ? contrato.monto_alquiler : inm.precio_publicado,
+          // NOTA: la oferta y el contrato vigente siempre tienen monto; solo un borrador puede no
+          // tenerlo, y acá nunca se lee un borrador. El respaldo cubre el tipo.
+          monto_alquiler: contrato?.monto_alquiler ?? inm.precio_publicado,
           expensas: contrato ? contrato.expensas : 0,
           indice_aumento: indiceDescripcion,
           fecha_proximo_ajuste: fechaProximoAjuste,

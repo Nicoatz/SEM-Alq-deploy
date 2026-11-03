@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { ApiResponse, ContratoBorradorResponse, ContratoDTO } from '../dtos';
+import { ApiResponse, ContratoBorradorResponse, ContratoDTO, UrlSubidaPdfResponse } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { contratoService } from '../services/contrato.service';
 
@@ -35,8 +35,64 @@ export class ContratoController {
   }
 
   /**
+   * POST /contratos/:id/pdf/url-subida · US-05, paso 3: URL firmada para que el navegador suba el
+   * PDF directo a Storage.
+   */
+  async urlSubidaPdf(
+    req: Request,
+    res: Response<ApiResponse<UrlSubidaPdfResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const url = await contratoService.urlSubidaPdf(user, idContrato);
+
+      res.status(200).json({ success: true, data: url });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * PUT /contratos/:id/pdf · US-05, paso 3: registra el PDF que el navegador ya subió.
+   * Body: { path, nombre }.
+   */
+  async registrarPdf(
+    req: Request,
+    res: Response<ApiResponse<ContratoBorradorResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const contrato = await contratoService.registrarPdf(user, idContrato, req.body);
+
+      res.status(200).json({
+        success: true,
+        message: 'PDF cargado exitosamente.',
+        data: contrato
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
    * PATCH /contratos/:id · US-05: guarda el borrador desde cualquier paso.
-   * Body (todo opcional): { paso, condiciones, garantes, clausulas }.
+   * Body (todo opcional): { paso, condiciones, garantes }.
    */
   async guardar(
     req: Request,

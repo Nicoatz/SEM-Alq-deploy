@@ -43,7 +43,10 @@ const router = Router();
  *       404:
  *         description: La solicitud no existe, no es del locador o la propiedad no existe.
  *       409:
- *         description: Solicitud no aceptada o ya usada, o propiedad con un contrato en curso.
+ *         description: >
+ *           Solicitud no aceptada o ya usada, o propiedad con un contrato en curso. Trae `codigo`:
+ *           SOLICITUD_NO_ACEPTADA, SOLICITUD_CON_CONTRATO, PROPIEDAD_CON_BORRADOR,
+ *           PROPIEDAD_CON_CONTRATO, PROPIEDAD_SIN_OFERTA o CONTRATO_DUPLICADO.
  */
 router.post(
   '/',
@@ -97,10 +100,10 @@ router.get(
  *   patch:
  *     summary: Guardar el borrador del contrato desde cualquier paso (US-05)
  *     description: >
- *       Guarda solo lo que viene en el cuerpo; el borrador puede estar incompleto. `garantes` y
- *       `clausulas` reemplazan la lista completa. La fecha de fin se calcula en la base
- *       (inicio + duración − 1 día) y no se envía. Solo se puede modificar un contrato en
- *       borrador.
+ *       Guarda solo lo que viene en el cuerpo; el borrador puede estar incompleto. `garantes`
+ *       reemplaza la lista completa. La fecha de fin se calcula en la base
+ *       (inicio + duración − 1 día) y no se envía. El PDF del contrato (paso 3) no viaja acá:
+ *       ver `/contratos/{id}/pdf`. Solo se puede modificar un contrato en borrador.
  *     tags:
  *       - Contratos
  *     security:
@@ -127,10 +130,10 @@ router.get(
  *                 type: object
  *                 properties:
  *                   fecha_inicio_contrato: { type: string, format: date, nullable: true }
- *                   duracion_meses: { type: integer, minimum: 1 }
- *                   monto_alquiler: { type: integer, minimum: 1 }
+ *                   duracion_meses: { type: integer, minimum: 1, nullable: true }
+ *                   monto_alquiler: { type: integer, minimum: 1, nullable: true }
  *                   deposito: { type: integer, minimum: 0, nullable: true }
- *                   dias_para_vencimiento: { type: integer, minimum: 1, maximum: 28 }
+ *                   dias_para_vencimiento: { type: integer, minimum: 1, maximum: 28, nullable: true, description: 'Plazo de pago en días (como en US-27), no el día del mes' }
  *                   indice_aumento: { type: integer, nullable: true, description: null = Sin ajuste }
  *                   frecuencia_ajuste: { type: string, enum: [trimestral, semestral, anual], nullable: true }
  *               garantes:
@@ -144,17 +147,6 @@ router.get(
  *                     apellido: { type: string }
  *                     dni: { type: string, pattern: '^[0-9]{7,8}$' }
  *                     email: { type: string, format: email }
- *               clausulas:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required: [clave, tipo, titulo, texto]
- *                   properties:
- *                     clave: { type: string }
- *                     tipo: { type: string, enum: [fija, editable, propia] }
- *                     titulo: { type: string }
- *                     texto: { type: string, description: 'Hasta 1.000 caracteres si es editable o propia' }
- *                     editada: { type: boolean }
  *     responses:
  *       200:
  *         description: Borrador guardado; devuelve el contrato completo.
@@ -167,13 +159,112 @@ router.get(
  *       404:
  *         description: No existe o no es del locador.
  *       409:
- *         description: El contrato ya no está en borrador.
+ *         description: El contrato ya no está en borrador (`codigo` CONTRATO_NO_EDITABLE).
  */
 router.patch(
   '/:id',
   authenticateGateway,
   requireRole('locador'),
   contratoController.guardar.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/pdf/url-subida:
+ *   post:
+ *     summary: URL firmada para subir el PDF del contrato (US-05, paso 3)
+ *     description: >
+ *       Primer paso de la carga del PDF. Devuelve una URL firmada y un token para que el
+ *       navegador suba el archivo **directo a Supabase Storage** (la API en Vercel acepta cuerpos
+ *       de hasta 4,5 MB y el PDF puede pesar hasta 5 MB). Después hay que registrarlo con
+ *       `PUT /contratos/{id}/pdf`. Cada pedido devuelve una ruta nueva. Solo en borrador.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Datos de subida (`path`, `token`, `url_firmada`, `tamano_maximo_bytes`).
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador.
+ *       409:
+ *         description: El contrato ya no está en borrador (`codigo` CONTRATO_NO_EDITABLE).
+ */
+router.post(
+  '/:id/pdf/url-subida',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.urlSubidaPdf.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/pdf:
+ *   put:
+ *     summary: Registrar el PDF del contrato ya subido a Storage (US-05, paso 3)
+ *     description: >
+ *       Segundo paso de la carga. La API descarga el archivo de la ruta indicada, verifica que
+ *       sea un PDF de hasta 5 MB, calcula su hash y lo registra en el borrador. Si ya había un
+ *       PDF, lo reemplaza y borra el anterior. Un archivo inválido se elimina de Storage.
+ *       Devuelve el contrato completo, con `pdf.url` (firmada, vence a los 5 minutos) para la
+ *       vista previa del paso 4.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [path, nombre]
+ *             properties:
+ *               path:
+ *                 type: string
+ *                 description: La `path` que devolvió url-subida.
+ *               nombre:
+ *                 type: string
+ *                 description: Nombre del archivo original (debe terminar en .pdf).
+ *     responses:
+ *       200:
+ *         description: PDF registrado; devuelve el contrato completo.
+ *       400:
+ *         description: Ruta ajena o inválida, archivo no encontrado o que no es un PDF.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador.
+ *       409:
+ *         description: El contrato ya no está en borrador (`codigo` CONTRATO_NO_EDITABLE).
+ *       413:
+ *         description: El PDF supera los 5 MB.
+ */
+router.put(
+  '/:id/pdf',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.registrarPdf.bind(contratoController)
 );
 
 export default router;
