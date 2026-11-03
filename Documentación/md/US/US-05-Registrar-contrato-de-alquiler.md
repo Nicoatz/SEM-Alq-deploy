@@ -30,17 +30,11 @@
 | - Si el índice no es "Sin ajuste", se debe indicar la periodicidad del ajuste (trimestral, semestral o anual). Si es "Sin ajuste", no se muestra el campo de periodicidad. |
 | - Se debe informar la cantidad de ajustes que tendrá el contrato y la fecha del primero. |
 | - Se deben mostrar en solo lectura las condiciones de cobro cargadas en la propiedad (medios de pago, días de gracia e interés por mora). |
-| *Paso 3 · Cláusulas* |
-| - Se debe generar el contrato a partir de la plantilla de locación de vivienda de RentAR, completada automáticamente con los datos de los pasos 1 y 2. |
-| - Las cláusulas fijas (por ejemplo, Objeto y destino) no se pueden editar y se deben mostrar como bloqueadas. |
-| - Las cláusulas editables se pueden modificar, con un máximo de 1.000 caracteres por cláusula. |
-| - Se pueden agregar cláusulas propias, con un máximo de 1.000 caracteres cada una. |
-| - Se puede eliminar una cláusula agregada por el locador. |
-| - Se debe indicar la cantidad total de cláusulas y cuántas fueron editadas. |
-| - Se debe poder ver el contrato completo. |
+| *Paso 3 · Carga* |
+| - Se debe cargar el contrato en formato PDF, con un tamaño no superior a 5MB. |
 | *Paso 4 · Revisión y envío* |
-| - Se debe mostrar un resumen de todo lo cargado: propiedad, partes, garantes, vigencia, monto inicial, ajuste, depósito, vencimiento del pago y cláusulas. Cada bloque tiene la opción de volver a editarlo. |
-| - Para enviar a firmar, se debe marcar la casilla "Revisé las condiciones y las cláusulas, y entiendo que después de enviarlo no puedo editarlo". |
+| - Se debe mostrar un resumen de todo lo cargado: propiedad, partes, garantes, vigencia, monto inicial, ajuste, depósito, vencimiento del pago y una miniatura de la primer página del PDF. |
+| - Para enviar a firmar, se debe marcar la casilla "Revisé la correcta redacción del contrato y entiendo que después de enviarlo no puedo editarlo". |
 | - Se debe solicitar confirmación antes de enviar a firmar, indicando quiénes deben firmar. |
 | - Al enviarlo, el contrato pasa al estado "pendiente de firma" y recibe un código con formato CT-AAAA-NNNN. |
 | - La propiedad sigue publicada mientras el contrato esté pendiente de firma. |
@@ -73,10 +67,6 @@
 | - Probar elegir "Sin ajuste" y verificar que no se muestre la periodicidad (pasa). |
 | - Probar elegir ICL con ajuste semestral para 36 meses y verificar que se informen 5 ajustes y la fecha del primero (pasa). |
 | - Probar elegir un índice distinto de "Sin ajuste" sin indicar la periodicidad (falla). |
-| - Probar intentar editar una cláusula fija (falla). |
-| - Probar editar una cláusula editable con hasta 1.000 caracteres (pasa). |
-| - Probar editar una cláusula con más de 1.000 caracteres (falla). |
-| - Probar agregar y luego eliminar una cláusula propia (pasa). |
 | - Probar enviar a firmar sin marcar la casilla de revisión (falla). |
 | - Probar enviar a firmar, cancelar la confirmación y verificar que el contrato no se envíe (pasa). |
 | - Probar enviar a firmar y verificar que el contrato quede pendiente de firma, con código CT-AAAA-NNNN (pasa). |
