@@ -210,6 +210,8 @@ de error:
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
 
+**Contratos del locador en real (04/11):** las pantallas de alta, detalle y firma siguen contra rutas propuestas y no andan en real; contra la API del 03/11 faltan `PATCH` en lugar de `PUT`, `/contratos/:id/detalle` y el paso 3 con PDF. Se resuelve en la tanda de conexión de contratos.
+
 ### US-27 Consultar mis alquileres (Sprint 3, tanda 4, `/panel/alquiler` y `/panel/alquileres`)
 
 Ficha y listado del locatario **conectados** a `GET /alquileres-locatario` y

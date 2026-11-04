@@ -10,7 +10,7 @@
  *
  * Adaptador que los produce:
  * `apps/web/src/services/adapters/perfil.adapter.ts` (contra los DTO
- * propuestos de `GET /usuarios/me/perfil`, ver `docs/api-endpoints.md`).
+ * de `GET /usuarios/me`, ver `docs/api-endpoints.md`).
  *
  * NOTA de privacidad (US-20): el DNI y los ingresos solo se muestran en el
  * perfil y en el detalle de una solicitud enviada, nunca en listados. Por eso
