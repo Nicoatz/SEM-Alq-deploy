@@ -36,7 +36,10 @@ export function BarriosSection() {
               {/* Sin ilustración, queda el fondo celeste del recuadro. */}
               <span className={styles.media}>
                 {barrio.imagen ? (
-                  <Image src={barrio.imagen} alt="" width={480} height={600} sizes={TAMANIOS_IMAGEN} className={styles.image} />
+                  // NOTA: `unoptimized` para no depender del optimizador de Vercel
+                  // (`/_next/image`): en Vercel estas ilustraciones no se veían. La causa
+                  // está sin confirmar. Pesan menos de 35 KB, así que no se pierde casi nada.
+                  <Image src={barrio.imagen} alt="" width={480} height={600} sizes={TAMANIOS_IMAGEN} unoptimized className={styles.image} />
                 ) : null}
               </span>
               <span className={styles.text}>
