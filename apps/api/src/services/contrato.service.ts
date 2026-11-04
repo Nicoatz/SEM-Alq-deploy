@@ -1,0 +1,464 @@
+import { createHash, randomUUID } from 'crypto';
+
+import type {
+  AjusteCalendarioResponse,
+  ContratoBorradorResponse,
+  ContratoDetalleResponse,
+  ContratoDTO,
+  ContratoResumenResponse,
+  EstadoContratoResponse,
+  EstadoFirmaDetalleResponse,
+  FirmanteDetalleResponse,
+  IndiceContratoResponse,
+  UrlSubidaPdfResponse,
+} from '../dtos';
+import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
+import {
+  ESTADO_CONTRATO,
+  FilaDetalleContrato,
+  FilaFirma,
+  FilaListadoContrato,
+  IContratoRepository,
+  contratoRepository,
+} from '../repositories/contrato.repository';
+import { calcularFechaProximoAjuste } from './alquiler-locatario.service';
+import { hoyEnArgentina, validarGuardarBorrador } from './contrato-borrador.validacion';
+import {
+  MAX_PDF_BYTES,
+  nuevaRutaPdf,
+  validarArchivoPdf,
+  validarRegistrarPdf,
+} from './contrato-pdf.validacion';
+
+const ESTADO_POR_ID: Record<number, EstadoContratoResponse> = {
+  [ESTADO_CONTRATO.BORRADOR]: 'borrador',
+  [ESTADO_CONTRATO.PENDIENTE_FIRMA]: 'pendiente_firma',
+  [ESTADO_CONTRATO.VIGENTE]: 'vigente',
+  [ESTADO_CONTRATO.FINALIZADO]: 'finalizado',
+};
+
+/** US-43: pendientes de firma primero, después borradores y al final el resto. */
+const PRIORIDAD_LISTADO: Record<EstadoContratoResponse, number> = {
+  pendiente_firma: 0,
+  borrador: 1,
+  vigente: 2,
+  finalizado: 2,
+};
+
+/** El índice del listado sale de la sigla de `tipo_indice.descripcion` ("ICL (Índice de…)"). */
+function indiceDelListado(descripcion: string | null): IndiceContratoResponse {
+  const sigla = descripcion?.trim().split(/[\s(]/)[0].toUpperCase();
+  return sigla === 'ICL' || sigla === 'IPC' || sigla === 'CAC' ? sigla : 'sin_ajuste';
+}
+
+/** Fecha ISO `YYYY-MM-DD`: se compara como texto, sin zonas horarias. Los `null` van al final. */
+function compararFechas(a: string | null, b: string | null): number {
+  if (a === b) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a < b ? -1 : 1;
+}
+
+function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | null {
+  const estado = ESTADO_POR_ID[fila.estado];
+  // NOTA: un estado desconocido no se muestra (nunca la oferta, estado 1).
+  if (!estado) return null;
+
+  const indice = indiceDelListado(fila.indice);
+
+  // Con ajuste, el monto actual es el del último ajuste aplicado; si no hubo, el inicial.
+  const montoActual = fila.ultimo_ajuste?.monto_nuevo ?? fila.monto_alquiler;
+
+  // NOTA: sin índice no hay ajuste; un finalizado ya no se ajusta. Si el próximo ajuste cae
+  // después del fin del contrato, ya no quedan ajustes.
+  let proximoAjuste: string | null = null;
+  if (indice !== 'sin_ajuste' && estado !== 'finalizado') {
+    proximoAjuste = calcularFechaProximoAjuste(
+      fila.fecha_inicio_contrato,
+      fila.ultimo_ajuste?.fecha_efectiva ?? null,
+      fila.frecuencia_ajuste
+    );
+    if (proximoAjuste && fila.fecha_fin_contrato && proximoAjuste > fila.fecha_fin_contrato) {
+      proximoAjuste = null;
+    }
+  }
+
+  return {
+    id: fila.id,
+    codigo: fila.codigo,
+    estado,
+    inmueble: fila.inmueble,
+    locatario: fila.locatario,
+    monto_actual: montoActual,
+    fecha_inicio_contrato: fila.fecha_inicio_contrato,
+    fecha_fin_contrato: fila.fecha_fin_contrato,
+    indice,
+    proximo_ajuste: proximoAjuste,
+    id_solicitud: fila.id_solicitud,
+  };
+}
+
+const FIRMA_POR_ESTADO: Record<FilaFirma['estado_firma'], EstadoFirmaDetalleResponse> = {
+  pendiente: 'pendiente',
+  firmado: 'firmado',
+  rechazado: 'rechazado',
+  desconocido: 'sin_registro',
+};
+
+function firmanteDeFila(
+  rol: FirmanteDetalleResponse['rol'],
+  persona: { nombre: string; apellido: string } | null,
+  firma: FilaFirma
+): FirmanteDetalleResponse {
+  return {
+    rol,
+    nombre: persona?.nombre ?? '',
+    apellido: persona?.apellido ?? '',
+    estado: FIRMA_POR_ESTADO[firma.estado_firma] ?? 'sin_registro',
+    fecha_firma: firma.fecha_firma ?? null,
+    fecha_rechazo: firma.fecha_rechazo ?? null,
+    motivo_rechazo: firma.motivo_rechazo ?? null,
+  };
+}
+
+/**
+ * US-42 · Calendario de ajustes: el inicio y cada fecha de ajuste hasta el fin del contrato.
+ * Los ajustes ya aplicados traen su monto; los futuros quedan en `null` ("a definir"), porque
+ * dependen del índice del día. `null` si el contrato es "Sin ajuste".
+ */
+function calendarioDeAjustes(fila: FilaDetalleContrato): AjusteCalendarioResponse[] | null {
+  if (indiceDelListado(fila.indice?.descripcion ?? null) === 'sin_ajuste') return null;
+
+  const calendario: AjusteCalendarioResponse[] = [];
+  if (!fila.fecha_inicio_contrato) return calendario;
+
+  calendario.push({ fecha: fila.fecha_inicio_contrato, tipo: 'inicio', monto: fila.monto_alquiler });
+
+  // NOTA: el monto de un ajuste aplicado se une por fecha exacta con `ajuste_contrato.fecha_efectiva`.
+  // Quien implemente la aplicación de ajustes debe guardar la misma fecha que calcula
+  // `calcularFechaProximoAjuste`; si no, ese ajuste se vería como "a definir".
+  const aplicados = new Map(fila.ajustes.map(ajuste => [ajuste.fecha_efectiva, ajuste.monto_nuevo]));
+  let desde: string | null = null;
+  // NOTA: tope de 600 iteraciones (50 años mensuales) por si la frecuencia o las fechas vienen mal.
+  for (let i = 0; i < 600; i++) {
+    const fecha = calcularFechaProximoAjuste(fila.fecha_inicio_contrato, desde, fila.frecuencia_ajuste);
+    if (!fecha || fecha <= (desde ?? fila.fecha_inicio_contrato)) break;
+    if (fila.fecha_fin_contrato && fecha > fila.fecha_fin_contrato) break;
+    calendario.push({ fecha, tipo: 'ajuste', monto: aplicados.get(fecha) ?? null });
+    desde = fecha;
+  }
+
+  return calendario;
+}
+
+export class ContratoService {
+  constructor(private readonly contratoRepo: IContratoRepository = contratoRepository) {}
+
+  /**
+   * Lanza un error con su status HTTP y, si lo tiene, el `codigo` que identifica el motivo (los
+   * 409): el manejador de errores lo devuelve en el sobre para que el cliente no lea el texto.
+   */
+  private throwError(message: string, statusCode: number, codigo?: string): never {
+    const error = new Error(message);
+    (error as any).statusCode = statusCode;
+    if (codigo) (error as any).codigo = codigo;
+    throw error;
+  }
+
+  /** Sesión de locador e id válidos: lo que piden todas las operaciones sobre un contrato. */
+  private validarAcceso(user: AuthenticatedUser, idContrato: number): void {
+    if (!user?.id) {
+      this.throwError('Debe iniciar sesión para gestionar contratos.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwError('Se requiere el rol locador para gestionar contratos.', 403);
+    }
+
+    if (!Number.isInteger(idContrato) || idContrato < 1) {
+      this.throwError('El identificador del contrato no es válido.', 400);
+    }
+  }
+
+  /**
+   * US-43 · Listado de los contratos del locador, sin las ofertas (estado 1). Solo los de sus
+   * propiedades y sin DNI ni contacto. Orden por defecto: pendientes de firma, borradores y el
+   * resto por fecha de fin. Los filtros, los conteos y la búsqueda los resuelve el front sobre
+   * esta lista (un locador tiene pocos contratos).
+   */
+  async listar(user: AuthenticatedUser): Promise<ContratoResumenResponse[]> {
+    if (!user?.id) {
+      this.throwError('Debe iniciar sesión para consultar contratos.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwError('Se requiere el rol locador para consultar contratos.', 403);
+    }
+
+    const filas = await this.contratoRepo.findListadoByLocadorId(user.id);
+
+    return filas
+      .map(resumenDeFila)
+      .filter((resumen): resumen is ContratoResumenResponse => resumen !== null)
+      .sort(
+        (a, b) =>
+          PRIORIDAD_LISTADO[a.estado] - PRIORIDAD_LISTADO[b.estado] ||
+          compararFechas(a.fecha_fin_contrato, b.fecha_fin_contrato) ||
+          a.id - b.id
+      );
+  }
+
+  /**
+   * US-42 · Detalle del contrato del locador: partes, garantes, condiciones, calendario de
+   * ajustes, firmas, PDF y acciones disponibles según el estado.
+   *
+   * - Inexistente o ajeno: 404 con el mismo mensaje, sin distinguir.
+   * - Borrador: no tiene detalle, 409 `CONTRATO_BORRADOR`; el cliente retoma el alta (US-06) con
+   *   `GET /contratos/:id`.
+   * - Lo que no está registrado (contratos anteriores a RentAR) viaja en `null`, nunca inventado.
+   */
+  async obtenerDetalle(user: AuthenticatedUser, idContrato: number): Promise<ContratoDetalleResponse> {
+    this.validarAcceso(user, idContrato);
+
+    // Existencia, dueño y estado, antes de armar nada (el PDF firma una URL de Storage).
+    const previo = await this.contratoRepo.findParaPdf(idContrato, user.id);
+
+    if (!previo) {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    if (previo.estado === ESTADO_CONTRATO.BORRADOR) {
+      this.throwError('Un borrador no tiene detalle: retomalo desde el alta.', 409, 'CONTRATO_BORRADOR');
+    }
+
+    const fila = await this.contratoRepo.findDetalle(idContrato, user.id);
+    const estado = fila ? ESTADO_POR_ID[fila.estado] : undefined;
+
+    if (!fila || !estado || estado === 'borrador') {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    const parteDe = (tipoFirmante: number) => fila.partes.find(parte => parte.tipo_firmante === tipoFirmante);
+    const locador = parteDe(1);
+    const locatario = parteDe(2);
+
+    const firmantes: FirmanteDetalleResponse[] = [
+      ...(locador ? [firmanteDeFila('locador', locador.usuario, locador)] : []),
+      ...(locatario ? [firmanteDeFila('locatario', locatario.usuario, locatario)] : []),
+      ...fila.garantes.map(garante => firmanteDeFila('garante', garante, garante)),
+    ];
+
+    // US-42: sin evidencia de las firmas (contratos anteriores a RentAR) no se inventa nada.
+    const registradas = firmantes.length > 0 && firmantes.every(firmante => firmante.estado !== 'sin_registro');
+    const pendiente = estado === 'pendiente_firma';
+
+    const fechasFirma = firmantes.map(firmante => firmante.fecha_firma).filter((f): f is string => f !== null);
+    const firmadoPorTodos =
+      estado === 'vigente' && registradas && firmantes.every(firmante => firmante.estado === 'firmado')
+        ? fechasFirma.reduce((ultima, fecha) => (new Date(fecha) > new Date(ultima) ? fecha : ultima))
+        : null;
+
+    const montoInicial = fila.monto_alquiler;
+    const ultimoAjuste = fila.ajustes[fila.ajustes.length - 1];
+
+    return {
+      id: fila.id,
+      codigo: fila.codigo,
+      estado,
+      id_solicitud: fila.id_solicitud,
+      inmueble: fila.inmueble,
+      locador: locador?.usuario ?? null,
+      locatario: locatario?.usuario ?? null,
+      garantes: fila.garantes.map(({ id, nombre, apellido, dni, email }) => ({ id, nombre, apellido, dni, email })),
+      condiciones: {
+        fecha_inicio_contrato: fila.fecha_inicio_contrato,
+        fecha_fin_contrato: fila.fecha_fin_contrato,
+        duracion_meses: fila.duracion_meses,
+        monto_inicial: montoInicial,
+        monto_actual: ultimoAjuste?.monto_nuevo ?? montoInicial,
+        deposito: fila.deposito,
+        dias_para_vencimiento: fila.dias_para_vencimiento,
+        indice: fila.indice,
+        frecuencia_ajuste: fila.frecuencia_ajuste,
+        medios_pago: fila.medios_pago,
+        dias_gracia: fila.dias_gracia,
+        interes_por_dia: fila.interes_por_dia,
+      },
+      calendario_ajustes: calendarioDeAjustes(fila),
+      firmas: {
+        registradas,
+        faltan: pendiente ? firmantes.filter(firmante => firmante.estado !== 'firmado').length : null,
+        firmado_por_todos_el: firmadoPorTodos,
+        firmantes,
+      },
+      pdf: fila.pdf,
+      acciones: {
+        // US-06 y US-07: solo mientras está pendiente de firma; firmar, además, si el locador no firmó.
+        modificar: pendiente,
+        firmar: pendiente && locador?.estado_firma === 'pendiente',
+        // US-42: el PDF se descarga en cualquier estado (siempre que el contrato tenga archivo).
+        descargar_pdf: fila.pdf !== null,
+      },
+    };
+  }
+
+  /**
+   * US-05 · Consultar un contrato en curso del locador (para retomar el borrador).
+   * Un contrato ajeno o inexistente es siempre 404: no se distingue.
+   */
+  async obtener(user: AuthenticatedUser, idContrato: number): Promise<ContratoBorradorResponse> {
+    this.validarAcceso(user, idContrato);
+
+    const contrato = await this.contratoRepo.findBorradorCompleto(idContrato, user.id);
+
+    if (!contrato) {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    return contrato;
+  }
+
+  /**
+   * US-05 · Guardar el borrador desde cualquier paso. Un borrador puede estar incompleto: solo
+   * se valida el formato de lo que llega; lo obligatorio se exige al enviar a firmar.
+   * Devuelve el contrato completo, así el front no vuelve a pedirlo.
+   */
+  async guardar(
+    user: AuthenticatedUser,
+    idContrato: number,
+    cuerpo: unknown
+  ): Promise<ContratoBorradorResponse> {
+    this.validarAcceso(user, idContrato);
+
+    const datos = validarGuardarBorrador(cuerpo, hoyEnArgentina());
+    const resultado = await this.contratoRepo.guardarBorrador(idContrato, user.id, datos);
+
+    if (!resultado.success) {
+      this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
+    }
+
+    return this.obtener(user, idContrato);
+  }
+
+  /** El contrato del locador, solo si existe, es suyo y sigue en borrador (si no, 404 o 409). */
+  private async contratoEditableParaPdf(user: AuthenticatedUser, idContrato: number) {
+    const contrato = await this.contratoRepo.findParaPdf(idContrato, user.id);
+
+    if (!contrato) {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    // US-05: un contrato enviado a firmar no se puede editar, tampoco su PDF.
+    if (contrato.estado !== ESTADO_CONTRATO.BORRADOR) {
+      this.throwError('Solo se puede modificar un contrato en borrador.', 409, 'CONTRATO_NO_EDITABLE');
+    }
+
+    return contrato;
+  }
+
+  /**
+   * US-05, paso 3 · Primer paso de la carga del PDF: entrega una URL firmada para que el
+   * navegador suba el archivo **directo a Storage**. No pasa por la API porque en Vercel las
+   * funciones aceptan cuerpos de hasta 4,5 MB y la US permite PDFs de hasta 5 MB.
+   * Cada pedido genera una ruta nueva: subir un PDF nunca pisa el que ya está registrado.
+   */
+  async urlSubidaPdf(user: AuthenticatedUser, idContrato: number): Promise<UrlSubidaPdfResponse> {
+    this.validarAcceso(user, idContrato);
+    await this.contratoEditableParaPdf(user, idContrato);
+
+    const url = await this.contratoRepo.crearUrlSubidaPdf(nuevaRutaPdf(idContrato, randomUUID()));
+
+    return { ...url, tamano_maximo_bytes: MAX_PDF_BYTES };
+  }
+
+  /**
+   * US-05, paso 3 · Segundo paso: el front avisa que ya subió el archivo. La API lo descarga,
+   * verifica que sea un PDF de hasta 5 MB (no confía en lo que declara el cliente), calcula su
+   * hash y lo registra en el borrador. Si ya había un PDF, lo reemplaza y borra el anterior.
+   */
+  async registrarPdf(
+    user: AuthenticatedUser,
+    idContrato: number,
+    cuerpo: unknown
+  ): Promise<ContratoBorradorResponse> {
+    this.validarAcceso(user, idContrato);
+
+    const { path, nombre } = validarRegistrarPdf(cuerpo, idContrato);
+    await this.contratoEditableParaPdf(user, idContrato);
+
+    const descarga = await this.contratoRepo.descargarPdf(path);
+
+    if (descarga.estado === 'no_encontrado') {
+      this.throwError('No encontramos el archivo subido. Volvé a cargar el PDF.', 400);
+    }
+
+    // Un archivo que no cumple se borra de Storage: no queda suelto un PDF sin registrar.
+    if (descarga.estado === 'demasiado_grande') {
+      await this.contratoRepo.eliminarPdf(path);
+      this.throwError('El contrato no puede superar los 5 MB.', 413);
+    }
+
+    try {
+      validarArchivoPdf(descarga.archivo);
+    } catch (error) {
+      await this.contratoRepo.eliminarPdf(path);
+      throw error;
+    }
+
+    const resultado = await this.contratoRepo.registrarPdf(idContrato, user.id, {
+      path,
+      nombre,
+      sha256: createHash('sha256').update(descarga.archivo).digest('hex'),
+      tamano: descarga.archivo.length,
+    });
+
+    if (!resultado.success) {
+      // El contrato dejó de ser editable mientras tanto: el archivo recién subido sobra.
+      await this.contratoRepo.eliminarPdf(path);
+      this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
+    }
+
+    if (resultado.pdf_anterior && resultado.pdf_anterior !== path) {
+      await this.contratoRepo.eliminarPdf(resultado.pdf_anterior);
+    }
+
+    return this.obtener(user, idContrato);
+  }
+
+  /**
+   * US-05 · Iniciar contrato: crea el borrador desde una solicitud aceptada.
+   *
+   * La oferta de la propiedad no se modifica (ver docs/gestion_contrato.md): el borrador es una
+   * fila nueva. Las reglas de negocio las valida la función SQL `iniciar_contrato`, que además
+   * hace el alta en una sola transacción.
+   */
+  async iniciar(user: AuthenticatedUser, idSolicitud: number): Promise<ContratoDTO> {
+    if (!user?.id) {
+      this.throwError('Debe iniciar sesión para iniciar un contrato.', 401);
+    }
+
+    if (!user.roles.includes('locador')) {
+      this.throwError('Se requiere el rol locador para iniciar un contrato.', 403);
+    }
+
+    if (!Number.isInteger(idSolicitud) || idSolicitud < 1) {
+      this.throwError('El identificador de la solicitud no es válido.', 400);
+    }
+
+    const resultado = await this.contratoRepo.iniciarContrato(idSolicitud, user.id);
+
+    if (!resultado.success || resultado.contrato_id === undefined) {
+      this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
+    }
+
+    const contrato = await this.contratoRepo.findById(resultado.contrato_id);
+
+    if (!contrato) {
+      this.throwError('No se pudo recuperar el contrato creado.', 500);
+    }
+
+    return contrato;
+  }
+}
+
+export const contratoService = new ContratoService();

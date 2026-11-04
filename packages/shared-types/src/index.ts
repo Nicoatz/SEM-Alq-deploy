@@ -140,7 +140,8 @@ export interface InmuebleXTag {
 export interface Contrato {
   id: number;
   id_inmueble: number;
-  monto_alquiler: number;
+  /** `null` solo en un borrador (estado 5): se puede guardar incompleto. */
+  monto_alquiler: number | null;
   expensas: number;
   indice_aumento?: number | null;
   frecuencia_ajuste?: string | null;
@@ -151,6 +152,21 @@ export interface Contrato {
   fecha_inicio_contrato?: string | null;
   fecha_fin_contrato?: string | null;
   estado?: number | null;
+  /** Día del mes en que vence el pago (1 a 28). Ver US-05 (paso 2) y US-27. */
+  dias_para_vencimiento?: number | null;
+  /** Código CT-AAAA-NNNN: se asigna al enviar a firmar, el borrador no lo tiene. */
+  codigo?: string | null;
+  /** Solicitud aceptada que originó el contrato (US-05). La oferta no la tiene. */
+  id_solicitud?: number | null;
+  /** Último paso del alta (1 a 4) para retomar el borrador. */
+  ultimo_paso_borrador?: number | null;
+  activo?: boolean;
+  /** PDF del contrato (US-05, paso 3), en el bucket privado `contratos-pdf`. */
+  pdf_storage_path?: string | null;
+  pdf_sha256?: string | null;
+  pdf_nombre_original?: string | null;
+  pdf_tamano_bytes?: number | null;
+  pdf_subido_en?: string | null;
 }
 
 /**
@@ -252,6 +268,11 @@ export interface ApiResponse<T> {
   message?: string;
   data?: T;
   error?: string | null;
+  /**
+   * Identifica el motivo de un error de negocio (hoy, los 409 de contratos: `SOLICITUD_NO_ACEPTADA`,
+   * `CONTRATO_NO_EDITABLE`...) para que el cliente no tenga que leer el texto de `error`.
+   */
+  codigo?: string;
 }
 
 // ─── Tipos de vista del front (apps/web + packages/ui) ───────────────────────

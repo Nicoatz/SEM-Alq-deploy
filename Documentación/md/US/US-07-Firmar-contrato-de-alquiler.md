@@ -12,18 +12,17 @@
 | - Se debe indicar cuántas firmas faltan. |
 | - Se deben mostrar los datos principales del contrato: propiedad, partes, garantes, vigencia, monto inicial, depósito, ajuste y día de vencimiento del pago. |
 | - Se debe mostrar el documento del contrato y permitir descargarlo en PDF en cualquier estado. |
-| - Se debe mostrar el historial del contrato: creación, envío a firmar, firmas, rechazos, reenvíos y cancelaciones, con fecha y hora. |
 | *Firma* |
-| - Antes de firmar, se debe informar que en esta versión de la plataforma la firma es simulada. |
 | - El botón "Firmar contrato" solo se habilita cuando el usuario llegó a la última página del documento y marcó la casilla "Leí el contrato completo y acepto sus condiciones y cláusulas". |
 | - Mientras el botón no esté habilitado, se debe indicar cuántas páginas faltan leer. |
 | - Volver a páginas anteriores no reduce el progreso de lectura. |
 | - Se debe solicitar confirmación antes de firmar, avisando que la firma no se puede deshacer. |
-| - Se deben registrar la fecha, la hora y la IP de cada firma. |
+| - Se deben registrar la fecha, la hora de cada firma. |
 | - Una parte no puede firmar más de una vez el mismo contrato. |
 | *Rechazo y cancelación* |
-| - El locatario puede rechazar la firma, indicando un motivo opcional de hasta 300 caracteres, previa confirmación. Esto no cambia el estado del contrato, que sigue pendiente de firma, y el rechazo se ve en el detalle. |
-| - El locador puede cancelar el envío mientras ninguna otra parte haya firmado. El contrato vuelve a "borrador" y se borran las firmas registradas. |
+| - Tanto el locatario como el locador pueden rechazar la firma |
+| - Quien rechazó la firma no puede firmar después. Para volver a enviarlo a firmar, el locador debe rechazar la firma y reenviar el contrato. |
+| - Al rechazar la firma el contrato vuelve a "borrador" y se borran las firmas registradas. |
 | - El locador puede reenviar la invitación a un firmante pendiente, como máximo una vez por hora. Mientras no pueda reenviar, el botón debe explicar por qué. |
 | *Contrato vigente* |
 | - Cuando firman todas las partes, el contrato pasa a "vigente". |
@@ -44,6 +43,7 @@
 | - Probar verificar que en el detalle se muestren la fecha y la hora de cada firma registrada (pasa). |
 | - Probar rechazar la firma como locatario con un motivo de hasta 300 caracteres (pasa). |
 | - Probar rechazar la firma con un motivo de más de 300 caracteres (falla). |
+| - Probar firmar como locatario después de haber rechazado la firma (falla). |
 | - Probar cancelar el envío como locador cuando nadie más firmó y verificar que el contrato vuelva a borrador (pasa). |
 | - Probar cancelar el envío como locador cuando el locatario ya firmó (falla). |
 | - Probar cancelar el envío habiendo iniciado sesión como locatario (falla). |

@@ -11,7 +11,11 @@ import {
   InmueblesDisponiblesResultadoDTO,
 } from '../dtos';
 import { IInmuebleRepository, inmuebleRepository } from '../repositories/inmueble.repository';
-import { IContratoRepository, contratoRepository } from '../repositories/contrato.repository';
+import {
+  ESTADO_CONTRATO,
+  IContratoRepository,
+  contratoRepository,
+} from '../repositories/contrato.repository';
 import { lookupRepository } from '../repositories/lookup.repository';
 
 export class InmuebleService {
@@ -33,7 +37,8 @@ export class InmuebleService {
 
     const servicioObj = inmueble.servicios ? await lookupRepository.getServicioById(inmueble.servicios): null;
 
-    const contrato = await this.contRepo.findByInmuebleId(inmueble.id);
+    // NOTA: la publicación lee la oferta (estado 1), nunca el contrato en curso.
+    const contrato = await this.contRepo.findOfertaByInmuebleId(inmueble.id);
     const fotos = await this.inmRepo.getFotosByInmuebleId(inmueble.id);
     const tags = await this.inmRepo.getTagsByInmuebleId(inmueble.id);
 
@@ -109,7 +114,8 @@ export class InmuebleService {
         inmueble.tipo
       );
 
-      const contrato = await this.contRepo.findByInmuebleId(
+      // NOTA: el listado público lee la oferta (estado 1), nunca el contrato en curso.
+      const contrato = await this.contRepo.findOfertaByInmuebleId(
         inmueble.id
       );
 
@@ -403,7 +409,13 @@ export class InmuebleService {
       const fotos = await this.inmRepo.getFotosByInmuebleId(inm.id);
       const fotoPrincipal = fotos.find(f => f.es_principal)?.url || (fotos.length > 0 ? fotos[0].url : null);
 
-      const contrato = await this.contRepo.findByInmuebleId(inm.id);
+      // NOTA: "Mis alquileres" muestra el contrato firmado si el inmueble está alquilado; en
+      // cualquier otro caso (incluso con un borrador o un contrato pendiente de firma) muestra
+      // las condiciones de la oferta, que es lo que está publicado.
+      const enCurso = await this.contRepo.findEnCursoByInmuebleId(inm.id);
+      const contrato = enCurso?.estado === ESTADO_CONTRATO.VIGENTE
+        ? enCurso
+        : await this.contRepo.findOfertaByInmuebleId(inm.id);
       let mediosPagoNombres: string[] = [];
       let indiceDescripcion: string | null = null;
       const fechaProximoAjuste = contrato
@@ -462,7 +474,9 @@ export class InmuebleService {
                 apellido: locatario.apellido
               }
             : null,
-          monto_alquiler: contrato ? contrato.monto_alquiler : inm.precio_publicado,
+          // NOTA: la oferta y el contrato vigente siempre tienen monto; solo un borrador puede no
+          // tenerlo, y acá nunca se lee un borrador. El respaldo cubre el tipo.
+          monto_alquiler: contrato?.monto_alquiler ?? inm.precio_publicado,
           expensas: contrato ? contrato.expensas : 0,
           indice_aumento: indiceDescripcion,
           fecha_proximo_ajuste: fechaProximoAjuste,
