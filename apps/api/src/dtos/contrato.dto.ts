@@ -160,7 +160,14 @@ export interface ContratoBorradorResponse {
   pdf: ContratoPdfResponse | null;
   /** De 1 a 4, para retomar el borrador donde quedó. */
   ultimo_paso: number | null;
+  /**
+   * US-06: `true` si la fecha de inicio guardada quedó en el pasado (hoy en Córdoba). Hay que
+   * pedir una nueva antes de volver a enviar a firmar.
+   */
+  fecha_inicio_vencida: boolean;
 }
+
+// ─── US-06: modificar contrato ───
 
 // ─── US-42: detalle del contrato del locador ───
 

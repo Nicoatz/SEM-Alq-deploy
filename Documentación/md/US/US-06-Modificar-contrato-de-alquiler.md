@@ -20,7 +20,6 @@
 | - Si la fecha de inicio guardada quedó en el pasado, se debe pedir una nueva antes de volver a enviar a firmar. |
 | - Se puede guardar el contrato modificado como borrador o volver a enviarlo a firmar, con la misma casilla de revisión y la misma confirmación que en el alta. |
 | - Si el usuario intenta salir con cambios sin guardar, se debe mostrar un aviso. |
-| - Cada modificación se debe registrar en el historial del contrato con fecha y hora. |
 | **Pruebas de usuario:** |
 | - Probar modificar un contrato sin haber iniciado sesión (falla). |
 | - Probar modificar el contrato de otro locador, accediendo por URL (falla). |
@@ -38,4 +37,3 @@
 | - Probar volver a enviar a firmar un contrato cuya fecha de inicio quedó en el pasado sin actualizarla (falla). |
 | - Probar volver a enviar a firmar un contrato modificado y verificar que quede pendiente de firma con todas las firmas pendientes (pasa). |
 | - Probar salir con cambios sin guardar y verificar que se muestre el aviso (pasa). |
-| - Probar modificar un contrato y verificar que la modificación figure en el historial con fecha y hora (pasa). |

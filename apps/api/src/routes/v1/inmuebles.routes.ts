@@ -161,7 +161,14 @@ router.post(
  *       incluyendo sus fotos y tags.
  *
  *       Las fotos y los tags enviados reemplazan las colecciones existentes.
- *       No se permite modificar el estado de alquiler ni los datos del contrato.
+ *       No se permite modificar el estado de alquiler.
+ *
+ *       También modifica las **condiciones de la oferta** (lo que está publicado) con
+ *       `condiciones_contrato`: parcial, solo se cambia lo que viene, y se puede enviar solo, sin
+ *       datos de la propiedad. Todo se guarda en una sola transacción. El monto de la oferta y
+ *       `precio_publicado` son el mismo dato: si llega uno, el otro se actualiza; si llegan los dos
+ *       con valores distintos, responde 400. `medios_pago`, si se envía, reemplaza la lista. El
+ *       contrato en curso (borrador, pendiente de firma o vigente) no se modifica.
  *       Tampoco se permite modificar una propiedad que se encuentre alquilada
  *       o publicada/alquilada.
  *     tags:
@@ -271,6 +278,23 @@ router.post(
  *                       type: boolean
  *                       default: false
  *                       example: true
+ *               condiciones_contrato:
+ *                 type: object
+ *                 description: Condiciones de la oferta. Todas opcionales.
+ *                 properties:
+ *                   monto_alquiler: { type: number, minimum: 1, description: 'Debe coincidir con precio_publicado si llegan los dos' }
+ *                   expensas: { type: number, minimum: 0 }
+ *                   indice_aumento: { type: integer, nullable: true, description: 'null = sin ajuste' }
+ *                   frecuencia_ajuste: { type: string, nullable: true }
+ *                   duracion_meses: { type: integer, minimum: 1, nullable: true }
+ *                   deposito: { type: number, minimum: 0, nullable: true }
+ *                   interes_por_dia: { type: number, nullable: true, description: 'Si es mayor a 0 hacen falta los días de gracia' }
+ *                   dias_gracia: { type: integer, nullable: true }
+ *                   medios_pago:
+ *                     type: array
+ *                     minItems: 1
+ *                     description: Lista completa de IDs de medios de pago (reemplaza la existente).
+ *                     items: { type: integer }
  *               tags:
  *                 type: array
  *                 description: |

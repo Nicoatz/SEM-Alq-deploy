@@ -10,6 +10,7 @@ import {
   UsuarioDTO,
 } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
+import { hoyEnArgentina } from '../services/contrato-borrador.validacion';
 import { BUCKET_CONTRATOS_PDF, MAX_PDF_BYTES } from '../services/contrato-pdf.validacion';
 
 /** Cuánto dura la URL firmada para ver el PDF en la vista previa del paso 4. */
@@ -60,6 +61,16 @@ export interface RegistrarPdfResultado {
   message: string;
   codigo?: string;
   /** Ruta del PDF que reemplaza este registro, para borrarlo de Storage. */
+  pdf_anterior?: string | null;
+}
+
+/** Respuesta de las funciones SQL `reabrir_contrato` y `descartar_borrador_contrato` (US-06). */
+export interface ModificarContratoResultado {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  codigo?: string;
+  /** Solo al descartar: ruta del PDF del borrador, para borrarlo de Storage. */
   pdf_anterior?: string | null;
 }
 
@@ -200,6 +211,8 @@ export interface IContratoRepository {
     data: GuardarBorradorRequest
   ): Promise<GuardarBorradorResultado>;
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
+  reabrirContrato(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
+  descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
   findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]>;
   findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
@@ -380,7 +393,35 @@ export class ContratoRepository implements IContratoRepository {
       },
       pdf,
       ultimo_paso: fila.ultimo_paso_borrador ?? null,
+      fecha_inicio_vencida: Boolean(fila.fecha_inicio_contrato && fila.fecha_inicio_contrato < hoyEnArgentina()),
     };
+  }
+
+  /**
+   * US-06: vuelve a borrador un contrato pendiente de firma sin la firma del locatario. Borra las
+   * firmas, conserva el código todo en una transacción. Las
+   * reglas (dueño, estado, firma del locatario) las valida la función SQL `reabrir_contrato`.
+   */
+  async reabrirContrato(idContrato: number, idLocador: number): Promise<ModificarContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('reabrir_contrato', {
+      p_id_contrato: idContrato,
+      p_id_locador: idLocador,
+    });
+    if (error) throw error;
+    return data as ModificarContratoResultado;
+  }
+
+  /**
+   * US-06: descarta un borrador y libera la solicitud de origen. Dueño y estado los valida la
+   * función SQL `descartar_borrador_contrato`.
+   */
+  async descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('descartar_borrador_contrato', {
+      p_id_contrato: idContrato,
+      p_id_locador: idLocador,
+    });
+    if (error) throw error;
+    return data as ModificarContratoResultado;
   }
 
   /**

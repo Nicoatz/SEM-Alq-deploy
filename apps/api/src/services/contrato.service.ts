@@ -293,8 +293,9 @@ export class ContratoService {
       },
       pdf: fila.pdf,
       acciones: {
-        // US-06 y US-07: solo mientras está pendiente de firma; firmar, además, si el locador no firmó.
-        modificar: pendiente,
+        // US-06: solo pendiente de firma y sin la firma del locatario. US-07: firmar, además,
+        // si el locador no firmó.
+        modificar: pendiente && locatario?.estado_firma !== 'firmado',
         firmar: pendiente && locador?.estado_firma === 'pendiente',
         // US-42: el PDF se descarga en cualquier estado (siempre que el contrato tenga archivo).
         descargar_pdf: fila.pdf !== null,
@@ -338,6 +339,47 @@ export class ContratoService {
     }
 
     return this.obtener(user, idContrato);
+  }
+
+  /**
+   * US-06 · Modificar un contrato pendiente de firma: lo devuelve a borrador para poder editarlo
+   * con `PATCH /contratos/:id`. Cancela el envío, borra las firmas registradas y conserva el
+   * código CT-AAAA-NNNN. El cliente pide la confirmación al locador antes de llamar.
+   *
+   * - Ajeno o inexistente: 404 con el mismo mensaje.
+   * - Vigente, finalizado, con la firma del locatario o ya en borrador: 409 con `codigo` y el
+   *   motivo (CONTRATO_VIGENTE, CONTRATO_FINALIZADO, CONTRATO_FIRMADO_POR_LOCATARIO,
+   *   CONTRATO_YA_EN_BORRADOR).
+   */
+  async reabrir(user: AuthenticatedUser, idContrato: number): Promise<ContratoBorradorResponse> {
+    this.validarAcceso(user, idContrato);
+
+    const resultado = await this.contratoRepo.reabrirContrato(idContrato, user.id);
+
+    if (!resultado.success) {
+      this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
+    }
+
+    return this.obtener(user, idContrato);
+  }
+
+  /**
+   * US-06 · Descartar un borrador (el cliente pide confirmación antes). Lo elimina y la solicitud
+   * aceptada queda libre para originar un contrato nuevo. Solo borradores: 409 si no.
+   */
+  async descartar(user: AuthenticatedUser, idContrato: number): Promise<void> {
+    this.validarAcceso(user, idContrato);
+
+    const resultado = await this.contratoRepo.descartarBorrador(idContrato, user.id);
+
+    if (!resultado.success) {
+      this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
+    }
+
+    // El PDF del borrador ya no tiene dónde mostrarse: se borra de Storage.
+    if (resultado.pdf_anterior) {
+      await this.contratoRepo.eliminarPdf(resultado.pdf_anterior);
+    }
   }
 
   /** El contrato del locador, solo si existe, es suyo y sigue en borrador (si no, 404 o 409). */

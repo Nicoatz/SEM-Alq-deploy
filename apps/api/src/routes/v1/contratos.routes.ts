@@ -479,4 +479,91 @@ router.put(
   contratoController.registrarPdf.bind(contratoController)
 );
 
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/reabrir:
+ *   post:
+ *     summary: Modificar un contrato pendiente de firma (US-06)
+ *     description: >
+ *       Vuelve a borrador un contrato pendiente de firma **sin la firma del locatario**. Cancela el
+ *       envío, borra las firmas registradas (partes y garantes, y los enlaces de los garantes) y
+ *       conserva el código CT-AAAA-NNNN. Después se edita con `PATCH /contratos/{id}` (los mismos
+ *       4 pasos y validaciones que el alta). **El cliente debe pedir confirmación al locador antes
+ *       de llamar**, avisando las tres consecuencias.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: El contrato volvió a borrador; devuelve el contrato completo.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador ("No encontramos este contrato.").
+ *       409:
+ *         description: >
+ *           No se puede modificar. Trae `codigo` con el motivo: CONTRATO_VIGENTE,
+ *           CONTRATO_FINALIZADO, CONTRATO_FIRMADO_POR_LOCATARIO o CONTRATO_YA_EN_BORRADOR
+ *           (un borrador se retoma directo con `GET` y `PATCH`).
+ */
+router.post(
+  '/:id/reabrir',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.reabrir.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}:
+ *   delete:
+ *     summary: Descartar un borrador de contrato (US-06)
+ *     description: >
+ *       Elimina un contrato en borrador con sus garantes, partes, PDF. La solicitud
+ *       aceptada de origen queda libre y puede originar un contrato nuevo (`POST /contratos`).
+ *       **El cliente debe pedir confirmación antes de llamar.** Solo borradores.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Borrador descartado.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador.
+ *       409:
+ *         description: El contrato ya no está en borrador (`codigo` CONTRATO_NO_EDITABLE).
+ */
+router.delete(
+  '/:id',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.descartar.bind(contratoController)
+);
+
 export default router;

@@ -108,6 +108,13 @@ export interface UpdateInmuebleDTO {
   fecha_disponible?: string | null;
   servicios?: number | null;
 
+  /**
+   * Condiciones comerciales de la OFERTA (lo que está publicado). Parciales: solo se cambia lo que
+   * viene. `monto_alquiler` y `precio_publicado` son el mismo dato y deben coincidir si llegan los dos.
+   * `medios_pago`, si se envía, reemplaza la lista completa. No toca el contrato en curso.
+   */
+  condiciones_contrato?: Partial<CreateContratoCondicionesDTO>;
+
   // Colecciones completas para reemplazar las existentes
   fotos?: CreateFotoDTO[];
   tags?: number[];
