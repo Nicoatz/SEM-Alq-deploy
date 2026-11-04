@@ -30,6 +30,7 @@ export * from './foto-inmueble.dto';
 export * from './contrato.dto';
 export * from './alquiler-locatario.dto';
 export * from './cobro.dto';
+export * from './consulta-cobro.dto';
 export * from './comprobante-pago.dto';
 export * from './inmueble.dto';
 export * from './solicitud.dto';

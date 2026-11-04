@@ -550,6 +550,34 @@ queda pendiente.
 - La firma del locatario solo se habilita si locador y locatario conformaron el mismo hash del PDF vigente y el locatario sigue pendiente de firma. La acción de firmar pertenece a US-07.
 - Requiere aplicar la migración `20261026000000_us27_alquileres_locatario.sql`. El alta actual de propiedades crea contratos de oferta, pero no asigna locatario; las relaciones deben generarse al formalizar el contrato en los flujos de US-05/US-07.
 
+## Consulta de cobros (US-09)
+
+US-09 se implementa en el backend como consulta de períodos, pagos y detalle. No reemplaza ni modifica
+el `GET/POST /cobros-locador` de registro de US-08, ni genera el PDF de US-10. Las pantallas de
+`/panel/cobros` y `/panel/pagos` siguen pendientes de integración.
+
+| Método y ruta | Auth / alcance | Respuesta (`data`) | Errores |
+|---|---|---|---|
+| `GET /cobros-locador/historial` | Bearer + rol locador; períodos de propiedades propias | `HistorialCobrosLocadorResultadoDTO`: períodos ordenados vencidos → pendientes → pagados, indicadores sobre el conjunto filtrado y paginación | 400 filtros inválidos; 401; 403 |
+| `GET /cobros-locatario` | Bearer; solo contratos donde el usuario es `tipo_firmante = 2` | `PagosLocatarioResultadoDTO`: período pendiente/vencido más antiguo separado, pagos históricos, resumen anual | 400 filtros inválidos; 401 |
+| `GET /cobros/:id` | Bearer; locador propietario o locatario principal del contrato | `DetalleCobroConsultaDTO`: cargos, totales, saldo, cobros, enlace de US-10 e historial del período | 400 ID inválido; 401; 404 único para período inexistente o ajeno; 500 si falla consulta/Storage |
+
+Filtros de historial del locador: `estado` (`todos`, `pendiente`, `vencido`, `pagado`), `id_inmueble`,
+`periodo`, `desde`, `hasta`, `page` y `limit`. Filtros de pagos del locatario: `anio` (filtra el año
+del período), `estado`, `medio`, `page` y `limit`. El resumen anual del locatario agrupa dinero por
+`fecha_cobro`, que puede corresponder a un año distinto del período; `pagos_a_termino` es la cantidad
+de cobros hechos hasta el vencimiento.
+
+Los períodos visualmente vencidos se calculan con la fecha actual sin actualizar la base. La mora
+reutiliza `calcularInteresesMora` de US-08; no se suman expensas. La ruta de detalle autoriza el
+recurso dentro de la consulta y firma el adjunto original solo después de autorizarlo. Nunca devuelve
+`comprobante_storage_path`. El enlace de PDF apunta a US-10 y no genera otro archivo.
+
+La tabla append-only `periodo_cobro_evento` se pobla desde triggers en las inserciones de período,
+cobro y transición a pagado; la migración incluye backfill idempotente para los registros existentes.
+El bucket privado `comprobantes-cobros` ya existe en Supabase y no requiere cambios en esta migración.
+Debe aplicarse `supabase/migrations/20261104000000_us09_consultar_cobro.sql` antes de usar estos GET.
+
 ## Panel del locador (`/panel`)
 
 Módulos de sprints futuros. En modo real, las funciones devuelven vacío (con `TODO(backend)`) y la
