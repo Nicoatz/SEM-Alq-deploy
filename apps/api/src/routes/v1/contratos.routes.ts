@@ -121,6 +121,154 @@ router.get(
 
 /**
  * @openapi
+ * /api/v1/contratos/{id}/detalle:
+ *   get:
+ *     summary: Consultar el detalle de un contrato del locador (US-42)
+ *     description: >
+ *       Devuelve el contrato ya armado para la pantalla `/panel/contratos/[id]`: partes (con DNI,
+ *       correo y teléfono), garantes, condiciones, condiciones de cobro, calendario de ajustes,
+ *       estado de cada firma, PDF (URL firmada, vence a los 5 minutos) y acciones disponibles.
+ *       Los datos no registrados (contratos anteriores a RentAR) vienen en `null`: el cliente los
+ *       muestra como "Sin dato". Un contrato ajeno o inexistente responde siempre 404, sin
+ *       distinguir. Un borrador no tiene detalle: responde 409 `CONTRATO_BORRADOR` y el cliente
+ *       retoma el alta con `GET /contratos/{id}`.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Detalle del contrato.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     codigo: { type: string, nullable: true }
+ *                     estado: { type: string, enum: [pendiente_firma, vigente, finalizado] }
+ *                     id_solicitud: { type: integer, nullable: true, description: 'Solicitud de origen; null en contratos anteriores a RentAR' }
+ *                     inmueble:
+ *                       type: object
+ *                       properties:
+ *                         id: { type: integer }
+ *                         direccion: { type: string }
+ *                         numero: { type: integer }
+ *                         piso: { type: string, nullable: true }
+ *                         barrio: { type: string }
+ *                         ciudad: { type: string, nullable: true }
+ *                     locador: { type: object, nullable: true, description: 'id, nombre, apellido, numero_documento, email, telefono' }
+ *                     locatario: { type: object, nullable: true, description: 'id, nombre, apellido, numero_documento, email, telefono' }
+ *                     garantes:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id: { type: integer }
+ *                           nombre: { type: string }
+ *                           apellido: { type: string }
+ *                           dni: { type: string }
+ *                           email: { type: string }
+ *                     condiciones:
+ *                       type: object
+ *                       properties:
+ *                         fecha_inicio_contrato: { type: string, format: date, nullable: true }
+ *                         fecha_fin_contrato: { type: string, format: date, nullable: true }
+ *                         duracion_meses: { type: integer, nullable: true }
+ *                         monto_inicial: { type: number, nullable: true }
+ *                         monto_actual: { type: number, nullable: true, description: 'Último ajuste aplicado o, si no hubo, el monto inicial' }
+ *                         deposito: { type: number, nullable: true }
+ *                         dias_para_vencimiento: { type: integer, nullable: true }
+ *                         indice:
+ *                           type: object
+ *                           nullable: true
+ *                           description: null = Sin ajuste
+ *                           properties:
+ *                             id: { type: integer }
+ *                             descripcion: { type: string }
+ *                         frecuencia_ajuste: { type: string, nullable: true }
+ *                         medios_pago:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id: { type: integer }
+ *                               nombre: { type: string }
+ *                         dias_gracia: { type: integer, nullable: true }
+ *                         interes_por_dia: { type: number, nullable: true }
+ *                     calendario_ajustes:
+ *                       type: array
+ *                       nullable: true
+ *                       description: null si el contrato es "Sin ajuste". El primer ítem es el inicio.
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           fecha: { type: string, format: date }
+ *                           tipo: { type: string, enum: [inicio, ajuste] }
+ *                           monto: { type: number, nullable: true, description: 'null = "a definir" (ajuste futuro)' }
+ *                     firmas:
+ *                       type: object
+ *                       properties:
+ *                         registradas: { type: boolean, description: 'false si no hay registro de las firmas (contrato anterior a RentAR)' }
+ *                         faltan: { type: integer, nullable: true, description: 'Solo con el contrato pendiente de firma' }
+ *                         firmado_por_todos_el: { type: string, format: date-time, nullable: true, description: 'Solo con el contrato vigente' }
+ *                         firmantes:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               rol: { type: string, enum: [locador, locatario, garante] }
+ *                               nombre: { type: string }
+ *                               apellido: { type: string }
+ *                               estado: { type: string, enum: [pendiente, firmado, rechazado, sin_registro] }
+ *                               fecha_firma: { type: string, format: date-time, nullable: true }
+ *                               fecha_rechazo: { type: string, format: date-time, nullable: true }
+ *                               motivo_rechazo: { type: string, nullable: true }
+ *                     pdf:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         nombre: { type: string }
+ *                         tamano_bytes: { type: integer }
+ *                         subido_en: { type: string, format: date-time }
+ *                         url: { type: string, description: 'URL firmada, vence a los 5 minutos' }
+ *                     acciones:
+ *                       type: object
+ *                       properties:
+ *                         modificar: { type: boolean }
+ *                         firmar: { type: boolean }
+ *                         descargar_pdf: { type: boolean }
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador ("No encontramos este contrato.").
+ *       409:
+ *         description: El contrato es un borrador (`codigo` CONTRATO_BORRADOR); hay que retomarlo en el alta.
+ */
+router.get(
+  '/:id/detalle',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.obtenerDetalle.bind(contratoController)
+);
+
+/**
+ * @openapi
  * /api/v1/contratos/{id}:
  *   get:
  *     summary: Consultar un contrato en curso del locador (US-05)

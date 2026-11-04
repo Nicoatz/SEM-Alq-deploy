@@ -1,6 +1,6 @@
 | **Consultar detalle del contrato** |
 | - |
-| Como locador, quiero consultar el detalle de un contrato para conocer sus condiciones, el estado de las firmas y su historial. |
+| Como locador, quiero consultar el detalle de un contrato para conocer sus condiciones y el estado de las firmas. |
 | **Criterios de aceptación:** |
 | *Acceso* |
 | - Se debe haber iniciado sesión con el usuario locador dueño del contrato. |
@@ -24,10 +24,9 @@
 | - Mientras esté pendiente de firma, se debe indicar cuántas firmas faltan. |
 | - Con el contrato vigente, se debe mostrar "Firmado por todas las partes el dd/mm/aaaa". |
 | - Si no hay registro de las firmas (contratos anteriores a RentAR), se debe indicar así, sin inventar los datos. |
-| *Documento e historial* |
+| *Documento* |
 | - Se debe mostrar el documento del contrato paginado, con sus cláusulas. |
 | - Se debe poder descargar el contrato en PDF en cualquier estado. |
-| - Se debe mostrar el historial del contrato con fecha y hora: creación, modificaciones, envío a firmar, firmas, rechazos, reenvíos, cancelaciones del envío y paso a vigente. |
 | **Pruebas de usuario:** |
 | - Probar consultar el detalle sin haber iniciado sesión (falla). |
 | - Probar consultar por URL el contrato de otro locador y verificar que se muestre "No encontramos este contrato" (pasa). |
@@ -42,4 +41,3 @@
 | - Probar consultar un contrato anterior a RentAR y verificar que los datos faltantes digan "Sin dato" y que se indique que no hay registro de las firmas (pasa). |
 | - Probar recorrer las páginas del documento (pasa). |
 | - Probar descargar el PDF de un contrato pendiente de firma y de uno vigente (pasa). |
-| - Probar verificar que el historial muestre los eventos en orden, con fecha y hora (pasa). |

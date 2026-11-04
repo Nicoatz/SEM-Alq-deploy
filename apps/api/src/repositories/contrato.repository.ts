@@ -142,6 +142,50 @@ export interface FilaListadoContrato {
   ultimo_ajuste: { fecha_efectiva: string; monto_nuevo: number } | null;
 }
 
+/** Firma de una parte tal como está en la base (`contrato_x_usuario` o `garante`). */
+export interface FilaFirma {
+  estado_firma: 'pendiente' | 'firmado' | 'rechazado' | 'desconocido';
+  fecha_firma: string | null;
+  fecha_rechazo: string | null;
+  motivo_rechazo: string | null;
+}
+
+/**
+ * Todo lo que necesita el detalle del contrato (US-42), sin armar: el service lo convierte en la
+ * respuesta. El PDF ya trae su URL firmada.
+ */
+export interface FilaDetalleContrato {
+  id: number;
+  codigo: string | null;
+  estado: number;
+  id_solicitud: number | null;
+  monto_alquiler: number | null;
+  deposito: number | null;
+  duracion_meses: number | null;
+  fecha_inicio_contrato: string | null;
+  fecha_fin_contrato: string | null;
+  dias_para_vencimiento: number | null;
+  frecuencia_ajuste: string | null;
+  dias_gracia: number | null;
+  interes_por_dia: number | null;
+  indice: { id: number; descripcion: string } | null;
+  inmueble: {
+    id: number;
+    direccion: string;
+    numero: number;
+    piso: string | null;
+    barrio: string;
+    ciudad: string | null;
+  };
+  /** `tipo_firmante`: 1 = locador, 2 = locatario. */
+  partes: ({ tipo_firmante: number; usuario: ParteContratoResponse | null } & FilaFirma)[];
+  garantes: (GaranteResponse & FilaFirma)[];
+  medios_pago: { id: number; nombre: string }[];
+  /** Ajustes ya aplicados, del más antiguo al más nuevo. */
+  ajustes: { fecha_efectiva: string; monto_nuevo: number }[];
+  pdf: ContratoPdfResponse | null;
+}
+
 const numeroONull = (valor: unknown): number | null =>
   valor === null || valor === undefined ? null : Number(valor);
 
@@ -157,6 +201,7 @@ export interface IContratoRepository {
   ): Promise<GuardarBorradorResultado>;
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
   findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]>;
+  findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
   crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf>;
   descargarPdf(path: string): Promise<ArchivoDescargado>;
@@ -411,6 +456,91 @@ export class ContratoRepository implements IContratoRepository {
         ultimo_ajuste: ultimoAjustePorContrato.get(fila.id) ?? null,
       };
     });
+  }
+
+  /**
+   * El contrato del locador con todo lo que muestra su detalle (US-42): partes con su firma,
+   * garantes, condiciones, ajustes aplicados y PDF. `null` si no existe o no es de su propiedad:
+   * no se distingue, para no revelar que existe. La oferta (estado 1) tampoco se devuelve.
+   */
+  async findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null> {
+    const supabase = getSupabaseAdmin();
+
+    const { data, error } = await supabase
+      .from('contrato')
+      .select(
+        `*, indice:tipo_indice(id, descripcion),
+         inmueble:inmueble!contrato_id_inmueble_fkey(id, id_locador, direccion, numero, piso, barrio, ciudad)`
+      )
+      .eq('id', idContrato)
+      .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
+      .eq('activo', true)
+      .maybeSingle();
+    if (error) throw error;
+
+    const fila = data as unknown as
+      | (ContratoDTO & {
+          indice: { id: number; descripcion: string } | { id: number; descripcion: string }[] | null;
+          inmueble: (FilaDetalleContrato['inmueble'] & { id_locador: number }) | null;
+        })
+      | null;
+    if (!fila?.inmueble || fila.inmueble.id_locador !== idLocador) return null;
+
+    const [partes, garantes, medios, ajustes, pdf] = await Promise.all([
+      supabase
+        .from('contrato_x_usuario')
+        .select(
+          `tipo_firmante, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo,
+           usuario(id, nombre, apellido, numero_documento, email, telefono)`
+        )
+        .eq('id_contrato', idContrato),
+      supabase
+        .from('garante')
+        .select('id, nombre, apellido, dni, email, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo')
+        .eq('id_contrato', idContrato)
+        .order('id'),
+      supabase.from('medio_pago_x_contrato').select('medio_pago(id, nombre)').eq('id_contrato', idContrato),
+      supabase
+        .from('ajuste_contrato')
+        .select('fecha_efectiva, monto_nuevo')
+        .eq('id_contrato', idContrato)
+        .order('fecha_efectiva', { ascending: true }),
+      this.armarPdf(fila as unknown as FilaContratoConInmueble),
+    ]);
+    for (const consulta of [partes, garantes, medios, ajustes]) {
+      if (consulta.error) throw consulta.error;
+    }
+
+    const indice = Array.isArray(fila.indice) ? fila.indice[0] : fila.indice;
+    const { id_locador: _idLocador, ...inmueble } = fila.inmueble;
+
+    return {
+      id: fila.id,
+      codigo: fila.codigo ?? null,
+      estado: fila.estado ?? 0,
+      id_solicitud: fila.id_solicitud ?? null,
+      monto_alquiler: numeroONull(fila.monto_alquiler),
+      deposito: numeroONull(fila.deposito),
+      duracion_meses: fila.duracion_meses ?? null,
+      fecha_inicio_contrato: fila.fecha_inicio_contrato ?? null,
+      fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
+      dias_para_vencimiento: fila.dias_para_vencimiento ?? null,
+      frecuencia_ajuste: fila.frecuencia_ajuste ?? null,
+      dias_gracia: fila.dias_gracia ?? null,
+      interes_por_dia: numeroONull(fila.interes_por_dia),
+      indice: indice ?? null,
+      inmueble,
+      partes: (partes.data ?? []) as unknown as FilaDetalleContrato['partes'],
+      garantes: (garantes.data ?? []) as unknown as FilaDetalleContrato['garantes'],
+      medios_pago: ((medios.data ?? []) as unknown as { medio_pago: { id: number; nombre: string } | null }[])
+        .map(medio => medio.medio_pago)
+        .filter((medio): medio is { id: number; nombre: string } => medio !== null),
+      ajustes: ((ajustes.data ?? []) as { fecha_efectiva: string; monto_nuevo: number }[]).map(ajuste => ({
+        fecha_efectiva: ajuste.fecha_efectiva,
+        monto_nuevo: Number(ajuste.monto_nuevo),
+      })),
+      pdf,
+    };
   }
 
   /** El PDF cargado en el contrato, con una URL firmada para la vista previa (`null` si no hay). */

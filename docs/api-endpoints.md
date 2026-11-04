@@ -298,6 +298,7 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 | `POST /contratos/:id/pdf/url-subida` | **implementado** | — | `{ path, token, url_firmada, tamano_maximo_bytes }` | 404, **409** |
 | `PUT /contratos/:id/pdf` | **implementado** | `{ path, nombre }` | 200 `ContratoBorradorResponse` | 400, 404, **409**, **413** |
 | `GET /contratos` | **implementado** (US-43) | — | `ContratoResumenResponse[]` (sin las ofertas, estado 1; ver abajo) | 401, 403 |
+| `GET /contratos/:id/detalle` | **implementado** (US-42) | — | `ContratoDetalleResponse` (el detalle para `/panel/contratos/[id]`; ver abajo) | 400, 401, 403, 404 (no existe o no es suyo), **409** `CONTRATO_BORRADOR` |
 | `DELETE /contratos/:id` | pendiente (propuesto) | — | 204 | 404, **409** |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | — | 200 `ContratoEnviadoResponse` | 400, 404, **409** |
 | `GET /solicitudes/recibidas` | conectado; **faltan dos campos** | (sin cambios) | Lo de hoy + `id_contrato`, `estado_contrato` y `inmueble_con_contrato` (propuestos) | (sin cambios) |
@@ -402,6 +403,60 @@ Solo contratos de las propiedades del locador, **sin las ofertas** (estado 1) y 
 - **Nombres de campo:** `fecha_inicio_contrato` / `fecha_fin_contrato` (como `ContratoBorradorResponse`),
   distintos de `fecha_inicio` / `fecha_fin` de la propuesta anterior del front.
 - No hay `rescindido`: el esquema no tiene ese estado.
+
+**`ContratoDetalleResponse`** (`GET /contratos/:id/detalle`, **implementado**, US-42). Bearer + rol
+locador. Es una ruta aparte de `GET /contratos/:id` (que sigue sirviendo el alta, US-05).
+
+```json
+{
+  "id": 207, "codigo": "CT-2026-0207", "estado": "pendiente_firma", "id_solicitud": 31,
+  "inmueble": { "id": 8, "direccion": "Rondeau", "numero": 480, "piso": "PB", "barrio": "Güemes", "ciudad": "Córdoba" },
+  "locador":   { "id": 1, "nombre": "Carlos", "apellido": "Propietario", "numero_documento": "30111222", "email": "…", "telefono": "…" },
+  "locatario": { "id": 23, "nombre": "Julieta", "apellido": "Peralta", "numero_documento": "42384425", "email": "…", "telefono": null },
+  "garantes": [{ "id": 1, "nombre": "Hugo", "apellido": "Peralta", "dni": "14902338", "email": "hugo@example.test" }],
+  "condiciones": {
+    "fecha_inicio_contrato": "2026-10-01", "fecha_fin_contrato": "2029-09-30", "duracion_meses": 36,
+    "monto_inicial": 385000, "monto_actual": 385000, "deposito": 385000, "dias_para_vencimiento": 10,
+    "indice": { "id": 1, "descripcion": "ICL (Índice de Contratos de Locación)" }, "frecuencia_ajuste": "semestral",
+    "medios_pago": [{ "id": 1, "nombre": "Transferencia bancaria" }], "dias_gracia": 3, "interes_por_dia": 0.5
+  },
+  "calendario_ajustes": [
+    { "fecha": "2026-10-01", "tipo": "inicio", "monto": 385000 },
+    { "fecha": "2027-04-01", "tipo": "ajuste", "monto": null }
+  ],
+  "firmas": {
+    "registradas": true, "faltan": 2, "firmado_por_todos_el": null,
+    "firmantes": [
+      { "rol": "locador", "nombre": "Carlos", "apellido": "Propietario", "estado": "firmado", "fecha_firma": "2026-11-03T14:22:10+00:00", "fecha_rechazo": null, "motivo_rechazo": null },
+      { "rol": "locatario", "nombre": "Julieta", "apellido": "Peralta", "estado": "pendiente", "fecha_firma": null, "fecha_rechazo": null, "motivo_rechazo": null }
+    ]
+  },
+  "pdf": { "nombre": "contrato.pdf", "tamano_bytes": 482113, "subido_en": "2026-11-03T14:22:10+00:00", "url": "https://…" },
+  "acciones": { "modificar": true, "firmar": false, "descargar_pdf": true }
+}
+```
+
+- **Acceso:** un contrato ajeno, inexistente o dado de baja es **404** "No encontramos este contrato.",
+  sin distinguir. **Un borrador no tiene detalle:** responde **409** con `codigo: "CONTRATO_BORRADOR"` y el
+  front retoma el alta (US-06) con `GET /contratos/:id`. Nunca devuelve las ofertas (estado 1).
+- **"Sin dato":** todo lo que no está registrado (contratos anteriores a RentAR) viaja en `null` (o `[]`
+  para `medios_pago`); el front muestra "Sin dato". Nunca se inventa.
+- **Firmas:** `firmantes` trae locador, locatario y garantes. `estado`: `pendiente`, `firmado`,
+  `rechazado` (con `motivo_rechazo`) o `sin_registro` (la base guarda `desconocido`: contrato anterior a
+  RentAR). `firmas.registradas = false` si algún firmante está `sin_registro` → el front indica que no hay
+  registro de las firmas. `faltan`: firmantes que aún no firmaron, solo con el contrato `pendiente_firma`
+  (si no, `null`). `firmado_por_todos_el`: fecha y hora de la última firma, solo con el contrato `vigente`
+  y todas las firmas registradas (el front muestra "Firmado por todas las partes el dd/mm/aaaa").
+- **Calendario:** `null` si el contrato es "Sin ajuste" (el front no lo muestra). Si no, el primer ítem
+  es el inicio y siguen las fechas de ajuste hasta `fecha_fin_contrato`, según `frecuencia_ajuste`.
+  `monto: null` = "a definir" (ajuste futuro); un ajuste ya aplicado (`ajuste_contrato`) trae su monto.
+- **Monto:** `monto_actual` = `monto_nuevo` del último ajuste aplicado; si no hubo, `monto_inicial`.
+- **Acciones:** `modificar` y `firmar` solo con el contrato `pendiente_firma` (`firmar`, además, si el locador
+  no firmó todavía); `descargar_pdf` si el contrato tiene archivo. Las acciones en sí son de US-06 y US-07.
+- **PDF / documento:** `pdf.url` es una URL firmada (vence a los 5 minutos) del mismo archivo; sirve para
+  paginarlo en un visor y para descargarlo. No hay endpoint de descarga aparte; el front pide el detalle
+  de nuevo si la URL venció. Las cláusulas viven dentro del PDF (no hay tabla de cláusulas).
+- **Historial:** fuera de alcance, no se implementó (se quitó de la US-42).
 
 **`POST /contratos/:id/enviar`** (propuesto): valida lo obligatorio y que el **PDF esté cargado**
 (responde 400 con el primer error), pasa a `pendiente_firma`, asigna el código `CT-AAAA-NNNN`

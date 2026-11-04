@@ -1,16 +1,22 @@
 import { createHash, randomUUID } from 'crypto';
 
 import type {
+  AjusteCalendarioResponse,
   ContratoBorradorResponse,
+  ContratoDetalleResponse,
   ContratoDTO,
   ContratoResumenResponse,
   EstadoContratoResponse,
+  EstadoFirmaDetalleResponse,
+  FirmanteDetalleResponse,
   IndiceContratoResponse,
   UrlSubidaPdfResponse,
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import {
   ESTADO_CONTRATO,
+  FilaDetalleContrato,
+  FilaFirma,
   FilaListadoContrato,
   IContratoRepository,
   contratoRepository,
@@ -92,6 +98,59 @@ function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | nul
   };
 }
 
+const FIRMA_POR_ESTADO: Record<FilaFirma['estado_firma'], EstadoFirmaDetalleResponse> = {
+  pendiente: 'pendiente',
+  firmado: 'firmado',
+  rechazado: 'rechazado',
+  desconocido: 'sin_registro',
+};
+
+function firmanteDeFila(
+  rol: FirmanteDetalleResponse['rol'],
+  persona: { nombre: string; apellido: string } | null,
+  firma: FilaFirma
+): FirmanteDetalleResponse {
+  return {
+    rol,
+    nombre: persona?.nombre ?? '',
+    apellido: persona?.apellido ?? '',
+    estado: FIRMA_POR_ESTADO[firma.estado_firma] ?? 'sin_registro',
+    fecha_firma: firma.fecha_firma ?? null,
+    fecha_rechazo: firma.fecha_rechazo ?? null,
+    motivo_rechazo: firma.motivo_rechazo ?? null,
+  };
+}
+
+/**
+ * US-42 · Calendario de ajustes: el inicio y cada fecha de ajuste hasta el fin del contrato.
+ * Los ajustes ya aplicados traen su monto; los futuros quedan en `null` ("a definir"), porque
+ * dependen del índice del día. `null` si el contrato es "Sin ajuste".
+ */
+function calendarioDeAjustes(fila: FilaDetalleContrato): AjusteCalendarioResponse[] | null {
+  if (indiceDelListado(fila.indice?.descripcion ?? null) === 'sin_ajuste') return null;
+
+  const calendario: AjusteCalendarioResponse[] = [];
+  if (!fila.fecha_inicio_contrato) return calendario;
+
+  calendario.push({ fecha: fila.fecha_inicio_contrato, tipo: 'inicio', monto: fila.monto_alquiler });
+
+  // NOTA: el monto de un ajuste aplicado se une por fecha exacta con `ajuste_contrato.fecha_efectiva`.
+  // Quien implemente la aplicación de ajustes debe guardar la misma fecha que calcula
+  // `calcularFechaProximoAjuste`; si no, ese ajuste se vería como "a definir".
+  const aplicados = new Map(fila.ajustes.map(ajuste => [ajuste.fecha_efectiva, ajuste.monto_nuevo]));
+  let desde: string | null = null;
+  // NOTA: tope de 600 iteraciones (50 años mensuales) por si la frecuencia o las fechas vienen mal.
+  for (let i = 0; i < 600; i++) {
+    const fecha = calcularFechaProximoAjuste(fila.fecha_inicio_contrato, desde, fila.frecuencia_ajuste);
+    if (!fecha || fecha <= (desde ?? fila.fecha_inicio_contrato)) break;
+    if (fila.fecha_fin_contrato && fecha > fila.fecha_fin_contrato) break;
+    calendario.push({ fecha, tipo: 'ajuste', monto: aplicados.get(fecha) ?? null });
+    desde = fecha;
+  }
+
+  return calendario;
+}
+
 export class ContratoService {
   constructor(private readonly contratoRepo: IContratoRepository = contratoRepository) {}
 
@@ -147,6 +206,100 @@ export class ContratoService {
           compararFechas(a.fecha_fin_contrato, b.fecha_fin_contrato) ||
           a.id - b.id
       );
+  }
+
+  /**
+   * US-42 · Detalle del contrato del locador: partes, garantes, condiciones, calendario de
+   * ajustes, firmas, PDF y acciones disponibles según el estado.
+   *
+   * - Inexistente o ajeno: 404 con el mismo mensaje, sin distinguir.
+   * - Borrador: no tiene detalle, 409 `CONTRATO_BORRADOR`; el cliente retoma el alta (US-06) con
+   *   `GET /contratos/:id`.
+   * - Lo que no está registrado (contratos anteriores a RentAR) viaja en `null`, nunca inventado.
+   */
+  async obtenerDetalle(user: AuthenticatedUser, idContrato: number): Promise<ContratoDetalleResponse> {
+    this.validarAcceso(user, idContrato);
+
+    // Existencia, dueño y estado, antes de armar nada (el PDF firma una URL de Storage).
+    const previo = await this.contratoRepo.findParaPdf(idContrato, user.id);
+
+    if (!previo) {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    if (previo.estado === ESTADO_CONTRATO.BORRADOR) {
+      this.throwError('Un borrador no tiene detalle: retomalo desde el alta.', 409, 'CONTRATO_BORRADOR');
+    }
+
+    const fila = await this.contratoRepo.findDetalle(idContrato, user.id);
+    const estado = fila ? ESTADO_POR_ID[fila.estado] : undefined;
+
+    if (!fila || !estado || estado === 'borrador') {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    const parteDe = (tipoFirmante: number) => fila.partes.find(parte => parte.tipo_firmante === tipoFirmante);
+    const locador = parteDe(1);
+    const locatario = parteDe(2);
+
+    const firmantes: FirmanteDetalleResponse[] = [
+      ...(locador ? [firmanteDeFila('locador', locador.usuario, locador)] : []),
+      ...(locatario ? [firmanteDeFila('locatario', locatario.usuario, locatario)] : []),
+      ...fila.garantes.map(garante => firmanteDeFila('garante', garante, garante)),
+    ];
+
+    // US-42: sin evidencia de las firmas (contratos anteriores a RentAR) no se inventa nada.
+    const registradas = firmantes.length > 0 && firmantes.every(firmante => firmante.estado !== 'sin_registro');
+    const pendiente = estado === 'pendiente_firma';
+
+    const fechasFirma = firmantes.map(firmante => firmante.fecha_firma).filter((f): f is string => f !== null);
+    const firmadoPorTodos =
+      estado === 'vigente' && registradas && firmantes.every(firmante => firmante.estado === 'firmado')
+        ? fechasFirma.reduce((ultima, fecha) => (new Date(fecha) > new Date(ultima) ? fecha : ultima))
+        : null;
+
+    const montoInicial = fila.monto_alquiler;
+    const ultimoAjuste = fila.ajustes[fila.ajustes.length - 1];
+
+    return {
+      id: fila.id,
+      codigo: fila.codigo,
+      estado,
+      id_solicitud: fila.id_solicitud,
+      inmueble: fila.inmueble,
+      locador: locador?.usuario ?? null,
+      locatario: locatario?.usuario ?? null,
+      garantes: fila.garantes.map(({ id, nombre, apellido, dni, email }) => ({ id, nombre, apellido, dni, email })),
+      condiciones: {
+        fecha_inicio_contrato: fila.fecha_inicio_contrato,
+        fecha_fin_contrato: fila.fecha_fin_contrato,
+        duracion_meses: fila.duracion_meses,
+        monto_inicial: montoInicial,
+        monto_actual: ultimoAjuste?.monto_nuevo ?? montoInicial,
+        deposito: fila.deposito,
+        dias_para_vencimiento: fila.dias_para_vencimiento,
+        indice: fila.indice,
+        frecuencia_ajuste: fila.frecuencia_ajuste,
+        medios_pago: fila.medios_pago,
+        dias_gracia: fila.dias_gracia,
+        interes_por_dia: fila.interes_por_dia,
+      },
+      calendario_ajustes: calendarioDeAjustes(fila),
+      firmas: {
+        registradas,
+        faltan: pendiente ? firmantes.filter(firmante => firmante.estado !== 'firmado').length : null,
+        firmado_por_todos_el: firmadoPorTodos,
+        firmantes,
+      },
+      pdf: fila.pdf,
+      acciones: {
+        // US-06 y US-07: solo mientras está pendiente de firma; firmar, además, si el locador no firmó.
+        modificar: pendiente,
+        firmar: pendiente && locador?.estado_firma === 'pendiente',
+        // US-42: el PDF se descarga en cualquier estado (siempre que el contrato tenga archivo).
+        descargar_pdf: fila.pdf !== null,
+      },
+    };
   }
 
   /**

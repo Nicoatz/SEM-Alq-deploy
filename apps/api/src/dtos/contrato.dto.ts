@@ -161,3 +161,89 @@ export interface ContratoBorradorResponse {
   /** De 1 a 4, para retomar el borrador donde quedó. */
   ultimo_paso: number | null;
 }
+
+// ─── US-42: detalle del contrato del locador ───
+
+/**
+ * Estado de la firma de un firmante. `sin_registro` es un contrato anterior a RentAR: no hay
+ * evidencia de si firmó, y el cliente no debe inventarlo (US-42, "Firmas").
+ */
+export type EstadoFirmaDetalleResponse = 'pendiente' | 'firmado' | 'rechazado' | 'sin_registro';
+
+export interface FirmanteDetalleResponse {
+  rol: 'locador' | 'locatario' | 'garante';
+  nombre: string;
+  apellido: string;
+  estado: EstadoFirmaDetalleResponse;
+  /** Fecha y hora de la firma (ISO 8601). `null` si no firmó. */
+  fecha_firma: string | null;
+  /** Fecha y hora del rechazo (ISO 8601). `null` si no rechazó. */
+  fecha_rechazo: string | null;
+  motivo_rechazo: string | null;
+}
+
+/** Una fecha del calendario de ajustes: el inicio del contrato o un ajuste. */
+export interface AjusteCalendarioResponse {
+  /** `YYYY-MM-DD`. */
+  fecha: string;
+  tipo: 'inicio' | 'ajuste';
+  /** Monto vigente desde esa fecha. `null` = "a definir" (ajuste futuro, todavía sin aplicar). */
+  monto: number | null;
+}
+
+/**
+ * `GET /contratos/:id/detalle` (US-42): el contrato de un locador, ya armado para la pantalla.
+ * Los datos que no están registrados (contratos anteriores a RentAR) vienen en `null`; el cliente
+ * los muestra como "Sin dato". Un borrador no tiene detalle (responde 409, ver la ruta).
+ */
+export interface ContratoDetalleResponse {
+  id: number;
+  codigo: string | null;
+  estado: Exclude<EstadoContratoResponse, 'borrador'>;
+  /** Solicitud de origen; `null` en los contratos anteriores a RentAR. */
+  id_solicitud: number | null;
+  inmueble: {
+    id: number;
+    direccion: string;
+    numero: number;
+    piso: string | null;
+    barrio: string;
+    ciudad: string | null;
+  };
+  locador: ParteContratoResponse | null;
+  locatario: ParteContratoResponse | null;
+  /** Garantes: nombre, apellido, DNI y correo (sin teléfono). */
+  garantes: GaranteResponse[];
+  condiciones: {
+    fecha_inicio_contrato: string | null;
+    fecha_fin_contrato: string | null;
+    duracion_meses: number | null;
+    monto_inicial: number | null;
+    /** Último ajuste aplicado o, si no hubo, el monto inicial. */
+    monto_actual: number | null;
+    deposito: number | null;
+    dias_para_vencimiento: number | null;
+    /** `null` = "Sin ajuste". */
+    indice: { id: number; descripcion: string } | null;
+    frecuencia_ajuste: string | null;
+    /** Condiciones de cobro de la propiedad. */
+    medios_pago: { id: number; nombre: string }[];
+    dias_gracia: number | null;
+    interes_por_dia: number | null;
+  };
+  /** `null` si el contrato es "Sin ajuste": no se muestra el calendario. */
+  calendario_ajustes: AjusteCalendarioResponse[] | null;
+  firmas: {
+    /** `false` si no hay registro de las firmas (contrato anterior a RentAR). */
+    registradas: boolean;
+    /** Firmas que faltan; solo con el contrato pendiente de firma, si no `null`. */
+    faltan: number | null;
+    /** Con el contrato vigente: cuándo firmó la última parte (ISO 8601). Si no, `null`. */
+    firmado_por_todos_el: string | null;
+    firmantes: FirmanteDetalleResponse[];
+  };
+  /** El contrato en PDF, con URL firmada (vence a los 5 minutos). `null` si no hay archivo. */
+  pdf: ContratoPdfResponse | null;
+  /** Acciones disponibles según el estado (US-06, US-07). */
+  acciones: { modificar: boolean; firmar: boolean; descargar_pdf: boolean };
+}

@@ -3,6 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import {
   ApiResponse,
   ContratoBorradorResponse,
+  ContratoDetalleResponse,
   ContratoDTO,
   ContratoResumenResponse,
   UrlSubidaPdfResponse,
@@ -28,6 +29,29 @@ export class ContratoController {
       const contratos = await contratoService.listar(user);
 
       res.status(200).json({ success: true, data: contratos });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** GET /contratos/:id/detalle · US-42: el detalle del contrato del locador (no aplica a borradores). */
+  async obtenerDetalle(
+    req: Request,
+    res: Response<ApiResponse<ContratoDetalleResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const contrato = await contratoService.obtenerDetalle(user, idContrato);
+
+      res.status(200).json({ success: true, data: contrato });
     } catch (error) {
       next(error);
     }
