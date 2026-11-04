@@ -21,6 +21,7 @@
     "express": "^4.19.2",
     "jose": "^6.2.12",
     "multer": "^2.5.0",
+    "pdf-lib": "^1.17.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },
