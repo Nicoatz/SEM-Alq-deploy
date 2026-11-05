@@ -797,7 +797,8 @@ export async function reabrirContrato(id: string): Promise<void> {
     // Se borran las firmas registradas: el registro queda sin `firmas`, como un borrador.
     const sinFirmas: ContratoMock = { ...contrato }
     delete sinFirmas.firmas
-    guardarAccionMock({ ...sinFirmas, status: 'borrador', sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
+    // Vuelve al paso 1, como el back.
+    guardarAccionMock({ ...sinFirmas, status: 'borrador', ultimoPaso: 0, sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
     return
   }
   try {

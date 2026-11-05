@@ -31,7 +31,7 @@ conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
 | `PATCH /contratos/:id` | locador | **Conectado** (Tanda 2) | El front manda **solo lo que cambió** (`cambiosDeBorrador`): una fecha vencida reenviada da 400 |
 | `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | locador | **Conectado** (Tanda 2) | Subida directa al bucket con `uploadToSignedUrl`; 5 MB |
 | `POST /contratos/:id/reabrir` | locador | **Conectado** (Tanda 2), sin probar en real | Conserva el código y resetea las firmas. Hace falta enviar a firmar para probarlo sin gastar el contrato 2 |
-| `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente y US-06 pide que siga aceptada (HANDOFF §7, S4-11). 200 sin `data` |
+| `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente: decisión del PO (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
 | `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** (#27, punto 1) | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
 | `GET /cobros-locador` | locador | **Conectado** (Tanda 4), sin datos para probar; parcial | Incluye períodos futuros, que el `POST` rechaza: el front los filtra. Sin tasa ni gracia |
