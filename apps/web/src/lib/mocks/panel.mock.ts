@@ -11,7 +11,7 @@
  * Cómo se calcula cada cifra del panel (en `services/panel.service.ts`):
  * - **Cobrado / Total del mes**: suma de los `amount` de {@link cobros} del
  *   período con `paidAt` (cobrado) sobre la suma de todos los del período
- *   (total). Nicolás, septiembre: $435.800 / $1.855.800.
+ *   (total). Nicolás, septiembre: $470.000 / $1.890.000.
  * - **Cobros vencidos**: suma de los cobros sin `paidAt` cuyo `dueDate` ya
  *   pasó. Nicolás: Laprida 340 ($520.000) + Belgrano 1120 ($460.000) =
  *   $980.000, 2 cobros.
@@ -76,10 +76,10 @@ export const cobros: CobroMock[] = [
     propertyId: 'prop-obispo-trejo-1250',
     contractId: 'CT-2026-0148',
     period: '2026-09',
-    // Mapa: "Septiembre se paga $435.800 ($470.000 − $34.200 de
-    // extraordinarias)". Sofía está al día: lo pagó el 03/09.
-    amount: 435800,
-    dueDate: '2026-09-10',
+    // Sofía está al día: lo pagó el 03/09. Sin expensas extraordinarias
+    // (decisión del PO, 05/11). Vence a los 10 días del inicio del período.
+    amount: 470000,
+    dueDate: '2026-09-11',
     paidAt: '2026-09-03',
   },
   {

@@ -81,10 +81,16 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - **PDF del elenco:** todos usan `apps/web/public/mocks/contrato-ficticio.pdf`: 6 páginas, 7 KB, sin datos
   reales. Lo que se sube en el alta se ve hasta recargar: el archivo no entra en `localStorage`, y después
   se muestra el ficticio con el nombre y el tamaño guardados. BOR-2026-0001 no tiene PDF: está en el paso 2.
-- **Vencimiento:** es un **plazo en días**, no el día del mes (US-05). Los contratos del elenco tienen 10
-  días: "Vence a los 10 días de cada período". Mi alquiler cuenta el plazo desde el primero del mes, como
-  el back: el 23/09 el próximo vencimiento es el **11/10**. Los cobros del panel siguen venciendo el día 10
-  (`panel.mock.ts`): es el desfase S4-2 de HANDOFF §7, y se resuelve con cobros.
+- **Vencimiento:** es un **plazo en días** desde el inicio del período, no el día del mes (US-05). Vale
+  igual para Mi alquiler y para cobros (`PLAZO_POR_CONTRATO` en `periodos.mock.ts`): Laprida 3, Belgrano 15,
+  Av. Colón 27, Mariano Moreno 4 y Obispo Trejo 10. Con Obispo Trejo, el 23/09 el próximo vencimiento es el
+  **11/10**. En real se muestra lo que manda el back: la diferencia es S4-2 de HANDOFF §7.
+- **Cobros (US-08, US-09 y US-10):** `periodos.mock.ts` tiene agosto (cobrado), septiembre y octubre (futuro:
+  no se muestra) de los 5 vigentes, con 0,5 % diario y 5 días de gracia. Los ids son `PER-0102-2026-09`; los
+  comprobantes, `RC-AAAA-NNNN`. Al 23/09, Nicolás tiene dos vencidos, uno pendiente y uno pagado en septiembre.
+  El indicador "Vencido" suma la mora ($1.021.000) y el panel no ($980.000). Lo que se registra va a
+  `rentar:mock:cobros` y no cambia el panel ni Mis propiedades. Un contrato que queda vigente en la sesión no
+  genera períodos.
 - **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
   `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
   sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.
@@ -163,7 +169,7 @@ reclamos no se escriben en la propiedad: se calculan a partir de los cobros y re
 
 | Propiedad | Locatario | Contrato | Septiembre | Reclamos abiertos | Próximo ajuste |
 |---|---|---|---|---|---|
-| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $435.800, pagado el 03/09 (al día) | 0 | ICL anual, 01/04/2027 |
+| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $470.000, pagado el 03/09 (al día) | 0 | ICL anual, 01/04/2027 |
 | Laprida 340 | Tomás Bianchi | CT-2026-0102 | $520.000, vencido el 04/09 (retrasada) | 2 | ICL anual, 01/03/2027 |
 | Belgrano 1120 | Julián Ferreyra | CT-2026-0115 | $460.000, vencido el 16/09 (retrasada) | 0 | IPC cada 4 meses, 01/11/2026 |
 | Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 1 | ICL anual, 01/10/2026 |
@@ -246,7 +252,7 @@ otros valores, ganan ellos.
 |---|---|---|
 | Ids de contrato | CT-2026-0102 (Laprida 340), CT-2026-0115 (Belgrano 1120), CT-2026-0121 (Av. Colón 2450), CT-2026-0133 (Mariano Moreno 285). CT-2026-0148 (Obispo Trejo) sí es del mapa. | `rental.contractId` en `propiedades.mock.ts` |
 | Fechas de contrato | Laprida 01/03/2025–29/02/2028, Belgrano 01/07/2025–30/06/2028, Av. Colón 01/10/2025–30/09/2028, Mariano Moreno 01/12/2025–30/11/2028 (36 meses, a partir de su `publishedAt`) | `rental.startDate` / `endDate` |
-| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 10/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
+| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 11/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
 | Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobros` en `panel.mock.ts` |
 | Próximos ajustes | Belgrano 01/11/2026 (IPC cada 4 meses), Av. Colón 01/10/2026 (ICL anual), Mariano Moreno 01/12/2026 (IPC cada 4 meses). Laprida (01/03/2027) y Obispo Trejo (01/04/2027) sí vinieron de producto y del mapa. | `rental.nextAdjustmentDate` |
 | Reclamos | "Pérdida de agua en el baño" (abierto, sin responder) y "El termotanque no calienta" (en proceso) → Laprida 340; "Ruido de la bomba de agua" (en proceso) → Av. Colón 2450. Títulos del export del panel; ids RCL-2026-0036/0039/0041 y fechas elegidos acá. | `reclamos` en `panel.mock.ts` |

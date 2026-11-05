@@ -48,7 +48,7 @@ import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
-import { cobros as cobrosElenco, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
+import { PLAZO_POR_CONTRATO, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
 import {
   ahoraIsoMock,
   PDF_FICTICIO_URL,
@@ -496,13 +496,9 @@ function cadaMesesDe(condiciones: ContratoBorrador['condiciones']): number | nul
   return MESES_POR_PERIODO[condiciones.adjustmentPeriod]
 }
 
-/**
- * Plazo de vencimiento de un alquiler del elenco, en días: sale del vencimiento
- * de su cobro en `panel.mock.ts` (dato del elenco, no inventado); `null` si no tiene.
- */
+/** Plazo de vencimiento de un alquiler del elenco, en días; `null` si no tiene. */
 function plazoDelElenco(contractId: string): number | null {
-  const cobro = cobrosElenco.find((item) => item.contractId === contractId)
-  return cobro ? dayjs(cobro.dueDate).date() : null
+  return PLAZO_POR_CONTRATO[contractId] ?? null
 }
 
 /**
@@ -510,8 +506,8 @@ function plazoDelElenco(contractId: string): number | null {
  * Solo con lo que el elenco tiene: sin firmas ni monto inicial
  * (se muestran vacíos, nunca inventados); el depósito y los garantes, solo
  * donde el elenco los cargó. El monto
- * actual y el próximo ajuste salen de `rental`; el plazo de pago, de su
- * cobro en `panel.mock.ts` (US-27, tanda 4).
+ * actual y el próximo ajuste salen de `rental`; el plazo de pago, de
+ * `periodos.mock.ts` (US-27, tanda 4).
  */
 function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null {
   const { rental } = propiedad
