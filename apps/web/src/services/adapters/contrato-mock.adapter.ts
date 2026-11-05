@@ -57,7 +57,7 @@ export function readPropiedadesContratoMock(): PropiedadMock[] {
 
 /** Los contratos guardados (elenco + navegador), con el DNI de los garantes que está en memoria. */
 export function readContratosMock(): ContratoMock[] {
-  return readMockCollection('contratos', contratosElenco).map((contrato) => {
+  return readMockCollection('contratos', contratosElenco).filter((contrato) => !contrato.descartado).map((contrato) => {
     const enMemoria = dniGarantesEnMemoria.get(contrato.id)
     if (!enMemoria) return contrato
     return { ...contrato, garantes: contrato.garantes.map((garante) => ({ ...garante, dni: enMemoria.get(garante.key) ?? garante.dni })) }
@@ -73,10 +73,16 @@ export function guardarContratoMock(contrato: ContratoMock): boolean {
   return saveMockRecord('contratos', { ...contrato, garantes: contrato.garantes.map((garante) => ({ ...garante, dni: '' })) })
 }
 
-/** Borra un borrador del navegador. */
+/**
+ * Borra un borrador del navegador. Uno sembrado queda marcado `descartado`: el
+ * elenco no se puede borrar, y "Reiniciar datos de prueba" lo vuelve a traer.
+ * NOTA: la solicitud sigue aceptada y puede volver a originar un contrato
+ * (US-06). TODO(backend): el back la pasa a pendiente (HANDOFF §7, S4-11).
+ */
 export function eliminarContratoMock(id: string): boolean {
   dniGarantesEnMemoria.delete(id)
-  return deleteMockRecord('contratos', id)
+  const sembrado = contratosElenco.find((contrato) => contrato.id === id)
+  return sembrado ? saveMockRecord('contratos', { ...sembrado, descartado: true }) : deleteMockRecord('contratos', id)
 }
 
 // ─── Contratos activos ──────────────────────────────────────────────────

@@ -55,6 +55,8 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 | CT-2026-0148 | Obispo Trejo 1250, 7° B | Sofía Ledesma | vigente | 01/04/2026 → 31/03/2029 | $470.000 | ver "Los alquileres" | `rental` |
 | CT-2026-0133 | Mariano Moreno 285 (de **Sofía**) | Camila Ríos | vigente | 01/12/2025 → 30/11/2028 | $510.000 | ver "Los alquileres" | `rental` |
 | **CT-2026-0207** | Rondeau 480, PB | Julieta Peralta | **pendiente de firma** | 01/10/2026 → 30/09/2029 | $385.000 | ICL semestral (5 ajustes, el primero el 01/04/2027) | `contratos.mock.ts`, desde SOL-2026-0031 |
+| **BOR-2026-0001** | Chacabuco 690 | Matías Quiroga | **borrador**, sin código | 01/10/2026, 24 meses | $445.000 | Sin ajuste | `contratos.mock.ts` |
+| **CT-2024-0031** | Chacabuco 690 | Valentina Ríos | **finalizado** | 01/03/2024 → 29/02/2026 (24 meses) | $415.000 | Sin ajuste | `contratos.mock.ts` |
 | **CT-2023-0041** | Rondeau 480, PB | Camila Ríos | **finalizado** | 01/12/2023 → 30/11/2025 (24 meses) | $240.000 | IPC semestral | `contratos.mock.ts` |
 
 - **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
@@ -76,13 +78,22 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   (`/panel/alquileres`) se prueba entrando como ella.
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
   propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
-- **Listado de Nicolás** (`/panel/contratos`): 1 pendiente de firma, 4 vigentes y 1 finalizado. El de
-  Sofía: 1 vigente (0133).
+- **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
+  `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
+  sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.
+- **CT-2024-0031 (Valentina Ríos):** contrato **histórico sin cuenta** (`tenantUserId: null`), nombre
+  tomado del diseño. Es el detalle "Sin ajuste", sin calendario (US-42). No aparece en ningún Mis alquileres.
+- **"Sin contrato y sin aceptada" no está sembrado:** ninguna propiedad del elenco lo cubre. Se arma en la
+  prueba: Nicolás cancela la aceptada 0034 de Fructuoso Rivera (US-38) y queda solo la pendiente 0039.
 - **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y
   sin contrato. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
-- **Borradores sembrados: ninguno.** Se crean en la prueba. El borrador se guarda en
-  `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en memoria hasta recargar (mismo
-  criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.
+- **Borrador sembrado: BOR-2026-0001** (Chacabuco 690, desde SOL-2026-0041 de Matías). Chacabuco sigue
+  **pausada**: el locador la pausó mientras arma el contrato, y no aparece en `/buscar`. Eliminarlo lo
+  marca `descartado` en el navegador y la solicitud **sigue aceptada** (US-06), así que vuelve "Iniciar
+  contrato"; "Reiniciar datos de prueba" lo trae de nuevo. Matías tiene además la 0032 pendiente en
+  Rondeau: la regla de una sola activa es por propiedad (US-35).
+- Los borradores se guardan en `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en
+  memoria hasta recargar (mismo criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.
 - **Pendiente (issue #15, regla de la tanda 5 del Sprint 2):** "mientras el inmueble tenga una
   solicitud aceptada, sigue publicado pero no recibe solicitudes nuevas". **El mock todavía no la
   aplica:** con SOL-2026-0031 aceptada, Rondeau 480 sigue recibiendo solicitudes nuevas

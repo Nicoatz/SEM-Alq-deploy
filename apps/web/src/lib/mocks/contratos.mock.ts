@@ -16,6 +16,14 @@
  *   NOTA: termina el día antes de que empiece CT-2026-0133, así respeta "un
  *   inquilino pertenece a una sola propiedad" a la vez (mapa; PO, tanda 3).
  *
+ * - **BOR-2026-0001, borrador sin código:** Chacabuco 690 (pausada: el locador
+ *   la pausó mientras arma el contrato), con Matías Quiroga, desde
+ *   SOL-2026-0041. "Sin ajuste", quedó en el paso 2. Es el borrador sembrado de
+ *   la pestaña Contratos (US-43): "Continuar" y "Eliminar".
+ * - **CT-2024-0031, finalizado:** Chacabuco 690, con Valentina Ríos (del diseño),
+ *   "Sin ajuste". Contrato histórico sin cuenta: es el detalle sin calendario
+ *   (US-42) y no aparece en ningún Mis alquileres.
+ *
  * Los 5 vigentes del elenco (CT-2026-0102, 0115, 0121, 0133 y 0148) NO se
  * repiten acá: salen de `propiedades.mock.ts` (`rental`), así el listado de
  * contratos, Mis propiedades y el panel nunca se contradicen.
@@ -101,6 +109,8 @@ export interface ContratoMock {
   eventos?: EventoMock[]
   /** Fecha y hora ISO de la última firma, cuando firmaron todas las partes. */
   firmadoPorTodasEl?: string | null
+  /** `true` en un borrador sembrado que se eliminó en el navegador (el elenco no se borra). */
+  descartado?: boolean
 }
 
 /** Los contratos del elenco que no salen de `propiedades.mock.ts` (ver el encabezado). */
@@ -170,5 +180,56 @@ export const contratos: ContratoMock[] = [
     createdAt: '2023-11-20T10:00:00',
     updatedAt: '2023-11-25T10:00:00',
     sentAt: '2023-11-25T10:00:00',
+  },
+  {
+    id: 'BOR-2026-0001',
+    code: null,
+    status: 'borrador',
+    ownerId: 'usr-nicolas',
+    propertyId: 'prop-chacabuco-690',
+    solicitudId: 'SOL-2026-0041',
+    tenantUserId: 'usr-matias',
+    tenantName: 'Matías Quiroga',
+    garantes: [],
+    condiciones: {
+      startDate: '2026-10-01',
+      durationMonths: 24,
+      initialAmount: 445000,
+      deposit: 445000,
+      paymentDueDay: 10,
+      adjustmentIndex: 'sin_ajuste',
+      adjustmentPeriod: null,
+    },
+    clausulas: null,
+    ultimoPaso: 1,
+    createdAt: '2026-09-21T10:00:00',
+    updatedAt: '2026-09-21T10:30:00',
+    sentAt: null,
+  },
+  {
+    id: 'CT-2024-0031',
+    code: 'CT-2024-0031',
+    status: 'finalizado',
+    ownerId: 'usr-nicolas',
+    propertyId: 'prop-chacabuco-690',
+    solicitudId: null,
+    // Histórico sin cuenta en el elenco.
+    tenantUserId: null,
+    tenantName: 'Valentina Ríos',
+    garantes: [],
+    condiciones: {
+      startDate: '2024-03-01',
+      durationMonths: 24,
+      initialAmount: 415000,
+      deposit: 415000,
+      paymentDueDay: 10,
+      adjustmentIndex: 'sin_ajuste',
+      adjustmentPeriod: null,
+    },
+    clausulas: null,
+    ultimoPaso: 3,
+    createdAt: '2024-02-20T10:00:00',
+    updatedAt: '2024-02-25T10:00:00',
+    sentAt: '2024-02-25T10:00:00',
   },
 ]
