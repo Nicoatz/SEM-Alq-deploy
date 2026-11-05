@@ -786,3 +786,14 @@ fallback de tamaño, 202×113, sale del `viewBox` del SVG) y los 6 usos leen de 
 capturas del render check: el logo se ve bien en `Header`/`Footer`/`AuthLayout` (no son floor card,
 así que es el render real). Es el único asset importado así en el paquete — si se agrega uno
 nuevo con el mismo patrón (`import x from './algo.svg'` + `.src`), aplicar el mismo helper.
+
+## `MoneyInput`: solo montos enteros (S4-14, 05/11/2026) — pendiente de subir
+
+Aprobado por el PO. La API pública no cambió, pero sí el comportamiento:
+
+- Un punto o una coma tipeados no entran: aparece "Ingresá un monto entero, sin centavos", el valor
+  queda como estaba y no entran más dígitos hasta borrar, reemplazar el monto o volver al campo.
+- Al pegar, "1.500" y "$ 2.500" pasan; "1000,5", "1000.5" y "1.500,00" no.
+- Vaciar el campo lo deja vacío. Antes mostraba "$ 0" con el cursor adelante del cero y lo tipeado
+  después quedaba multiplicado por 10. `onChange` sigue mandando 0.
+- El componente renderiza el aviso debajo del input. Sin APIs exclusivas de React 19.

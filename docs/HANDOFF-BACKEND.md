@@ -229,7 +229,7 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 | S4-11 | **Descartar un borrador devuelve la solicitud a pendiente** (`descartar_borrador_contrato`). US-06 pide que siga aceptada y pueda volver a originar un contrato. En mock sigue aceptada | Hay que volver a aceptar la solicitud para iniciar otro contrato | backend |
 | S4-12 | **`package-lock.json` desactualizado:** no tiene `pdfjs-dist` (Tanda 2) y sigue con `jspdf` (salió en la Tanda 3). El lock no se commitea (regla del equipo): `npm ci` falla hasta que alguien lo actualice; `npm install` anda | Instalación limpia y CI | PO |
 | S4-13 | **Resuelta en el front (Tanda 3):** la URL del PDF vence a los 5 minutos, así que cada botón la pide al usarla (`BotonPdf`, `urlPdfDeContrato`) y reintenta una vez. Probado en real con el contrato 31: tras 310 s la URL vieja da 400 y el botón abre el PDF | — | — |
-| S4-14 | **`MoneyInput` descarta la coma sin avisar:** tipeando "1000,5" queda "$ 10.000", sin error, y el paso avanza con otro monto. Es de `@rentar/ui`: no se tocó, hay que consultarlo | US-05 y US-06: "monto entero" | PO |
+| S4-14 | **Resuelta en `@rentar/ui`:** `MoneyInput` ya no cambia el monto solo. Con punto o coma muestra "Ingresá un monto entero, sin centavos"; vaciar el campo ya no deja un "$ 0" que multiplicaba por 10 lo tipeado | — | — |
 | S4-15 | **Criterio del rechazo sin cerrar:** el mock sigue la versión de `_sprint-4`; la del repo se contradice y el PO lo resuelve con el equipo | US-07 | PO |
 | S4-10 | **Baja de propiedad con borrador:** 500 sin monto; con monto, el borrador aparece como finalizado al locatario | US-04 | backend |
 
