@@ -104,6 +104,34 @@ export interface ContratoResumenResponse {
   proximo_ajuste: string | null;
   /** Solicitud de origen; `null` en los contratos anteriores a US-05. */
   id_solicitud: number | null;
+  /**
+   * Las firmas, igual que en el detalle (US-42): con el contrato pendiente de firma, quién firmó
+   * (con fecha y hora) y quién falta; con el vigente, `firmado_por_todos_el`. `null` en un borrador
+   * (todavía no se envió a firmar) y en un finalizado (para eso está el detalle).
+   */
+  firmas: ContratoDetalleResponse['firmas'] | null;
+  /**
+   * El PDF, con URL firmada que vence a los 5 minutos, igual que en el detalle. Solo en los
+   * pendientes de firma y vigentes que tienen archivo; `null` en un borrador (no se descarga), en
+   * un finalizado (se descarga desde el detalle) y si no hay archivo.
+   */
+  pdf: ContratoPdfResponse | null;
+}
+
+/**
+ * `GET /inmuebles/:id/contratos` (US-43): los contratos de la propiedad y, para la propiedad sin
+ * contrato actual, desde qué solicitud se puede iniciar uno.
+ */
+export interface ContratosInmuebleResponse {
+  /** Más reciente primero. Sin la oferta (estado 1). */
+  contratos: ContratoResumenResponse[];
+  /**
+   * Id de la solicitud aceptada de la propiedad que todavía no originó un contrato. Con un id, el
+   * cliente ofrece "Iniciar contrato" (`POST /contratos` con ese `id_solicitud`); con `null`, el
+   * acceso a las solicitudes de la propiedad. `null` también si la propiedad ya tiene un contrato
+   * en curso (borrador, pendiente de firma o vigente).
+   */
+  solicitud_para_contrato: number | null;
 }
 
 export interface GaranteResponse extends GaranteRequest {
