@@ -330,7 +330,6 @@ export type { UsuarioSesion } from './usuario-sesion';
 export type { BloqueoIdentidad, DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from './perfil';
 export type {
   AlquilerResumen,
-  ClausulaContrato,
   CondicionesCobroPropiedad,
   CondicionesNuevoContrato,
   ContratoBorrador,
@@ -352,7 +351,6 @@ export type {
   PeriodicidadAjuste,
   PropiedadDelContrato,
   RolFirmante,
-  TipoClausula,
 } from './contrato';
 export type {
   ContactoSolicitud,

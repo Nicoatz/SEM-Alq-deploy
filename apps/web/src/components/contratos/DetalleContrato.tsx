@@ -27,7 +27,6 @@
  * - Sin "Firmar contrato" ni "Rechazar" (aunque el back diga `puede_firmar`):
  *   un aviso "La firma todavía no está disponible en línea". TODO(backend): US-07.
  * - "Descargar PDF" baja el PDF del back (`pdfUrl`); sin él, deshabilitado.
- * - Sin cláusulas (el back no las manda): se dice, no se inventan.
  * Detalle del locador en modo real (`GET /contratos/:id/detalle`, US-42): usa
  * el mismo `datosApi`: sin firma ni reenvío en línea hasta que
  * se conecten (TODO(backend): US-07). "Modificar" sí: `reabrir` existe.

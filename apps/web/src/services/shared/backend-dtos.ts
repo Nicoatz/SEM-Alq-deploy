@@ -519,14 +519,6 @@ export type IndiceContratoDto = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC'
 export type PeriodicidadDto = 'trimestral' | 'semestral' | 'anual'
 
 /** La dirección del inmueble, como la manda `/solicitudes`. */
-export interface InmuebleContratoDto {
-  id: number
-  direccion: string
-  numero: number
-  piso: string | null
-  barrio: string | null
-}
-
 /** El contrato en PDF. `url` es firmada y vence a los 5 minutos. Copia de `ContratoPdfResponse` del back. */
 export interface ContratoPdfDto {
   nombre: string
@@ -704,76 +696,6 @@ export interface ContratoDetalleApiResponse {
   acciones: { modificar: boolean; firmar: boolean; descargar_pdf: boolean }
 }
 
-/** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
-export interface ParteContratoDto {
-  id: number
-  nombre: string
-  apellido: string | null
-  numero_documento: string | null
-  email: string
-  /** Solo dígitos, con código de país. */
-  telefono: string | null
-}
-
-/** Un garante: dato del contrato, sin cuenta (decisión del PO: no firma en el Sprint 3). */
-export interface GaranteDto {
-  nombre_apellido: string
-  numero_documento: string
-  email: string
-}
-
-/** Las condiciones del contrato. En un borrador, cualquier campo puede venir en `null`. */
-export interface CondicionesContratoDto {
-  fecha_inicio: string | null
-  duracion_meses: number | null
-  monto_inicial: number | null
-  deposito: number | null
-  dia_vencimiento: number | null
-  indice: IndiceContratoDto
-  periodicidad: PeriodicidadDto | null
-}
-
-/** Una cláusula. `clave` es la de la plantilla del front (`objeto`, `precio`…) o `propia-<n>`. */
-export interface ClausulaDto {
-  clave: string
-  tipo: 'fija' | 'editable' | 'propia'
-  titulo: string
-  texto: string
-  editada: boolean
-}
-
-/**
- * Propuesta de `GET /contratos/:id` (existe, con otra forma) y `GET /contratos/preparar?id_solicitud=` (no existe
- * — lo reemplaza `POST /contratos`). `/preparar` devolvía el contrato todavía sin guardar:
- * `id`, `codigo`, `condiciones` y `clausulas` vacíos (el front los completa
- * con sus valores por defecto y su plantilla).
- */
-export interface ContratoResponse {
-  id: number | null
-  codigo: string | null
-  estado: EstadoContratoDto
-  id_solicitud: number
-  /** Cuándo se aceptó la solicitud (`solicitud.fecha_respuesta`). */
-  fecha_aceptacion_solicitud: string | null
-  inmueble: InmuebleContratoDto & {
-    /** URL de la foto principal (US-27, ficha del locatario; propuesto). `null` si no tiene. */
-    foto_principal: string | null
-    precio_publicado: number | null
-    /** Índice de la publicación (`tipo_indice`): ICL o IPC; `null` si no tiene. */
-    indice_publicacion: 'ICL' | 'IPC' | null
-    medios_pago: number[]
-    dias_gracia: number | null
-    interes_por_dia: number | null
-  }
-  locador: ParteContratoDto
-  locatario: ParteContratoDto
-  garantias_ofrecidas: GarantiaDto[]
-  garantes: GaranteDto[]
-  condiciones: CondicionesContratoDto | null
-  clausulas: ClausulaDto[]
-  ultimo_paso: number
-}
-
 /** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
 export interface ContratoEnviadoResponse {
   id: number
@@ -811,39 +733,6 @@ export type CodigoErrorContrato =
 
 /** Rol de quien firma. */
 export type RolFirmanteDto = 'locador' | 'locatario'
-
-/** Una parte que firma, con el estado de su firma. */
-export interface FirmanteDto {
-  rol: RolFirmanteDto
-  id_usuario: number
-  nombre: string
-  apellido: string | null
-  estado: 'pendiente' | 'firmado' | 'rechazado'
-  /** Fecha y hora ISO de la firma (la registra el back). */
-  fecha_firma: string | null
-  fecha_rechazo: string | null
-  motivo_rechazo: string | null
-  /** Fecha y hora ISO de la última invitación (el envío o un reenvío): el front calcula desde cuándo se puede reenviar. */
-  fecha_ultima_invitacion: string | null
-}
-
-/**
- * Propuesta del Sprint 3. El detalle real es `GET /contratos/:id/detalle`, con otra forma
- * (se conecta en la Tanda 1 del Sprint 4): el mismo `ContratoResponse`
- * más los firmantes. También es la respuesta de firmar, rechazar y reenviar.
- * Lo pueden pedir el locador y el locatario del contrato; un borrador, solo el locador.
- */
-export interface ContratoDetalleResponse extends ContratoResponse {
-  fecha_envio: string | null
-  /** Fecha y hora de la última firma, cuando firmaron todas las partes. */
-  fecha_firma_completa: string | null
-  /** `false` en los contratos cargados antes de RentAR: sin firmas. */
-  firmas_registradas: boolean
-  fecha_fin: string | null
-  firmantes: FirmanteDto[]
-  /** Monto mensual actual, con los ajustes aplicados (US-27; propuesto). */
-  monto_actual: number | null
-}
 
 /** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
 export interface RechazarFirmaRequest {

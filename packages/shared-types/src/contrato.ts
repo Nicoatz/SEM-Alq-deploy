@@ -79,28 +79,6 @@ export interface CondicionesNuevoContrato {
   adjustmentPeriod: PeriodicidadAjuste | null
 }
 
-/**
- * Tipo de cláusula (US-05, paso 3): las fijas no se editan; las editables
- * vienen de la plantilla y se pueden cambiar; las propias las agrega el
- * locador y se pueden eliminar.
- */
-export type TipoClausula = 'fija' | 'editable' | 'propia'
-
-/** Una cláusula del contrato. El número sale del orden en la lista. */
-export interface ClausulaContrato {
-  /** Clave estable de la plantilla (`objeto`, `precio`…) o `propia-<n>`. */
-  key: string
-  tipo: TipoClausula
-  titulo: string
-  /** Texto final (ya completado con los datos de los pasos 1 y 2). Hasta 1.000 caracteres si no es fija. */
-  texto: string
-  /**
-   * `true` si el locador cambió el texto de una editable (US-05: "cuántas
-   * fueron editadas"). En las fijas y las propias, siempre `false`.
-   */
-  editada: boolean
-}
-
 /** Condiciones de cobro que el locador cargó en la propiedad (US-05, paso 2: solo lectura). */
 export interface CondicionesCobroPropiedad {
   paymentMethods: MedioPagoConRecargo[]
@@ -155,7 +133,6 @@ export interface ContratoBorrador {
   garantiasOfrecidas: GarantiaOfrecida[]
   garantes: GaranteContrato[]
   condiciones: CondicionesNuevoContrato
-  clausulas: ClausulaContrato[]
   /** Paso en que quedó (0 a 3), para retomarlo (US-05: "un borrador se puede retomar desde el paso en que quedó"). */
   ultimoPaso: number
   /** El PDF cargado en el paso 3; `null` si todavía no hay. */

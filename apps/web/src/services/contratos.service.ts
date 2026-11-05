@@ -45,7 +45,6 @@ import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from 
 import { ordenarAlquileres } from '@/lib/contratos/listado'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
-import { completarClausulas } from '@/lib/contratos/plantilla'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
@@ -75,7 +74,6 @@ import {
   CONTRATO_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_PENDIENTE_MESSAGE,
   borradorDeApi,
-  contratoDetalleDeDto,
   contratoEnviadoDeDto,
   detalleDeLocadorDeDto,
   DETALLE_CONTRATO_ERROR_MESSAGE,
@@ -109,7 +107,6 @@ import type {
   ContratoBorradorApiResponse,
   ContratoCreadoResponse,
   ContratoDetalleApiResponse,
-  ContratoDetalleResponse,
   RegistrarPdfRequest,
   UrlSubidaPdfResponse,
   ContratosInmuebleResponse,
@@ -197,12 +194,11 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
     garantiasOfrecidas: solicitud?.legajo?.guarantees ?? [],
     garantes: contrato.garantes,
     condiciones: contrato.condiciones,
-    clausulas: contrato.clausulas ?? [],
     ultimoPaso: contrato.ultimoPaso,
     pdf: pdfDeContratoMock(contrato),
     fechaInicioVencida: contrato.status === 'borrador' && contrato.condiciones.startDate !== null && contrato.condiciones.startDate < hoyIso(),
   }
-  return { ...base, clausulas: completarClausulas(base.clausulas, base) }
+  return base
 }
 
 /** El contrato guardado `id` del locador en sesión (no distingue "no existe" de "no es tuyo"). */
@@ -259,7 +255,6 @@ export async function iniciarContrato(solicitudId: string): Promise<ContratoBorr
         adjustmentIndex: indice,
         adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),
       },
-      clausulas: null,
       ultimoPaso: 0,
       createdAt: ahora,
       updatedAt: ahora,
@@ -545,14 +540,12 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),
     },
-    clausulas: [],
     ultimoPaso: 3,
     pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 1, subidoEl: null, url: PDF_FICTICIO_URL },
     fechaInicioVencida: false,
   }
   return {
     ...base,
-    clausulas: completarClausulas([], base),
     enviadoEl: null,
     firmadoPorTodasEl: null,
     firmasRegistradas: false,
@@ -700,7 +693,7 @@ function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, Firma
  * - "Cuando firman todas las partes, el contrato pasa a 'vigente'": la
  *   propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas
  *   (en mock, `pasarAVigenteMock`; en real, el back).
- * @backend POST /api/v1/contratos/:id/firmar   (no existe — propuesto) → 200 ContratoDetalleResponse
+ * @backend POST /api/v1/contratos/:id/firmar   (no existe — propuesto) → 200 ContratoDetalleApiResponse
  * @throws {ServiceError}
  *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE` (borrador, vigente…),
  *     `YA_FIRMO` o `FIRMA_RECHAZADA` (ver la NOTA).
@@ -728,7 +721,7 @@ export async function firmarContrato(id: string): Promise<ContratoDetalle> {
     return detalle
   }
   try {
-    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/firmar`, { method: 'POST' }))
+    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/firmar`, { method: 'POST' }))
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', generico: FIRMA_ERROR_GENERICO_MESSAGE })
   }
@@ -741,7 +734,7 @@ export async function firmarContrato(id: string): Promise<ContratoDetalle> {
  * el detalle." (La confirmación la pide la pantalla.)
  * NOTA: son las reglas de la US del 30/10. El equipo está redefiniendo el rechazo: la
  * versión del repo dice que rechazan las dos partes y que vuelve a borrador.
- * @backend POST /api/v1/contratos/:id/rechazar   (no existe — propuesto) body RechazarFirmaRequest → 200 ContratoDetalleResponse
+ * @backend POST /api/v1/contratos/:id/rechazar   (no existe — propuesto) body RechazarFirmaRequest → 200 ContratoDetalleApiResponse
  * @throws {ServiceError}
  *   - `validation`: el motivo pasa los 300 caracteres.
  *   - `forbidden`: quien llama es el locador.
@@ -769,7 +762,7 @@ export async function rechazarFirma(id: string, motivo: string | null): Promise<
   }
   try {
     const body: RechazarFirmaRequest = { motivo: limpio }
-    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/rechazar`, { method: 'POST', body }))
+    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/rechazar`, { method: 'POST', body }))
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', prohibido: SOLO_LOCATARIO_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
   }
@@ -821,7 +814,7 @@ export async function reabrirContrato(id: string): Promise<void> {
  * locatario (el garante no firma en el Sprint 3).
  * NOTA: no se manda ningún mail (ni en mock ni todavía en real): la
  * pantalla lo aclara con `SimulatedFeatureNotice`.
- * @backend POST /api/v1/contratos/:id/reenviar   (no existe — propuesto) body ReenviarInvitacionRequest → 200 ContratoDetalleResponse
+ * @backend POST /api/v1/contratos/:id/reenviar   (no existe — propuesto) body ReenviarInvitacionRequest → 200 ContratoDetalleApiResponse
  * @throws {ServiceError}
  *   - `too_many_requests` (429): pasó menos de una hora desde la última invitación.
  *   - `conflict`: `FIRMANTE_NO_PENDIENTE` (ya firmó o rechazó) o `CONTRATO_NO_PENDIENTE`.
@@ -844,7 +837,7 @@ export async function reenviarInvitacion(id: string, rol: RolFirmante): Promise<
   }
   try {
     const body: ReenviarInvitacionRequest = { rol }
-    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/reenviar`, { method: 'POST', body }))
+    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/reenviar`, { method: 'POST', body }))
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'FIRMANTE_NO_PENDIENTE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
   }

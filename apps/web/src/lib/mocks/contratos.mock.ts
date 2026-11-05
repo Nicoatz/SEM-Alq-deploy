@@ -35,11 +35,10 @@
  * (`firmas`). CT-2023-0041 no tiene registro de firmas: es anterior a RentAR
  * y no se inventan.
  *
- * TODO(db): son filas de `contrato` + garantes + cláusulas + firmas, que
+ * TODO(db): son filas de `contrato` + garantes + firmas, que
  * hoy no existen en el esquema (HANDOFF §7, US-05).
  */
 import type {
-  ClausulaContrato,
   CondicionesNuevoContrato,
   ContractStatus,
   GaranteContrato,
@@ -80,8 +79,6 @@ export interface ContratoMock {
   tenantName: string
   garantes: GaranteContrato[]
   condiciones: CondicionesNuevoContrato
-  /** `null` = la plantilla sin cambios (se arma al leer, con los datos de hoy). */
-  clausulas: ClausulaContrato[] | null
   /** Paso en que quedó el borrador (0 a 3). */
   ultimoPaso: number
   /** Fecha y hora ISO de creación y del último cambio. */
@@ -127,7 +124,6 @@ export const contratos: ContratoMock[] = [
       adjustmentIndex: 'ICL',
       adjustmentPeriod: 'semestral',
     },
-    clausulas: null,
     ultimoPaso: 3,
     // NOTA: el diseño fecha la aceptación el 14/09, pero en el elenco la
     // solicitud se envió el 20/09: se acepta el 21, el borrador es del 21 y
@@ -164,7 +160,6 @@ export const contratos: ContratoMock[] = [
       adjustmentIndex: 'IPC',
       adjustmentPeriod: 'semestral',
     },
-    clausulas: null,
     ultimoPaso: 3,
     createdAt: '2023-11-20T10:00:00',
     updatedAt: '2023-11-25T10:00:00',
@@ -190,7 +185,6 @@ export const contratos: ContratoMock[] = [
       adjustmentIndex: 'sin_ajuste',
       adjustmentPeriod: null,
     },
-    clausulas: null,
     ultimoPaso: 1,
     createdAt: '2026-09-21T10:00:00',
     updatedAt: '2026-09-21T10:30:00',
@@ -216,7 +210,6 @@ export const contratos: ContratoMock[] = [
       adjustmentIndex: 'sin_ajuste',
       adjustmentPeriod: null,
     },
-    clausulas: null,
     ultimoPaso: 3,
     createdAt: '2024-02-20T10:00:00',
     updatedAt: '2024-02-25T10:00:00',

@@ -16,14 +16,12 @@
 import type {
   AlquilerResumen,
   CambiosBorrador,
-  ClausulaContrato,
   ContratoBorrador,
   ContratoDePropiedad,
   ContratoDetalle,
   ContratoEnviado,
   ContratosDePropiedad,
   FirmanteContrato,
-  GaranteContrato,
   IndiceContrato,
   GarantiaOfrecida,
   ParteContrato,
@@ -31,32 +29,23 @@ import type {
   PeriodicidadAjuste,
   RolFirmante,
 } from '@rentar/shared-types'
-import { MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { separarContratos } from '@/lib/contratos/propiedad'
-import { completarClausulas } from '@/lib/contratos/plantilla'
-import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO } from '@/lib/contratos/validaciones'
-import { telefonoAE164, telefonoDelBack } from '@/lib/perfil/formato'
+import { telefonoDelBack } from '@/lib/perfil/formato'
 import type {
   AlquilerLocatarioDetalleResponse,
   AlquilerLocatarioItemResponse,
-  ClausulaDto,
   CodigoErrorContrato,
   ContratoBorradorApiResponse,
   ContratoDetalleApiResponse,
-  ContratoDetalleResponse,
   ContratoEnviadoResponse,
   ContratoPdfDto,
   ContratoPropiedadResponse,
-  ContratoResponse,
   ContratosInmuebleResponse,
   FirmaAlquilerDto,
   FirmanteApiDto,
-  FirmanteDto,
   FirmasApiDto,
-  GaranteDto,
   GuardarBorradorRequest,
   ParteApiDto,
-  ParteContratoDto,
 } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
 import { formatExactAddress } from './direccion'
@@ -92,28 +81,6 @@ export const FIRMA_ERROR_GENERICO_MESSAGE = 'No pudimos registrar la acción. No
 const CONTRATO_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revisá tu conexión y probá de nuevo.'
 
 // ─── DTO → vista ────────────────────────────────────────────────────────
-
-/** Locador o locatario del back → `ParteContrato`. */
-function parteDeDto(dto: ParteContratoDto): ParteContrato {
-  return {
-    userId: String(dto.id),
-    nombre: dto.nombre,
-    apellido: dto.apellido ?? '',
-    dni: dto.numero_documento || null,
-    email: dto.email,
-    telefono: telefonoAE164(dto.telefono),
-  }
-}
-
-/** Garante del back → vista. La clave es local (para la lista del paso 1). */
-function garanteDeDto(dto: GaranteDto, indice: number): GaranteContrato {
-  return { key: `garante-${indice + 1}`, fullName: dto.nombre_apellido, dni: dto.numero_documento, email: dto.email }
-}
-
-/** Cláusula del back → vista. */
-function clausulaDeDto(dto: ClausulaDto): ClausulaContrato {
-  return { key: dto.clave, tipo: dto.tipo, titulo: dto.titulo, texto: dto.texto, editada: dto.tipo === 'editable' && dto.editada }
-}
 
 /**
  * Las firmas del back → solo locador y locatario. `null` si alguna de las dos
@@ -221,7 +188,6 @@ export function borradorDeApi(dto: ContratoBorradorApiResponse): ContratoBorrado
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(condiciones.frecuencia_ajuste),
     },
-    clausulas: [],
     // El back cuenta los pasos de 1 a 4; el wizard, de 0 a 3.
     ultimoPaso: Math.max((dto.ultimo_paso ?? 1) - 1, 0),
     pdf: pdfDeApi(dto.pdf),
@@ -270,7 +236,6 @@ function parteDeApi(dto: ParteApiDto | null): ParteContrato {
 /**
  * `GET /contratos/:id/detalle` → el detalle del locador (US-42).
  * - Lo que no vino queda en `null` o vacío: la pantalla muestra "Sin dato".
- * - Sin `clausulas`: el documento es el PDF del back.
  * - `datosApi` en lugar de `null`: no ofrece firma en línea (US-07 no existe en la API).
  */
 export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): ContratoDetalle {
@@ -309,7 +274,6 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(condiciones.frecuencia_ajuste),
     },
-    clausulas: [],
     ultimoPaso: 3,
     pdf: pdfDeApi(dto.pdf),
     fechaInicioVencida: false,
@@ -340,98 +304,6 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
       expensas: 0,
       mediosPago: condiciones.medios_pago.map((medio) => medio.nombre),
     },
-  }
-}
-
-/**
- * `GET /contratos/:id` o `/contratos/preparar` → `ContratoBorrador`.
- * - `condiciones` en `null` (lo que manda `/preparar`): los valores por
- *   defecto de US-05 (24 meses, precio publicado, un mes de depósito, día
- *   10, el índice de la publicación).
- * - `clausulas` vacías: la plantilla del front, completada con los datos.
- */
-export function contratoDeDto(dto: ContratoResponse): ContratoBorrador {
-  const { inmueble } = dto
-  const precio = inmueble.precio_publicado
-  const borrador: ContratoBorrador = {
-    id: dto.id === null ? null : String(dto.id),
-    pdf: null,
-    fechaInicioVencida: false,
-    code: dto.codigo,
-    status: dto.estado,
-    solicitudId: String(dto.id_solicitud),
-    solicitudAceptadaEl: dto.fecha_aceptacion_solicitud,
-    propiedad: {
-      id: String(inmueble.id),
-      address: formatExactAddress(inmueble.direccion, inmueble.numero, inmueble.piso),
-      neighborhoodName: barrioDe(inmueble.barrio).name,
-      priceMonthly: precio,
-      adjustmentIndex: inmueble.indice_publicacion,
-      photoSrc: inmueble.foto_principal ?? null,
-      cobro: {
-        paymentMethods: inmueble.medios_pago.map(medioPagoFromId).filter((medio) => medio !== null),
-        graceDays: inmueble.dias_gracia,
-        dailyInterestPct: inmueble.interes_por_dia,
-      },
-    },
-    locador: parteDeDto(dto.locador),
-    locatario: parteDeDto(dto.locatario),
-    garantiasOfrecidas: dto.garantias_ofrecidas,
-    garantes: dto.garantes.map(garanteDeDto),
-    condiciones: dto.condiciones
-      ? {
-          startDate: dto.condiciones.fecha_inicio,
-          durationMonths: dto.condiciones.duracion_meses,
-          initialAmount: dto.condiciones.monto_inicial,
-          deposit: dto.condiciones.deposito,
-          paymentTermDays: dto.condiciones.dia_vencimiento,
-          adjustmentIndex: dto.condiciones.indice,
-          adjustmentPeriod: dto.condiciones.periodicidad,
-        }
-      : {
-          startDate: null,
-          durationMonths: DURACION_POR_DEFECTO,
-          initialAmount: precio,
-          deposit: precio,
-          paymentTermDays: PLAZO_VENCIMIENTO_POR_DEFECTO,
-          adjustmentIndex: inmueble.indice_publicacion ?? 'sin_ajuste',
-          // NOTA: la periodicidad de la publicación es texto libre en el back: se elige en el paso 2.
-          adjustmentPeriod: null,
-        },
-    clausulas: dto.clausulas.map(clausulaDeDto),
-    ultimoPaso: dto.ultimo_paso,
-  }
-  return { ...borrador, clausulas: completarClausulas(borrador.clausulas, borrador) }
-}
-
-/** Firmante del back → vista. */
-function firmanteDeDto(dto: FirmanteDto): FirmanteContrato {
-  return {
-    rol: dto.rol,
-    userId: String(dto.id_usuario),
-    nombre: [dto.nombre, dto.apellido].filter(Boolean).join(' '),
-    estado: dto.estado,
-    firmadoEl: dto.fecha_firma,
-    rechazadoEl: dto.fecha_rechazo,
-    motivoRechazo: dto.motivo_rechazo,
-    ultimaInvitacion: dto.fecha_ultima_invitacion,
-  }
-}
-
-/** `GET /contratos/:id` (y las acciones de US-07) → `ContratoDetalle`. Los firmantes, locador primero. */
-export function contratoDetalleDeDto(dto: ContratoDetalleResponse): ContratoDetalle {
-  const orden: Record<FirmanteDto['rol'], number> = { locador: 0, locatario: 1 }
-  return {
-    ...contratoDeDto(dto),
-    enviadoEl: dto.fecha_envio,
-    firmadoPorTodasEl: dto.fecha_firma_completa,
-    firmasRegistradas: dto.firmas_registradas,
-    firmantes: [...dto.firmantes].sort((a, b) => orden[a.rol] - orden[b.rol]).map(firmanteDeDto),
-    endDate: dto.fecha_fin,
-    montoActual: dto.monto_actual,
-    ajusteCadaMeses: dto.condiciones?.indice && dto.condiciones.indice !== 'sin_ajuste' && dto.condiciones.periodicidad ? MESES_POR_PERIODO[dto.condiciones.periodicidad] : null,
-    // El detalle propuesto de `/contratos/:id` no trae los datos de `/alquileres-locatario`.
-    datosApi: null,
   }
 }
 
@@ -559,7 +431,6 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
  *   del contrato van en `datosApi.mediosPago`).
  * - Garantes: nombre y correo; sin DNI (el back no lo manda en la ficha).
  * - Condiciones: sin monto inicial ni duración (no vienen).
- * - Cláusulas: vacías: el documento es el PDF.
  * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
  */
 export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): ContratoDetalle {
@@ -604,7 +475,6 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(dto.frecuencia_ajuste),
     },
-    clausulas: [],
     ultimoPaso: 3,
     pdf: null,
     fechaInicioVencida: false,
