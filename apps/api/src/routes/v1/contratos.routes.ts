@@ -468,7 +468,8 @@ router.post(
  *     summary: Descartar un borrador de contrato (US-06)
  *     description: >
  *       Elimina un contrato en borrador con sus garantes, partes, PDF. La solicitud
- *       aceptada de origen queda libre y puede originar un contrato nuevo (`POST /contratos`).
+ *       de origen vuelve a **pendiente**: el locador puede aceptarla de nuevo o elegir a otra
+ *       persona, y el locatario no queda bloqueado.
  *       **El cliente debe pedir confirmación antes de llamar.** Solo borradores.
  *     tags:
  *       - Contratos

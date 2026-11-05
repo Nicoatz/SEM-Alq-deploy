@@ -6,6 +6,7 @@ import type {
   ContratoDetalleResponse,
   ContratoDTO,
   ContratoResumenResponse,
+  ContratosInmuebleResponse,
   EstadoContratoResponse,
   EstadoFirmaDetalleResponse,
   FirmanteDetalleResponse,
@@ -89,6 +90,17 @@ function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | nul
     codigo: fila.codigo,
     estado,
     locatario: fila.locatario,
+    // NOTA: sin firmas en un borrador (no se envió a firmar) ni en un finalizado (va al detalle).
+    firmas:
+      estado === 'pendiente_firma' || estado === 'vigente'
+        ? armarFirmas(
+            estado,
+            fila.partes.find(parte => parte.tipo_firmante === 1),
+            fila.partes.find(parte => parte.tipo_firmante === 2),
+            fila.garantes
+          )
+        : null,
+    pdf: fila.pdf,
     monto_actual: montoActual,
     fecha_inicio_contrato: fila.fecha_inicio_contrato,
     fecha_fin_contrato: fila.fecha_fin_contrato,
@@ -118,6 +130,43 @@ function firmanteDeFila(
     fecha_firma: firma.fecha_firma ?? null,
     fecha_rechazo: firma.fecha_rechazo ?? null,
     motivo_rechazo: firma.motivo_rechazo ?? null,
+  };
+}
+
+/**
+ * Las firmas de un contrato (US-42 y US-43): locador, locatario y garantes, con la fecha y hora de
+ * cada firma. Lo comparten el detalle y el listado, así no se desfasan.
+ *
+ * - Sin evidencia de las firmas (contratos anteriores a RentAR) no se inventa nada: `registradas`
+ *   queda en `false`.
+ * - `faltan`: solo con el contrato pendiente de firma.
+ * - `firmado_por_todos_el`: solo con el contrato vigente y todas las partes firmadas; es la fecha
+ *   de la última firma.
+ */
+function armarFirmas(
+  estado: EstadoContratoResponse,
+  locador: { usuario: { nombre: string; apellido: string } | null } & FilaFirma | undefined,
+  locatario: { usuario: { nombre: string; apellido: string } | null } & FilaFirma | undefined,
+  garantes: ({ nombre: string; apellido: string } & FilaFirma)[]
+): ContratoDetalleResponse['firmas'] {
+  const firmantes: FirmanteDetalleResponse[] = [
+    ...(locador ? [firmanteDeFila('locador', locador.usuario, locador)] : []),
+    ...(locatario ? [firmanteDeFila('locatario', locatario.usuario, locatario)] : []),
+    ...garantes.map(garante => firmanteDeFila('garante', garante, garante)),
+  ];
+
+  const registradas = firmantes.length > 0 && firmantes.every(firmante => firmante.estado !== 'sin_registro');
+  const fechasFirma = firmantes.map(firmante => firmante.fecha_firma).filter((f): f is string => f !== null);
+  const firmadoPorTodos =
+    estado === 'vigente' && registradas && firmantes.every(firmante => firmante.estado === 'firmado')
+      ? fechasFirma.reduce((ultima, fecha) => (new Date(fecha) > new Date(ultima) ? fecha : ultima))
+      : null;
+
+  return {
+    registradas,
+    faltan: estado === 'pendiente_firma' ? firmantes.filter(firmante => firmante.estado !== 'firmado').length : null,
+    firmado_por_todos_el: firmadoPorTodos,
+    firmantes,
   };
 }
 
@@ -186,7 +235,7 @@ export class ContratoService {
    *
    * Una propiedad inexistente, ajena o dada de baja es siempre 404: no se distingue.
    */
-  async listarPorInmueble(user: AuthenticatedUser, idInmueble: number): Promise<ContratoResumenResponse[]> {
+  async listarPorInmueble(user: AuthenticatedUser, idInmueble: number): Promise<ContratosInmuebleResponse> {
     if (!user?.id) {
       this.throwError('Debe iniciar sesión para consultar contratos.', 401);
     }
@@ -199,16 +248,19 @@ export class ContratoService {
       this.throwError('El identificador de la propiedad no es válido.', 400);
     }
 
-    const filas = await this.contratoRepo.findListadoByInmuebleId(idInmueble, user.id);
+    const listado = await this.contratoRepo.findListadoByInmuebleId(idInmueble, user.id);
 
-    if (!filas) {
+    if (!listado) {
       this.throwError('No encontramos esta propiedad.', 404);
     }
 
-    return filas
-      .map(resumenDeFila)
-      .filter((resumen): resumen is ContratoResumenResponse => resumen !== null)
-      .sort(masRecientePrimero);
+    return {
+      contratos: listado.contratos
+        .map(resumenDeFila)
+        .filter((resumen): resumen is ContratoResumenResponse => resumen !== null)
+        .sort(masRecientePrimero),
+      solicitud_para_contrato: listado.solicitud_para_contrato,
+    };
   }
 
   /**
@@ -245,21 +297,7 @@ export class ContratoService {
     const locador = parteDe(1);
     const locatario = parteDe(2);
 
-    const firmantes: FirmanteDetalleResponse[] = [
-      ...(locador ? [firmanteDeFila('locador', locador.usuario, locador)] : []),
-      ...(locatario ? [firmanteDeFila('locatario', locatario.usuario, locatario)] : []),
-      ...fila.garantes.map(garante => firmanteDeFila('garante', garante, garante)),
-    ];
-
-    // US-42: sin evidencia de las firmas (contratos anteriores a RentAR) no se inventa nada.
-    const registradas = firmantes.length > 0 && firmantes.every(firmante => firmante.estado !== 'sin_registro');
     const pendiente = estado === 'pendiente_firma';
-
-    const fechasFirma = firmantes.map(firmante => firmante.fecha_firma).filter((f): f is string => f !== null);
-    const firmadoPorTodos =
-      estado === 'vigente' && registradas && firmantes.every(firmante => firmante.estado === 'firmado')
-        ? fechasFirma.reduce((ultima, fecha) => (new Date(fecha) > new Date(ultima) ? fecha : ultima))
-        : null;
 
     const montoInicial = fila.monto_alquiler;
     const ultimoAjuste = fila.ajustes[fila.ajustes.length - 1];
@@ -288,12 +326,7 @@ export class ContratoService {
         interes_por_dia: fila.interes_por_dia,
       },
       calendario_ajustes: calendarioDeAjustes(fila),
-      firmas: {
-        registradas,
-        faltan: pendiente ? firmantes.filter(firmante => firmante.estado !== 'firmado').length : null,
-        firmado_por_todos_el: firmadoPorTodos,
-        firmantes,
-      },
+      firmas: armarFirmas(estado, locador, locatario, fila.garantes),
       pdf: fila.pdf,
       acciones: {
         // US-06: solo pendiente de firma y sin la firma del locatario. US-07: firmar, además,
@@ -368,7 +401,8 @@ export class ContratoService {
 
   /**
    * US-06 · Descartar un borrador (el cliente pide confirmación antes). Lo elimina y la solicitud
-   * aceptada queda libre para originar un contrato nuevo. Solo borradores: 409 si no.
+   * de origen vuelve a pendiente (el locador puede aceptarla de nuevo o elegir a otra). Solo
+   * borradores: 409 si no.
    */
   async descartar(user: AuthenticatedUser, idContrato: number): Promise<void> {
     this.validarAcceso(user, idContrato);

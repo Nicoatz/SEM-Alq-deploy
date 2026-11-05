@@ -20,9 +20,10 @@ export class SolicitudService {
     private readonly inmuebleRepo: Pick<IInmuebleRepository, 'findById'> = inmuebleRepository
   ) {}
 
-  private throwValidationError(message: string, statusCode = 400): never {
+  private throwValidationError(message: string, statusCode = 400, codigo?: string): never {
     const error = new Error(message);
     (error as any).statusCode = statusCode;
+    if (codigo) (error as any).codigo = codigo;
     throw error;
   }
 
@@ -357,6 +358,19 @@ export class SolicitudService {
 
     if (solicitud.id_estado_solicitud !== 1) {
       this.throwValidationError('Solo se pueden modificar solicitudes pendientes.', 409);
+    }
+
+    // Regla del equipo: el locador elige a un solo locatario por propiedad. No se acepta otra
+    // solicitud mientras la propiedad tenga una aceptada en curso (ver `existeOtraAceptadaEnCurso`).
+    if (
+      idEstadoSolicitud === 2 &&
+      (await this.solicitudRepo.existeOtraAceptadaEnCurso(solicitud.id_inmueble, idSolicitud))
+    ) {
+      this.throwValidationError(
+        'La propiedad ya tiene una solicitud aceptada. Solo se puede aceptar una por propiedad.',
+        409,
+        'PROPIEDAD_CON_SOLICITUD_ACEPTADA'
+      );
     }
 
     const actualizada = await this.solicitudRepo.updateEstado(

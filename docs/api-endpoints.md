@@ -117,7 +117,7 @@ diferencias con la propuesta original y lo que falta están en
 | `GET /solicitudes/mias` | Bearer | existe | US-36 (y US-35: botón del detalle y "N pendientes en otras propiedades") | `#listarMisSolicitudes`; con `?inmueble=`, `#getMiSolicitudParaPropiedad`; con `?estado=pendiente`, `#contarMisSolicitudesPendientes` | `estado`, `inmueble` (opcionales) | `SolicitudResponse[]`, de la más nueva a la más vieja. **Sin canceladas** (`?estado=cancelada` da vacío). **Con** DNI, contacto y legajo propios (el adaptador los descarta) | 400 filtro inválido; 401 | — |
 | `GET /solicitudes/recibidas` | Bearer + rol `locador` | existe | US-36 | `#listarSolicitudesRecibidas` (lista, sin datos sensibles); con `?inmueble=`, `#getSolicitudRecibida` (puente del detalle); con `?estado=pendiente`, `panel.service#getSolicitudesPendientes` | `estado`, `inmueble` (opcionales) | `SolicitudResponse[]` de los inmuebles del locador, con DNI, contacto y legajo. **Sin canceladas** | 400; 401; 403 sin rol | — |
 | `GET /solicitudes/:id` | Bearer (dueño o postulante) | **no existe — propuesto** | US-36 | `#getSolicitudRecibida` (hoy por el puente de arriba) | — | `SolicitudResponse` con DNI, contacto y legajo solo para el dueño del inmueble | 401; 404 si no es parte | — |
-| `PATCH /solicitudes/:id/aceptar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#aceptarSolicitud` | — | `SolicitudResponse` (`aceptada`) | 400; 401; 403; 404 si no es suya; 409 si ya no está pendiente. **No** controla que el inmueble ya tenga otra aceptada (lo sostiene el front) ni cambia el estado del inmueble | Al **locatario** (US-37): **no se manda todavía** |
+| `PATCH /solicitudes/:id/aceptar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#aceptarSolicitud` | — | `SolicitudResponse` (`aceptada`) | 400; 401; 403; 404 si no es suya; 409 si ya no está pendiente, o `PROPIEDAD_CON_SOLICITUD_ACEPTADA` si el inmueble ya tiene otra aceptada en curso. **No** cambia el estado del inmueble | Al **locatario** (US-37): **no se manda todavía** |
 | `PATCH /solicitudes/:id/rechazar` | Bearer + rol `locador` (dueño) | existe | US-37 | `#rechazarSolicitud` | Body opcional `{ mensaje_rechazo }` (≤ 200). **El front lo manda solo si hay motivo** (sin espacios en los bordes); sin motivo, el `PATCH` va sin cuerpo. US-36 lo muestra en los listados, truncado a 80 | `SolicitudResponse` (`rechazada`) | 400 (también si el motivo pasa de 200: "El mensaje de rechazo no puede superar los 200 caracteres.", que el front traduce); 401; 403; 404; 409 si ya no está pendiente | — |
 | `PATCH /solicitudes/:id/cancelar` | Bearer (**solo el postulante**) | existe | Sin US en Sprint 0 (postulante, mapa US-39). **US-38 (locador) no está** | `#cancelarSolicitud` | — | `SolicitudResponse` (`cancelada`) | 400; 401; **404 si no es el postulante (también el locador)**; 409 si no está pendiente | Al **locatario** si cancela el locador (US-38): no aplica todavía |
 
@@ -148,9 +148,10 @@ Notas:
   `apps/web/src/lib/validation/solicitud.rules.ts`): aceptar y rechazar, del locador desde
   `pendiente`; cancelar, del locador desde `aceptada` (falta en el back) o del postulante desde
   `pendiente`. Cada una guarda `fecha_respuesta`.
-- **Una sola aceptada por inmueble (decidido por el PO):** `PATCH /aceptar` debería responder 409 si
-  el inmueble ya tiene otra `aceptada`. **El back todavía no lo controla** (brecha 2): lo sostiene el
-  front.
+- **Una sola aceptada por inmueble (decidido por el PO):** `PATCH /aceptar` responde **409** con
+  `codigo: PROPIEDAD_CON_SOLICITUD_ACEPTADA` si el inmueble ya tiene otra `aceptada` **en curso** (sin
+  contrato todavía, o con un contrato borrador, pendiente de firma o vigente). Una aceptada cuyo contrato
+  ya **finalizó** no cuenta: el inmueble volvió a alquilarse y puede aceptar otra. **Hecho** (04/11).
 - **Una sola activa por persona e inmueble:** una `pendiente` o `aceptada` impide otra (409). Una
   `rechazada` o `cancelada` no. **Hecho.**
 - **Aceptar no rechaza a las demás** solicitudes del inmueble (Flujo de solicitudes · 02). **Hecho.**
@@ -276,8 +277,8 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 | `POST /contratos/:id/pdf/url-subida` | **implementado** | — | `{ path, token, url_firmada, tamano_maximo_bytes }` | 404, **409** |
 | `PUT /contratos/:id/pdf` | **implementado** | `{ path, nombre }` | 200 `ContratoBorradorResponse` | 400, 404, **409**, **413** |
 | `POST /contratos/:id/reabrir` | **implementado** (US-06) | — | 200 `ContratoBorradorResponse`: el contrato vuelve a borrador (estado 5), sin firmas y con el mismo código. Solo pendiente de firma y sin la firma del locatario. El cliente confirma antes | 400, 404, **409** (`codigo`: `CONTRATO_VIGENTE`, `CONTRATO_FINALIZADO`, `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_YA_EN_BORRADOR`) |
-| `DELETE /contratos/:id` | **implementado** (US-06) | — | 200 sin `data`: descarta el borrador y libera la solicitud. El cliente confirma antes | 400, 404, **409** (`CONTRATO_NO_EDITABLE`) |
-| `GET /inmuebles/:id/contratos` | **implementado** (US-43) | — | `ContratoResumenResponse[]` (los de esa propiedad, sin la oferta, estado 1; ver abajo) | 400, 401, 403, 404 |
+| `DELETE /contratos/:id` | **implementado** (US-06) | — | 200 sin `data`: descarta el borrador y devuelve la solicitud de origen a **pendiente**. El cliente confirma antes | 400, 404, **409** (`CONTRATO_NO_EDITABLE`) |
+| `GET /inmuebles/:id/contratos` | **implementado** (US-43) | — | `{ contratos: ContratoResumenResponse[], solicitud_para_contrato: number \| null }` (los de esa propiedad, sin la oferta, estado 1; ver abajo) | 400, 401, 403, 404 |
 | `GET /contratos/:id/detalle` | **implementado** (US-42) | — | `ContratoDetalleResponse` (el detalle para `/panel/contratos/[id]`; ver abajo) | 400, 401, 403, 404 (no existe o no es suyo), **409** `CONTRATO_BORRADOR` |
 | `DELETE /contratos/:id` | pendiente (propuesto) | — | 204 | 404, **409** |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | — | 200 `ContratoEnviadoResponse` | 400, 404, **409** |
@@ -368,10 +369,25 @@ general de todos los contratos del locador. No trae la propiedad: es la de la ru
   "fecha_fin_contrato": "2029-09-30",
   "indice": "ICL",
   "proximo_ajuste": "2027-04-01",
-  "id_solicitud": 31
+  "id_solicitud": 31,
+  "firmas": {
+    "registradas": true, "faltan": 1, "firmado_por_todos_el": null,
+    "firmantes": [
+      { "rol": "locador", "nombre": "Carlos", "apellido": "Propietario", "estado": "firmado", "fecha_firma": "2026-10-02T09:15:00+00:00", "fecha_rechazo": null, "motivo_rechazo": null },
+      { "rol": "locatario", "nombre": "Julieta", "apellido": "Peralta", "estado": "pendiente", "fecha_firma": null, "fecha_rechazo": null, "motivo_rechazo": null }
+    ]
+  },
+  "pdf": { "nombre": "contrato.pdf", "tamano_bytes": 482113, "subido_en": "2026-10-01T10:00:00+00:00", "url": "https://…" }
 }
 ```
 
+- **Respuesta (`data`):** `{ contratos, solicitud_para_contrato }`. Lo de arriba es cada elemento de
+  `contratos`.
+- `solicitud_para_contrato`: id de la solicitud **aceptada** de la propiedad que **todavía no originó un
+  contrato** (misma regla que `POST /contratos`). Con un id, el front ofrece "Iniciar contrato" y manda ese
+  `id_solicitud`; con `null`, el acceso a las solicitudes de la propiedad. Es `null` también si la propiedad
+  ya tiene un contrato en curso (borrador, pendiente de firma o vigente). Solo se acepta una solicitud por
+  propiedad (ver `PATCH` de aceptar, 409 `PROPIEDAD_CON_SOLICITUD_ACEPTADA`).
 - **Errores:** 400 (`:id` inválido), 401, 403 (no es locador) y **404** si la propiedad no existe, no es
   del locador o está dada de baja (**uno solo**, sin distinguir). Una propiedad sin contratos responde
   200 con `[]`.
@@ -381,10 +397,17 @@ general de todos los contratos del locador. No trae la propiedad: es la de la ru
   finalizado, sin fecha de inicio) o si ya no quedan antes del fin.
 - `monto_actual`: el `monto_nuevo` del último `ajuste_contrato`; si no hubo, el inicial (en un borrador
   sin monto, `null`).
+- `firmas` (mismo formato y reglas que en el detalle, `ContratoDetalleResponse.firmas`): con el contrato
+  **pendiente de firma**, quién firmó (`fecha_firma` con fecha y hora) y quién falta (`faltan`); con el
+  **vigente**, `firmado_por_todos_el`. `null` en **borrador** y **finalizado**. De los garantes solo
+  viene nombre y apellido. Si no hay registro de las firmas (contrato anterior a RentAR),
+  `registradas: false` y nada inventado.
+- `pdf` (igual que en el detalle): URL firmada que **vence a los 5 minutos**. Solo en **pendiente de firma**
+  y **vigente** con archivo; `null` en borrador (no se descarga), en finalizado (se descarga desde
+  `GET /contratos/:id/detalle`) y si no hay archivo.
 - **Orden:** el más reciente primero por `fecha_inicio_contrato`; los borradores sin fecha van arriba.
 - **Nombres de campo:** `fecha_inicio_contrato` / `fecha_fin_contrato` (como `ContratoBorradorResponse`),
   distintos de `fecha_inicio` / `fecha_fin` de la propuesta anterior del front.
-- No hay `rescindido`: el esquema no tiene ese estado.
 
 **`ContratoDetalleResponse`** (`GET /contratos/:id/detalle`, **implementado**, US-42). Bearer + rol
 locador. Es una ruta aparte de `GET /contratos/:id` (que sigue sirviendo el alta, US-05).

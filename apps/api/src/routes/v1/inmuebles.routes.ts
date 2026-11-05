@@ -377,7 +377,7 @@ router.put(
  *   get:
  *     summary: Listar los contratos de una propiedad del locador (US-43)
  *     description: >
- *       Devuelve todos los contratos de la propiedad (borradores, pendientes de firma, vigentes y
+ *       Devuelve `contratos` (todos los de la propiedad: borradores, pendientes de firma, vigentes y
  *       finalizados) para que el locador vea su historial. **No** incluye la oferta (estado 1), que
  *       son las condiciones de la publicación. Sin DNI ni datos de contacto del locatario o de los
  *       garantes, y sin los datos de la propiedad (ya es la de la ruta). Orden: el más reciente
@@ -404,25 +404,69 @@ router.put(
  *               properties:
  *                 success: { type: boolean }
  *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id: { type: integer }
- *                       codigo: { type: string, nullable: true, description: 'null en los borradores' }
- *                       estado: { type: string, enum: [borrador, pendiente_firma, vigente, finalizado] }
- *                       locatario:
- *                         type: object
- *                         nullable: true
- *                         properties:
- *                           nombre: { type: string }
- *                           apellido: { type: string }
- *                       monto_actual: { type: number, nullable: true }
- *                       fecha_inicio_contrato: { type: string, format: date, nullable: true }
- *                       fecha_fin_contrato: { type: string, format: date, nullable: true }
- *                       indice: { type: string, enum: [sin_ajuste, ICL, IPC, CAC] }
- *                       proximo_ajuste: { type: string, format: date, nullable: true }
- *                       id_solicitud: { type: integer, nullable: true }
+ *                   type: object
+ *                   properties:
+ *                     solicitud_para_contrato:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: >
+ *                         Id de la solicitud aceptada de la propiedad que todavía no originó un contrato.
+ *                         Con un id, ofrecer "Iniciar contrato" (`POST /contratos` con ese id); con null,
+ *                         el acceso a las solicitudes. Es null también si la propiedad ya tiene un contrato
+ *                         en curso (borrador, pendiente de firma o vigente).
+ *                     contratos:
+ *                       type: array
+ *                       items:
+ *                        type: object
+ *                        properties:
+ *                          id: { type: integer }
+ *                          codigo: { type: string, nullable: true, description: 'null en los borradores' }
+ *                          estado: { type: string, enum: [borrador, pendiente_firma, vigente, finalizado] }
+ *                          locatario:
+ *                            type: object
+ *                            nullable: true
+ *                            properties:
+ *                              nombre: { type: string }
+ *                              apellido: { type: string }
+ *                          monto_actual: { type: number, nullable: true }
+ *                          fecha_inicio_contrato: { type: string, format: date, nullable: true }
+ *                          fecha_fin_contrato: { type: string, format: date, nullable: true }
+ *                          indice: { type: string, enum: [sin_ajuste, ICL, IPC, CAC] }
+ *                          proximo_ajuste: { type: string, format: date, nullable: true }
+ *                          id_solicitud: { type: integer, nullable: true }
+ *                          firmas:
+ *                            type: object
+ *                            nullable: true
+ *                            description: >
+ *                              Igual que en el detalle (US-42). Solo en pendientes de firma y vigentes;
+ *                              `null` en borradores y finalizados.
+ *                            properties:
+ *                              registradas: { type: boolean }
+ *                              faltan: { type: integer, nullable: true, description: 'Solo pendiente de firma' }
+ *                              firmado_por_todos_el: { type: string, format: date-time, nullable: true, description: 'Solo vigente' }
+ *                              firmantes:
+ *                                type: array
+ *                                items:
+ *                                  type: object
+ *                                  properties:
+ *                                    rol: { type: string, enum: [locador, locatario, garante] }
+ *                                    nombre: { type: string }
+ *                                    apellido: { type: string }
+ *                                    estado: { type: string, enum: [pendiente, firmado, rechazado, sin_registro] }
+ *                                    fecha_firma: { type: string, format: date-time, nullable: true }
+ *                                    fecha_rechazo: { type: string, format: date-time, nullable: true }
+ *                                    motivo_rechazo: { type: string, nullable: true }
+ *                          pdf:
+ *                            type: object
+ *                            nullable: true
+ *                            description: >
+ *                              Igual que en el detalle, con URL firmada que vence a los 5 minutos. Solo en
+ *                              pendientes de firma y vigentes con archivo; `null` si no.
+ *                            properties:
+ *                              nombre: { type: string }
+ *                              tamano_bytes: { type: integer }
+ *                              subido_en: { type: string, format: date-time }
+ *                              url: { type: string }
  *       400:
  *         description: Identificador inválido.
  *       401:

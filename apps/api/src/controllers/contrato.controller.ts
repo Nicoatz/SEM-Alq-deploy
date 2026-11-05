@@ -5,7 +5,7 @@ import {
   ContratoBorradorResponse,
   ContratoDetalleResponse,
   ContratoDTO,
-  ContratoResumenResponse,
+  ContratosInmuebleResponse,
   UrlSubidaPdfResponse,
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
@@ -21,7 +21,7 @@ export class ContratoController {
   /** GET /inmuebles/:id/contratos · US-43: los contratos de una propiedad del locador (sin la oferta). */
   async listarPorInmueble(
     req: Request,
-    res: Response<ApiResponse<ContratoResumenResponse[]>>,
+    res: Response<ApiResponse<ContratosInmuebleResponse>>,
     next: NextFunction
   ): Promise<void> {
     try {
@@ -33,9 +33,9 @@ export class ContratoController {
       }
 
       const user = (req as any).user as AuthenticatedUser;
-      const contratos = await contratoService.listarPorInmueble(user, idInmueble);
+      const listado = await contratoService.listarPorInmueble(user, idInmueble);
 
-      res.status(200).json({ success: true, data: contratos });
+      res.status(200).json({ success: true, data: listado });
     } catch (error) {
       next(error);
     }

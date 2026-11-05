@@ -185,8 +185,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Sin bloqueo en el GET ni `codigo` en los 409 (§7, "US-20 y US-21") |
 | `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-21) | **Pendiente** (propuesto): en real el legajo se ve "Sin cargar" |
 | `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Implementado en API** (03/11): registro del contrato (iniciar, consultar, editar por pasos y cargar el PDF). Contrato de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos", y guía en [`registrar_contrato_front.md`](registrar_contrato_front.md). El front en real todavía llama a las rutas de su propuesta: tiene que adaptarse (el back define el contrato) |
-| `GET /inmuebles/:id/contratos` | Alquileres del locador (US-43) | **Implementado en API** (04/11): Bearer + rol locador; los contratos de una propiedad, sin la oferta (estado 1) ni bajas lógicas; sin DNI ni contacto ni datos de la propiedad; más reciente primero; 404 si la propiedad no es suya. Campos en [`api-endpoints.md`](api-endpoints.md), `ContratoResumenResponse`. El front en real tiene que adaptarse (`fecha_inicio_contrato` / `fecha_fin_contrato`, sin `rescindido`) |
-| `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | `/panel/contratos` y `/[id]/editar` (US-06, Sprint 3) | **Implementado en API** (04/11): `reabrir` vuelve a borrador un contrato pendiente de firma sin la firma del locatario (borra las firmas, conserva el código); `DELETE` descarta un borrador y libera la solicitud. El cliente pide la confirmación antes de llamar. Códigos 409 y contrato en [`api-endpoints.md`](api-endpoints.md), "Contratos" |
+| `GET /inmuebles/:id/contratos` | Alquileres del locador (US-43) | **Implementado en API** (04/11): Bearer + rol locador; los contratos de una propiedad, sin la oferta (estado 1) ni bajas lógicas; sin DNI ni contacto ni datos de la propiedad; más reciente primero; 404 si la propiedad no es suya. Campos en [`api-endpoints.md`](api-endpoints.md), `ContratoResumenResponse`. El front en real tiene que adaptarse (`fecha_inicio_contrato` / `fecha_fin_contrato`) |
+| `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | `/panel/contratos` y `/[id]/editar` (US-06, Sprint 3) | **Implementado en API** (04/11): `reabrir` vuelve a borrador un contrato pendiente de firma sin la firma del locatario (borra las firmas, conserva el código); `DELETE` descarta un borrador y devuelve la solicitud de origen a **pendiente** (migración `20261104000001`). El cliente pide la confirmación antes de llamar. Códigos 409 y contrato en [`api-endpoints.md`](api-endpoints.md), "Contratos" |
 | `POST /contratos/:id/enviar` | `/panel/contratos` (US-05, Sprint 3) | **Pendiente** (propuesto): en mock funciona; la rama real ya llama a esta ruta (§7, "US-05") |
 | `GET /contratos/:id/detalle` | `/panel/contratos/[id]` (US-42) | **Implementado en API** (03/11): Bearer + rol locador; 404 uniforme; 409 `CONTRATO_BORRADOR` para borradores (el front retoma el alta); firmantes, calendario de ajustes, PDF con URL firmada y acciones; sin historial (se quitó de la US). Campos en [`api-endpoints.md`](api-endpoints.md), `ContratoDetalleResponse`. El front en real tiene que adaptarse |
 | `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). El bloqueante del esquema ya está resuelto (§7, "US-05") |
@@ -377,11 +377,11 @@ descartar un borrador (`DELETE /contratos/:id`) ni enviar a firmar (`POST /contr
 **implementado** (Bearer + rol locador): el historial de contratos de **una propiedad**, para que el
 locador los vea desde sus alquileres. **No hay** un listado general `GET /contratos`. Devuelve los
 estados borrador, pendiente de firma, vigente y finalizado: **no** la oferta (estado 1) ni los de baja
-lógica (`activo = false`). Sin DNI ni contacto y sin los datos de la propiedad (es la de la ruta). Una
+lógica (`activo = false`). Sin DNI ni contacto y sin los datos de la propiedad (es la de la ruta). Trae `firmas` (quién firmó con fecha y hora y quién falta; en el vigente, `firmado_por_todos_el`) y `pdf` (URL firmada de 5 minutos) en los pendientes de firma y vigentes, con el mismo formato que el detalle (US-42). La respuesta es `{ contratos, solicitud_para_contrato }`: la segunda es la solicitud aceptada sin contrato, para ofrecer "Iniciar contrato" cuando no hay contrato actual. Una
 propiedad inexistente, ajena o dada de baja responde **404**. Orden: el más reciente primero (por fecha
 de inicio; los borradores sin fecha, arriba). Campos y reglas: `api-endpoints.md`,
 `ContratoResumenResponse`. Cambios para el front: los campos son `fecha_inicio_contrato` y
-`fecha_fin_contrato` (no `fecha_inicio` / `fecha_fin`), `estado` no tiene `rescindido`, la respuesta no
+`fecha_fin_contrato` (no `fecha_inicio` / `fecha_fin`), la respuesta no
 trae `inmueble`, y ni `GET /contratos` ni `GET /contratos?rol=locatario` existen (el locatario usa
 `GET /alquileres-locatario`).
 
@@ -894,7 +894,7 @@ todavía no hace se apaga en real con constantes del service (`avisaPorMail`, `p
 | **Decisión del front: detalle de mascotas** | Hasta **300** caracteres, con contador. El back pone el mismo tope. | — |
 | **Dirección exacta con sesión** | Con sesión, la exacta en el modal, el detalle, Mis solicitudes y Solicitudes recibidas. Es cosmético mientras `/disponibles` la mande sin token (§10). | backend |
 | **Decidido (tanda 2): sin bloqueo de 30 días.** | Solo bloquean una nueva solicitud las `pendiente` o `aceptada`; una `rechazada` o `cancelada` permite volver a solicitar enseguida (el back hace lo mismo). | — |
-| Repetir en el back la tabla de transiciones de `lib/validation/solicitud.rules.ts` (`TRANSICIONES_SOLICITUD`) | Hoy el back cubre aceptar, rechazar y la cancelación del postulante; falta la del locador (brecha 1) y la regla de una sola aceptada (brecha 2). | backend |
+| Repetir en el back la tabla de transiciones de `lib/validation/solicitud.rules.ts` (`TRANSICIONES_SOLICITUD`) | Hoy el back cubre aceptar, rechazar y la cancelación del postulante; falta la del locador (brecha 1). La regla de una sola aceptada (brecha 2) está hecha desde el 04/11: `PATCH /aceptar` responde 409 `PROPIEDAD_CON_SOLICITUD_ACEPTADA`. | backend |
 
 ### `/panel` (inicio del locatario)
 

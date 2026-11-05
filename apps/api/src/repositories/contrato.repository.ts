@@ -142,6 +142,12 @@ export interface FilaListadoContrato {
   /** Descripción de `tipo_indice` (ej. "ICL (Índice de Contratos de Locación)"); `null` = sin ajuste. */
   indice: string | null;
   locatario: { nombre: string; apellido: string } | null;
+  /** Locador y locatario con su firma. `tipo_firmante`: 1 = locador, 2 = locatario. Sin DNI ni contacto. */
+  partes: ({ tipo_firmante: number; usuario: { nombre: string; apellido: string } | null } & FilaFirma)[];
+  /** Garantes con su firma: solo nombre y apellido, nunca DNI ni correo. */
+  garantes: ({ nombre: string; apellido: string } & FilaFirma)[];
+  /** Solo en pendientes de firma y vigentes con archivo (ver `ContratoResumenResponse.pdf`). */
+  pdf: ContratoPdfResponse | null;
   /** Fecha y monto del último ajuste aplicado; `null` si no hubo ninguno. */
   ultimo_ajuste: { fecha_efectiva: string; monto_nuevo: number } | null;
 }
@@ -190,6 +196,20 @@ export interface FilaDetalleContrato {
   pdf: ContratoPdfResponse | null;
 }
 
+/** Lo que devuelve el listado de contratos de una propiedad (US-43). */
+export interface ListadoContratosInmueble {
+  contratos: FilaListadoContrato[];
+  /**
+   * La solicitud aceptada de la propiedad que todavía no originó un contrato y desde la que se
+   * puede iniciar uno. `null` si no hay, o si la propiedad ya tiene un contrato en curso (porque
+   * `iniciar_contrato` lo rechazaría).
+   *
+   * NOTA: solo se acepta una solicitud por propiedad (ver `existeOtraAceptadaEnCurso`). Si datos
+   * anteriores a esa regla tuvieran varias, se devuelve la más antigua.
+   */
+  solicitud_para_contrato: number | null;
+}
+
 const numeroONull = (valor: unknown): number | null =>
   valor === null || valor === undefined ? null : Number(valor);
 
@@ -206,7 +226,7 @@ export interface IContratoRepository {
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
   reabrirContrato(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
   descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
-  findListadoByInmuebleId(idInmueble: number, idLocador: number): Promise<FilaListadoContrato[] | null>;
+  findListadoByInmuebleId(idInmueble: number, idLocador: number): Promise<ListadoContratosInmueble | null>;
   findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
   crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf>;
@@ -405,7 +425,7 @@ export class ContratoRepository implements IContratoRepository {
   }
 
   /**
-   * US-06: descarta un borrador y libera la solicitud de origen. Dueño y estado los valida la
+   * US-06: descarta un borrador y devuelve la solicitud de origen a pendiente. Dueño y estado los valida la
    * función SQL `descartar_borrador_contrato`.
    */
   async descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado> {
@@ -428,7 +448,7 @@ export class ContratoRepository implements IContratoRepository {
   async findListadoByInmuebleId(
     idInmueble: number,
     idLocador: number
-  ): Promise<FilaListadoContrato[] | null> {
+  ): Promise<ListadoContratosInmueble | null> {
     const supabase = getSupabaseAdmin();
 
     const { data: inmueble, error: errorInmueble } = await supabase
@@ -445,29 +465,74 @@ export class ContratoRepository implements IContratoRepository {
       .from('contrato')
       .select(
         `id, codigo, estado, id_solicitud, monto_alquiler, fecha_inicio_contrato, fecha_fin_contrato,
-         frecuencia_ajuste,
+         frecuencia_ajuste, pdf_storage_path, pdf_nombre_original, pdf_tamano_bytes, pdf_subido_en,
          indice:tipo_indice(descripcion),
-         partes:contrato_x_usuario(tipo_firmante, usuario(nombre, apellido))`
+         partes:contrato_x_usuario(tipo_firmante, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo, usuario(nombre, apellido))`
       )
       .eq('id_inmueble', idInmueble)
       .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
       .eq('activo', true);
     if (error) throw error;
 
-    const filas = (data ?? []) as unknown as (Omit<FilaListadoContrato, 'indice' | 'locatario' | 'ultimo_ajuste'> & {
-      indice: { descripcion: string } | { descripcion: string }[] | null;
-      partes: { tipo_firmante: number; usuario: { nombre: string; apellido: string } | null }[] | null;
-    })[];
-    if (filas.length === 0) return [];
+    const filas = (data ?? []) as unknown as (Omit<
+      FilaListadoContrato,
+      'indice' | 'locatario' | 'ultimo_ajuste' | 'partes' | 'garantes' | 'pdf'
+    > &
+      Pick<ContratoDTO, 'pdf_storage_path' | 'pdf_nombre_original' | 'pdf_tamano_bytes' | 'pdf_subido_en'> & {
+        indice: { descripcion: string } | { descripcion: string }[] | null;
+        partes: FilaListadoContrato['partes'] | null;
+      })[];
 
-    // El último ajuste de cada contrato: el de fecha efectiva más reciente.
-    const { data: ajustes, error: errorAjustes } = await supabase
-      .from('ajuste_contrato')
-      .select('id_contrato, fecha_efectiva, monto_nuevo')
-      .in('id_contrato', filas.map(fila => fila.id))
-      .order('fecha_efectiva', { ascending: false })
-      .order('id', { ascending: false });
+    // Mismas reglas que la función SQL `iniciar_contrato`: solicitud aceptada (estado 2) de la
+    // propiedad, que no haya originado un contrato, y sin otro contrato en curso (borrador,
+    // pendiente de firma o vigente). La oferta (estado 1) no cuenta como contrato en curso.
+    const hayContratoEnCurso = filas.some(fila => ESTADOS_EN_CURSO.includes(fila.estado));
+    let solicitudParaContrato: number | null = null;
+
+    if (!hayContratoEnCurso) {
+      const { data: aceptadas, error: errorSolicitudes } = await supabase
+        .from('solicitud')
+        .select('id')
+        .eq('id_inmueble', idInmueble)
+        .eq('id_locador', idLocador)
+        .eq('id_estado_solicitud', 2)
+        .order('fecha_creacion', { ascending: true })
+        .order('id', { ascending: true });
+      if (errorSolicitudes) throw errorSolicitudes;
+
+      const conContrato = new Set(filas.map(fila => fila.id_solicitud));
+      solicitudParaContrato =
+        ((aceptadas ?? []) as { id: number }[])
+          .map(solicitud => solicitud.id)
+          .find(id => !conContrato.has(id)) ?? null;
+    }
+
+    if (filas.length === 0) return { contratos: [], solicitud_para_contrato: solicitudParaContrato };
+
+    const idsContrato = filas.map(fila => fila.id);
+
+    // El último ajuste de cada contrato (el de fecha efectiva más reciente) y los garantes con su
+    // firma. De los garantes solo nombre y apellido: nunca DNI ni correo.
+    const [{ data: ajustes, error: errorAjustes }, { data: garantes, error: errorGarantes }] = await Promise.all([
+      supabase
+        .from('ajuste_contrato')
+        .select('id_contrato, fecha_efectiva, monto_nuevo')
+        .in('id_contrato', idsContrato)
+        .order('fecha_efectiva', { ascending: false })
+        .order('id', { ascending: false }),
+      supabase
+        .from('garante')
+        .select('id_contrato, nombre, apellido, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo')
+        .in('id_contrato', idsContrato)
+        .order('id'),
+    ]);
     if (errorAjustes) throw errorAjustes;
+    if (errorGarantes) throw errorGarantes;
+
+    const garantesPorContrato = new Map<number, FilaListadoContrato['garantes']>();
+    for (const { id_contrato, ...garante } of (garantes ?? []) as ({ id_contrato: number } & FilaListadoContrato['garantes'][number])[]) {
+      garantesPorContrato.set(id_contrato, [...(garantesPorContrato.get(id_contrato) ?? []), garante]);
+    }
 
     const ultimoAjustePorContrato = new Map<number, { fecha_efectiva: string; monto_nuevo: number }>();
     for (const ajuste of (ajustes ?? []) as { id_contrato: number; fecha_efectiva: string; monto_nuevo: number }[]) {
@@ -479,24 +544,37 @@ export class ContratoRepository implements IContratoRepository {
       }
     }
 
-    return filas.map(fila => {
-      const indice = Array.isArray(fila.indice) ? fila.indice[0] : fila.indice;
-      const locatario = fila.partes?.find(parte => parte.tipo_firmante === 2)?.usuario ?? null;
+    const contratos = await Promise.all(
+      filas.map(async fila => {
+        const indice = Array.isArray(fila.indice) ? fila.indice[0] : fila.indice;
+        const partes = fila.partes ?? [];
+        const locatario = partes.find(parte => parte.tipo_firmante === 2)?.usuario ?? null;
 
-      return {
-        id: fila.id,
-        codigo: fila.codigo ?? null,
-        estado: fila.estado,
-        id_solicitud: fila.id_solicitud ?? null,
-        monto_alquiler: numeroONull(fila.monto_alquiler),
-        fecha_inicio_contrato: fila.fecha_inicio_contrato ?? null,
-        fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
-        frecuencia_ajuste: fila.frecuencia_ajuste ?? null,
-        indice: indice?.descripcion ?? null,
-        locatario: locatario ? { nombre: locatario.nombre, apellido: locatario.apellido } : null,
-        ultimo_ajuste: ultimoAjustePorContrato.get(fila.id) ?? null,
-      };
-    });
+        // NOTA: el PDF solo se firma para los pendientes de firma y vigentes (los que el listado
+        // ofrece descargar): no se piden URLs a Storage por los borradores ni por el historial.
+        const ofreceDescarga =
+          fila.estado === ESTADO_CONTRATO.PENDIENTE_FIRMA || fila.estado === ESTADO_CONTRATO.VIGENTE;
+
+        return {
+          id: fila.id,
+          codigo: fila.codigo ?? null,
+          estado: fila.estado,
+          id_solicitud: fila.id_solicitud ?? null,
+          monto_alquiler: numeroONull(fila.monto_alquiler),
+          fecha_inicio_contrato: fila.fecha_inicio_contrato ?? null,
+          fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
+          frecuencia_ajuste: fila.frecuencia_ajuste ?? null,
+          indice: indice?.descripcion ?? null,
+          locatario: locatario ? { nombre: locatario.nombre, apellido: locatario.apellido } : null,
+          partes,
+          garantes: garantesPorContrato.get(fila.id) ?? [],
+          pdf: ofreceDescarga ? await this.armarPdf(fila) : null,
+          ultimo_ajuste: ultimoAjustePorContrato.get(fila.id) ?? null,
+        };
+      })
+    );
+
+    return { contratos, solicitud_para_contrato: solicitudParaContrato };
   }
 
   /**
@@ -585,7 +663,9 @@ export class ContratoRepository implements IContratoRepository {
   }
 
   /** El PDF cargado en el contrato, con una URL firmada para la vista previa (`null` si no hay). */
-  private async armarPdf(fila: FilaContratoConInmueble): Promise<ContratoPdfResponse | null> {
+  private async armarPdf(
+    fila: Pick<ContratoDTO, 'pdf_storage_path' | 'pdf_nombre_original' | 'pdf_tamano_bytes' | 'pdf_subido_en'>
+  ): Promise<ContratoPdfResponse | null> {
     if (!fila.pdf_storage_path) return null;
 
     const { data, error } = await getSupabaseAdmin()
