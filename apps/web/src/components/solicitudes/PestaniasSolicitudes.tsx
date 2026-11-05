@@ -8,9 +8,8 @@
  * redondeados, el activo en azul con el contador adentro ("Pendientes 4") y
  * los demás con "Aceptadas · 1". Mientras carga, un guion en vez de un 0
  * falso (· 06: "Los filtros se muestran enseguida, no esperan a los datos").
- * Cubre US-36 (numeración de Jira) y, desde el Sprint 3, el filtro por
- * estado de cualquier listado: es genérico
- * pestaña, así lo comparten las dos pantallas sin duplicarlo.
+ * Cubre US-36 (numeración de Jira). Es genérico en la clave de la pestaña,
+ * así lo comparten las dos pantallas sin duplicarlo.
  *
  * Quién lo usa: `SolicitudesRecibidas` y `MisSolicitudes`.
  */
