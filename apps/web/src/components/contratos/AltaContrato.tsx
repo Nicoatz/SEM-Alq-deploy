@@ -71,6 +71,8 @@ const ULTIMO_PASO = PASOS_CONTRATO.length - 1
 interface AltaContratoProps {
   /** Solicitud aceptada de la que nace (`/nuevo?solicitud=`). */
   solicitudId?: string
+  /** Propiedad de esa solicitud (`&propiedad=`): la salida si la solicitud ya originó un contrato. */
+  propiedadId?: string
   /** Borrador a retomar (`/[id]/editar`). */
   contratoId?: string
   /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
@@ -416,7 +418,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
 // ─── Carga ──────────────────────────────────────────────────────────────
 
 /** Alta de contrato: carga el contrato (nuevo o borrador) y monta el wizard. */
-export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, envioCancelado = false }: AltaContratoProps) {
+export function AltaContrato({ solicitudId, propiedadId, contratoId, recienGuardado = false, envioCancelado = false }: AltaContratoProps) {
   const router = useRouter()
   const cargar = useCallback(() => (contratoId ? getBorrador(contratoId) : iniciarUnaVez(solicitudId ?? '')), [contratoId, solicitudId])
   const carga = useServiceCall(cargar)
@@ -440,6 +442,8 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
   if (carga.status === 'error') {
     // 409 (la solicitud ya originó un contrato, no está aceptada o la
     // propiedad ya tiene uno) y 404: el motivo y la salida a las listas.
+    // TODO(backend): con `id_contrato` en el 409 `SOLICITUD_CON_CONTRATO`, ir directo al contrato (#27).
+    const contratosHref = carga.apiCode === 'SOLICITUD_CON_CONTRATO' && propiedadId ? contratosDePropiedadHref(propiedadId) : null
     return (
       <div className={styles.page}>
         <PageHeader title={titulo} breadcrumb={miga} />
@@ -449,9 +453,15 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
             description={carga.message}
             action={
               <span className={styles.acciones}>
-                <Button type="primary" onClick={() => router.push(MIS_PROPIEDADES_HREF)} data-testid="contrato-ir-propiedades">
-                  Ir a mis propiedades
-                </Button>
+                {contratosHref ? (
+                  <Button type="primary" onClick={() => router.push(contratosHref)} data-testid="contrato-ir-propiedad">
+                    Ir a los contratos de la propiedad
+                  </Button>
+                ) : (
+                  <Button type="primary" onClick={() => router.push(MIS_PROPIEDADES_HREF)} data-testid="contrato-ir-propiedades">
+                    Ir a mis propiedades
+                  </Button>
+                )}
                 {carga.code !== 'conflict' && carga.code !== 'not_found' && (
                   <Button onClick={carga.reintentar} data-testid="contrato-reintentar">
                     Reintentar

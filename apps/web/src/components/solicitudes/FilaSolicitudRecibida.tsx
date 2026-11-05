@@ -36,6 +36,7 @@ import { CheckOutlined, CloseOutlined, FileAddOutlined, StopOutlined } from '@an
 import { useRouter } from 'next/navigation'
 import type { Solicitud } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
+import { iniciarContratoHref } from '@/lib/contratos/rutas'
 import { fechaFilaRecibida, lineaRecibida, textoResumen } from '@/lib/solicitudes/textos'
 import { iniciales } from '@/lib/utils/iniciales'
 import { MENSAJE_RECHAZO_LISTADO_MAX, truncar } from '@/lib/utils/truncar'
@@ -111,7 +112,7 @@ function AccionContrato({ solicitud, largo, testIdPrefix }: AccionContratoProps)
       type="primary"
       size={largo ? 'large' : 'middle'}
       icon={<FileAddOutlined />}
-      onClick={ir(`/panel/contratos/nuevo?solicitud=${encodeURIComponent(solicitud.id)}`)}
+      onClick={ir(iniciarContratoHref(solicitud.id, solicitud.property.id))}
       className={styles.actionButton}
       aria-label={`Iniciar el contrato con ${solicitud.applicant.fullName}`}
       data-testid={`${testIdPrefix}-iniciar-contrato-button`}

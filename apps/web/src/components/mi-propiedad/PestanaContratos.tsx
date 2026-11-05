@@ -291,7 +291,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
             description={solicitudParaContrato ? 'Ya aceptaste una solicitud: podés iniciar el contrato.' : 'El contrato nace de una solicitud aceptada.'}
             action={
               solicitudParaContrato ? (
-                <Button type="primary" onClick={() => router.push(iniciarContratoHref(solicitudParaContrato))} data-testid="propiedad-contrato-iniciar">
+                <Button type="primary" onClick={() => router.push(iniciarContratoHref(solicitudParaContrato, propiedadId))} data-testid="propiedad-contrato-iniciar">
                   Iniciar contrato
                 </Button>
               ) : (
