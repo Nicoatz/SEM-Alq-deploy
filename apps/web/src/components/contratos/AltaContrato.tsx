@@ -325,6 +325,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const { startDate } = borrador.condiciones
   // US-06: la fecha guardada la juzga el back (`fecha_inicio_vencida`); una recién cambiada, el front.
   const fechaVencida = startDate === guardado.condiciones.startDate ? guardado.fechaInicioVencida : startDate !== null && startDate < hoy().format('YYYY-MM-DD')
+  const mismoPlazo = startDate === guardado.condiciones.startDate && borrador.condiciones.durationMonths === guardado.condiciones.durationMonths
   const steps = PASOS_CONTRATO.map((definicion, indice) => ({
     key: definicion.key,
     title: definicion.title,
@@ -337,7 +338,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       ) : indice === 2 ? (
         <PasoCarga contratoId={contratoId} pdf={borrador.pdf} onPdfCargado={cambiarPdf} onNoEditable={setNoEditable} />
       ) : (
-        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} />
+        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} finGuardado={mismoPlazo ? guardado.endDate : null} />
       ),
   }))
 

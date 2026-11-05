@@ -192,6 +192,7 @@ export function borradorDeApi(dto: ContratoBorradorApiResponse): ContratoBorrado
     ultimoPaso: Math.max((dto.ultimo_paso ?? 1) - 1, 0),
     pdf: pdfDeApi(dto.pdf),
     fechaInicioVencida: dto.fecha_inicio_vencida,
+    endDate: condiciones.fecha_fin_contrato,
   }
 }
 

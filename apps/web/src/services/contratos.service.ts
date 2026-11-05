@@ -197,6 +197,7 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
     ultimoPaso: contrato.ultimoPaso,
     pdf: pdfDeContratoMock(contrato),
     fechaInicioVencida: contrato.status === 'borrador' && contrato.condiciones.startDate !== null && contrato.condiciones.startDate < hoyIso(),
+    endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
   }
   return base
 }
@@ -540,6 +541,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     ultimoPaso: 3,
     pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 1, subidoEl: null, url: PDF_FICTICIO_URL },
     fechaInicioVencida: false,
+    endDate: rental.endDate,
   }
   return {
     ...base,
@@ -548,7 +550,6 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     firmasRegistradas: false,
     modificarDelBack: null,
     firmantes: [],
-    endDate: rental.endDate,
     montoActual: rental.currentAmount,
     // El elenco ajusta cada 4 o 12 meses (la periodicidad del contrato de RentAR no tiene 4).
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : propiedad.adjustmentEveryMonths,

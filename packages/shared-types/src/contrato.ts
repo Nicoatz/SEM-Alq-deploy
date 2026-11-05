@@ -139,6 +139,8 @@ export interface ContratoBorrador {
   pdf: PdfContrato | null
   /** US-06: la fecha de inicio guardada quedó en el pasado: hay que pedir una nueva antes de volver a enviar. */
   fechaInicioVencida: boolean
+  /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
+  endDate: string | null
 }
 
 /** Lo que cambió de un borrador: solo eso viaja al back (reenviar una fecha vencida da 400). */
@@ -276,8 +278,6 @@ export interface ContratoDetalle extends ContratoBorrador {
   modificarDelBack: boolean | null
   /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
   firmantes: FirmanteContrato[]
-  /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
-  endDate: string | null
   /**
    * Monto mensual actual, con los ajustes aplicados (US-27: "monto actual");
    * `null` si no se sabe. NOTA: en mock, en los contratos hechos en RentAR es
