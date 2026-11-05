@@ -122,8 +122,7 @@ export function DetallePeriodo({ periodoId }: DetallePeriodoProps) {
   if (carga.status === 'error') {
     return (
       <div className={styles.errorBlock} role="alert" data-testid="cobro-detalle-error">
-        <span className={styles.errorTitle}>No pudimos traer este cobro</span>
-        <span className={styles.errorText}>{carga.message}</span>
+        <span className={styles.errorTitle}>{carga.message}</span>
         <Button type="primary" onClick={carga.reintentar} data-testid="cobro-detalle-reintentar">
           Reintentar
         </Button>
