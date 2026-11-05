@@ -37,7 +37,7 @@ import { fechaYHora, NOMBRE_ROL } from '@/lib/contratos/firmas'
 import { subtituloContratosDePropiedad, vigenciaDeContrato } from '@/lib/contratos/propiedad'
 import { contratoHref, editarContratoHref, iniciarContratoHref, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
-import { descargarPdfDeContrato, eliminarBorrador, listarContratosDePropiedad } from '@/services/contratos.service'
+import { eliminarBorrador, listarContratosDePropiedad } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import styles from './PestanaContratos.module.css'
 
@@ -150,7 +150,6 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
   // ─── Estado local ───────────────────────────────────────────────────
   const [confirmarEliminar, setConfirmarEliminar] = useState(false)
   const [eliminando, setEliminando] = useState(false)
-  const [descargando, setDescargando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
 
@@ -201,18 +200,6 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
     }
   }
 
-  async function descargar(contrato: ContratoDePropiedad): Promise<void> {
-    setDescargando(true)
-    setErrorAccion(null)
-    try {
-      await descargarPdfDeContrato(contrato.id)
-    } catch {
-      setErrorAccion('No pudimos armar el PDF. Probá de nuevo.')
-    } finally {
-      setDescargando(false)
-    }
-  }
-
   // ─── Render: PDF ────────────────────────────────────────────────────
   /** US-43: "Se debe poder descargar el contrato en PDF, salvo que sea un borrador." */
   function botonPdf(contrato: ContratoDePropiedad) {
@@ -220,13 +207,6 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
     if (contrato.documento?.tipo === 'archivo') {
       return (
         <Button icon={<DownloadOutlined />} href={contrato.documento.url} target="_blank" rel="noopener noreferrer" data-testid="propiedad-contrato-pdf">
-          Descargar PDF
-        </Button>
-      )
-    }
-    if (contrato.documento?.tipo === 'armado') {
-      return (
-        <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar(contrato)} data-testid="propiedad-contrato-pdf">
           Descargar PDF
         </Button>
       )

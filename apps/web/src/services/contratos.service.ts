@@ -44,7 +44,6 @@ import dayjs from 'dayjs'
 import { fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from '@/lib/contratos/firmas'
 import { ordenarAlquileres } from '@/lib/contratos/listado'
-import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
 import { completarClausulas } from '@/lib/contratos/plantilla'
@@ -662,15 +661,6 @@ export async function listarContratosDePropiedad(propiedadId: string): Promise<C
       idInvalidoEsNoEncontrado: true,
     })
   }
-}
-
-/**
- * US-43 — "Se debe poder descargar el contrato en PDF": el que se arma en el
- * navegador (modo mock). En real, el botón es un link al archivo del back.
- * `jsPDF` se carga recién acá.
- */
-export async function descargarPdfDeContrato(contratoId: string): Promise<void> {
-  await descargarContratoPdf(await getDetalleContrato(contratoId))
 }
 
 // ─── US-07: firmar y rechazar ───────────────────────────────────────────

@@ -157,7 +157,7 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
           Revisé la correcta redacción del contrato y entiendo que después de enviarlo no puedo editarlo
         </Checkbox>
         {mostrarErrorCasilla && !acepto && (
-          <p className={styles.clausulaError} role="alert" data-testid="contrato-revision-acepto-error">
+          <p className={styles.errorCasilla} role="alert" data-testid="contrato-revision-acepto-error">
             {MENSAJES_CONTRATO.revisionSinMarcar}
           </p>
         )}

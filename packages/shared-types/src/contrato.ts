@@ -196,11 +196,8 @@ export interface ContratoResumen {
   solicitudId: string | null
 }
 
-/**
- * El PDF de un contrato en la pestaña Contratos (US-43): el archivo del back
- * (URL firmada) o el que se arma en el navegador (modo mock). `null` si no hay.
- */
-export type DocumentoDeContrato = { tipo: 'archivo'; url: string } | { tipo: 'armado' } | null
+/** El PDF de un contrato en la pestaña Contratos (US-43). `null` si no hay. */
+export type DocumentoDeContrato = { tipo: 'archivo'; url: string } | null
 
 /** Una firma en la pestaña Contratos (US-43: quién firmó, con fecha y hora, y quién falta). */
 export type FirmaDePropiedad = Pick<FirmanteContrato, 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
