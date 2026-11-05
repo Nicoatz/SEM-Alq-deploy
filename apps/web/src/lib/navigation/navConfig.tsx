@@ -45,6 +45,7 @@ const navItemsLocador: AppShellNavItem[] = [
 const navItemsLocatario: AppShellNavItem[] = [
   { key: 'panel', label: 'Mi panel', href: '/panel', icon: <HomeOutlined /> },
   { key: 'alquiler', label: 'Mi alquiler', href: '/panel/alquiler', icon: <KeyOutlined /> },
+  { key: 'pagos', label: 'Mis pagos', href: '/panel/pagos', icon: <DollarOutlined /> },
   { key: 'mis-solicitudes', label: 'Mis solicitudes', href: '/panel/mis-solicitudes', icon: <FileTextOutlined /> },
 ]
 

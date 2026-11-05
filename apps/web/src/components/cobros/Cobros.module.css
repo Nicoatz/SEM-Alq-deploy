@@ -12,6 +12,44 @@
   gap: 1rem;
 }
 
+.indicadoresTres {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+}
+
+.pendiente {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.125rem;
+  border: 1px solid var(--rentar-status-money-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-money-bg);
+}
+
+.pendienteDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.pendienteAcciones {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.periodo {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .toolbar {
   display: flex;
   flex-wrap: wrap;

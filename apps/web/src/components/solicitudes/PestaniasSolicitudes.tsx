@@ -24,12 +24,14 @@ interface PestaniasSolicitudesProps<P extends string> {
   contadores: Record<P, number> | null
   /** Prefijo de los `data-testid` (`solicitudes`, `mis-solicitudes` o `contratos`): `<prefijo>-tab-<pestaña>`. */
   testIdPrefix: string
+  /** `true` si las pestañas no llevan cantidad (Mis pagos, US-09). */
+  sinContador?: boolean
   /** Texto accesible del grupo. Por defecto, el de las solicitudes. */
   ariaLabel?: string
 }
 
 /** Pestañas de estado con su contador (la clave de la pestaña es genérica). */
-export function PestaniasSolicitudes<P extends string>({ opciones, value, onChange, contadores, testIdPrefix, ariaLabel = 'Estado de la solicitud' }: PestaniasSolicitudesProps<P>) {
+export function PestaniasSolicitudes<P extends string>({ opciones, value, onChange, contadores, testIdPrefix, sinContador = false, ariaLabel = 'Estado de la solicitud' }: PestaniasSolicitudesProps<P>) {
   return (
     <div className={styles.tabs} role="tablist" aria-label={ariaLabel}>
       {opciones.map((opcion) => {
@@ -46,7 +48,7 @@ export function PestaniasSolicitudes<P extends string>({ opciones, value, onChan
             data-testid={`${testIdPrefix}-tab-${opcion.value}`}
           >
             {opcion.label}
-            {activa ? <span className={styles.count}>{cantidad}</span> : <span className={styles.countInline}>· {cantidad}</span>}
+            {sinContador ? null : activa ? <span className={styles.count}>{cantidad}</span> : <span className={styles.countInline}>· {cantidad}</span>}
           </button>
         )
       })}
