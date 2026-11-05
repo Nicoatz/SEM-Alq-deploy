@@ -75,7 +75,7 @@ interface AltaContratoProps {
   contratoId?: string
   /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
   recienGuardado?: boolean
-  /** `true` al llegar de "Modificar" o "Cancelar envío" del detalle (`?envio=cancelado`, US-06): muestra el aviso. */
+  /** `true` al llegar de "Modificar" en el detalle (`?envio=cancelado`, US-06): muestra el aviso. */
   envioCancelado?: boolean
 }
 

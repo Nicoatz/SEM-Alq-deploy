@@ -783,10 +783,9 @@ export interface ContratoEnviadoResponse {
 
 /**
  * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
- * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
- * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
- * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
- * el envío) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
+ * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar
+ * o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
+ * `FIRMA_RECHAZADA` (firmar después de rechazar) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
  */
 export type CodigoErrorContrato =
   | 'SOLICITUD_NO_ACEPTADA'
@@ -804,7 +803,6 @@ export type CodigoErrorContrato =
   | 'CONTRATO_NO_PENDIENTE'
   | 'YA_FIRMO'
   | 'FIRMA_RECHAZADA'
-  | 'OTRA_PARTE_FIRMO'
   | 'FIRMANTE_NO_PENDIENTE'
 
 // ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────

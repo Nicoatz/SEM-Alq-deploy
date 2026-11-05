@@ -14,10 +14,10 @@
  * - El documento paginado (`VisorPdf`) y "Descargar PDF" en cualquier estado.
  * - US-06: "Modificar" un pendiente sin la firma del locatario, con confirmación.
  * - Se entra desde la pestaña Contratos de la propiedad (US-43); la miga vuelve ahí.
- * - El locador firma acá (`FirmaContrato`), cancela el envío (si el
- *   locatario no firmó) y reenvía la invitación (una vez por hora).
- * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma,
- *   reenvío ni cancelación.
+ * - El locador firma acá (`FirmaContrato`), modifica (si el locatario no firmó)
+ *   y reenvía la invitación (una vez por hora).
+ * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma, reenvío
+ *   ni "Modificar".
  * - Inexistente o ajeno: "No encontramos este contrato", sin distinguir.
  * - Un borrador abierto por esta URL va a `/[id]/editar`.
  * Decisión del PO (Sprint 3): firman el locador y el locatario; los garantes
@@ -29,7 +29,7 @@
  * - "Descargar PDF" baja el PDF del back (`pdfUrl`); sin él, deshabilitado.
  * - Sin cláusulas (el back no las manda): se dice, no se inventan.
  * Detalle del locador en modo real (`GET /contratos/:id/detalle`, US-42): usa
- * el mismo `datosApi`: sin firma, cancelación ni reenvío en línea hasta que
+ * el mismo `datosApi`: sin firma ni reenvío en línea hasta que
  * se conecten (TODO(backend): US-07). "Modificar" sí: `reabrir` existe.
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 04 y 08): la franja de
@@ -40,26 +40,26 @@
  * firmas, sin vencimiento de links (no hay mails) y con calendario (US-42).
  *
  * De dónde saca los datos: `contratos.service#getDetalleContrato`; las
- * acciones, `#cancelarEnvio` y `#reenviarInvitacion` (firmar y rechazar, en
+ * acciones, `#reabrirContrato` y `#reenviarInvitacion` (firmar y rechazar, en
  * `FirmaContrato`).
  * Quién lo usa: `app/(app)/panel/contratos/[id]/page.tsx`.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
-import { DownloadOutlined, EditOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
+import { DownloadOutlined, EditOutlined, MailOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
 import { ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
-import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio } from '@/lib/contratos/firmas'
+import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeModificar } from '@/lib/contratos/firmas'
 import { contratosDePropiedadHref, editarContratoHref, MIS_PROPIEDADES_HREF, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { ahoraIso } from '@/lib/utils/fechas'
-import { cancelarEnvio, getDetalleContrato, reabrirContrato, reenviarInvitacion } from '@/services/contratos.service'
+import { getDetalleContrato, reabrirContrato, reenviarInvitacion } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
@@ -155,8 +155,6 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const [contrato, setContrato] = useState<ContratoDetalle>(inicial)
   const [aviso, setAviso] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
-  const [confirmarCancelar, setConfirmarCancelar] = useState(false)
-  const [cancelando, setCancelando] = useState(false)
   const [reenviando, setReenviando] = useState<RolFirmante | null>(null)
   const [confirmarModificar, setConfirmarModificar] = useState(false)
   const [reabriendo, setReabriendo] = useState(false)
@@ -173,7 +171,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const soyLocador = miRol === 'locador'
   const miFirma = contrato.firmantes.find((firmante) => firmante.rol === miRol) ?? null
   const faltan = firmasQueFaltan(contrato.firmantes)
-  const cancelable = puedeCancelarEnvio(contrato)
+  const modificable = puedeModificar(contrato)
   const rechazoLocatario = contrato.firmantes.find((firmante) => firmante.rol === 'locatario' && firmante.estado === 'rechazado') ?? null
 
   // ─── Handlers ───────────────────────────────────────────────────────
@@ -184,20 +182,6 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
     if (actualizado.status === 'vigente') setAviso('Firmaste el contrato. Firmaron las dos partes: el contrato está vigente y la propiedad pasó a alquilada.')
     else if (miRol && actualizado.firmantes.find((firmante) => firmante.rol === miRol)?.estado === 'rechazado') setAviso('Rechazaste la firma. El contrato sigue pendiente de firma.')
     else setAviso(`Firmaste el contrato. Falta la firma de ${nombreDe(miRol === 'locador' ? locatario : locador)}.`)
-  }
-
-  async function cancelar(): Promise<void> {
-    setCancelando(true)
-    setErrorAccion(null)
-    try {
-      await cancelarEnvio(contrato.id ?? '')
-      setConfirmarCancelar(false)
-      // US-07: "el contrato vuelve a 'borrador'": se sigue editando en el alta.
-      router.replace(`/panel/contratos/${encodeURIComponent(contrato.id ?? '')}/editar?envio=cancelado`)
-    } catch (error) {
-      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos cancelar el envío. Probá de nuevo.')
-      setCancelando(false)
-    }
   }
 
   /**
@@ -305,7 +289,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const { datosApi } = contrato
   // Decisión del PO: en real no hay firma en línea (US-07 no existe en la API).
   const firmaEnLinea = datosApi === null
-  // Cancelar el envío y reenviar, igual: en real no hay acciones de US-07 conectadas (Tanda 3).
+  // Reenviar, igual: en real no existe.
   const accionesDeLocador = soyLocador && firmaEnLinea
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
   const esFicha = vista === 'locatario'
@@ -364,7 +348,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
             {rechazoLocatario ? (
               <strong data-testid="contrato-rechazo-explicacion">
                 {soyLocador
-                  ? `${locatario.nombre || 'El locatario'} rechazó la firma. Para volver a enviarlo, cancelá el envío, editá lo que haga falta y envialo de nuevo.`
+                  ? `${locatario.nombre || 'El locatario'} rechazó la firma. Tocá Modificar para corregirlo y volver a enviarlo.`
                   : `Rechazaste la firma${rechazoLocatario.rechazadoEl ? ` el ${fechaCorta(rechazoLocatario.rechazadoEl)}` : ''}. El contrato sigue pendiente: si ${locador.nombre || 'el locador'} lo corrige, te lo va a volver a enviar.`}
               </strong>
             ) : (
@@ -374,24 +358,12 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
           {/* US-06: se modifica mientras el locatario no haya firmado; si firmó, se explica el motivo. */}
           {soyLocador && !esFicha && (
             <span className={styles.franjaAccion}>
-              <Button icon={<EditOutlined />} disabled={!cancelable} onClick={() => setConfirmarModificar(true)} data-testid="contrato-modificar">
+              <Button icon={<EditOutlined />} disabled={!modificable} onClick={() => setConfirmarModificar(true)} data-testid="contrato-modificar">
                 Modificar
               </Button>
-              {!cancelable && (
+              {!modificable && (
                 <span className={styles.motivo} data-testid="contrato-modificar-motivo">
                   {locatario.nombre || 'El locatario'} ya firmó: el contrato no se puede modificar.
-                </span>
-              )}
-            </span>
-          )}
-          {accionesDeLocador && (
-            <span className={styles.franjaAccion}>
-              <Button icon={<RollbackOutlined />} disabled={!cancelable} onClick={() => setConfirmarCancelar(true)} data-testid="contrato-cancelar-envio">
-                Cancelar envío
-              </Button>
-              {!cancelable && (
-                <span className={styles.motivo} data-testid="contrato-cancelar-envio-motivo">
-                  {locatario.nombre || 'El locatario'} ya firmó: el envío no se puede cancelar.
                 </span>
               )}
             </span>
@@ -543,19 +515,6 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         data-testid="contrato-modificar-modal"
       />
 
-      {/* US-07: "mientras ninguna otra parte haya firmado. El contrato vuelve a 'borrador' y se borran las firmas registradas." */}
-      <ConfirmActionModal
-        open={confirmarCancelar}
-        title="¿Cancelar el envío?"
-        description={`El contrato vuelve a borrador y se borran las firmas registradas${miFirma?.estado === 'firmado' ? ' (también la tuya)' : ''}. Lo vas a poder editar y volver a enviar.`}
-        confirmLabel="Cancelar envío"
-        cancelLabel="Volver"
-        danger
-        confirmLoading={cancelando}
-        onConfirm={() => void cancelar()}
-        onCancel={() => setConfirmarCancelar(false)}
-        data-testid="contrato-cancelar-envio-modal"
-      />
     </div>
   )
 }

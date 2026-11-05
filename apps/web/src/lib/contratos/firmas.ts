@@ -68,7 +68,7 @@ export function reenvioBloqueado(firmante: Pick<FirmanteContrato, 'ultimaInvitac
  */
 export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): string | null {
   if (firmante.estado === 'firmado') return 'Ya firmó: no hace falta reenviarle la invitación.'
-  if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a enviarle el contrato, cancelá el envío y envialo de nuevo.'
+  if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a enviárselo, tocá Modificar.'
   if (reenvioBloqueado(firmante, ahoraIso)) {
     const desde = reenvioDisponibleDesde(firmante) ?? ahoraIso
     return `La invitación se envió a las ${dayjs(firmante.ultimaInvitacion).format('HH:mm')}. Se puede reenviar una vez por hora: de nuevo desde las ${dayjs(desde).format('HH:mm')}.`
@@ -77,10 +77,10 @@ export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): 
 }
 
 /**
- * ¿El locador puede cancelar el envío? (US-07: "mientras ninguna otra parte
- * haya firmado". La firma del propio locador no cuenta: se borra.)
+ * ¿El locador puede modificar el contrato? (US-06: "pendiente de firma sin la
+ * firma del locatario". La firma del propio locador no cuenta: se borra.)
  */
-export function puedeCancelarEnvio(contrato: Pick<ContratoDetalle, 'status' | 'firmantes'>): boolean {
+export function puedeModificar(contrato: Pick<ContratoDetalle, 'status' | 'firmantes'>): boolean {
   if (contrato.status !== 'pendiente_firma') return false
   return !contrato.firmantes.some((firmante) => firmante.rol !== 'locador' && firmante.estado === 'firmado')
 }

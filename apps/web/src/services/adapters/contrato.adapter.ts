@@ -82,7 +82,7 @@ export const CONTRATO_ERROR_GENERICO_MESSAGE = 'No pudimos guardar el contrato. 
 export const CONTRATO_NO_PENDIENTE_MESSAGE = 'Este contrato ya no está pendiente de firma.'
 export const YA_FIRMO_MESSAGE = 'Ya firmaste este contrato: una parte no puede firmarlo dos veces.'
 export const FIRMA_RECHAZADA_MESSAGE = 'Rechazaste la firma de este contrato. Para firmarlo, el locador tiene que volver a enviártelo.'
-export const OTRA_PARTE_FIRMO_MESSAGE = 'No se puede cancelar el envío: el locatario ya firmó el contrato.'
+export const CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE = 'No se puede modificar un contrato que el locatario ya firmó.'
 export const FIRMANTE_NO_PENDIENTE_MESSAGE = 'Solo se puede reenviar la invitación a quien todavía no firmó ni rechazó.'
 export const REENVIO_MUY_PRONTO_MESSAGE = 'Ya se reenvió la invitación hace menos de una hora. Se puede reenviar una vez por hora.'
 export const SOLO_LOCADOR_MESSAGE = 'Solo el locador del contrato puede hacer esto.'
@@ -673,13 +673,12 @@ const MENSAJE_DE_CODIGO: Record<CodigoErrorContrato, string> = {
   CONTRATO_BORRADOR: 'Este contrato es un borrador: se sigue editando en el alta.',
   CONTRATO_VIGENTE: 'No se puede modificar un contrato vigente: todas las partes ya lo firmaron.',
   CONTRATO_FINALIZADO: 'No se puede modificar un contrato finalizado.',
-  CONTRATO_FIRMADO_POR_LOCATARIO: 'No se puede modificar un contrato que el locatario ya firmó.',
+  CONTRATO_FIRMADO_POR_LOCATARIO: CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE,
   CONTRATO_YA_EN_BORRADOR: 'El contrato ya está en borrador.',
   CONTRATO_NO_EDITABLE: CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_PENDIENTE: CONTRATO_NO_PENDIENTE_MESSAGE,
   YA_FIRMO: YA_FIRMO_MESSAGE,
   FIRMA_RECHAZADA: FIRMA_RECHAZADA_MESSAGE,
-  OTRA_PARTE_FIRMO: OTRA_PARTE_FIRMO_MESSAGE,
   FIRMANTE_NO_PENDIENTE: FIRMANTE_NO_PENDIENTE_MESSAGE,
 }
 

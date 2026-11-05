@@ -88,7 +88,7 @@ import {
   FIRMA_RECHAZADA_MESSAGE,
   FIRMANTE_NO_PENDIENTE_MESSAGE,
   miAlquilerDeDetalle,
-  OTRA_PARTE_FIRMO_MESSAGE,
+  CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
   REENVIO_MUY_PRONTO_MESSAGE,
   SOLICITUD_CON_CONTRATO_MESSAGE,
@@ -714,6 +714,8 @@ export async function firmarContrato(id: string): Promise<ContratoDetalle> {
  * opcional de hasta 300 caracteres, previa confirmación. Esto no cambia el
  * estado del contrato, que sigue pendiente de firma, y el rechazo se ve en
  * el detalle." (La confirmación la pide la pantalla.)
+ * NOTA: son las reglas de la US del 30/10. El equipo está redefiniendo el rechazo: la
+ * versión del repo dice que rechazan las dos partes y que vuelve a borrador.
  * @backend POST /api/v1/contratos/:id/rechazar   (no existe — propuesto) body RechazarFirmaRequest → 200 ContratoDetalleResponse
  * @throws {ServiceError}
  *   - `validation`: el motivo pasa los 300 caracteres.
@@ -758,47 +760,11 @@ function contratoDelLocadorMock(id: string, userId: string): ContratoMock {
 }
 
 /**
- * US-07 — "El locador puede cancelar el envío mientras ninguna otra parte
- * haya firmado. El contrato vuelve a 'borrador' y se borran las firmas
- * registradas." Su propia firma no cuenta (se borra). Vuelve a ser
- * editable desde `/panel/contratos/[id]/editar`.
- * NOTA: conserva su código CT-AAAA-NNNN; si se vuelve a enviar, sale con el mismo.
- * @backend POST /api/v1/contratos/:id/reabrir   (existe · rol locador; reemplaza al `cancelar-envio` propuesto) → 200 ContratoBorradorResponse
- * NOTA: la rama real todavía llama a `cancelar-envio`, que no existe. Se conecta en la Tanda 3 del Sprint 4.
- * @throws {ServiceError}
- *   - `forbidden`: quien llama es el locatario.
- *   - `conflict`: `OTRA_PARTE_FIRMO` o `CONTRATO_NO_PENDIENTE`.
- *   - `not_found`: no existe o no es parte.
- */
-export async function cancelarEnvio(id: string): Promise<ContratoDetalle> {
-  if (USE_MOCKS) {
-    await delay()
-    const contrato = contratoDelLocadorMock(id, requireSessionUserId())
-    const firmas = pendienteDeFirmaMock(contrato)
-    if (firmas.locatario.estado === 'firmado') throw new ServiceError('conflict', OTRA_PARTE_FIRMO_MESSAGE, 'OTRA_PARTE_FIRMO')
-    const ahora = ahoraIsoMock()
-    // Se borran las firmas registradas (US-07): el registro queda sin `firmas`, como un borrador.
-    const sinFirmas: ContratoMock = { ...contrato }
-    delete sinFirmas.firmas
-    return guardarAccionMock({
-      ...sinFirmas,
-      status: 'borrador',
-      sentAt: null,
-      firmadoPorTodasEl: null,
-      updatedAt: ahora,
-    })
-  }
-  try {
-    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/cancelar-envio`, { method: 'POST' }))
-  } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'OTRA_PARTE_FIRMO', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
-  }
-}
-
-/**
  * US-06 — "Antes de modificar un contrato pendiente de firma, se debe solicitar
  * confirmación" (la pide la pantalla). "Al confirmar, el contrato vuelve a
  * 'borrador' y conserva su código": se cancela el envío y se borran las firmas.
+ * Es la única acción para volver atrás un envío (decisión del PO, Sprint 4): cubre
+ * el "cancelar el envío" de US-07. La firma del propio locador no cuenta: se borra.
  * @backend POST /api/v1/contratos/:id/reabrir   (existe · rol locador) → 200 ContratoBorradorApiResponse
  * @throws {ServiceError}
  *   - `conflict` (`apiCode`): `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_VIGENTE`,
@@ -807,7 +773,14 @@ export async function cancelarEnvio(id: string): Promise<ContratoDetalle> {
  */
 export async function reabrirContrato(id: string): Promise<void> {
   if (USE_MOCKS) {
-    await cancelarEnvio(id)
+    await delay()
+    const contrato = contratoDelLocadorMock(id, requireSessionUserId())
+    const firmas = pendienteDeFirmaMock(contrato)
+    if (firmas.locatario.estado === 'firmado') throw new ServiceError('conflict', CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE, 'CONTRATO_FIRMADO_POR_LOCATARIO')
+    // Se borran las firmas registradas: el registro queda sin `firmas`, como un borrador.
+    const sinFirmas: ContratoMock = { ...contrato }
+    delete sinFirmas.firmas
+    guardarAccionMock({ ...sinFirmas, status: 'borrador', sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
     return
   }
   try {
