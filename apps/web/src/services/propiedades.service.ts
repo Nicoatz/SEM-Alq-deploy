@@ -673,8 +673,9 @@ async function subirFotosNuevas(editada: PropiedadNueva): Promise<FotoSubida[]> 
  * en un campo que acá no se tocó no se pisa.
  * TODO(backend): las fotos que se sacan quedan en el bucket público
  * (`fotos-propiedades`); falta definir quién las borra (HANDOFF §10).
- * TODO(backend): el precio editado (`precio_publicado`) no se ve en `/buscar`
- * ni en el detalle público, que muestran `contrato.monto_alquiler` (HANDOFF §10).
+ * TODO(db): el precio editado (`precio_publicado`) no llega a la oferta, y
+ * `/buscar` y el detalle público muestran `contrato.monto_alquiler`. Se resuelve
+ * al aplicar `20261104000001_us03_modificar_oferta.sql` (HANDOFF §7, S4-22).
  */
 export async function actualizarPropiedad(
   propiedadId: string,
