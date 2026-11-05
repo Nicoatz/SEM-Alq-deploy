@@ -180,10 +180,11 @@ export function detalleDeDto(dto: DetalleCobroResponse): DetallePeriodo {
 /**
  * Detalle armado con la fila del listado, cuando `GET /cobros/:id` da 500.
  *
- * NOTA (PO, 05/11): el detalle lee `periodo_cobro_evento`, que no existe hasta
- * aplicar la migración de US-09, y ese error tira abajo toda la respuesta. Esto
- * muestra lo que se sabe del período, sin cobros ni historial.
- * TODO(backend): sacarlo cuando se aplique la migración.
+ * NOTA (PO, 05/11): hoy esa ruta da 500 siempre, por el `.or()` de
+ * `findDetalleByPeriodoIdAndUsuarioPermitido`. Corregido eso, va a seguir dando
+ * 500 hasta aplicar la migración de US-09, porque lee `periodo_cobro_evento`.
+ * Esto muestra lo que se sabe del período, sin cobros ni historial.
+ * TODO(backend): sacarlo cuando las dos cosas estén resueltas.
  */
 export function detalleDeResumen(dto: PeriodoCobroResumenResponse): DetallePeriodo {
   return {
@@ -263,6 +264,17 @@ export function cobroCreadoDeDto(dto: RegistrarCobroResponse): CobroCreado {
 // ─── Errores ──────────────────────────────────────────────────────────
 
 /**
+ * Error de un listado de cobros.
+ *
+ * NOTA: un 500 del back trae texto técnico de la base (por ejemplo, el del
+ * `.or()` de `GET /cobros/:id`). Nunca se muestra.
+ */
+export function errorDeCobros(error: unknown): unknown {
+  if (error instanceof ServiceError && error.code === 'server') return new ServiceError('server', COBROS_ERROR_MESSAGE)
+  return error
+}
+
+/**
  * Error de una consulta de período.
  * - 404 y 400 de id → "No encontramos este cobro" (US-09: sin distinguir).
  */
@@ -270,7 +282,7 @@ export function errorDePeriodo(error: unknown): unknown {
   if (error instanceof ServiceError && (error.code === 'not_found' || error.code === 'validation')) {
     return new ServiceError('not_found', COBRO_NO_ENCONTRADO_MESSAGE)
   }
-  return error
+  return errorDeCobros(error)
 }
 
 /** Error del comprobante: 404 y 400 de id → "No encontramos este comprobante" (US-10). */
@@ -278,7 +290,7 @@ export function errorDeComprobante(error: unknown): unknown {
   if (error instanceof ServiceError && (error.code === 'not_found' || error.code === 'validation')) {
     return new ServiceError('not_found', COMPROBANTE_NO_ENCONTRADO_MESSAGE)
   }
-  return error
+  return errorDeCobros(error)
 }
 
 /**

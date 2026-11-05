@@ -45,6 +45,7 @@ import {
   COMPROBANTE_NO_ENCONTRADO_MESSAGE,
   detalleDeDto,
   detalleDeResumen,
+  errorDeCobros,
   errorDeComprobante,
   errorDePeriodo,
   errorDeRegistro,
@@ -94,8 +95,12 @@ async function todasLasPaginas<T>(path: string): Promise<T[]> {
 }
 
 /** Todos los períodos del locador, sin filtros (ver `lib/cobros/listado.ts`). */
-function historialCompleto(): Promise<PeriodoCobroResumenResponse[]> {
-  return todasLasPaginas<HistorialCobrosResponse['items'][number]>('/cobros-locador/historial')
+async function historialCompleto(): Promise<PeriodoCobroResumenResponse[]> {
+  try {
+    return await todasLasPaginas<HistorialCobrosResponse['items'][number]>('/cobros-locador/historial')
+  } catch (error) {
+    throw errorDeCobros(error)
+  }
 }
 
 // ─── Consultas ────────────────────────────────────────────────────────
@@ -128,8 +133,12 @@ export async function listarPeriodosRegistrables(): Promise<PeriodoRegistrable[]
     await delay()
     return registrablesDeLocadorMock(requireSessionUserId(), hoyIso())
   }
-  const items = await todasLasPaginas<PeriodosCobroResponse['items'][number]>('/cobros-locador')
-  return items.filter((item) => item.estado !== 'pagado' && item.fecha_inicio <= hoyIso()).map(registrableDeDto)
+  try {
+    const items = await todasLasPaginas<PeriodosCobroResponse['items'][number]>('/cobros-locador')
+    return items.filter((item) => item.estado !== 'pagado' && item.fecha_inicio <= hoyIso()).map(registrableDeDto)
+  } catch (error) {
+    throw errorDeCobros(error)
+  }
 }
 
 /**
@@ -162,9 +171,11 @@ export async function getCondicionesCobro(contratoId: string): Promise<Condicion
  *
  * NOTA (PO, 05/11): si `GET /cobros/:id` da 500, se busca el período en el
  * listado del locador, así el historial no rompe toda la pantalla. Ver
- * `detalleDeResumen`.
+ * `detalleDeResumen`. Ese listado solo trae períodos propios: si no está ahí,
+ * para el locador no existe. Si el listado también falla (el locatario no tiene
+ * acceso), se muestra el error con "Reintentar".
  *
- * @backend GET /api/v1/cobros/:id (existe; 500 hasta aplicar la migración de US-09)
+ * @backend GET /api/v1/cobros/:id (existe; hoy da 500 siempre, S4-16)
  * @throws {ServiceError} `not_found` si no existe o es ajeno.
  */
 export async function getPeriodo(id: string): Promise<DetallePeriodo> {
@@ -178,11 +189,10 @@ export async function getPeriodo(id: string): Promise<DetallePeriodo> {
     return detalleDeDto(await apiRequest<DetalleCobroResponse>(`/cobros/${encodeURIComponent(id)}`))
   } catch (error) {
     if (!(error instanceof ServiceError) || error.code !== 'server') throw errorDePeriodo(error)
-    const item = await historialCompleto().then(
-      (items) => items.find((periodo) => String(periodo.id_periodo) === id),
-      () => undefined,
-    )
-    if (!item) throw error
+    const items = await historialCompleto().catch(() => null)
+    if (!items) throw errorDePeriodo(error)
+    const item = items.find((periodo) => String(periodo.id_periodo) === id)
+    if (!item) throw new ServiceError('not_found', COBRO_NO_ENCONTRADO_MESSAGE)
     return detalleDeResumen(item)
   }
 }
