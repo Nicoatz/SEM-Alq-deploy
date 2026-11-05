@@ -226,17 +226,18 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 | S4-7 | **Versiones de migración repetidas** (`20261103000000`, `20261104000000`, `20261104000001`) | Riesgo con `supabase db push` | db |
 | S4-8 | **US-12 sigue hablando de pago parcial** (decisión del PO: no hay). La corrige el PO | Criterios de US-12 | PO |
 | S4-9 | **Ajustes:** el monto se copia a todos los períodos al generarlos y nadie escribe `ajuste_contrato`. No hay valores de índice por fecha | US-11 y US-12: el monto del próximo ajuste sigue "a definir" | backend |
+| S4-10 | **Baja de propiedad con borrador:** 500 sin monto; con monto, el borrador aparece como finalizado al locatario | US-04 | backend |
 | S4-11 | **Descartar un borrador devuelve la solicitud a pendiente** (`descartar_borrador_contrato`). US-06 pide que siga aceptada y pueda volver a originar un contrato. En mock sigue aceptada | Hay que volver a aceptar la solicitud para iniciar otro contrato | backend |
 | S4-12 | **`package-lock.json` desactualizado:** no tiene `pdfjs-dist` (Tanda 2) y sigue con `jspdf` (salió en la Tanda 3). El lock no se commitea (regla del equipo): `npm ci` falla hasta que alguien lo actualice; `npm install` anda | Instalación limpia y CI | PO |
 | S4-13 | **Resuelta en el front (Tanda 3):** la URL del PDF vence a los 5 minutos, así que cada botón la pide al usarla (`BotonPdf`, `urlPdfDeContrato`) y reintenta una vez. Probado en real con el contrato 31: tras 310 s la URL vieja da 400 y el botón abre el PDF | — | — |
 | S4-14 | **Resuelta en `@rentar/ui`:** `MoneyInput` ya no cambia el monto solo. La coma muestra "Ingresá un monto entero, sin centavos", el punto tipeado se toma como separador de miles y vaciar el campo ya no deja un "$ 0" que multiplicaba por 10 lo tipeado | — | — |
+| S4-15 | **Criterio del rechazo sin cerrar:** el mock sigue la versión de `_sprint-4`; la del repo se contradice y el PO lo resuelve con el equipo | US-07 | PO |
 | S4-16 | **`GET /cobros/:id` no puede responder:** hoy por S4-5, y corregido eso, por S4-6: lee `periodo_cobro_evento` y el error tira abajo toda la respuesta. El front muestra el resto con `/cobros-locador/historial` o `/cobros-locatario`, y "No disponible por ahora" en cobros e historial. Si el período no está en esos listados, "No pudimos cargar este cobro por ahora" con Reintentar: puede existir. "No encontramos este cobro" queda para el 404 o el id inválido (TODO #27). El locatario solo encuentra sus pagados y su `proximo_periodo` | US-09, US-10 | backend y db |
 | S4-17 | **Los DTO de períodos no traen tasa, gracia ni el monto a una fecha:** el modal lee tasa y gracia de `GET /contratos/:id/detalle` y calcula el monto a mostrar. El que vale es el del back | US-08 | backend |
 | S4-18 | **Sin períodos ni cobros en la base:** el listado, el modal, el detalle y el comprobante reales no se probaron con datos, ni el chequeo de seguridad de S4-5 | US-08, US-09, US-10 | backend |
 | S4-19 | **`proximo_periodo` es uno solo y no trae tasa ni gracia:** en real, con dos contratos la tarjeta muestra el que venga; no dice desde cuándo corre el recargo, y el contrato sin ese período no muestra el monto en Mi alquiler (issue #27, puntos 13b y 17) | US-12 | backend |
 | S4-20 | **US-11 sin valores del índice por fecha:** el monto después de un ajuste va "a definir", y los ajustes ya pasados del calendario también, porque nadie escribe `ajuste_contrato` (issue #27, punto 15). La insignia de Mis pagos solo existe en mock | US-11 | backend |
-| S4-15 | **Criterio del rechazo sin cerrar:** el mock sigue la versión de `_sprint-4`; la del repo se contradice y el PO lo resuelve con el equipo | US-07 | PO |
-| S4-10 | **Baja de propiedad con borrador:** 500 sin monto; con monto, el borrador aparece como finalizado al locatario | US-04 | backend |
+| S4-21 | **`GET /mis-alquileres` tarda más de 30 segundos** (31 s medidos el 05/11, en local contra Supabase, con el usuario 1). La pestaña Contratos y Mis propiedades quedan cargando todo ese tiempo. Es nuevo: no está en #27 | US-02, US-43 | backend |
 
 **Lado del locatario (Tanda 5, 05/11):** `/panel/pagos`, la tarjeta "Tu próximo alquiler", los últimos pagos y el monto y el calendario de Mi alquiler están conectados. En real no hay locatario con períodos: solo se probaron vacíos y errores. El panel del locador ya no es un mock aparte: `/panel` y `/panel/cobros` leen los mismos períodos, y "Vencido" incluye la mora en los dos. No se implementan el botón Pagar, "Incluye expensas fijas", gastos informados, reclamos ni mensajes en el panel.
 
@@ -1008,6 +1009,10 @@ teléfono del usuario 1 no tiene código de país y se muestra tal cual. De US-2
 
 **Prueba en real de US-42 y US-43 (05/11, Tanda 1, usuario 1, solo lectura).** Pasan: inmueble 2 / contrato 2 (pestaña y detalle), inmueble 3 / contrato 3 ("Sin dato"), inmueble 17 / contrato 31 (el 409 redirige al alta), propiedad ajena e inexistente, contrato ajeno, inexistente y con id inválido, y el 500 dentro de la pestaña con "Reintentar". Los contratos 2 y 3 no tienen registro de firmas ni PDF, así que en real no se vieron firmas con fecha ni la descarga: falta el dato de prueba.
 
+**Para borrar al cerrar el Sprint 4:** el contrato **31** con sus cambios (tabla de abajo), el `garante` **5**, el PDF
+del bucket `contratos-pdf`, la re-aceptación de la solicitud **23** (dejarla como esté el dato de origen que quiera el
+equipo) y el usuario **31** del Sprint 3 (`rentar.qa+test-perfil-2210@example.com`, tabla de arriba).
+
 **Prueba en real de US-05 y US-06 (05/11, Tanda 2, usuario 1). Queda para borrar al cerrar el sprint:**
 
 | Qué | Antes | Ahora |
@@ -1023,7 +1028,7 @@ teléfono del usuario 1 no tiene código de país y se muestra tal cual. De US-2
 No se reabrió el contrato 2. El contrato 2 y el 3 siguen sin PDF. La prueba real de la Tanda 3 (05/11) solo
 escribió la re-aceptación de la solicitud 23: los contratos 2, 3 y 31 siguen en el mismo estado.
 
-Las pruebas reales de las Tandas 4 y 5 (05/11) no escribieron nada: la base sigue con 0 períodos y 0 cobros. Se probaron
+Las pruebas reales de las Tandas 4 y 5 y del cierre (05/11) no escribieron nada: la base sigue con 0 períodos y 0 cobros. Se probaron
 los estados vacíos, los no encontrados y los errores, con una guarda que cortaba toda escritura. El detalle con
 "No disponible por ahora" se probó con respuestas simuladas en el navegador. El usuario 1 solo tiene el rol
 locador: el panel del locatario se probó simulando ese rol en `/usuarios/me`, con las rutas de cobros reales.
@@ -1226,6 +1231,15 @@ alquileres"), y en el backlog corregido **US-27 es "Responder mensaje"**. El có
 de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
 
 ## 12. `data-testid` para Selenium
+
+**Lo que cambió en el Sprint 4 (para Selenium):**
+
+| Pantalla | Salen | Entran |
+|---|---|---|
+| `/panel/contratos` | Todo el listado: ahora redirige a `/panel/propiedades` | Pestaña Contratos: `propiedad-tab-contratos`, `propiedad-contrato-actual`, `propiedad-contratos-anteriores`, `propiedad-contrato-iniciar`, `propiedad-contrato-continuar`, `propiedad-contrato-pdf` |
+| Alta (paso 3) | Los de cláusulas (`contrato-paso-clausulas` y sus campos) | `contrato-paso-carga`, `contrato-pdf-dropzone`, `contrato-pdf-cargado`, `contrato-pdf-nombre`, `contrato-pdf-tamano`, `contrato-pdf-abrir`, `contrato-pdf-error`, `contrato-plazo-vencimiento` |
+| Detalle y firma | `contrato-cancelar-envio` (y `-motivo`, `-modal`), `contrato-visor-hoja`, `contrato-visor-progreso`, `contrato-visor-numero`, `contrato-documento-detalle`, los del historial | `contrato-modificar` (y `-motivo`, `-modal`), `contrato-firma-faltan`, `contrato-firma-visor` (y `-pagina`, `-anterior`, `-siguiente`, `-cargando`, `-error`), `contrato-descargar-pdf-error`, `contrato-detalle-calendario` |
+| Cobros, Mis pagos y panel del locatario | El placeholder | Las filas de `/panel/cobros`, `/panel/cobros/[id]` y `/panel/pagos` de la tabla de abajo |
 
 > **`@rentar/shared-types`:** `packages/shared-types/dist/` no está versionado. La web y `@rentar/ui` leen `src/`
 > por `paths` del `tsconfig.json`, así que no necesitan compilarlo. La API sí usa `dist/`, y su `npm run build` lo

@@ -142,6 +142,14 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 
 Todas están en Córdoba Capital (provincia "Córdoba", ciudad "Córdoba Capital").
 
+## Excepciones del elenco final
+
+- **Camila Ríos tiene dos contratos vigentes** (Mariano Moreno 285 e Ituzaingó 870, 4° C): es la única excepción a
+  "un inquilino pertenece a una sola propiedad a la vez" (PO, 05/11).
+- **Valentina Ríos** es un contrato histórico sin cuenta (CT-2024-0031).
+- **Chacabuco 690** está pausada, con el borrador BOR-2026-0001 y un contrato anterior.
+- **Sofía Ledesma paga $470.000**, sin extraordinarias. El panel de Nicolás da $470.000 de $1.890.000.
+
 ## Reglas que no hay que volver a romper
 
 1. Una propiedad `alquilada` o `pausada` nunca aparece en `/buscar`. Sí aparece una
@@ -169,11 +177,11 @@ entera en `rentar:mock:propiedades` y tapa a la del elenco; una eliminada se gua
 solicitudes siguen mostrando la dirección) y sus solicitudes `pendiente` y `aceptada` pasan a
 `cancelada`. "Reiniciar datos de prueba" deja todo como en el elenco.
 
-## Los alquileres (`rental` en `propiedades.mock.ts` + `panel.mock.ts`)
+## Los alquileres (`rental` en `propiedades.mock.ts` + `periodos.mock.ts`)
 
 Datos del export del listado del locador, confirmados por producto. El estado del pago y los
-reclamos no se escriben en la propiedad: se calculan a partir de los cobros y reclamos de
-`panel.mock.ts`, así el listado (US-02) y el panel nunca se contradicen.
+reclamos no se escriben en la propiedad: se calculan a partir de los períodos de `periodos.mock.ts`
+y los reclamos de `panel.mock.ts`, así el listado (US-02), el panel y cobros nunca se contradicen.
 
 | Propiedad | Locatario | Contrato | Septiembre | Reclamos abiertos | Próximo ajuste |
 |---|---|---|---|---|---|
@@ -188,7 +196,7 @@ CT-2026-0133, para la ficha del locatario. Un mes de depósito (`depositMonths` 
 publicación: $470.000 y $510.000) y un garante cada uno, con nombres que no son del elenco: **Raúl
 Benítez** (de Sofía) e **Inés Moyano** (de Camila). Los otros tres vigentes (0102, 0115 y 0121) no los
 tienen y su detalle muestra "Sin dato": no rompe nada (ninguno tiene locatario con cuenta). El día de
-pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
+pago de los vigentes sale de `PLAZO_POR_CONTRATO` (`periodos.mock.ts`).
 
 ## Las solicitudes (`solicitudes.mock.ts`)
 
@@ -242,8 +250,8 @@ pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
 
 Los "vence en N días" y "N días de atraso" se calculan contra "hoy" (`lib/utils/fechas.ts`), que
 en modo mock está FIJO en el **23/09/2026**: Laprida lleva 19 días de atraso y Belgrano 7, siempre.
-Con el backend real, "hoy" es la fecha del sistema. Cómo se calcula cada cifra del panel está
-documentado en el encabezado de `panel.mock.ts`.
+Con el backend real, "hoy" es la fecha del sistema. Las cifras de cobros del panel salen de
+`lib/cobros/resumenPanel.ts`.
 
 Lo que el export mostraba y **no** se usa porque contradice el elenco: Cerro de las Rosas, Villa
 Belgrano, Bv. San Juan, Duarte Quirós, el tipo "Local", Familia Suárez, Tomás Bustos y Rocío

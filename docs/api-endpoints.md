@@ -19,8 +19,9 @@ Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de
 Revisado contra el código de `develop` (952550d) y contra la base con consultas de solo lectura. Nada
 de esto se probó llamando a la API. **Listo:** cumple la US en el back, aunque el front necesite
 adaptador. **Parcial:** existe pero le faltan campos o reglas. **No existe:** propuesto. Que el front
-ya use cada ruta se ve en las secciones de abajo: del locador, la pestaña, el detalle y el alta están
-conectados (Tandas 1 y 2); enviar a firmar y la firma, todavía no.
+ya use cada ruta se ve en las secciones de abajo: la pestaña, el detalle, el alta, cobros y Mis pagos están
+conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
+[#27](https://github.com/Thiago-DA/SEM-Alq/issues/27).
 
 | Endpoint | Rol | Estado | Notas |
 |---|---|---|---|
@@ -32,7 +33,7 @@ conectados (Tandas 1 y 2); enviar a firmar y la firma, todavía no.
 | `POST /contratos/:id/reabrir` | locador | **Conectado** (Tanda 2), sin probar en real | Conserva el código y resetea las firmas. Hace falta enviar a firmar para probarlo sin gastar el contrato 2 |
 | `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente y US-06 pide que siga aceptada (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
-| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** (#27, punto 1) | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
 | `GET /cobros-locador` | locador | **Conectado** (Tanda 4), sin datos para probar; parcial | Incluye períodos futuros, que el `POST` rechaza: el front los filtra. Sin tasa ni gracia |
 | `POST /cobros-locador` | locador | **Conectado** (Tanda 4), sin probar en real; parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500: el adaptador lo traduce |
 | `GET /cobros-locador/historial` | locador | **Conectado** (Tanda 4), solo con 0 períodos; parcial | `cantidades` depende del filtro de estado y `resumen` no trae pendiente: el front pide todo sin filtros y lo calcula |
@@ -42,7 +43,7 @@ conectados (Tandas 1 y 2); enviar a firmar y la firma, todavía no.
 | `GET /cobros/:id/comprobante[/pdf]` (**id de cobro**) | sesión | Parcial, en riesgo | Mismo `.or()`, sin segundo control de dueño. Total en letras con errores |
 | Anular cobro, variación del monto (US-11) | — | **No existe** | Sin valores de índice por fecha |
 | `GET /alquileres-locatario[/:idContrato]` | sesión | Parcial | Garantes llegan `[]`, ajustes ignorados, `puede_firmar` siempre `false` |
-| `GET /mis-alquileres` | locador | Parcial | Puede devolver el id de la oferta |
+| `GET /mis-alquileres` | locador | **Conectado**; parcial | Puede devolver el id de la oferta. Tarda más de 30 segundos (S4-21) |
 | `GET` y `PATCH /usuarios/me` | sesión | Parcial | Sin legajo ni `bloqueo_identidad`; 409 sin `codigo` |
 | `PATCH /usuarios/me/legajo` | — | **No existe** | |
 
