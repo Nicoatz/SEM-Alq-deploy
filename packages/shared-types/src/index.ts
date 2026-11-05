@@ -372,3 +372,22 @@ export type {
   SolicitudPanel,
   ResumenContextoRol,
 } from './panel';
+
+export type {
+  CobroCreado,
+  CobroRegistrado,
+  Comprobante,
+  CondicionesCobro,
+  DetallePeriodo,
+  EstadoPeriodo,
+  EventoPeriodo,
+  FiltroEstadoCobro,
+  FiltrosCobros,
+  IndicadoresCobros,
+  ListadoCobros,
+  MedioCobro,
+  ParteComprobante,
+  PeriodoFila,
+  PeriodoRegistrable,
+  RegistrarCobroDatos,
+} from './cobro';

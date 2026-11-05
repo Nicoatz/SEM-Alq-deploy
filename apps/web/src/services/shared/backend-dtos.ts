@@ -828,3 +828,183 @@ export interface AlquilerLocatarioDetalleResponse extends AlquilerLocatarioItemR
   puede_firmar: boolean
   monto_proximo_ajuste: 'a definir' | null
 }
+
+// ─── Cobros (US-08, US-09 y US-10) ────────────────────────────────────
+
+/** Estado de un período. */
+export type EstadoPeriodoDto = 'pendiente' | 'vencido' | 'pagado'
+
+/** Medio de un cobro manual. */
+export type MedioCobroDto = 'transferencia' | 'efectivo' | 'cheque' | 'mercadopago_externo' | 'otro'
+
+/** Propiedad en las consultas de cobros. */
+export interface PropiedadCobroResponse {
+  id: number
+  direccion: string
+  numero: number
+  piso: string | null
+  barrio: string
+  ciudad: string
+}
+
+/** Persona en las consultas de cobros. */
+export interface PersonaCobroResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  email?: string
+  telefono?: string | null
+}
+
+/** Línea de cargos. NOTA: `dias_mora`, `dias_interes` y `diasMora` son lo mismo según el endpoint. */
+export interface CargoCobroResponse {
+  concepto: 'alquiler' | 'intereses_mora'
+  monto: number
+  dias_mora?: number
+  dias_interes?: number
+  diasMora?: number
+}
+
+/** Fila de `GET /cobros-locador`: períodos que se pueden cobrar. */
+export interface PeriodoCobroItemResponse {
+  id_periodo: number
+  id_contrato: number
+  periodo: string
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string }
+  locatario: { id: number; nombre: string; apellido: string | null } | null
+  estado: EstadoPeriodoDto
+  fecha_inicio: string
+  fecha_fin: string
+  fecha_vencimiento: string
+  monto_base_alquiler: number
+  intereses_mora: number
+  monto_exigible: number
+  expensas_snapshot: number
+  saldo: number
+}
+
+/** `GET /cobros-locador`. */
+export interface PeriodosCobroResponse {
+  items: PeriodoCobroItemResponse[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** Fila de `GET /cobros-locador/historial`. */
+export interface PeriodoCobroResumenResponse {
+  id_periodo: number
+  id_contrato: number
+  codigo_contrato: string | null
+  periodo: string
+  estado: EstadoPeriodoDto
+  fecha_inicio: string
+  fecha_fin: string
+  fecha_vencimiento: string
+  propiedad: PropiedadCobroResponse
+  locatario: PersonaCobroResponse | null
+  monto_base_alquiler: number
+  intereses_mora: number
+  dias_atraso: number
+  dias_interes: number
+  monto_exigible: number
+  total_cobrado: number
+  saldo: number
+  cantidad_cobros: number
+  tiene_adjunto: boolean
+  comprobante_url: string | null
+}
+
+/** `GET /cobros-locador/historial`. */
+export interface HistorialCobrosResponse {
+  items: PeriodoCobroResumenResponse[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** Cobro dentro de `GET /cobros/:id`. */
+export interface CobroRegistradoResponse {
+  id_cobro: number
+  numero_comprobante: string
+  fecha_cobro: string
+  monto: number
+  medio: MedioCobroDto
+  nota: string | null
+  created_at: string
+  usuario_registro: { nombre: string; apellido: string | null }
+  tiene_adjunto: boolean
+  /** URL firmada del adjunto: vence a los 60 segundos. */
+  adjunto_url: string | null
+  comprobante_url: string
+}
+
+/** Evento del historial del período. */
+export interface EventoPeriodoResponse {
+  tipo: 'periodo_generado' | 'cobro_registrado' | 'periodo_pagado'
+  fecha_hora: string
+  usuario: { nombre: string; apellido: string | null } | null
+}
+
+/** `GET /cobros/:id`. */
+export interface DetalleCobroResponse {
+  id_periodo: number
+  id_contrato: number
+  propiedad: PropiedadCobroResponse
+  locador: PersonaCobroResponse
+  locatario: PersonaCobroResponse
+  contrato: { codigo: string | null; fecha_inicio: string | null; fecha_fin: string | null }
+  periodo: {
+    periodo: string
+    estado: EstadoPeriodoDto
+    fecha_inicio: string
+    fecha_fin: string
+    fecha_vencimiento: string
+  }
+  cargos: CargoCobroResponse[]
+  total_exigible: number
+  total_cobrado: number
+  saldo: number
+  cobros: CobroRegistradoResponse[]
+  historial: EventoPeriodoResponse[]
+}
+
+/** `POST /cobros-locador` (multipart). */
+export interface RegistrarCobroResponse {
+  cobro_id: number
+  periodo_id: number
+  monto: number
+  intereses: number
+  dias_interes: number
+  numero_comprobante: string
+  estado_periodo: 'pagado'
+}
+
+/** Persona del comprobante. */
+export interface PersonaComprobanteResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  numero_documento: string | null
+  email: string
+  telefono: string | null
+}
+
+/** `GET /cobros/:id/comprobante`, con el id del cobro. */
+export interface ComprobantePagoResponse {
+  id_cobro: number
+  numero_comprobante: string
+  fecha_emision: string
+  estado: 'pagado'
+  locatario: PersonaComprobanteResponse
+  locador: PersonaComprobanteResponse
+  propiedad: PropiedadCobroResponse
+  contrato: { id: number; codigo: string | null; fecha_inicio: string | null; fecha_fin: string | null }
+  periodo: { id: number; periodo: string; fecha_inicio: string; fecha_fin: string; fecha_vencimiento: string }
+  cargos: CargoCobroResponse[]
+  total_pagado: number
+  total_en_letras: string
+  medio: MedioCobroDto
+  fecha_cobro: string
+  nota: string | null
+}

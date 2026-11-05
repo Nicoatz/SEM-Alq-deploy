@@ -43,7 +43,7 @@ export interface ApiRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   /** Query params. Los `undefined` se omiten. */
   query?: Record<string, QueryValue>
-  /** Cuerpo del request; se manda como JSON. */
+  /** Cuerpo del request: JSON, o `FormData` tal cual para subir un archivo (US-08). */
   body?: unknown
   /**
    * `false` = no mandar el token aunque haya sesión. Solo para los endpoints
@@ -126,6 +126,44 @@ async function readJson(response: Response): Promise<ApiResponse<unknown> | null
   }
 }
 
+/** Convierte una respuesta con error en el `ServiceError` que le corresponde. */
+function errorDeRespuesta(response: Response, envelope: ApiResponse<unknown> | null): ServiceError {
+  // El back pone el detalle en `error` (y a veces un resumen en `message`).
+  const message = envelope?.error ?? envelope?.message ?? 'Ocurrió un error inesperado. Probá de nuevo.'
+  const code = response.ok ? 'server' : errorCodeFromHttpStatus(response.status)
+  // NOTA: el 401 del back trae un texto técnico ("el token de Supabase no es
+  // válido"). Para quien usa la app, es que la sesión venció.
+  return new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message, codigoDeNegocio(envelope))
+}
+
+/**
+ * Manda el request y devuelve la respuesta sin leerla.
+ *
+ * NOTA: con `FormData` no se pone `Content-Type`: el navegador lo arma con el
+ * `boundary` del multipart.
+ */
+async function enviar(path: string, options: ApiRequestOptions): Promise<Response> {
+  const { method = 'GET', query, body, auth = true } = options
+  const esFormData = body instanceof FormData
+  const headers = await buildHeaders(body !== undefined && !esFormData, auth)
+
+  try {
+    return await fetch(buildUrl(path, query), {
+      method,
+      headers,
+      // NOTA: los datos de la API son en vivo. Sin `no-store`, un Server
+      // Component que llame a un service (la landing) se prerenderiza en el
+      // build: Next hace el pedido UNA vez en `next build` y las propiedades
+      // quedan congeladas (o vacías, si la API no estaba levantada). Con
+      // `no-store`, Next pide en cada request (y la ruta pasa a ser dinámica).
+      cache: 'no-store',
+      body: body === undefined ? undefined : esFormData ? body : JSON.stringify(body),
+    })
+  } catch {
+    throw new ServiceError('network', 'No pudimos conectarnos con el servidor. Probá de nuevo en unos minutos.')
+  }
+}
+
 // ─── Request ────────────────────────────────────────────────────────────
 
 /**
@@ -139,39 +177,25 @@ async function readJson(response: Response): Promise<ApiResponse<unknown> | null
  * const inmuebles = await apiRequest<Inmueble[]>('/inmuebles/disponibles')
  */
 export async function apiRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<T> {
-  const { method = 'GET', query, body, auth = true } = options
-  const headers = await buildHeaders(body !== undefined, auth)
-
-  let response: Response
-  try {
-    response = await fetch(buildUrl(path, query), {
-      method,
-      headers,
-      // NOTA: los datos de la API son en vivo. Sin `no-store`, un Server
-      // Component que llame a un service (la landing) se prerenderiza en el
-      // build: Next hace el pedido UNA vez en `next build` y las propiedades
-      // quedan congeladas (o vacías, si la API no estaba levantada). Con
-      // `no-store`, Next pide en cada request (y la ruta pasa a ser dinámica).
-      cache: 'no-store',
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new ServiceError('network', 'No pudimos conectarnos con el servidor. Probá de nuevo en unos minutos.')
-  }
-
+  const response = await enviar(path, options)
   const envelope = await readJson(response)
 
-  if (!response.ok || !envelope || envelope.success === false) {
-    // El back pone el detalle en `error` (y a veces un resumen en `message`).
-    const message = envelope?.error ?? envelope?.message ?? 'Ocurrió un error inesperado. Probá de nuevo.'
-    const code = response.ok ? 'server' : errorCodeFromHttpStatus(response.status)
-    // NOTA: el 401 del back trae un texto técnico ("el token de Supabase no es
-    // válido"). Para quien usa la app, es que la sesión venció.
-    throw new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message, codigoDeNegocio(envelope))
-  }
+  if (!response.ok || !envelope || envelope.success === false) throw errorDeRespuesta(response, envelope)
 
   // NOTA: algunos endpoints responden `success: true` sin `data` (ej. un
   // DELETE). En ese caso se devuelve `undefined`; el service que llama sabe
   // si espera datos o no, y lo tipa con `apiRequest<void>`.
   return envelope.data as T
+}
+
+/**
+ * Hace un request que devuelve un archivo, no el sobre JSON (el PDF del
+ * comprobante, US-10). Los errores sí llegan con el sobre.
+ *
+ * @throws {ServiceError} Igual que {@link apiRequest}.
+ */
+export async function apiBlob(path: string, options: ApiRequestOptions = {}): Promise<Blob> {
+  const response = await enviar(path, options)
+  if (!response.ok) throw errorDeRespuesta(response, await readJson(response))
+  return response.blob()
 }
