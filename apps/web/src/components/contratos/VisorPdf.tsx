@@ -57,11 +57,8 @@ function Hoja({ documento, nombre, onPaginasVistas, testId }: HojaProps) {
     if (!canvas.current || ancho === 0) return
     void dibujarPagina(documento, pagina, canvas.current, ancho)
       .then((tarea) => {
-        if (cancelado) {
-          tarea.cancel()
-          return undefined
-        }
-        cancelar = () => tarea.cancel()
+        if (cancelado) tarea.cancel()
+        else cancelar = () => tarea.cancel()
         return tarea.promise
       })
       .catch((motivo: unknown) => {

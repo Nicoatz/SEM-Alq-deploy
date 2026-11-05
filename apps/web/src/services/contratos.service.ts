@@ -293,7 +293,11 @@ export async function iniciarContrato(solicitudId: string): Promise<ContratoBorr
 export async function getBorrador(id: string): Promise<ContratoBorrador> {
   if (USE_MOCKS) {
     await delay(300)
-    return borradorDeContratoMock(contratoPropioMock(id, requireSessionUserId()))
+    const ownerId = requireSessionUserId()
+    // Los vigentes del elenco salen de `rental`: la pantalla explica por qué no se editan (US-06).
+    const propiedad = readPropiedadesContratoMock().find((item) => item.rental?.contractId === id && item.ownerId === ownerId)
+    const alquiler = !buscarContratoMock(id) && propiedad ? detalleDeAlquilerMock(propiedad) : null
+    return alquiler ?? borradorDeContratoMock(contratoPropioMock(id, ownerId))
   }
   try {
     return borradorDeApi(await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}`))
