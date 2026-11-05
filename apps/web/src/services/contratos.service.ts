@@ -680,8 +680,8 @@ function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, Firma
  *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE` (borrador, vigente…),
  *     `YA_FIRMO` o `FIRMA_RECHAZADA` (ver la NOTA).
  *   - `not_found`: no existe o no es parte.
- * NOTA (propuesta, pendiente del OK del PO): quien rechazó no puede firmar
- * después; el locador cancela el envío y lo vuelve a enviar.
+ * NOTA: quien rechazó no puede firmar después. Las reglas del rechazo son las de
+ * la versión del 30/10 de la US; el equipo las está redefiniendo (ver `rechazarFirma`).
  */
 export async function firmarContrato(id: string): Promise<ContratoDetalle> {
   if (USE_MOCKS) {

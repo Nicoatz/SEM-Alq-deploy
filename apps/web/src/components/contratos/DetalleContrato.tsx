@@ -54,7 +54,6 @@ import { ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, Pa
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio } from '@/lib/contratos/firmas'
-import { tituloContrato } from '@/lib/contratos/plantilla'
 import { contratosDePropiedadHref, editarContratoHref, MIS_PROPIEDADES_HREF, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
@@ -176,7 +175,6 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const faltan = firmasQueFaltan(contrato.firmantes)
   const cancelable = puedeCancelarEnvio(contrato)
   const rechazoLocatario = contrato.firmantes.find((firmante) => firmante.rol === 'locatario' && firmante.estado === 'rechazado') ?? null
-  const titulo = tituloContrato(contrato)
 
   // ─── Handlers ───────────────────────────────────────────────────────
   /** Después de firmar o rechazar (`FirmaContrato`). */
@@ -496,13 +494,12 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         </div>
 
         <div className={styles.columna}>
-          {firmaPendienteMia && miRol && firmaEnLinea ? (
+          {firmaPendienteMia && miRol && firmaEnLinea && pdfUrl ? (
             <FirmaContrato
               key={contrato.id}
               contratoId={contrato.id ?? ''}
-              titulo={titulo}
-              codigo={contrato.code}
-              clausulas={contrato.clausulas}
+              pdfUrl={pdfUrl}
+              nombrePdf={contrato.pdf?.nombre}
               otraParte={nombreDe(miRol === 'locador' ? locatario : locador)}
               permitirRechazo={miRol === 'locatario'}
               onCambio={alCambiar}

@@ -344,6 +344,13 @@
   gap: 0.625rem;
 }
 
+.firmaFaltan {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-status-warning-ink);
+}
+
 .firmaAyuda {
   margin: 0;
   font-size: 0.8125rem;
