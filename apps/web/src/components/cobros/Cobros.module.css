@@ -1,0 +1,140 @@
+/* Cobros.module.css — listado y modal de cobros (US-08 y US-09). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.toolbar > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.select {
+  min-width: 12rem;
+}
+
+.direccion {
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.estado {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.secundario {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+/* La lista del dropzone mostraría también los rechazados: el elegido se ve abajo. */
+.adjunto :global(.ant-upload-list) {
+  display: none;
+}
+
+.adjuntoElegido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.periodoFijo {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.monto {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+}
+
+.montoLinea {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.montoTotal {
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+@media (max-width: 767px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .selects,
+  .select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 639px) {
+  .indicadores {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
