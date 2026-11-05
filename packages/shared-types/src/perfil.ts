@@ -10,7 +10,7 @@
  *
  * Adaptador que los produce:
  * `apps/web/src/services/adapters/perfil.adapter.ts` (contra los DTO
- * propuestos de `GET /usuarios/me/perfil`, ver `docs/api-endpoints.md`).
+ * de `GET /usuarios/me`, ver `docs/api-endpoints.md`).
  *
  * NOTA de privacidad (US-20): el DNI y los ingresos solo se muestran en el
  * perfil y en el detalle de una solicitud enviada, nunca en listados. Por eso
@@ -73,7 +73,12 @@ export interface PerfilUsuario {
    * no hay un cambio en curso.
    */
   pendingEmail: string | null
-  /** Teléfono canónico E.164 (`+543515550101`); `null` = no cargado. */
+  /**
+   * Teléfono canónico E.164 (`+543515550101`); `null` = no cargado.
+   * NOTA: en modo real, si el back lo guardó sin código de país (los 10
+   * dígitos del seed), llegan los dígitos tal cual, SIN "+"
+   * (`telefonoDelBack` en `apps/web/src/lib/perfil/formato.ts`).
+   */
   telefono: string | null
   /** Fecha de nacimiento ISO `YYYY-MM-DD`; `null` = no cargada. */
   fechaNacimiento: string | null

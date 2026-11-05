@@ -24,7 +24,7 @@ import { PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
 import { estadoLegajo } from '@/lib/perfil/legajo'
-import { getMiPerfil } from '@/services/perfil.service'
+import { getMiPerfil, LEGAJO_SE_PUEDE_GUARDAR } from '@/services/perfil.service'
 import { AccesoSeguridadBloque } from './AccesoSeguridadBloque'
 import { CambioCorreo } from './CambioCorreo'
 import { DatosPersonalesBloque } from './DatosPersonalesBloque'
@@ -124,7 +124,8 @@ export function PerfilScreen() {
   // ─── Render ─────────────────────────────────────────────────────────
   const perfil = guardado ?? carga.data
   const legajoActualizado = (legajo: LegajoUsuario) => setGuardado({ ...perfil, legajo })
-  const legajoIncompleto = !estadoLegajo(perfil.legajo).completo
+  // En real el legajo no se puede completar (`LEGAJO_SE_PUEDE_GUARDAR`): no se adelanta en móvil.
+  const legajoIncompleto = LEGAJO_SE_PUEDE_GUARDAR && !estadoLegajo(perfil.legajo).completo
 
   return (
     <div className={styles.page} data-testid="perfil" data-cambios-sin-guardar={hayCambiosSinGuardar}>

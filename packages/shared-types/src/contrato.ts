@@ -269,6 +269,42 @@ export interface ContratoDetalle extends ContratoBorrador {
    * del elenco pueden ajustar cada 4). `null` sin ajuste o si no se sabe.
    */
   ajusteCadaMeses: number | null
+  /**
+   * Lo que la ficha del locatario recibe de la API real (US-27,
+   * `GET /alquileres-locatario/:id`) y no tiene lugar en el resto del tipo.
+   * `null` en modo mock y en el detalle del locador (`/contratos/:id`,
+   * propuesto). Cuando viene, la ficha usa estas fechas en lugar de
+   * calcularlas, no ofrece la firma en línea (US-07 no existe en la API) y
+   * el PDF es el del back, no uno armado en el navegador.
+   */
+  datosApi: DatosAlquilerApi | null
+}
+
+/**
+ * Datos de la ficha del locatario que manda `GET /alquileres-locatario/:id`
+ * (US-27). Las fechas son ISO (`YYYY-MM-DD`) y ya vienen calculadas por el back.
+ */
+export interface DatosAlquilerApi {
+  /** URL firmada y temporal del PDF guardado en el bucket privado; `null` si todavía no hay PDF. */
+  pdfUrl: string | null
+  /**
+   * Plazo en días para pagar, contado desde que el monto está disponible en
+   * cada período. NOTA: no es el "día de vencimiento de 1 a 28" de US-05
+   * (diferencia anotada en HANDOFF §7). `null` si no se cargó.
+   */
+  diasParaVencimiento: number | null
+  /** Próximo vencimiento del pago; `null` si no hay (sin plazo, finalizado o después del fin). */
+  proximoVencimientoPago: string | null
+  /** Próximo ajuste; `null` sin ajuste o finalizado. El monto es "a definir" (decisión del PO). */
+  proximoAjuste: string | null
+  /** Último ajuste aplicado; `null` si nunca se ajustó. */
+  ultimoAjuste: string | null
+  /** Frecuencia del ajuste tal como la guarda el back ("Semestral", "Bimestral"…); `null` si no tiene. */
+  frecuenciaAjuste: string | null
+  /** Expensas mensuales, en pesos. */
+  expensas: number
+  /** Medios de pago del contrato, con el nombre del back ("Transferencia bancaria"). */
+  mediosPago: string[]
 }
 
 /**

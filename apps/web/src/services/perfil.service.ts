@@ -9,8 +9,10 @@
  * De dónde saca los datos:
  * - Modo mock: el elenco (`lib/mocks/usuarios.mock.ts` y `perfiles.mock.ts`)
  *   más lo que se modificó en este navegador (ver "Datos sensibles" abajo).
- * - Modo real: `apps/api` (rutas PROPUESTAS, todavía no existen) para los
- *   datos y el legajo; Supabase Auth para el correo y la contraseña.
+ * - Modo real: `apps/api` para los datos personales (`GET` y
+ *   `PATCH /usuarios/me`, existen); Supabase Auth para el correo pendiente,
+ *   el cambio de correo y la contraseña. El legajo no tiene back todavía
+ *   (propuesto, ver `actualizarLegajo`).
  * Quién lo usa: `components/perfil/*` y la rama mock de
  * `services/solicitudes.service.ts` (precarga del legajo, US-21 + US-35).
  *
@@ -42,6 +44,8 @@ import {
   PERFIL_CORREO_IGUAL_MESSAGE,
   PERFIL_DNI_EN_USO_MESSAGE,
   PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE,
+  PERFIL_NO_SE_BORRA_FECHA_MESSAGE,
+  PERFIL_NO_SE_BORRA_TELEFONO_MESSAGE,
   PERFIL_PASSWORD_ACTUAL_INCORRECTA_MESSAGE,
   PERFIL_PASSWORD_IGUAL_MESSAGE,
 } from './adapters/perfil.adapter'
@@ -187,15 +191,16 @@ async function correoPendienteReal(): Promise<string | null> {
  * US-20 Consultar usuario — el perfil completo del usuario en sesión: datos
  * personales, correo pendiente, roles, contrato que bloquea la identidad y
  * legajo.
- * @backend GET /api/v1/usuarios/me/perfil   (no existe — propuesto) → PerfilResponse
+ * @backend GET /api/v1/usuarios/me   (existe) → PerfilResponse
  *          + Supabase Auth `getUser()` para el correo pendiente (`new_email`).
  * @returns PerfilUsuario
  * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
  *
- * NOTA: es una ruta aparte de `/usuarios/me` a propósito: `/me` lo pide el
- * `AuthProvider` en cada cambio de ruta, y el DNI y los ingresos no tienen
- * que viajar ahí (US-20).
- * TODO(backend): crear la ruta (contrato en `docs/api-endpoints.md`, "Perfil").
+ * NOTA: el front había propuesto una ruta aparte (`/usuarios/me/perfil`)
+ * para que el DNI no viajara en el `/me` que pide el `AuthProvider` (US-20);
+ * el back eligió ampliar `/me`. La sesión ignora esos campos.
+ * TODO(backend): el GET no trae el contrato que bloquea la identidad ni el
+ * legajo (ver `perfilResponseToPerfil`).
  */
 export async function getMiPerfil(): Promise<PerfilUsuario> {
   if (USE_MOCKS) {
@@ -205,7 +210,7 @@ export async function getMiPerfil(): Promise<PerfilUsuario> {
     return perfil
   }
   try {
-    const [dto, pendiente] = await Promise.all([apiRequest<PerfilResponse>('/usuarios/me/perfil'), correoPendienteReal()])
+    const [dto, pendiente] = await Promise.all([apiRequest<PerfilResponse>('/usuarios/me'), correoPendienteReal()])
     return perfilResponseToPerfil(dto, pendiente)
   } catch (error) {
     throw errorDePerfil(error)
@@ -215,21 +220,33 @@ export async function getMiPerfil(): Promise<PerfilUsuario> {
 // ─── Datos personales (US-21) ───────────────────────────────────────────
 
 /**
+ * `apiCode` de los errores que frena el front en modo real al vaciar un campo
+ * (no son del back): la pantalla los usa para marcar el campo.
+ */
+export const CAMPO_NO_BORRABLE = { telefono: 'TELEFONO_NO_BORRABLE', fechaNacimiento: 'FECHA_NO_BORRABLE' } as const
+
+/**
  * US-21 Modificar usuario — guarda el bloque "Datos personales": nombre,
- * apellido, DNI, teléfono y fecha de nacimiento (solo los que cambiaron).
- * @backend PATCH /api/v1/usuarios/me   (no existe — propuesto) body ActualizarPerfilRequest → 200 PerfilResponse
+ * apellido, DNI, teléfono y fecha de nacimiento. `cambios` trae solo lo que
+ * cambió respecto de lo guardado (lo compara `DatosPersonalesBloque`), y solo
+ * eso viaja.
+ * @backend PATCH /api/v1/usuarios/me   (existe) body ActualizarPerfilRequest → 200 PerfilResponse
  * @returns el perfil actualizado.
  * @throws {ServiceError}
  *   - `conflict` con {@link PERFIL_DNI_EN_USO_MESSAGE}: el DNI ya es de otra
  *     cuenta (US-21: "único en la plataforma").
  *   - `conflict` con {@link PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE}: cambia nombre,
  *     apellido o DNI siendo parte de un contrato vigente o pendiente de firma.
- *   - `validation`: un dato no cumple las reglas de US-21.
+ *   - `validation`: un dato no cumple las reglas de US-21; en modo real,
+ *     también si se vacía el teléfono o la fecha (ver abajo).
  *   - `unauthorized` sin sesión.
  * NOTA (US-21): "modificar el perfil no modifica las solicitudes ya enviadas
  * ni los contratos": las solicitudes guardan su propia copia del contacto.
- * TODO(backend): crear la ruta y repetir las validaciones (el front valida
- * para ayudar, no para proteger).
+ * NOTA (modo real): el back no deja borrar un dato (un valor vacío o `null`
+ * es un 400). Si el usuario vacía el teléfono o la fecha que ya tenía, se
+ * frena acá con un mensaje claro y no se llama al back.
+ * TODO(backend): permitir borrar el teléfono y la fecha (US-20 los muestra
+ * como "Sin cargar"), por ejemplo aceptando `null`.
  */
 export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios): Promise<PerfilUsuario> {
   if (USE_MOCKS) {
@@ -270,6 +287,9 @@ export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios)
     if (!actualizado) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     return actualizado
   }
+  // `null` = el campo tenía valor y quedó vacío (el bloque solo manda lo que cambió).
+  if (cambios.telefono === null) throw new ServiceError('validation', PERFIL_NO_SE_BORRA_TELEFONO_MESSAGE, CAMPO_NO_BORRABLE.telefono)
+  if (cambios.fechaNacimiento === null) throw new ServiceError('validation', PERFIL_NO_SE_BORRA_FECHA_MESSAGE, CAMPO_NO_BORRABLE.fechaNacimiento)
   try {
     const dto = await apiRequest<PerfilResponse>('/usuarios/me', { method: 'PATCH', body: cambiosToActualizarRequest(cambios) })
     return perfilResponseToPerfil(dto, await correoPendienteReal())
@@ -279,6 +299,15 @@ export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios)
 }
 
 // ─── Legajo (US-21) ─────────────────────────────────────────────────────
+
+/**
+ * `true` si el legajo se puede editar y guardar: solo en modo mock. En real
+ * el back todavía no tiene legajo (TODO(backend), HANDOFF §7) y el bloque se
+ * ve en solo lectura con el aviso "El legajo todavía no se puede guardar"
+ * (decisión del PO: no se guarda en memoria para no hacer creer que quedó
+ * guardado).
+ */
+export const LEGAJO_SE_PUEDE_GUARDAR = USE_MOCKS
 
 /**
  * US-21 Modificar usuario — guarda el bloque "Legajo" entero: situación
