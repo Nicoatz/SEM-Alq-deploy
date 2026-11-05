@@ -1,7 +1,7 @@
 /**
  * periodos.mock.ts — períodos y cobros del elenco para `/panel/cobros`.
  *
- * Qué es: agosto, septiembre y octubre de 2026 de los 5 contratos vigentes.
+ * Qué es: agosto, septiembre y octubre de 2026 de los 6 contratos vigentes.
  * Agosto está cobrado, septiembre sigue a `cobros` de `panel.mock.ts` (mismos
  * montos y vencimientos) y octubre es futuro: no se muestra ni se puede cobrar.
  * Cubre US-08, US-09 y US-10.
@@ -54,6 +54,7 @@ export const PLAZO_POR_CONTRATO: Record<string, number> = {
   'CT-2026-0121': 27,
   'CT-2026-0133': 4,
   'CT-2026-0148': 10,
+  'CT-2026-0161': 27,
 }
 
 /** Contrato, propiedad y alquiler de cada vigente del elenco. */
@@ -63,6 +64,7 @@ const CONTRATOS: { contractId: string; propertyId: string; amount: number }[] = 
   { contractId: 'CT-2026-0121', propertyId: 'prop-colon-2450', amount: 440000 },
   { contractId: 'CT-2026-0133', propertyId: 'prop-mariano-moreno-285', amount: 510000 },
   { contractId: 'CT-2026-0148', propertyId: 'prop-obispo-trejo-1250', amount: 470000 },
+  { contractId: 'CT-2026-0161', propertyId: 'prop-ituzaingo-870', amount: 420000 },
 ]
 
 /** Id de un período: `PER-0102-2026-09`. */
@@ -70,20 +72,45 @@ function idDePeriodo(contractId: string, period: string): string {
   return `PER-${contractId.slice(-4)}-${period}`
 }
 
-export const periodos: PeriodoMock[] = CONTRATOS.flatMap(({ contractId, propertyId, amount }) =>
-  ['2026-08', '2026-09', '2026-10'].map((period) => ({
-    id: idDePeriodo(contractId, period),
-    contractId,
-    propertyId,
-    period,
-    amount,
-  })),
-)
+export const periodos: PeriodoMock[] = [
+  // Un período de 2025, para filtrar por año en Mis pagos (US-09), antes de los ajustes de 2026.
+  { id: idDePeriodo('CT-2026-0133', '2025-12'), contractId: 'CT-2026-0133', propertyId: 'prop-mariano-moreno-285', period: '2025-12', amount: 430000 },
+  ...CONTRATOS.flatMap(({ contractId, propertyId, amount }) =>
+    ['2026-08', '2026-09', '2026-10'].map((period) => ({
+      id: idDePeriodo(contractId, period),
+      contractId,
+      propertyId,
+      period,
+      amount,
+    })),
+  ),
+]
 
 const NICOLAS = 'Nicolás Arrieta'
 const SOFIA = 'Sofía Ledesma'
 
 export const cobrosDePeriodos: CobroRegistradoMock[] = [
+  {
+    // Camila pagó 9 días tarde: con 5 de gracia, 4 días de mora ($8.600).
+    id: 'RC-2025-1205',
+    periodoId: 'PER-0133-2025-12',
+    fecha: '2025-12-14',
+    medio: 'mercadopago_externo',
+    nota: null,
+    registradoPor: SOFIA,
+    registradoEl: '2025-12-14T19:20:00',
+    adjuntoNombre: null,
+  },
+  {
+    id: 'RC-2026-0801',
+    periodoId: 'PER-0161-2026-08',
+    fecha: '2026-08-20',
+    medio: 'transferencia',
+    nota: null,
+    registradoPor: SOFIA,
+    registradoEl: '2026-08-20T09:30:00',
+    adjuntoNombre: null,
+  },
   {
     // Tomás pagó 8 días tarde: con 5 de gracia, 3 días de mora ($7.800).
     id: 'RC-2026-0804',

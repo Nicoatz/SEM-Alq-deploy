@@ -618,6 +618,57 @@ const elenco: PropiedadMock[] = [
       guarantors: [{ key: 'garante-1', fullName: 'Inés Moyano', dni: '22876543', email: 'ines.moyano@rentar.test' }],
     },
   },
+  {
+    id: 'prop-ituzaingo-870',
+    ownerId: 'usr-sofia',
+    // Segundo contrato vigente de Camila Ríos: es la excepción a "un inquilino
+    // pertenece a una sola propiedad a la vez" (decisión del PO, 05/11), para la
+    // tarjeta con dos contratos de US-12. "Sin ajuste": es el caso de US-11 sin
+    // calendario.
+    status: 'alquilada',
+    publishedAt: '2026-03-10',
+    availableFrom: null,
+    title: 'Departamento de 1 dormitorio en Nueva Córdoba',
+    street: 'Ituzaingó',
+    streetNumber: 870,
+    floor: '4° C',
+    province: 'Córdoba',
+    city: 'Córdoba Capital',
+    neighborhoodSlug: 'nueva-cordoba',
+    neighborhoodName: 'Nueva Córdoba',
+    type: 'departamento',
+    description: 'Departamento de un dormitorio con balcón al frente, cerca de Plaza España.',
+    totalAreaM2: 42,
+    coveredAreaM2: 38,
+    rooms: 2,
+    bedrooms: 1,
+    bathrooms: 1,
+    ageYears: 15,
+    characteristics: [],
+    photos: fotos(nuevaCordoba4, nuevaCordoba3, altaCordoba3),
+    mainPhotoIndex: 0,
+    priceMonthly: 420000,
+    expenses: 0,
+    adjustmentIndex: null,
+    adjustmentEveryMonths: null,
+    paymentMethods: [TRANSFERENCIA],
+    dailyInterestPct: 0.5,
+    graceDays: 5,
+    contractMonths: 24,
+    depositMonths: 1,
+    rental: {
+      contractId: 'CT-2026-0161',
+      contractStatus: 'vigente',
+      tenantName: 'Camila Ríos',
+      tenantUserId: 'usr-camila',
+      startDate: '2026-05-01',
+      endDate: '2028-04-30',
+      currentAmount: 420000,
+      // "Sin ajuste": no tiene próximo ajuste; el campo lleva el fin del contrato.
+      nextAdjustmentDate: '2028-04-30',
+      deposit: 420000,
+    },
+  },
 ]
 
 // ─── 2. Publicadas por otros locadores (las 16 de la landing) ───────────

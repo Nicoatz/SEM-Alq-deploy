@@ -78,21 +78,27 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   (`/panel/alquileres`) se prueba entrando como ella.
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
   propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
+- **CT-2026-0161, la excepción de esa regla (PO, 05/11):** Camila tiene un segundo vigente en Ituzaingó 870,
+  4° C, de Sofía Ledesma: $420.000, "Sin ajuste", del 01/05/2026 al 30/04/2028, vence a los 27 días. Es el caso
+  de dos contratos de US-12 y el "Sin ajuste" de US-11. Solo Camila tiene dos vigentes.
 - **PDF del elenco:** todos usan `apps/web/public/mocks/contrato-ficticio.pdf`: 6 páginas, 7 KB, sin datos
   reales. Lo que se sube en el alta se ve hasta recargar: el archivo no entra en `localStorage`, y después
   se muestra el ficticio con el nombre y el tamaño guardados. BOR-2026-0001 no tiene PDF: está en el paso 2.
 - **Vencimiento:** es un **plazo en días** desde el inicio del período, no el día del mes (US-05). Vale
   igual para Mi alquiler y para cobros (`PLAZO_POR_CONTRATO` en `periodos.mock.ts`): Laprida 3, Belgrano 15,
-  Av. Colón 27, Mariano Moreno 4 y Obispo Trejo 10. Con Obispo Trejo, el 23/09 el próximo vencimiento es el
+  Av. Colón 27, Mariano Moreno 4, Obispo Trejo 10 e Ituzaingó 27. Con Obispo Trejo, el 23/09 el próximo vencimiento es el
   **11/10**. En real se muestra lo que manda el back: la diferencia es S4-2 de HANDOFF §7.
 - **Cobros (US-08, US-09 y US-10):** `periodos.mock.ts` tiene agosto (cobrado), septiembre y octubre (futuro:
-  no se muestra) de los 5 vigentes, con 0,5 % diario y 5 días de gracia. Los ids son `PER-0102-2026-09`; los
+  no se muestra) de los 6 vigentes, con 0,5 % diario y 5 días de gracia. Los ids son `PER-0102-2026-09`; los
   comprobantes, `RC-AAAA-NNNN`. Al 23/09, Nicolás tiene dos vencidos, uno pendiente y uno pagado en septiembre.
   "Vencido" da $1.021.000 en `/panel` y en `/panel/cobros`: los dos leen estos períodos y suman la mora (el
   alquiler solo serían $980.000). "Total del mes" sigue en $1.890.000: es lo pactado, sin mora. Lo que se
   registra va a `rentar:mock:cobros` y también cambia el panel. Pendiente del mock: Mis propiedades (US-02)
   sigue leyendo `cobros` de `panel.mock.ts`, así que no se entera. Un contrato que queda vigente en la sesión
-  no genera períodos.
+  no genera períodos. CT-2026-0133 tiene además diciembre de 2025, para el filtro por año de Mis pagos.
+  Camila, al 23/09: Mariano Moreno vencido ($543.150, 13 días de mora) e Ituzaingó pendiente ($420.000).
+- **Fecha simulada:** con `rentar:mock:hoy` = `AAAA-MM-DD` en `localStorage`, `ahora()` usa esa fecha. Sirve
+  para probar las variantes de la tarjeta de US-12. "Reiniciar datos de prueba" la borra.
 - **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
   `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
   sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.
