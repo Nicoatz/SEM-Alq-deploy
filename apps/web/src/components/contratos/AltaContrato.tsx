@@ -323,7 +323,8 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
 
   const pasoConError = errorPaso && paso < ULTIMO_PASO ? paso : null
   const { startDate } = borrador.condiciones
-  const fechaVencida = startDate !== null && startDate < hoy().format('YYYY-MM-DD')
+  // US-06: la fecha guardada la juzga el back (`fecha_inicio_vencida`); una recién cambiada, el front.
+  const fechaVencida = startDate === guardado.condiciones.startDate ? guardado.fechaInicioVencida : startDate !== null && startDate < hoy().format('YYYY-MM-DD')
   const steps = PASOS_CONTRATO.map((definicion, indice) => ({
     key: definicion.key,
     title: definicion.title,
