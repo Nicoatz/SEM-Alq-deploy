@@ -1220,9 +1220,10 @@ de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
 
 ## 12. `data-testid` para Selenium
 
-> **Antes de compilar o correr los tests:** `npm run build --workspace=@rentar/shared-types` después de traer
-> la rama. `packages/shared-types/dist/` no está versionado y el front lee los tipos de ahí: sin este paso,
-> `npm run typecheck` falla con "has no exported member".
+> **`@rentar/shared-types`:** `packages/shared-types/dist/` no está versionado. La web y `@rentar/ui` leen `src/`
+> por `paths` del `tsconfig.json`, así que no necesitan compilarlo. La API sí usa `dist/`, y su `npm run build` lo
+> compila con el `prebuild`. Un tipo nuevo se exporta a mano en `src/index.ts`: si falta, `npm run typecheck` da
+> "has no exported member".
 
 Las acciones clave de cada pantalla tienen `data-testid`, así los tests no dependen de clases CSS
 ni del texto visible.
