@@ -222,7 +222,9 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const cambiarPdf = useCallback((contrato: ContratoBorrador) => {
     setBorrador((actual) => ({ ...actual, pdf: contrato.pdf }))
     setGuardado((actual) => ({ ...actual, pdf: contrato.pdf }))
-  }, [])
+    // `PUT /pdf` no guarda el paso. NOTA: si falla no se avisa: el PDF ya quedó y solo se retoma un paso antes.
+    guardarBorrador(contratoId, { paso }).catch(() => undefined)
+  }, [contratoId, paso])
 
   /** Hacia adelante valida el paso actual; hacia atrás, nunca (US-05: "sin perder lo cargado"). */
   function irAlPaso(siguiente: number): void {
