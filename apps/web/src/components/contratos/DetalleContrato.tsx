@@ -93,7 +93,7 @@ function condicionesDeCobro({ paymentMethods, graceDays, dailyInterestPct }: Con
   const partes = [
     ...(paymentMethods.length > 0 ? [paymentMethods.map((medio) => MEDIO_PAGO_CORTO[medio.method]).join(', ')] : []),
     ...(graceDays === null ? [] : [`${graceDays} ${graceDays === 1 ? 'día' : 'días'} de gracia`]),
-    ...(dailyInterestPct === null ? [] : [`${dailyInterestPct} % de interés por día`]),
+    ...(dailyInterestPct === null ? [] : [`${String(dailyInterestPct).replace('.', ',')} % de interés por día`]),
   ]
   return partes.length > 0 ? partes.join(' · ') : 'Sin dato'
 }

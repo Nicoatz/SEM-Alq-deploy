@@ -60,6 +60,8 @@ export const ITEM_MIS_ALQUILERES = { label: 'Mis alquileres', href: '/panel/alqu
  * alquileres queda activo en la ficha y en el listado).
  */
 export const RUTAS_DEL_ITEM: Record<string, readonly string[]> = {
+  // Sin ítem propio desde el Sprint 4 (US-43): los contratos se abren desde la propiedad.
+  propiedades: ['/panel/contratos'],
   alquiler: ['/panel/alquiler', '/panel/alquileres'],
 }
 

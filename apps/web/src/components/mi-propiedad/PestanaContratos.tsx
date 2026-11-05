@@ -118,6 +118,15 @@ function FirmasDelContrato({ contrato }: { contrato: ContratoDePropiedad }) {
   )
 }
 
+/** US-43: 'Cada contrato anterior tiene el acceso "Ver contrato"'. */
+function VerAnterior({ contrato }: { contrato: ContratoDePropiedad }) {
+  return (
+    <Link href={contratoHref(contrato.id)} className={styles.verContrato} data-testid="propiedad-contrato-anterior-ver">
+      Ver contrato
+    </Link>
+  )
+}
+
 /** Columnas de los contratos anteriores (diseño, §02). Sin DNI ni contacto (US-43). */
 const COLUMNAS_ANTERIORES: DataTableColumn<ContratoDePropiedad>[] = [
   { key: 'codigo', title: 'Código', render: (contrato) => contrato.code ?? '—' },
@@ -128,11 +137,7 @@ const COLUMNAS_ANTERIORES: DataTableColumn<ContratoDePropiedad>[] = [
     key: 'acciones',
     title: '',
     hideInCard: true,
-    render: (contrato) => (
-      <Link href={contratoHref(contrato.id)} className={styles.verContrato} data-testid="propiedad-contrato-anterior-ver">
-        Ver contrato
-      </Link>
-    ),
+    render: (contrato) => <VerAnterior contrato={contrato} />,
   },
 ]
 
@@ -328,7 +333,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
               key: 'anteriores',
               label: <span data-testid="propiedad-contratos-anteriores-toggle">Contratos anteriores · {anteriores.length}</span>,
               extra: <span className={styles.secundario}>Solo lectura</span>,
-              children: <DataTable<ContratoDePropiedad> columns={COLUMNAS_ANTERIORES} data={anteriores} rowKey={(contrato) => contrato.id} cardHeader={(contrato) => contrato.code ?? '—'} />,
+              children: <DataTable<ContratoDePropiedad> columns={COLUMNAS_ANTERIORES} data={anteriores} rowKey={(contrato) => contrato.id} cardHeader={(contrato) => contrato.code ?? '—'} cardActions={(contrato) => <VerAnterior contrato={contrato} />} />,
             },
           ]}
         />
