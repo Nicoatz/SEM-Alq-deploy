@@ -17,9 +17,11 @@ import type {
   AlquilerResumen,
   ClausulaContrato,
   ContratoBorrador,
+  ContratoDePropiedad,
   ContratoDetalle,
   ContratoEnviado,
   ContratoResumen,
+  ContratosDePropiedad,
   DatosContrato,
   EventoContrato,
   FirmanteContrato,
@@ -30,6 +32,7 @@ import type {
   RolFirmante,
 } from '@rentar/shared-types'
 import { MESES_POR_PERIODO } from '@/lib/contratos/fechas'
+import { separarContratos } from '@/lib/contratos/propiedad'
 import { completarClausulas } from '@/lib/contratos/plantilla'
 import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO } from '@/lib/contratos/validaciones'
 import { telefonoAE164, telefonoDelBack } from '@/lib/perfil/formato'
@@ -40,12 +43,16 @@ import type {
   CodigoErrorContrato,
   ContratoDetalleResponse,
   ContratoEnviadoResponse,
+  ContratoPropiedadResponse,
   ContratoRequest,
   ContratoResponse,
   ContratoResumenResponse,
+  ContratosInmuebleResponse,
   EventoContratoDto,
   FirmaAlquilerDto,
+  FirmanteApiDto,
   FirmanteDto,
+  FirmasApiDto,
   GaranteDto,
   ParteContratoDto,
 } from '../shared/backend-dtos'
@@ -63,6 +70,9 @@ export const SOLICITUD_NO_ACEPTADA_MESSAGE = 'Solo se puede iniciar un contrato 
 export const SOLICITUD_CON_CONTRATO_MESSAGE = 'Esta solicitud ya originó un contrato: una solicitud aceptada puede originar uno solo.'
 export const PROPIEDAD_CON_CONTRATO_MESSAGE = 'La propiedad ya tiene un contrato vigente o pendiente de firma. No se puede iniciar otro.'
 export const CONTRATO_NO_EDITABLE_MESSAGE = 'Este contrato ya se envió a firmar y no se puede editar.'
+/** US-43: "sin distinguir" si la propiedad no existe o no es del usuario. */
+export const PROPIEDAD_NO_ENCONTRADA_MESSAGE = 'No encontramos esta propiedad'
+export const CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE = 'Probá de nuevo en unos minutos. El resto de la propiedad está bien.'
 export const CONTRATO_ERROR_GENERICO_MESSAGE = 'No pudimos guardar el contrato. Probá de nuevo en unos minutos.'
 // US-07
 export const CONTRATO_NO_PENDIENTE_MESSAGE = 'Este contrato ya no está pendiente de firma.'
@@ -118,6 +128,56 @@ export function contratoResumenDeDto(dto: ContratoResumenResponse): ContratoResu
     nextAdjustmentDate: dto.proximo_ajuste,
     solicitudId: dto.id_solicitud === null ? null : String(dto.id_solicitud),
   }
+}
+
+/**
+ * Las firmas del back → solo locador y locatario. `null` si alguna de las dos
+ * partes no tiene registro: no se inventa quién firmó (US-42).
+ * TODO(backend): el back cuenta al garante como firmante, y el garante no firma
+ * (decisión del PO; issue del Sprint 4, punto 2). Se saca acá y `faltan` se
+ * recalcula en la vista con `firmasQueFaltan`.
+ */
+function partesQueFirman(firmas: FirmasApiDto | null): (FirmanteApiDto & { rol: RolFirmante; estado: FirmanteContrato['estado'] })[] | null {
+  if (!firmas) return null
+  const partes = firmas.firmantes.filter((firmante) => firmante.rol !== 'garante')
+  if (partes.length === 0 || partes.some((firmante) => firmante.estado === 'sin_registro')) return null
+  return partes as (FirmanteApiDto & { rol: RolFirmante; estado: FirmanteContrato['estado'] })[]
+}
+
+/**
+ * La fecha en que firmaron las dos partes: la última `fecha_firma`. Se calcula
+ * con las partes porque `firmado_por_todos_el` queda en `null` si hay garantes.
+ */
+function firmadoPorLasPartes(partes: { fecha_firma: string | null }[] | null): string | null {
+  const fechas = (partes ?? []).map((parte) => parte.fecha_firma)
+  if (fechas.length < 2 || fechas.some((fecha) => fecha === null)) return null
+  return (fechas as string[]).sort().at(-1) ?? null
+}
+
+/** Una fila de `GET /inmuebles/:id/contratos` → la pestaña Contratos (US-43). */
+function contratoDePropiedadDeDto(dto: ContratoPropiedadResponse): ContratoDePropiedad {
+  const partes = partesQueFirman(dto.firmas)
+  return {
+    id: String(dto.id),
+    code: dto.codigo,
+    status: dto.estado,
+    tenantName: dto.locatario ? nombreCompleto(dto.locatario) : null,
+    currentAmount: dto.monto_actual,
+    startDate: dto.fecha_inicio_contrato,
+    endDate: dto.fecha_fin_contrato,
+    adjustmentIndex: dto.indice,
+    nextAdjustmentDate: dto.proximo_ajuste,
+    firmasRegistradas: partes !== null,
+    firmantes: (partes ?? []).map((parte) => ({ rol: parte.rol, nombre: nombreCompleto(parte), estado: parte.estado, firmadoEl: parte.fecha_firma })),
+    firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
+    documento: dto.pdf ? { tipo: 'archivo', url: dto.pdf.url } : null,
+  }
+}
+
+/** `GET /inmuebles/:id/contratos` → la pestaña Contratos (US-43). */
+export function contratosDePropiedadDeDto(dto: ContratosInmuebleResponse): ContratosDePropiedad {
+  const solicitud = dto.solicitud_para_contrato === null ? null : String(dto.solicitud_para_contrato)
+  return separarContratos(dto.contratos.map(contratoDePropiedadDeDto), solicitud)
 }
 
 /**
@@ -471,6 +531,14 @@ const MENSAJE_DE_CODIGO: Record<CodigoErrorContrato, string> = {
   SOLICITUD_NO_ACEPTADA: SOLICITUD_NO_ACEPTADA_MESSAGE,
   SOLICITUD_CON_CONTRATO: SOLICITUD_CON_CONTRATO_MESSAGE,
   PROPIEDAD_CON_CONTRATO: PROPIEDAD_CON_CONTRATO_MESSAGE,
+  PROPIEDAD_CON_BORRADOR: 'La propiedad ya tiene un contrato en borrador.',
+  PROPIEDAD_SIN_OFERTA: 'La propiedad no tiene condiciones de oferta cargadas.',
+  CONTRATO_DUPLICADO: 'Ya existe un contrato para esta solicitud o propiedad.',
+  CONTRATO_BORRADOR: 'Este contrato es un borrador: se sigue editando en el alta.',
+  CONTRATO_VIGENTE: 'No se puede modificar un contrato vigente: todas las partes ya lo firmaron.',
+  CONTRATO_FINALIZADO: 'No se puede modificar un contrato finalizado.',
+  CONTRATO_FIRMADO_POR_LOCATARIO: 'No se puede modificar un contrato que el locatario ya firmó.',
+  CONTRATO_YA_EN_BORRADOR: 'El contrato ya está en borrador.',
   CONTRATO_NO_EDITABLE: CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_PENDIENTE: CONTRATO_NO_PENDIENTE_MESSAGE,
   YA_FIRMO: YA_FIRMO_MESSAGE,
@@ -490,11 +558,15 @@ const MENSAJE_DE_CODIGO: Record<CodigoErrorContrato, string> = {
  *   que cancela el envío), y se dice por qué.
  * - 429 → "una vez por hora" (US-07, reenviar la invitación).
  * - 400 → `validation` con el texto del back (repite las reglas del front).
+ *   Con `idInvalidoEsNoEncontrado`, en una ruta sin cuerpo el único 400 es un
+ *   id que no es un entero: va como "no encontrado", sin mostrar el texto técnico.
+ * - 401 → `unauthorized`, con el "Tu sesión venció" que ya puso `apiClient`.
  * - 5xx / sin red → mensaje genérico, nunca el texto técnico.
+ * Lee `code` y `apiCode`, que salen del `error` y el `codigo` del sobre (nunca de `message`).
  */
 export function errorDeContrato(
   error: unknown,
-  opciones: { porDefecto409: CodigoErrorContrato; noEncontrado?: string; prohibido?: string; generico?: string },
+  opciones: { porDefecto409: CodigoErrorContrato; noEncontrado?: string; prohibido?: string; generico?: string; idInvalidoEsNoEncontrado?: boolean },
 ): unknown {
   if (!(error instanceof ServiceError)) return error
   if (error.code === 'conflict') {
@@ -502,6 +574,7 @@ export function errorDeContrato(
     return new ServiceError('conflict', MENSAJE_DE_CODIGO[codigo] ?? MENSAJE_DE_CODIGO[opciones.porDefecto409], codigo)
   }
   if (error.code === 'forbidden' && opciones.prohibido) return new ServiceError('forbidden', opciones.prohibido)
+  if (error.code === 'validation' && opciones.idInvalidoEsNoEncontrado) return new ServiceError('not_found', opciones.noEncontrado ?? CONTRATO_NO_ENCONTRADO_MESSAGE)
   if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', opciones.noEncontrado ?? CONTRATO_NO_ENCONTRADO_MESSAGE)
   if (error.code === 'too_many_requests') return new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
   if (error.code === 'server') return new ServiceError('server', opciones.generico ?? CONTRATO_ERROR_GENERICO_MESSAGE)

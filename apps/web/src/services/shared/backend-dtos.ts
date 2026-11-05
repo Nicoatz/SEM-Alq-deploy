@@ -543,6 +543,59 @@ export interface ContratoResumenResponse {
   id_solicitud: number | null
 }
 
+/** El contrato en PDF. `url` es firmada y vence a los 5 minutos. Copia de `ContratoPdfResponse` del back. */
+export interface ContratoPdfDto {
+  nombre: string
+  tamano_bytes: number
+  subido_en: string
+  url: string
+}
+
+/** Un firmante, como lo manda el back (US-42, US-43). Copia de `FirmanteDetalleResponse`. */
+export interface FirmanteApiDto {
+  /** TODO(backend): el back cuenta al garante como firmante; el adaptador lo saca (issue del Sprint 4, punto 2). */
+  rol: 'locador' | 'locatario' | 'garante'
+  nombre: string
+  apellido: string
+  /** `sin_registro`: contrato anterior a RentAR, no se inventa si firmó. */
+  estado: 'pendiente' | 'firmado' | 'rechazado' | 'sin_registro'
+  fecha_firma: string | null
+  fecha_rechazo: string | null
+  motivo_rechazo: string | null
+}
+
+/** Las firmas de un contrato (US-42, US-43). Copia de `ContratoDetalleResponse['firmas']` del back. */
+export interface FirmasApiDto {
+  registradas: boolean
+  faltan: number | null
+  firmado_por_todos_el: string | null
+  firmantes: FirmanteApiDto[]
+}
+
+/** Una fila de `GET /inmuebles/:id/contratos` (existe, US-43). Copia de `ContratoResumenResponse` del back. */
+export interface ContratoPropiedadResponse {
+  id: number
+  codigo: string | null
+  estado: 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado'
+  locatario: { nombre: string; apellido: string } | null
+  monto_actual: number | null
+  fecha_inicio_contrato: string | null
+  fecha_fin_contrato: string | null
+  indice: IndiceContratoDto
+  proximo_ajuste: string | null
+  id_solicitud: number | null
+  /** `null` en un borrador y en un finalizado. */
+  firmas: FirmasApiDto | null
+  /** Solo en pendiente de firma y vigente con archivo. */
+  pdf: ContratoPdfDto | null
+}
+
+/** Respuesta de `GET /inmuebles/:id/contratos` (existe, US-43). Copia de `ContratosInmuebleResponse` del back. */
+export interface ContratosInmuebleResponse {
+  contratos: ContratoPropiedadResponse[]
+  solicitud_para_contrato: number | null
+}
+
 /** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
 export interface ParteContratoDto {
   id: number
@@ -631,9 +684,6 @@ export interface ContratoEnviadoResponse {
 
 /**
  * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
- * NOTA: faltan los que ya manda el back (`PROPIEDAD_CON_BORRADOR`, `PROPIEDAD_SIN_OFERTA`,
- * `CONTRATO_DUPLICADO`, `CONTRATO_BORRADOR`, `CONTRATO_VIGENTE`, `CONTRATO_FINALIZADO`,
- * `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_YA_EN_BORRADOR`): se suman al conectar.
  * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
  * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
  * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
@@ -643,6 +693,14 @@ export type CodigoErrorContrato =
   | 'SOLICITUD_NO_ACEPTADA'
   | 'SOLICITUD_CON_CONTRATO'
   | 'PROPIEDAD_CON_CONTRATO'
+  | 'PROPIEDAD_CON_BORRADOR'
+  | 'PROPIEDAD_SIN_OFERTA'
+  | 'CONTRATO_DUPLICADO'
+  | 'CONTRATO_BORRADOR'
+  | 'CONTRATO_VIGENTE'
+  | 'CONTRATO_FINALIZADO'
+  | 'CONTRATO_FIRMADO_POR_LOCATARIO'
+  | 'CONTRATO_YA_EN_BORRADOR'
   | 'CONTRATO_NO_EDITABLE'
   | 'CONTRATO_NO_PENDIENTE'
   | 'YA_FIRMO'

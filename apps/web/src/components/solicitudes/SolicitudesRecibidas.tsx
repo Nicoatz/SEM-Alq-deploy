@@ -247,9 +247,11 @@ export function SolicitudesRecibidas() {
   // ─── Estado local ───────────────────────────────────────────────────
   const [cambios, setCambios] = useState<CambiosSolicitudes>({})
   // `?pestania=aceptadas` (desde "Ver solicitudes aceptadas" de Contratos, US-05) abre esa pestaña.
-  const pestaniaInicial = useSearchParams().get('pestania')
+  // `?propiedad=<id>` (desde la pestaña Contratos de la propiedad, US-43) la deja filtrada.
+  const parametros = useSearchParams()
+  const pestaniaInicial = parametros.get('pestania')
   const [pestania, setPestania] = useState<PestaniaSolicitudes>(() => PESTANIAS_RECIBIDAS.find((opcion) => opcion.value === pestaniaInicial)?.value ?? 'pendientes')
-  const [propiedad, setPropiedad] = useState<string>(TODAS_LAS_PROPIEDADES)
+  const [propiedad, setPropiedad] = useState<string>(() => parametros.get('propiedad') ?? TODAS_LAS_PROPIEDADES)
   const [orden, setOrden] = useState<OrdenSolicitudes>('recientes')
   const [seleccionadaId, setSeleccionadaId] = useState<string | null>(null)
   const [drawerAbierto, setDrawerAbierto] = useState(false)

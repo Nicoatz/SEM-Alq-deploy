@@ -27,9 +27,11 @@ import type {
   AlquilerResumen,
   ContractStatus,
   ContratoBorrador,
+  ContratoDePropiedad,
   ContratoDetalle,
   ContratoEnviado,
   ContratoResumen,
+  ContratosDePropiedad,
   DatosContrato,
   EventoContrato,
   FirmanteContrato,
@@ -43,7 +45,9 @@ import dayjs from 'dayjs'
 import { fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from '@/lib/contratos/firmas'
 import { ordenarAlquileres } from '@/lib/contratos/listado'
+import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { completarClausulas } from '@/lib/contratos/plantilla'
+import { separarContratos } from '@/lib/contratos/propiedad'
 import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
 import { cobros as cobrosElenco, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
@@ -73,6 +77,8 @@ import {
   contratoDeDto,
   contratoDetalleDeDto,
   contratoEnviadoDeDto,
+  CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
+  contratosDePropiedadDeDto,
   contratoResumenDeDto,
   datosToContratoRequest,
   errorDeMiAlquiler,
@@ -87,6 +93,7 @@ import {
   SOLICITUD_CON_CONTRATO_MESSAGE,
   SOLICITUD_NO_ACEPTADA_MESSAGE,
   SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE,
+  PROPIEDAD_NO_ENCONTRADA_MESSAGE,
   SOLO_LOCADOR_MESSAGE,
   SOLO_LOCATARIO_MESSAGE,
   YA_FIRMO_MESSAGE,
@@ -101,6 +108,7 @@ import type {
   ContratoEnviadoResponse,
   ContratoResponse,
   ContratoResumenResponse,
+  ContratosInmuebleResponse,
   RechazarFirmaRequest,
   ReenviarInvitacionRequest,
 } from './shared/backend-dtos'
@@ -592,6 +600,72 @@ export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE' })
   }
+}
+
+// ─── US-43: los contratos de una propiedad ──────────────────────────────
+
+/** Una fila del elenco o guardada → la pestaña Contratos, con sus firmas. */
+function contratoDePropiedadMock(resumen: ContratoResumen, propiedad: PropiedadMock): ContratoDePropiedad {
+  const guardado = buscarContratoMock(resumen.id)
+  const detalle = guardado ? detalleDeContratoMock(guardado) : detalleDeAlquilerMock(propiedad)
+  return {
+    id: resumen.id,
+    code: resumen.code,
+    status: resumen.status,
+    tenantName: resumen.tenantName || null,
+    currentAmount: resumen.currentAmount,
+    startDate: resumen.startDate,
+    endDate: resumen.endDate,
+    adjustmentIndex: resumen.adjustmentIndex,
+    nextAdjustmentDate: resumen.nextAdjustmentDate,
+    firmasRegistradas: detalle?.firmasRegistradas ?? false,
+    firmantes: (detalle?.firmantes ?? []).map(({ rol, nombre, estado, firmadoEl }) => ({ rol, nombre, estado, firmadoEl })),
+    firmadoPorTodasEl: detalle?.firmadoPorTodasEl ?? null,
+    // US-43: el PDF, "salvo que sea un borrador". En mock se arma en el navegador.
+    documento: resumen.status === 'borrador' ? null : { tipo: 'armado' },
+  }
+}
+
+/**
+ * US-43 — "Los contratos se consultan únicamente desde el detalle de la
+ * propiedad": el actual, los anteriores y desde qué solicitud se puede iniciar uno.
+ * @backend GET /api/v1/inmuebles/:id/contratos   (existe · rol locador) → ContratosInmuebleResponse
+ * @returns sin DNI ni contacto (US-43).
+ * @throws {ServiceError} `not_found` "No encontramos esta propiedad" si no existe o es ajena (sin distinguir); `unauthorized`; `network` / `server`.
+ */
+export async function listarContratosDePropiedad(propiedadId: string): Promise<ContratosDePropiedad> {
+  if (USE_MOCKS) {
+    await delay()
+    const userId = requireSessionUserId()
+    const propiedad = readPropiedadesContratoMock().find((item) => item.id === propiedadId)
+    if (!propiedad || propiedad.ownerId !== userId) throw new ServiceError('not_found', PROPIEDAD_NO_ENCONTRADA_MESSAGE)
+    const contratos = contratosDeLocadorMock(userId, nombreDeCuenta, hoyIso())
+      .filter((contrato) => contrato.propertyId === propiedadId)
+      .map((contrato) => contratoDePropiedadMock(contrato, propiedad))
+    const hayActual = contratos.some((contrato) => contrato.status !== 'finalizado')
+    const aceptada = readSolicitudesMock().find((item) => item.propertyId === propiedadId && item.status === 'aceptada' && !contratoDeSolicitudMock(item.id))
+    return separarContratos(contratos, !hayActual && aceptada ? aceptada.id : null)
+  }
+  try {
+    return contratosDePropiedadDeDto(await apiRequest<ContratosInmuebleResponse>(`/inmuebles/${encodeURIComponent(propiedadId)}/contratos`))
+  } catch (error) {
+    throw errorDeContrato(error, {
+      porDefecto409: 'CONTRATO_NO_EDITABLE',
+      noEncontrado: PROPIEDAD_NO_ENCONTRADA_MESSAGE,
+      prohibido: SOLO_LOCADOR_MESSAGE,
+      generico: CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
+      idInvalidoEsNoEncontrado: true,
+    })
+  }
+}
+
+/**
+ * US-43 — "Se debe poder descargar el contrato en PDF": el que se arma en el
+ * navegador (modo mock). En real, el botón es un link al archivo del back.
+ * `jsPDF` se carga recién acá.
+ */
+export async function descargarPdfDeContrato(contratoId: string): Promise<void> {
+  await descargarContratoPdf(await getDetalleContrato(contratoId))
 }
 
 // ─── US-07: firmar y rechazar ───────────────────────────────────────────

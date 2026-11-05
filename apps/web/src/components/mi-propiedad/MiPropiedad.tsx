@@ -46,6 +46,7 @@ import { hrefTrasEliminar } from '@/lib/mis-propiedades/eliminada'
 import { puedeEditar, puedeEliminar } from '@/lib/validation/propiedad.rules'
 import { getMiPropiedad } from '@/services/propiedades.service'
 import { ModalEliminar } from './ModalEliminar'
+import { PestanaContratos } from './PestanaContratos'
 import { ResumenPropiedad } from './ResumenPropiedad'
 import { fecha } from './textosPropiedad'
 import styles from './MiPropiedad.module.css'
@@ -253,7 +254,7 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
             label: <span data-testid="mi-propiedad-tab-resumen">Resumen</span>,
             children: <ResumenPropiedad detalle={detalle} hrefPublica={hrefPublica} hrefEditar={editable ? hrefEditar : null} onEliminar={() => setEliminarAbierto(true)} />,
           },
-          { key: 'contratos', label: <span data-testid="mi-propiedad-tab-contratos">Contratos</span>, children: null },
+          { key: 'contratos', label: <span data-testid="mi-propiedad-tab-contratos">Contratos</span>, children: <PestanaContratos propiedadId={detalle.id} /> },
         ]}
       />
 

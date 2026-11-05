@@ -176,6 +176,50 @@ export interface ContratoResumen {
   solicitudId: string | null
 }
 
+/**
+ * El PDF de un contrato en la pestaña Contratos (US-43): el archivo del back
+ * (URL firmada) o el que se arma en el navegador (modo mock). `null` si no hay.
+ */
+export type DocumentoDeContrato = { tipo: 'archivo'; url: string } | { tipo: 'armado' } | null
+
+/** Una firma en la pestaña Contratos (US-43: quién firmó, con fecha y hora, y quién falta). */
+export type FirmaDePropiedad = Pick<FirmanteContrato, 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
+
+/** Un contrato en la pestaña Contratos de una propiedad (US-43). Sin DNI ni datos de contacto. */
+export interface ContratoDePropiedad {
+  id: string
+  /** `null` en un borrador sin código ("Borrador sin código"). */
+  code: string | null
+  status: ContractStatus
+  /** Nombre y apellido del locatario; `null` si no hay uno cargado. */
+  tenantName: string | null
+  /** Alquiler actual; `null` en un borrador sin monto. */
+  currentAmount: number | null
+  startDate: string | null
+  endDate: string | null
+  /** `null` si un borrador todavía no lo tiene. */
+  adjustmentIndex: IndiceContrato | null
+  /** Fecha ISO del próximo ajuste; `null` si no hay. */
+  nextAdjustmentDate: string | null
+  /** `false` si no hay registro de las firmas: no se inventan. */
+  firmasRegistradas: boolean
+  /** Solo locador y locatario: el garante no firma (decisión del PO). */
+  firmantes: FirmaDePropiedad[]
+  /** Fecha y hora ISO de la última firma, con el contrato vigente; `null` si no se registró. */
+  firmadoPorTodasEl: string | null
+  documento: DocumentoDeContrato
+}
+
+/** La pestaña Contratos de una propiedad (US-43). */
+export interface ContratosDePropiedad {
+  /** Borrador, pendiente de firma o vigente: como máximo uno. */
+  actual: ContratoDePropiedad | null
+  /** Finalizados, del más reciente al más antiguo por fecha de inicio. */
+  anteriores: ContratoDePropiedad[]
+  /** Solicitud aceptada que todavía no originó un contrato ("Iniciar contrato"); `null` si no hay. */
+  solicitudParaContrato: string | null
+}
+
 /** Resultado de enviar a firmar (US-05, paso 4). */
 export interface ContratoEnviado {
   id: string
