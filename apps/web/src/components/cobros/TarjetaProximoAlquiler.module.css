@@ -1,0 +1,96 @@
+/* TarjetaProximoAlquiler.module.css — el monto a pagar (US-12). */
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.125rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.chip,
+.chipPorVencer,
+.chipVencido {
+  padding: 0.125rem 0.625rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-pill);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-secondary);
+}
+
+.chipPorVencer {
+  border-color: var(--rentar-status-warning-border);
+  background: var(--rentar-status-warning-bg);
+  color: var(--rentar-status-warning-ink);
+}
+
+.chipVencido {
+  border-color: var(--rentar-status-error-border);
+  background: var(--rentar-status-error-bg);
+  color: var(--rentar-status-error-ink);
+}
+
+.propiedad {
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.secundario {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.aviso {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.desglose {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  margin: 0;
+  border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+}
+
+.desglose > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.desglose dt {
+  font-weight: 400;
+}
+
+.desglose dd {
+  margin: 0;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
