@@ -513,8 +513,8 @@ Responde `{ id, codigo, estado: "pendiente_firma" }`.
 Las acciones de firma siguen propuestas. El detalle del locador ya existe (`GET /contratos/:id/detalle`,
 US-42) y el listado del locatario usa `GET /alquileres-locatario` (US-27). El detalle y la firma funcionan
 en modo mock y la rama real todavía llama a las rutas propuestas. Front: `contratos.service.ts`
-(`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `cancelarEnvio`, `reenviarInvitacion`),
-`contrato.adapter.ts#contratoDetalleDeDto` y los DTO de `backend-dtos.ts` ("Firma de contratos").
+(`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `reabrirContrato`, `reenviarInvitacion`),
+`contrato.adapter.ts#detalleDeLocadorDeDto` y los DTO de `backend-dtos.ts`.
 Todas con **Bearer**; el usuario sale del token. **Firman el locador y el locatario.** Los endpoints de
 firma siguen propuestos y no forman parte de la implementación actual de US-27.
 
@@ -528,7 +528,7 @@ firma siguen propuestos y no forman parte de la implementación actual de US-27.
 | `GET /alquileres-locatario[?estado=]` | implementado para US-27 | `AlquilerLocatarioService#listar` | el usuario autenticado como locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
 | `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
 | `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
-| `POST /contratos/:id/reabrir` | **implementado** (reemplaza a `cancelar-envio`) | `#cancelarEnvio` (la rama real todavía llama a la ruta propuesta) | **solo el locador** | — | 200 `ContratoBorradorResponse` | 409 con `codigo` |
+| `POST /contratos/:id/reabrir` | **implementado** | `#reabrirContrato` (es la acción "Modificar": no hay otra ruta para cancelar el envío) | **solo el locador** | — | 200 `ContratoBorradorResponse` | 409 con `codigo` |
 | `POST /contratos/:id/reenviar` | pendiente (propuesto) | `#reenviarInvitacion` | **solo el locador** | `{ "rol": "locatario" }` | 200 `ContratoDetalleResponse` | 403, 404, **409** `FIRMANTE_NO_PENDIENTE`, `CONTRATO_NO_PENDIENTE`, **429** (menos de una hora desde la última invitación) |
 
 Las acciones responden el detalle actualizado, así el front no vuelve a pedirlo.
@@ -565,10 +565,10 @@ faltando `fecha_envio`, `firmantes[].id_usuario` y `fecha_ultima_invitacion`:
 
 | Acción | Regla (US-07) |
 |---|---|
-| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha y hora. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador cancela el envío y lo vuelve a enviar. |
+| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha y hora. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador toca Modificar y lo vuelve a enviar. |
 | Última firma | En **una transacción**: el contrato pasa a `vigente` (con `fecha_firma_completa`); el inmueble, a **alquilado** (deja de salir en `/inmuebles/disponibles`); y sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." |
 | Rechazar | Solo el locatario y solo `pendiente_firma`. Motivo opcional, hasta 300 caracteres (`null` si viene vacío). **No cambia el estado del contrato.** |
-| Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
+| Modificar (`/reabrir`) | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
 | Reenviar | Solo el locador, a un firmante `pendiente` (hoy, el locatario). Una vez por hora por firmante: 429 si pasó menos. Actualiza `fecha_ultima_invitacion`. Hoy no se manda ningún mail (el front lo aclara). |
 
 ## Alquileres del locatario (Sprint 3, US-27)
@@ -602,10 +602,9 @@ y `GET /contratos/:id` ya no se usan para US-27 (siguen propuestas para US-05 y 
 - `puede_firmar`: **no se usa**. Como no existen las acciones de US-07, en real no hay "Firmar
   contrato" ni "Rechazar": un aviso "La firma todavía no está disponible en línea."
 - `pdf_url`: "Descargar PDF" abre ese archivo; en `null`, el botón queda deshabilitado con "El PDF
-  todavía no está disponible". En real el PDF **no** se arma con jsPDF (no hay cláusulas).
+  todavía no está disponible".
 
-**Brechas** (detalle en HANDOFF §7, US-27): acciones de firma (US-07); cláusulas e historial en el
-detalle; código `CT-AAAA-NNNN`; día de pago fijo vs. plazo en días; `contrato_x_usuario` que el alta
+**Brechas** (detalle en HANDOFF §7, US-27): acciones de firma (US-07); código `CT-AAAA-NNNN`; día de pago fijo vs. plazo en días; `contrato_x_usuario` que el alta
 de contratos todavía no crea; usuario de prueba con contratos en Supabase Auth (HANDOFF §9).
 
 - El acceso se limita por `contrato_x_usuario` con `tipo_firmante = 2`; no se acepta un ID de usuario enviado por el cliente.

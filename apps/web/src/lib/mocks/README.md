@@ -71,7 +71,7 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
   `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
   "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
-- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial
+- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas registradas
   (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
   contratos" de US-27. Desde la tanda 4 tiene cuenta (`usr-camila`), así que Mis alquileres
