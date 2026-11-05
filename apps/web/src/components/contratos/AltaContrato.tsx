@@ -75,7 +75,7 @@ interface AltaContratoProps {
   contratoId?: string
   /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
   recienGuardado?: boolean
-  /** `true` al llegar de "Cancelar envío" del detalle (`?envio=cancelado`, US-07): muestra el aviso. */
+  /** `true` al llegar de "Modificar" o "Cancelar envío" del detalle (`?envio=cancelado`, US-06): muestra el aviso. */
   envioCancelado?: boolean
 }
 
@@ -111,6 +111,14 @@ export function errorDelPaso(borrador: ContratoBorrador, paso: number): string |
   return null
 }
 
+/** US-06: por qué este contrato no se edita. */
+function motivoNoEditable({ code, status }: Pick<ContratoBorrador, 'code' | 'status'>): string {
+  const contrato = code ?? 'El contrato'
+  if (status === 'pendiente_firma') return `${contrato} ya se envió a firmar. Para cambiar algo, tocá Modificar en su detalle (mientras el locatario no haya firmado).`
+  if (status === 'vigente') return `${contrato} está vigente: todas las partes ya lo firmaron y no se puede modificar.`
+  return `${contrato} ya terminó y no se puede modificar.`
+}
+
 /** Mensaje de un error de service, o uno genérico. */
 function mensajeDe(error: unknown, generico: string): string {
   return error instanceof ServiceError ? error.message : generico
@@ -140,8 +148,8 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const [guardado, setGuardado] = useState(inicial)
   const [guardando, setGuardando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(() => {
-    // US-07: "el contrato vuelve a 'borrador' y se borran las firmas registradas".
-    if (envioCancelado) return 'Cancelaste el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.'
+    // US-06: "el contrato vuelve a 'borrador' y conserva su código".
+    if (envioCancelado) return 'Se canceló el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.'
     return recienGuardado ? BORRADOR_GUARDADO : null
   })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
@@ -267,6 +275,8 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   }
 
   const pasoConError = errorPaso && paso < ULTIMO_PASO ? paso : null
+  const { startDate } = borrador.condiciones
+  const fechaVencida = startDate !== null && startDate < hoy().format('YYYY-MM-DD')
   const steps = PASOS_CONTRATO.map((definicion, indice) => ({
     key: definicion.key,
     title: definicion.title,
@@ -299,6 +309,16 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       <PageHeader title={titulo} subtitle={subtitulo} breadcrumb={miga} actions={acciones} />
       {aviso && <Alert type="success" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setAviso(null)} title={aviso} data-testid="contrato-borrador-guardado" />}
       {errorAccion && <Alert type="error" showIcon closable={{ 'aria-label': 'Cerrar el aviso' }} onClose={() => setErrorAccion(null)} title={errorAccion} data-testid="contrato-error" />}
+      {/* US-06: "Si la fecha de inicio guardada quedó en el pasado, se debe pedir una nueva antes de volver a enviar a firmar." */}
+      {fechaVencida && (
+        <Alert
+          type="warning"
+          showIcon
+          title="La fecha de inicio ya pasó"
+          description="Elegí una nueva en el paso Condiciones antes de enviar el contrato a firmar."
+          data-testid="contrato-fecha-vencida"
+        />
+      )}
       {errorPaso && (
         <Alert
           type="error"
@@ -401,7 +421,7 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
   }
 
   const contrato = carga.data
-  // US-05: "al enviarlo … no se puede editar".
+  // US-06: "Los contratos vigentes, finalizados o con la firma del locatario no se pueden modificar. Si se intenta, se debe explicar el motivo."
   if (contrato.status !== 'borrador') {
     return (
       <div className={styles.page}>
@@ -409,11 +429,7 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
         <div className={styles.bloqueado} data-testid="contrato-no-editable">
           <EmptyState
             title="Este contrato ya no se puede editar"
-            description={
-              contrato.status === 'pendiente_firma'
-                ? `${contrato.code ?? 'El contrato'} ya se envió a firmar. Para cambiar algo, cancelá el envío desde su detalle (mientras el locatario no haya firmado).`
-                : `${contrato.code ?? 'El contrato'} ya no es un borrador.`
-            }
+            description={motivoNoEditable(contrato)}
             action={
               <span className={styles.acciones}>
                 <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(contrato.id ?? '')}`)} data-testid="contrato-ver-detalle">

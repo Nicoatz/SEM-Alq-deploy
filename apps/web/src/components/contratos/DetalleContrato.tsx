@@ -11,8 +11,8 @@
  *   condiciones, condiciones de cobro y acceso a la solicitud de origen. Lo
  *   que no está registrado dice "Sin dato".
  * - El calendario de ajustes (`CalendarioAjustes`), salvo "Sin ajuste".
- * - El documento (`VisorContrato`) y "Descargar PDF" en cualquier estado
- *   (`lib/contratos/pdf.ts`, con `jsPDF` cargado al tocarlo).
+ * - El documento paginado (`VisorPdf`) y "Descargar PDF" en cualquier estado.
+ * - US-06: "Modificar" un pendiente sin la firma del locatario, con confirmación.
  * - Se entra desde la pestaña Contratos de la propiedad (US-43); la miga vuelve ahí.
  * Decisión del PO: sin historial ni registro de IP (salieron de US-07 y US-42).
  * - El locador firma acá (`FirmaContrato`), cancela el envío (si el
@@ -28,11 +28,10 @@
  * - Sin "Firmar contrato" ni "Rechazar" (aunque el back diga `puede_firmar`):
  *   un aviso "La firma todavía no está disponible en línea". TODO(backend): US-07.
  * - "Descargar PDF" baja el PDF del back (`pdfUrl`); sin él, deshabilitado.
- *   No se arma con jsPDF: sin las cláusulas saldría otro documento.
  * - Sin cláusulas (el back no las manda): se dice, no se inventan.
  * Detalle del locador en modo real (`GET /contratos/:id/detalle`, US-42): usa
  * el mismo `datosApi`: sin firma, cancelación ni reenvío en línea hasta que
- * se conecten (TODO(backend): US-07; "Modificar" llega en la Tanda 2, US-06).
+ * se conecten (TODO(backend): US-07). "Modificar" sí: `reabrir` existe.
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 04 y 08): la franja de
  * estado arriba, firmantes y datos a la izquierda, documento y calendario a
@@ -48,7 +47,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
-import { DownloadOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
+import { DownloadOutlined, EditOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
@@ -56,19 +55,18 @@ import { ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, Pa
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio } from '@/lib/contratos/firmas'
-import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { tituloContrato } from '@/lib/contratos/plantilla'
 import { contratosDePropiedadHref, editarContratoHref, MIS_PROPIEDADES_HREF, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { ahoraIso } from '@/lib/utils/fechas'
-import { cancelarEnvio, getDetalleContrato, reenviarInvitacion } from '@/services/contratos.service'
+import { cancelarEnvio, getDetalleContrato, reabrirContrato, reenviarInvitacion } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
-import { VisorContrato } from './VisorContrato'
+import { VisorPdf } from './VisorPdf'
 import styles from './DetalleContrato.module.css'
 
 const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
@@ -162,7 +160,8 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const [confirmarCancelar, setConfirmarCancelar] = useState(false)
   const [cancelando, setCancelando] = useState(false)
   const [reenviando, setReenviando] = useState<RolFirmante | null>(null)
-  const [descargando, setDescargando] = useState(false)
+  const [confirmarModificar, setConfirmarModificar] = useState(false)
+  const [reabriendo, setReabriendo] = useState(false)
   /** "Ahora", para el límite de un reenvío por hora; se renueva cada 30 s. */
   const [ahora, setAhora] = useState(ahoraIso)
 
@@ -205,19 +204,20 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   }
 
   /**
-   * US-07: "permitir descargarlo en PDF en cualquier estado". `jsPDF` se carga
-   * recién acá. Solo en mock y en el detalle del locador: con `datosApi`, el
-   * botón es un link al PDF del back (ver `botonPdf`).
+   * US-06: "Al confirmar, el contrato vuelve a 'borrador' y conserva su código".
+   * Se sigue editando en el alta.
    */
-  async function descargar(): Promise<void> {
-    setDescargando(true)
+  async function modificar(): Promise<void> {
+    setReabriendo(true)
     setErrorAccion(null)
     try {
-      await descargarContratoPdf(contrato)
-    } catch {
-      setErrorAccion('No pudimos armar el PDF. Probá de nuevo; el documento se sigue viendo en la pantalla.')
-    } finally {
-      setDescargando(false)
+      await reabrirContrato(contrato.id ?? '')
+      setConfirmarModificar(false)
+      router.replace(`${editarContratoHref(contrato.id ?? '')}?envio=cancelado`)
+    } catch (error) {
+      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos reabrir el contrato. Probá de nuevo.')
+      setConfirmarModificar(false)
+      setReabriendo(false)
     }
   }
 
@@ -312,13 +312,10 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const accionesDeLocador = soyLocador && firmaEnLinea
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
   const esFicha = vista === 'locatario'
-  // Decisión del PO: en real, el PDF es el del back (`pdfUrl`); si no hay, el botón queda deshabilitado.
-  const botonPdf = !datosApi ? (
-    <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
-      Descargar PDF
-    </Button>
-  ) : datosApi.pdfUrl ? (
-    <Button icon={<DownloadOutlined />} href={datosApi.pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="contrato-descargar-pdf">
+  // El PDF del contrato; en la ficha del locatario lo manda `datosApi`. Sin él, el botón queda deshabilitado.
+  const pdfUrl = datosApi?.pdfUrl ?? contrato.pdf?.url ?? null
+  const botonPdf = pdfUrl ? (
+    <Button icon={<DownloadOutlined />} href={pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="contrato-descargar-pdf">
       Descargar PDF
     </Button>
   ) : (
@@ -377,6 +374,19 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               'Cuando firmen las dos partes, el contrato pasa a vigente y la propiedad, a alquilada.'
             )}
           </span>
+          {/* US-06: se modifica mientras el locatario no haya firmado; si firmó, se explica el motivo. */}
+          {soyLocador && !esFicha && (
+            <span className={styles.franjaAccion}>
+              <Button icon={<EditOutlined />} disabled={!cancelable} onClick={() => setConfirmarModificar(true)} data-testid="contrato-modificar">
+                Modificar
+              </Button>
+              {!cancelable && (
+                <span className={styles.motivo} data-testid="contrato-modificar-motivo">
+                  {locatario.nombre || 'El locatario'} ya firmó: el contrato no se puede modificar.
+                </span>
+              )}
+            </span>
+          )}
           {accionesDeLocador && (
             <span className={styles.franjaAccion}>
               <Button icon={<RollbackOutlined />} disabled={!cancelable} onClick={() => setConfirmarCancelar(true)} data-testid="contrato-cancelar-envio">
@@ -503,19 +513,16 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               <h2 id="contrato-documento-titulo" className={styles.tarjetaTitulo}>
                 Documento
               </h2>
-              {datosApi ? (
-                <>
-                  {pendiente && (
-                    // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
-                    <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
-                  )}
-                  {/* TODO(backend): el detalle no trae las cláusulas; el documento es el PDF que guarda el back. */}
-                  <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
-                    {datosApi.pdfUrl ? 'El texto del contrato está en el PDF: descargalo desde el botón de arriba.' : 'El texto del contrato se va a poder ver en el PDF cuando esté disponible.'}
-                  </p>
-                </>
+              {datosApi && pendiente && (
+                // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
+                <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
+              )}
+              {pdfUrl ? (
+                <VisorPdf url={pdfUrl} nombre={contrato.pdf?.nombre} data-testid="contrato-visor" />
               ) : (
-                <VisorContrato titulo={titulo} codigo={contrato.code} clausulas={contrato.clausulas} />
+                <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
+                  Sin dato: el contrato todavía no tiene un PDF cargado.
+                </p>
               )}
             </section>
           )}
@@ -525,6 +532,20 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
           )}
         </div>
       </div>
+
+      {/* US-06: "se debe solicitar confirmación avisando que el envío se cancela, que se borran las firmas registradas y que el contrato vuelve a 'borrador'". */}
+      <ConfirmActionModal
+        open={confirmarModificar}
+        title="¿Modificar el contrato?"
+        description="Se cancela el envío, se borran las firmas registradas y el contrato vuelve a borrador, con el mismo código. Después lo vas a tener que enviar a firmar de nuevo."
+        confirmLabel="Modificar contrato"
+        cancelLabel="Volver"
+        danger
+        confirmLoading={reabriendo}
+        onConfirm={() => void modificar()}
+        onCancel={() => setConfirmarModificar(false)}
+        data-testid="contrato-modificar-modal"
+      />
 
       {/* US-07: "mientras ninguna otra parte haya firmado. El contrato vuelve a 'borrador' y se borran las firmas registradas." */}
       <ConfirmActionModal
