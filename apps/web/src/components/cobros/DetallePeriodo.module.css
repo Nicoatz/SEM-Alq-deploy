@@ -1,0 +1,127 @@
+/* DetallePeriodo.module.css — detalle de un período (US-09). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.125rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.linea {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.lineaTotal {
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.cobros {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.cobro {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cobroFila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.cobroMedio {
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.cobroAcciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.secundario {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+@media (max-width: 899px) {
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
