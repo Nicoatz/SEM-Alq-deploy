@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { contratoController } from "../../controllers/contrato.controller";
 import { inmuebleController } from "../../controllers/inmueble.controller";
 import { authenticateGateway, requireRole } from "../../gateway/middlewares/auth.middleware";
 
@@ -368,6 +369,74 @@ router.put(
   authenticateGateway,
   requireRole("locador"),
   inmuebleController.update.bind(inmuebleController)
+);
+
+/**
+ * @openapi
+ * /api/v1/inmuebles/{id}/contratos:
+ *   get:
+ *     summary: Listar los contratos de una propiedad del locador (US-43)
+ *     description: >
+ *       Devuelve todos los contratos de la propiedad (borradores, pendientes de firma, vigentes y
+ *       finalizados) para que el locador vea su historial. **No** incluye la oferta (estado 1), que
+ *       son las condiciones de la publicación. Sin DNI ni datos de contacto del locatario o de los
+ *       garantes, y sin los datos de la propiedad (ya es la de la ruta). Orden: el más reciente
+ *       primero por fecha de inicio, con los borradores sin fecha arriba. Una propiedad inexistente,
+ *       ajena o dada de baja responde siempre 404.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Lista de contratos (vacía si la propiedad no tiene).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       codigo: { type: string, nullable: true, description: 'null en los borradores' }
+ *                       estado: { type: string, enum: [borrador, pendiente_firma, vigente, finalizado] }
+ *                       locatario:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           nombre: { type: string }
+ *                           apellido: { type: string }
+ *                       monto_actual: { type: number, nullable: true }
+ *                       fecha_inicio_contrato: { type: string, format: date, nullable: true }
+ *                       fecha_fin_contrato: { type: string, format: date, nullable: true }
+ *                       indice: { type: string, enum: [sin_ajuste, ICL, IPC, CAC] }
+ *                       proximo_ajuste: { type: string, format: date, nullable: true }
+ *                       id_solicitud: { type: integer, nullable: true }
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: La propiedad no existe, no es del locador o está dada de baja.
+ */
+router.get(
+  "/:id/contratos",
+  authenticateGateway,
+  requireRole("locador"),
+  contratoController.listarPorInmueble.bind(contratoController)
 );
 
 /**

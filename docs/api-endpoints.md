@@ -277,7 +277,7 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 | `PUT /contratos/:id/pdf` | **implementado** | `{ path, nombre }` | 200 `ContratoBorradorResponse` | 400, 404, **409**, **413** |
 | `POST /contratos/:id/reabrir` | **implementado** (US-06) | — | 200 `ContratoBorradorResponse`: el contrato vuelve a borrador (estado 5), sin firmas y con el mismo código. Solo pendiente de firma y sin la firma del locatario. El cliente confirma antes | 400, 404, **409** (`codigo`: `CONTRATO_VIGENTE`, `CONTRATO_FINALIZADO`, `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_YA_EN_BORRADOR`) |
 | `DELETE /contratos/:id` | **implementado** (US-06) | — | 200 sin `data`: descarta el borrador y libera la solicitud. El cliente confirma antes | 400, 404, **409** (`CONTRATO_NO_EDITABLE`) |
-| `GET /contratos` | **implementado** (US-43) | — | `ContratoResumenResponse[]` (sin las ofertas, estado 1; ver abajo) | 401, 403 |
+| `GET /inmuebles/:id/contratos` | **implementado** (US-43) | — | `ContratoResumenResponse[]` (los de esa propiedad, sin la oferta, estado 1; ver abajo) | 400, 401, 403, 404 |
 | `GET /contratos/:id/detalle` | **implementado** (US-42) | — | `ContratoDetalleResponse` (el detalle para `/panel/contratos/[id]`; ver abajo) | 400, 401, 403, 404 (no existe o no es suyo), **409** `CONTRATO_BORRADOR` |
 | `DELETE /contratos/:id` | pendiente (propuesto) | — | 204 | 404, **409** |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | — | 200 `ContratoEnviadoResponse` | 400, 404, **409** |
@@ -352,15 +352,16 @@ en Vercel acepta cuerpos de hasta 4,5 MB.
 
 `DELETE /contratos/:id` y `POST /contratos/:id/enviar` siguen **propuestas**.
 
-**`ContratoResumenResponse`** (`GET /contratos`, **implementado**, US-43): una fila del listado.
-Solo contratos de las propiedades del locador, **sin las ofertas** (estado 1) y sin DNI ni contacto:
+**`ContratoResumenResponse`** (`GET /inmuebles/:id/contratos`, **implementado**, US-43): una fila del
+listado de contratos de **una propiedad** del locador (su historial). Bearer + rol locador. **Sin la
+oferta** (estado 1), sin los de baja lógica (`activo = false`) y sin DNI ni contacto. No hay un listado
+general de todos los contratos del locador. No trae la propiedad: es la de la ruta.
 
 ```json
 {
   "id": 207,
   "codigo": "CT-2026-0207",
   "estado": "pendiente_firma",
-  "inmueble": { "id": 8, "direccion": "Rondeau", "numero": 480, "piso": "PB", "barrio": "Güemes" },
   "locatario": { "nombre": "Julieta", "apellido": "Peralta" },
   "monto_actual": 385000,
   "fecha_inicio_contrato": "2026-10-01",
@@ -371,15 +372,16 @@ Solo contratos de las propiedades del locador, **sin las ofertas** (estado 1) y 
 }
 ```
 
+- **Errores:** 400 (`:id` inválido), 401, 403 (no es locador) y **404** si la propiedad no existe, no es
+  del locador o está dada de baja (**uno solo**, sin distinguir). Una propiedad sin contratos responde
+  200 con `[]`.
 - `estado`: `borrador`, `pendiente_firma`, `vigente` o `finalizado`.
 - `codigo`: `null` en los borradores (se asigna al enviar a firmar). `locatario`: `null` si no hay uno cargado.
 - `indice`: `sin_ajuste`, `ICL`, `IPC` o `CAC`. `proximo_ajuste`: `null` si no hay ajuste (sin índice,
   finalizado, sin fecha de inicio) o si ya no quedan antes del fin.
 - `monto_actual`: el `monto_nuevo` del último `ajuste_contrato`; si no hubo, el inicial (en un borrador
   sin monto, `null`).
-- **Orden** (US-43): pendientes de firma, borradores y el resto por `fecha_fin_contrato`.
-- **Los filtros por estado, los conteos, "por vencer" y la búsqueda no son del back:** el front los
-  resuelve sobre la lista completa (`lib/contratos/listado.ts`).
+- **Orden:** el más reciente primero por `fecha_inicio_contrato`; los borradores sin fecha van arriba.
 - **Nombres de campo:** `fecha_inicio_contrato` / `fecha_fin_contrato` (como `ContratoBorradorResponse`),
   distintos de `fecha_inicio` / `fecha_fin` de la propuesta anterior del front.
 - No hay `rescindido`: el esquema no tiene ese estado.

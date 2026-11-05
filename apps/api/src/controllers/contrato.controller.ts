@@ -18,15 +18,22 @@ export class ContratoController {
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
-  /** GET /contratos · US-43: los contratos del locador (sin las ofertas). */
-  async listar(
+  /** GET /inmuebles/:id/contratos · US-43: los contratos de una propiedad del locador (sin la oferta). */
+  async listarPorInmueble(
     req: Request,
     res: Response<ApiResponse<ContratoResumenResponse[]>>,
     next: NextFunction
   ): Promise<void> {
     try {
+      const idInmueble = this.parseContratoId(req);
+
+      if (idInmueble === null) {
+        res.status(400).json({ success: false, error: 'El identificador de la propiedad no es válido.' });
+        return;
+      }
+
       const user = (req as any).user as AuthenticatedUser;
-      const contratos = await contratoService.listar(user);
+      const contratos = await contratoService.listarPorInmueble(user, idInmueble);
 
       res.status(200).json({ success: true, data: contratos });
     } catch (error) {

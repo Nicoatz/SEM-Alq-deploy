@@ -37,26 +37,27 @@ const ESTADO_POR_ID: Record<number, EstadoContratoResponse> = {
   [ESTADO_CONTRATO.FINALIZADO]: 'finalizado',
 };
 
-/** US-43: pendientes de firma primero, después borradores y al final el resto. */
-const PRIORIDAD_LISTADO: Record<EstadoContratoResponse, number> = {
-  pendiente_firma: 0,
-  borrador: 1,
-  vigente: 2,
-  finalizado: 2,
-};
-
 /** El índice del listado sale de la sigla de `tipo_indice.descripcion` ("ICL (Índice de…)"). */
 function indiceDelListado(descripcion: string | null): IndiceContratoResponse {
   const sigla = descripcion?.trim().split(/[\s(]/)[0].toUpperCase();
   return sigla === 'ICL' || sigla === 'IPC' || sigla === 'CAC' ? sigla : 'sin_ajuste';
 }
 
-/** Fecha ISO `YYYY-MM-DD`: se compara como texto, sin zonas horarias. Los `null` van al final. */
-function compararFechas(a: string | null, b: string | null): number {
-  if (a === b) return 0;
-  if (a === null) return 1;
-  if (b === null) return -1;
-  return a < b ? -1 : 1;
+/**
+ * Orden del historial de una propiedad: el más reciente primero, por fecha de inicio. Los que
+ * todavía no tienen fecha (borradores) van arriba, porque son el contrato más nuevo. Las fechas ISO
+ * `YYYY-MM-DD` se comparan como texto, sin zonas horarias.
+ */
+function masRecientePrimero(a: ContratoResumenResponse, b: ContratoResumenResponse): number {
+  const inicioA = a.fecha_inicio_contrato;
+  const inicioB = b.fecha_inicio_contrato;
+
+  if (inicioA !== inicioB) {
+    if (inicioA === null) return -1;
+    if (inicioB === null) return 1;
+    return inicioA < inicioB ? 1 : -1;
+  }
+  return b.id - a.id;
 }
 
 function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | null {
@@ -87,7 +88,6 @@ function resumenDeFila(fila: FilaListadoContrato): ContratoResumenResponse | nul
     id: fila.id,
     codigo: fila.codigo,
     estado,
-    inmueble: fila.inmueble,
     locatario: fila.locatario,
     monto_actual: montoActual,
     fecha_inicio_contrato: fila.fecha_inicio_contrato,
@@ -181,12 +181,12 @@ export class ContratoService {
   }
 
   /**
-   * US-43 · Listado de los contratos del locador, sin las ofertas (estado 1). Solo los de sus
-   * propiedades y sin DNI ni contacto. Orden por defecto: pendientes de firma, borradores y el
-   * resto por fecha de fin. Los filtros, los conteos y la búsqueda los resuelve el front sobre
-   * esta lista (un locador tiene pocos contratos).
+   * US-43 · Contratos de una propiedad del locador, sin la oferta (estado 1) y sin DNI ni
+   * contacto. Orden: el más reciente primero (ver `masRecientePrimero`).
+   *
+   * Una propiedad inexistente, ajena o dada de baja es siempre 404: no se distingue.
    */
-  async listar(user: AuthenticatedUser): Promise<ContratoResumenResponse[]> {
+  async listarPorInmueble(user: AuthenticatedUser, idInmueble: number): Promise<ContratoResumenResponse[]> {
     if (!user?.id) {
       this.throwError('Debe iniciar sesión para consultar contratos.', 401);
     }
@@ -195,17 +195,20 @@ export class ContratoService {
       this.throwError('Se requiere el rol locador para consultar contratos.', 403);
     }
 
-    const filas = await this.contratoRepo.findListadoByLocadorId(user.id);
+    if (!Number.isInteger(idInmueble) || idInmueble < 1) {
+      this.throwError('El identificador de la propiedad no es válido.', 400);
+    }
+
+    const filas = await this.contratoRepo.findListadoByInmuebleId(idInmueble, user.id);
+
+    if (!filas) {
+      this.throwError('No encontramos esta propiedad.', 404);
+    }
 
     return filas
       .map(resumenDeFila)
       .filter((resumen): resumen is ContratoResumenResponse => resumen !== null)
-      .sort(
-        (a, b) =>
-          PRIORIDAD_LISTADO[a.estado] - PRIORIDAD_LISTADO[b.estado] ||
-          compararFechas(a.fecha_fin_contrato, b.fecha_fin_contrato) ||
-          a.id - b.id
-      );
+      .sort(masRecientePrimero);
   }
 
   /**

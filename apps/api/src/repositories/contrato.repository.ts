@@ -127,7 +127,7 @@ interface FilaParte {
 }
 
 /**
- * Una fila del listado del locador (US-43): el contrato con su inmueble, su locatario (solo
+ * Una fila del listado de contratos de una propiedad (US-43): el contrato con su locatario (solo
  * nombre y apellido) y el último ajuste aplicado. Nunca trae DNI ni contacto.
  */
 export interface FilaListadoContrato {
@@ -141,13 +141,6 @@ export interface FilaListadoContrato {
   frecuencia_ajuste: string | null;
   /** Descripción de `tipo_indice` (ej. "ICL (Índice de Contratos de Locación)"); `null` = sin ajuste. */
   indice: string | null;
-  inmueble: {
-    id: number;
-    direccion: string;
-    numero: number;
-    piso: string | null;
-    barrio: string;
-  };
   locatario: { nombre: string; apellido: string } | null;
   /** Fecha y monto del último ajuste aplicado; `null` si no hubo ninguno. */
   ultimo_ajuste: { fecha_efectiva: string; monto_nuevo: number } | null;
@@ -213,7 +206,7 @@ export interface IContratoRepository {
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
   reabrirContrato(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
   descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
-  findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]>;
+  findListadoByInmuebleId(idInmueble: number, idLocador: number): Promise<FilaListadoContrato[] | null>;
   findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
   crearUrlSubidaPdf(path: string): Promise<UrlSubidaPdf>;
@@ -425,12 +418,28 @@ export class ContratoRepository implements IContratoRepository {
   }
 
   /**
-   * Los contratos de las propiedades del locador para el listado (US-43): borrador, pendiente de
-   * firma, vigente y finalizado. La oferta (estado 1) es la publicación, no un contrato, y no se
-   * devuelve. Solo se piden nombre y apellido del locatario: el DNI y el contacto no salen de acá.
+   * Los contratos de una propiedad del locador (US-43): borrador, pendiente de firma, vigente y
+   * finalizado. La oferta (estado 1) es la publicación, no un contrato, y no se devuelve. Solo se
+   * piden nombre y apellido del locatario: el DNI y el contacto no salen de acá.
+   *
+   * Devuelve `null` si la propiedad no existe, no es del locador o está dada de baja (`activo =
+   * false`): no se distingue, para no revelar que existe.
    */
-  async findListadoByLocadorId(idLocador: number): Promise<FilaListadoContrato[]> {
+  async findListadoByInmuebleId(
+    idInmueble: number,
+    idLocador: number
+  ): Promise<FilaListadoContrato[] | null> {
     const supabase = getSupabaseAdmin();
+
+    const { data: inmueble, error: errorInmueble } = await supabase
+      .from('inmueble')
+      .select('id')
+      .eq('id', idInmueble)
+      .eq('id_locador', idLocador)
+      .eq('activo', true)
+      .maybeSingle();
+    if (errorInmueble) throw errorInmueble;
+    if (!inmueble) return null;
 
     const { data, error } = await supabase
       .from('contrato')
@@ -438,17 +447,15 @@ export class ContratoRepository implements IContratoRepository {
         `id, codigo, estado, id_solicitud, monto_alquiler, fecha_inicio_contrato, fecha_fin_contrato,
          frecuencia_ajuste,
          indice:tipo_indice(descripcion),
-         inmueble:inmueble!contrato_id_inmueble_fkey!inner(id, id_locador, direccion, numero, piso, barrio),
          partes:contrato_x_usuario(tipo_firmante, usuario(nombre, apellido))`
       )
-      .eq('inmueble.id_locador', idLocador)
+      .eq('id_inmueble', idInmueble)
       .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
       .eq('activo', true);
     if (error) throw error;
 
-    const filas = (data ?? []) as unknown as (Omit<FilaListadoContrato, 'indice' | 'locatario' | 'ultimo_ajuste' | 'inmueble'> & {
+    const filas = (data ?? []) as unknown as (Omit<FilaListadoContrato, 'indice' | 'locatario' | 'ultimo_ajuste'> & {
       indice: { descripcion: string } | { descripcion: string }[] | null;
-      inmueble: FilaListadoContrato['inmueble'];
       partes: { tipo_firmante: number; usuario: { nombre: string; apellido: string } | null }[] | null;
     })[];
     if (filas.length === 0) return [];
@@ -486,13 +493,6 @@ export class ContratoRepository implements IContratoRepository {
         fecha_fin_contrato: fila.fecha_fin_contrato ?? null,
         frecuencia_ajuste: fila.frecuencia_ajuste ?? null,
         indice: indice?.descripcion ?? null,
-        inmueble: {
-          id: fila.inmueble.id,
-          direccion: fila.inmueble.direccion,
-          numero: fila.inmueble.numero,
-          piso: fila.inmueble.piso,
-          barrio: fila.inmueble.barrio,
-        },
         locatario: locatario ? { nombre: locatario.nombre, apellido: locatario.apellido } : null,
         ultimo_ajuste: ultimoAjustePorContrato.get(fila.id) ?? null,
       };
