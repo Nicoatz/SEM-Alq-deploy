@@ -19,17 +19,17 @@ Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de
 Revisado contra el código de `develop` (952550d) y contra la base con consultas de solo lectura. Nada
 de esto se probó llamando a la API. **Listo:** cumple la US en el back, aunque el front necesite
 adaptador. **Parcial:** existe pero le faltan campos o reglas. **No existe:** propuesto. Que el front
-ya use cada ruta se ve en las secciones de abajo: del locador, la pestaña y el detalle están conectados
-(Tanda 1); el alta y la firma, todavía no (Tandas 2 y 3 del Sprint 4).
+ya use cada ruta se ve en las secciones de abajo: del locador, la pestaña, el detalle y el alta están
+conectados (Tandas 1 y 2); enviar a firmar y la firma, todavía no.
 
 | Endpoint | Rol | Estado | Notas |
 |---|---|---|---|
-| `POST /contratos` | locador | Listo | Body `{ id_solicitud }`; usar solo `id` |
-| `GET /contratos/:id` | locador | Listo | Nombres distintos (tabla de abajo) |
+| `POST /contratos` | locador | **Conectado** (Tanda 2) | Body `{ id_solicitud }`; se usa solo `id` |
+| `GET /contratos/:id` | locador | **Conectado** (Tanda 2) | Nombres distintos (tabla de abajo) |
 | `GET /contratos/:id/detalle` | locador | **Conectado** (Tanda 1); parcial | 409 `CONTRATO_BORRADOR`: redirige al alta. `firmas` cuenta garantes: el adaptador los saca |
-| `PATCH /contratos/:id` | locador | Listo | Mandar **solo lo que cambió**: una fecha vencida reenviada da 400 |
-| `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | locador | Listo | Subida directa al bucket; 5 MB |
-| `POST /contratos/:id/reabrir` | locador | Listo | Conserva el código y resetea las firmas. Cubre el `cancelar-envio` propuesto |
+| `PATCH /contratos/:id` | locador | **Conectado** (Tanda 2) | El front manda **solo lo que cambió** (`cambiosDeBorrador`): una fecha vencida reenviada da 400 |
+| `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | locador | **Conectado** (Tanda 2) | Subida directa al bucket con `uploadToSignedUrl`; 5 MB |
+| `POST /contratos/:id/reabrir` | locador | **Conectado** (Tanda 2), sin probar en real | Conserva el código y resetea las firmas. Hace falta enviar a firmar para probarlo sin gastar el contrato 2 |
 | `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente y US-06 pide que siga aceptada (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
 | `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
@@ -51,7 +51,7 @@ ya use cada ruta se ve en las secciones de abajo: del locador, la pestaña y el 
 |---|---|
 | `fecha_inicio`, `fecha_fin` | `fecha_inicio_contrato`, `fecha_fin_contrato` |
 | `monto_inicial` | `monto_alquiler` en `/:id`; `monto_inicial` en `/detalle` |
-| `dia_vencimiento` | `dias_para_vencimiento` |
+| `paymentTermDays` (antes `dia_vencimiento`) | `dias_para_vencimiento`: plazo en días, de 1 a 28 |
 | `periodicidad` | `frecuencia_ajuste` |
 | `ultimo_paso` | `paso` en el `PATCH` |
 | `indice` | Id `indice_aumento` en `/:id`; `{ id, descripcion }` en `/detalle`; sigla en el listado |
