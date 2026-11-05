@@ -557,7 +557,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     },
     clausulas: [],
     ultimoPaso: 3,
-    pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 0, subidoEl: null, url: PDF_FICTICIO_URL },
+    pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 1, subidoEl: null, url: PDF_FICTICIO_URL },
     fechaInicioVencida: false,
   }
   return {
@@ -622,8 +622,8 @@ function contratoDePropiedadMock(resumen: ContratoResumen, propiedad: PropiedadM
     firmasRegistradas: detalle?.firmasRegistradas ?? false,
     firmantes: (detalle?.firmantes ?? []).map(({ rol, nombre, estado, firmadoEl }) => ({ rol, nombre, estado, firmadoEl })),
     firmadoPorTodasEl: detalle?.firmadoPorTodasEl ?? null,
-    // US-43: el PDF, "salvo que sea un borrador". En mock se arma en el navegador.
-    documento: resumen.status === 'borrador' ? null : { tipo: 'armado' },
+    // US-43: el PDF, "salvo que sea un borrador". El detalle del anterior lo baja desde su pantalla.
+    documento: resumen.status !== 'borrador' && resumen.status !== 'finalizado' && detalle?.pdf ? { tipo: 'archivo', url: detalle.pdf.url } : null,
   }
 }
 

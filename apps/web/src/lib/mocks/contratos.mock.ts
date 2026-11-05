@@ -115,6 +115,9 @@ export interface ContratoMock {
   descartado?: boolean
 }
 
+/** Tamaño de `public/mocks/contrato-ficticio.pdf`, el PDF de todo el elenco (6 páginas, sin datos reales). */
+const PDF_FICTICIO_BYTES = 7602
+
 /** Los contratos del elenco que no salen de `propiedades.mock.ts` (ver el encabezado). */
 export const contratos: ContratoMock[] = [
   {
@@ -145,6 +148,7 @@ export const contratos: ContratoMock[] = [
     createdAt: '2026-09-21T17:22:00',
     updatedAt: '2026-09-22T11:40:00',
     sentAt: '2026-09-22T11:40:00',
+    pdf: { nombre: 'contrato-rondeau-480-pb.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2026-09-22T11:30:00' },
     // US-07 (tanda 3): arranca pendiente con 0 firmas. Las dos partes fueron
     // invitadas al enviarlo, así que el primer reenvío ya se puede hacer.
     firmas: {
@@ -182,6 +186,7 @@ export const contratos: ContratoMock[] = [
     createdAt: '2023-11-20T10:00:00',
     updatedAt: '2023-11-25T10:00:00',
     sentAt: '2023-11-25T10:00:00',
+    pdf: { nombre: 'CT-2023-0041.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2023-11-25T10:00:00' },
   },
   {
     id: 'BOR-2026-0001',
@@ -233,5 +238,6 @@ export const contratos: ContratoMock[] = [
     createdAt: '2024-02-20T10:00:00',
     updatedAt: '2024-02-25T10:00:00',
     sentAt: '2024-02-25T10:00:00',
+    pdf: { nombre: 'CT-2024-0031.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2024-02-25T10:00:00' },
   },
 ]

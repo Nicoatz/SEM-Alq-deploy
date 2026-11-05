@@ -78,6 +78,13 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   (`/panel/alquileres`) se prueba entrando como ella.
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
   propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
+- **PDF del elenco:** todos usan `apps/web/public/mocks/contrato-ficticio.pdf`: 6 páginas, 7 KB, sin datos
+  reales. Lo que se sube en el alta se ve hasta recargar: el archivo no entra en `localStorage`, y después
+  se muestra el ficticio con el nombre y el tamaño guardados. BOR-2026-0001 no tiene PDF: está en el paso 2.
+- **Vencimiento:** es un **plazo en días**, no el día del mes (US-05). Los contratos del elenco tienen 10
+  días: "Vence a los 10 días de cada período". Mi alquiler cuenta el plazo desde el primero del mes, como
+  el back: el 23/09 el próximo vencimiento es el **11/10**. Los cobros del panel siguen venciendo el día 10
+  (`panel.mock.ts`): es el desfase S4-2 de HANDOFF §7, y se resuelve con cobros.
 - **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
   `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
   sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.
@@ -86,7 +93,7 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - **"Sin contrato y sin aceptada" no está sembrado:** ninguna propiedad del elenco lo cubre. Se arma en la
   prueba: Nicolás cancela la aceptada 0034 de Fructuoso Rivera (US-38) y queda solo la pendiente 0039.
 - **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y
-  sin contrato. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
+  sin contrato. Crea el borrador al entrar, como el back: si salís sin guardar, queda en la pestaña. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
 - **Borrador sembrado: BOR-2026-0001** (Chacabuco 690, desde SOL-2026-0041 de Matías). Chacabuco sigue
   **pausada**: el locador la pausó mientras arma el contrato, y no aparece en `/buscar`. Eliminarlo lo
   marca `descartado` en el navegador y la solicitud **sigue aceptada** (US-06), así que vuelve "Iniciar
