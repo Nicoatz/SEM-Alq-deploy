@@ -42,3 +42,33 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Impresión del comprobante (US-10): "Se imprime solo la hoja, sin el menú, los
+ * filtros ni los botones, en una hoja A4". Va acá porque oculta el resto de la
+ * página, que no es de ningún CSS module.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body:has([data-comprobante-hoja]) * {
+    visibility: hidden;
+  }
+
+  body [data-comprobante-hoja],
+  body [data-comprobante-hoja] * {
+    visibility: visible;
+  }
+
+  body [data-comprobante-hoja] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none;
+    padding: 0;
+    border: none;
+  }
+}

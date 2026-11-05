@@ -1,0 +1,142 @@
+/* HojaComprobante.module.css — la hoja del comprobante (US-10). La impresión está en `globals.css`. */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.hoja {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 48rem;
+  padding: 2rem;
+  margin: 0 auto;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  color: var(--rentar-color-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+}
+
+.logo {
+  display: block;
+  width: auto;
+  height: 2.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.rotulo {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.numero {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.125rem;
+}
+
+.pagado {
+  font-weight: 700;
+  color: var(--rentar-status-success-ink);
+}
+
+.partes,
+.datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 1rem;
+}
+
+.parte,
+.datos > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tabla th,
+.tabla td {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  text-align: left;
+}
+
+.tabla th:last-child,
+.tabla td:last-child {
+  text-align: right;
+}
+
+.tabla tfoot th,
+.tabla tfoot td {
+  font-weight: 700;
+  border-bottom: none;
+}
+
+.letras {
+  margin: 0;
+  color: var(--rentar-color-text-secondary);
+}
+
+.leyenda {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.errorBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.errorText {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+@media (max-width: 639px) {
+  .hoja {
+    padding: 1.125rem;
+  }
+
+  .numero {
+    align-items: flex-start;
+  }
+}
