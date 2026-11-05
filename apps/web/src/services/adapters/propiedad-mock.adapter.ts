@@ -21,7 +21,7 @@ import type {
   PropiedadResumen,
   PropiedadLocadorDetalle,
 } from '@rentar/shared-types'
-import type { CobroMock, PropiedadMock } from '@/lib/mocks'
+import type { PropiedadMock } from '@/lib/mocks'
 import { neighborhoods } from '@/lib/catalogs/neighborhoods'
 import { diasDesde } from '@/lib/utils/fechas'
 import { formatApproxAddress, formatFloorUnit, separarPisoDepto } from './direccion'
@@ -160,12 +160,20 @@ export interface EstadoPagoCalculado {
   daysOverdue: number | null
 }
 
+/** El cobro del mes de una propiedad, de `periodos.mock.ts`. */
+export interface CobroDelMes {
+  /** Fecha ISO de vencimiento. */
+  dueDate: string
+  /** Fecha ISO del pago; `null` = sin pagar. */
+  paidAt: string | null
+}
+
 /**
  * Estado del pago del cobro del período (US-02: "al día, con pago
  * pendiente, retrasada"): pagado → al día; sin pagar y sin vencer → con pago
  * pendiente; sin pagar y vencido → retrasada, con los días de atraso.
  */
-export function estadoPagoDeCobro(cobro: Pick<CobroMock, 'dueDate' | 'paidAt'>): EstadoPagoCalculado {
+export function estadoPagoDeCobro(cobro: CobroDelMes): EstadoPagoCalculado {
   if (cobro.paidAt) return { status: 'al_dia', daysOverdue: null }
   const atraso = diasDesde(cobro.dueDate)
   return atraso > 0 ? { status: 'retrasada', daysOverdue: atraso } : { status: 'pago_pendiente', daysOverdue: null }
@@ -173,7 +181,7 @@ export function estadoPagoDeCobro(cobro: Pick<CobroMock, 'dueDate' | 'paidAt'>):
 
 /** Lo que el listado necesita de otros módulos para una propiedad: su cobro del período y sus reclamos. */
 export interface DatosAlquilerMock {
-  cobro: CobroMock | null
+  cobro: CobroDelMes | null
   openClaims: number
 }
 
@@ -329,7 +337,7 @@ export function propiedadMockToDetalleLocador(propiedad: PropiedadMock): Propied
             id: rental.contractId,
             tenantName: rental.tenantName,
             endDate: rental.endDate,
-            nextAdjustmentDate: rental.nextAdjustmentDate,
+            nextAdjustmentDate: propiedad.adjustmentIndex ? rental.nextAdjustmentDate : null,
             currentAmount: rental.currentAmount,
           }
         : null,

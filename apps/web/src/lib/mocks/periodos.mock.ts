@@ -2,13 +2,13 @@
  * periodos.mock.ts — períodos y cobros del elenco para `/panel/cobros`.
  *
  * Qué es: agosto, septiembre y octubre de 2026 de los 6 contratos vigentes.
- * Agosto está cobrado, septiembre sigue a `cobros` de `panel.mock.ts` (mismos
- * montos y vencimientos) y octubre es futuro: no se muestra ni se puede cobrar.
+ * Agosto está cobrado, septiembre tiene los tres estados y octubre es futuro:
+ * no se muestra ni se puede cobrar. Es la única fuente de los cobros del mock:
+ * la leen `/panel`, `/panel/cobros`, Mis propiedades y Mis pagos.
  * Cubre US-08, US-09 y US-10.
  *
- * NOTA: los cobros de septiembre del panel no se tocan: acá no se suman filas a
- * ese array, para no cambiar sus totales (decisión del PO, 05/11). Los ids de
- * período no llevan el formato `RC-`: ese es el de los comprobantes.
+ * NOTA: los ids de período no llevan el formato `RC-`: ese es el de los
+ * comprobantes.
  *
  * Quién lo usa: `services/adapters/cobro-mock.adapter.ts`. Ninguna pantalla lo
  * importa.
@@ -26,6 +26,10 @@ export interface PeriodoMock {
   period: string
   /** Alquiler del período. */
   amount: number
+  /** Plazo de vencimiento, si no está en {@link PLAZO_POR_CONTRATO}. */
+  termDays?: number
+  /** Fecha ISO de inicio, si no es el primero del mes (primer período de un contrato). */
+  startDate?: string
 }
 
 /** Un cobro registrado. El id es el número del comprobante (US-10). */
@@ -85,6 +89,43 @@ export const periodos: PeriodoMock[] = [
     })),
   ),
 ]
+
+/**
+ * Períodos de un contrato que queda vigente en el navegador: el equivalente mock
+ * del trigger `generar_periodos_contrato`. Uno por mes, del inicio al fin. El
+ * primero arranca el día de inicio del contrato; los demás, el primero del mes.
+ *
+ * @example
+ * periodosDeContrato({ contractId: 'CT-2026-0208', propertyId: 'prop-x', amount: 300000, termDays: 10, inicio: '2026-09-23', fin: '2026-11-22' })
+ * // → PER-0208-2026-09 (desde el 23/09), PER-0208-2026-10 y PER-0208-2026-11
+ */
+export function periodosDeContrato({ contractId, propertyId, amount, termDays, inicio, fin }: {
+  contractId: string
+  propertyId: string
+  amount: number
+  termDays: number
+  inicio: string
+  fin: string
+}): PeriodoMock[] {
+  const periodos: PeriodoMock[] = []
+  let [anio = 0, mes = 1] = inicio.split('-').map(Number)
+  const ultimo = fin.slice(0, 7)
+  for (;;) {
+    const period = `${anio}-${String(mes).padStart(2, '0')}`
+    if (period > ultimo) return periodos
+    periodos.push({
+      id: idDePeriodo(contractId, period),
+      contractId,
+      propertyId,
+      period,
+      amount,
+      termDays,
+      startDate: period === inicio.slice(0, 7) ? inicio : undefined,
+    })
+    mes = mes === 12 ? 1 : mes + 1
+    if (mes === 1) anio += 1
+  }
+}
 
 const NICOLAS = 'Nicolás Arrieta'
 const SOFIA = 'Sofía Ledesma'

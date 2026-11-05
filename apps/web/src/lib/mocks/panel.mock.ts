@@ -1,60 +1,14 @@
 /**
- * panel.mock.ts — cobros y reclamos del elenco para `/panel`.
+ * panel.mock.ts — los reclamos del elenco para `/panel`.
  *
- * Qué es: los datos de otros módulos (Cobros, Reclamos, Solicitudes, de
- * sprints futuros) que el inicio del locador y "Mis propiedades" (US-02)
- * necesitan mostrar. Todo sale del elenco (`propiedades.mock.ts`): mismos
- * inquilinos, mismos montos, mismas propiedades. Nada de fechas relativas
- * escritas a mano: "vence en 5 días" o "hace 2 días" se calculan contra
- * hoy (`lib/utils/fechas.ts`).
+ * Qué es: datos de un módulo de sprints futuros que el inicio del locador y "Mis
+ * propiedades" (US-02) necesitan mostrar. Los cobros salen de `periodos.mock.ts`.
  *
- * NOTA: desde la Tanda 4 del Sprint 4, `/panel` lee `periodos.mock.ts`, como
- * `/panel/cobros`. Este array lo sigue usando Mis propiedades (US-02).
- *
- * Cómo se calculaba cada cifra del panel:
- * - **Cobrado / Total del mes**: suma de los `amount` de {@link cobros} del
- *   período con `paidAt` (cobrado) sobre la suma de todos los del período
- *   (total). Nicolás, septiembre: $470.000 / $1.890.000.
- * - **Cobros vencidos**: suma de los cobros sin `paidAt` cuyo `dueDate` ya
- *   pasó. Nicolás: Laprida 340 ($520.000) + Belgrano 1120 ($460.000) =
- *   $980.000, 2 cobros.
- * - **Estado del alquiler** (listado, US-02): del cobro del período de cada
- *   propiedad. Con `paidAt` → al día; sin `paidAt` y `dueDate` futuro → con
- *   pago pendiente; sin `paidAt` y `dueDate` pasado → retrasada, con los días
- *   de atraso = hoy − `dueDate`.
- * - **Reclamos abiertos**: {@link reclamos} en estado `abierto` o
- *   `en_proceso`. "Sin responder" = sin `answeredAt`. Nicolás: 3 abiertos, 1
- *   sin responder.
- * - **Contratos por vencer o por ajustar (60 días)**: de `rental` de cada
- *   propiedad alquilada (`nextAdjustmentDate` y `endDate`), los que caen en
- *   los próximos 60 días.
- * - **Solicitudes nuevas**: las de `solicitudes.mock.ts` (más las enviadas
- *   en el navegador) en estado `pendiente`, de propiedades del locador.
- *
- * Quién lo usa: la rama mock de `services/panel.service.ts` y de
- * `services/propiedades.service.ts`. Ninguna pantalla lo importa directo.
- *
- * TODO(db): son filas de las tablas de cobros y reclamos, que
- * todavía no existen en el back.
+ * TODO(db): son filas de la tabla de reclamos, que todavía no existe.
  */
 import type { ClaimStatus } from '@rentar/shared-types'
 
 // ─── Tipos ──────────────────────────────────────────────────────────────
-
-/** El cobro de un período (mes) de un alquiler. */
-export interface CobroMock {
-  /** Prefijo `RC-2026-` (el del recibo del período). */
-  id: string
-  propertyId: string
-  contractId: string
-  /** Período, "YYYY-MM". */
-  period: string
-  amount: number
-  /** Fecha ISO de vencimiento del período. */
-  dueDate: string
-  /** Fecha ISO de acreditación; `null` = todavía no se pagó. */
-  paidAt: string | null
-}
 
 /** Un reclamo de un locatario sobre la propiedad que alquila. */
 export interface ReclamoMock {
@@ -68,64 +22,6 @@ export interface ReclamoMock {
   answeredAt: string | null
 }
 
-
-// ─── Cobros de septiembre de 2026 ───────────────────────────────────────
-// Un cobro por alquiler. Cada contrato vence un día distinto del mes (el
-// que se pactó al firmar).
-
-export const cobros: CobroMock[] = [
-  {
-    id: 'RC-2026-0911',
-    propertyId: 'prop-obispo-trejo-1250',
-    contractId: 'CT-2026-0148',
-    period: '2026-09',
-    // Sofía está al día: lo pagó el 03/09. Sin expensas extraordinarias
-    // (decisión del PO, 05/11). Vence a los 10 días del inicio del período.
-    amount: 470000,
-    dueDate: '2026-09-11',
-    paidAt: '2026-09-03',
-  },
-  {
-    id: 'RC-2026-0904',
-    propertyId: 'prop-laprida-340',
-    contractId: 'CT-2026-0102',
-    period: '2026-09',
-    // Tomás Bianchi: vencido el 04/09 (19 días de atraso al 23/09).
-    amount: 520000,
-    dueDate: '2026-09-04',
-    paidAt: null,
-  },
-  {
-    id: 'RC-2026-0916',
-    propertyId: 'prop-belgrano-1120',
-    contractId: 'CT-2026-0115',
-    period: '2026-09',
-    // Julián Ferreyra: vencido el 16/09 (7 días de atraso al 23/09).
-    amount: 460000,
-    dueDate: '2026-09-16',
-    paidAt: null,
-  },
-  {
-    id: 'RC-2026-0928',
-    propertyId: 'prop-colon-2450',
-    contractId: 'CT-2026-0121',
-    period: '2026-09',
-    // Martín Cabrera: pendiente, vence este mes (el 28/09).
-    amount: 440000,
-    dueDate: '2026-09-28',
-    paidAt: null,
-  },
-  {
-    id: 'RC-2026-0905',
-    propertyId: 'prop-mariano-moreno-285',
-    contractId: 'CT-2026-0133',
-    period: '2026-09',
-    // Camila Ríos (inquilina de Sofía): vencido el 05/09.
-    amount: 510000,
-    dueDate: '2026-09-05',
-    paidAt: null,
-  },
-]
 
 // ─── Reclamos ───────────────────────────────────────────────────────────
 // Títulos tomados del export del panel, asignados a los inquilinos del

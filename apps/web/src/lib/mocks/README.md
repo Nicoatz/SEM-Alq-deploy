@@ -93,9 +93,9 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   comprobantes, `RC-AAAA-NNNN`. Al 23/09, Nicolás tiene dos vencidos, uno pendiente y uno pagado en septiembre.
   "Vencido" da $1.021.000 en `/panel` y en `/panel/cobros`: los dos leen estos períodos y suman la mora (el
   alquiler solo serían $980.000). "Total del mes" sigue en $1.890.000: es lo pactado, sin mora. Lo que se
-  registra va a `rentar:mock:cobros` y también cambia el panel. Pendiente del mock: Mis propiedades (US-02)
-  sigue leyendo `cobros` de `panel.mock.ts`, así que no se entera. Un contrato que queda vigente en la sesión
-  no genera períodos. CT-2026-0133 tiene además diciembre de 2025, para el filtro por año de Mis pagos.
+  registra va a `rentar:mock:cobros` y también cambia el panel y Mis propiedades (US-02): los tres leen estos
+  períodos. Un contrato que queda vigente en la sesión genera sus períodos, como el trigger del back: uno por mes
+  hasta el fin, y el primero arranca el día de inicio (`periodosDeContrato`). CT-2026-0133 tiene además diciembre de 2025, para el filtro por año de Mis pagos.
   Camila, al 23/09: Mariano Moreno vencido ($543.150, 13 días de mora) e Ituzaingó pendiente ($420.000).
 - **Fecha simulada:** con `rentar:mock:hoy` = `AAAA-MM-DD` en `localStorage`, `ahora()` usa esa fecha. Sirve
   para probar las variantes de la tarjeta de US-12. "Reiniciar datos de prueba" la borra.
@@ -261,7 +261,7 @@ otros valores, ganan ellos.
 | Ids de contrato | CT-2026-0102 (Laprida 340), CT-2026-0115 (Belgrano 1120), CT-2026-0121 (Av. Colón 2450), CT-2026-0133 (Mariano Moreno 285). CT-2026-0148 (Obispo Trejo) sí es del mapa. | `rental.contractId` en `propiedades.mock.ts` |
 | Fechas de contrato | Laprida 01/03/2025–29/02/2028, Belgrano 01/07/2025–30/06/2028, Av. Colón 01/10/2025–30/09/2028, Mariano Moreno 01/12/2025–30/11/2028 (36 meses, a partir de su `publishedAt`) | `rental.startDate` / `endDate` |
 | Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 11/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
-| Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobros` en `panel.mock.ts` |
+| Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobrosDePeriodos` en `periodos.mock.ts` |
 | Próximos ajustes | Belgrano 01/11/2026 (IPC cada 4 meses), Av. Colón 01/10/2026 (ICL anual), Mariano Moreno 01/12/2026 (IPC cada 4 meses). Laprida (01/03/2027) y Obispo Trejo (01/04/2027) sí vinieron de producto y del mapa. | `rental.nextAdjustmentDate` |
 | Reclamos | "Pérdida de agua en el baño" (abierto, sin responder) y "El termotanque no calienta" (en proceso) → Laprida 340; "Ruido de la bomba de agua" (en proceso) → Av. Colón 2450. Títulos del export del panel; ids RCL-2026-0036/0039/0041 y fechas elegidos acá. | `reclamos` en `panel.mock.ts` |
 | Solicitud de Julieta | SOL-2026-0031, del 20/09/2026 | `solicitudes.mock.ts` |

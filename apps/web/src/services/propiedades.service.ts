@@ -35,7 +35,7 @@ import type {
 } from '@rentar/shared-types'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { buscarEnLista, FILTROS_INICIALES, ordenar, ubicacionesDe } from '@/lib/search/busqueda'
-import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
+import { propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
 import { ahoraIso, hoy } from '@/lib/utils/fechas'
 import { FOTO_PESO_MAXIMO_BYTES, FOTO_TIPOS_ACEPTADOS } from '@/lib/validation/propiedad.rules'
 import {
@@ -65,6 +65,7 @@ import {
   PROPIEDAD_ALQUILADA_NO_EDITABLE_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
 } from './adapters/propiedad.adapter'
+import { filasDeLocadorMock } from './adapters/cobro-mock.adapter'
 import { apiRequest } from './shared/apiClient'
 import type { DisponiblesQuery, InmuebleDetalleResponse, InmueblesDisponiblesResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
@@ -98,20 +99,24 @@ export function readPropiedadesMockConBorradas(): PropiedadMock[] {
 
 /**
  * Propiedades mock de un locador, ya como filas de US-02: cada una con su
- * cobro del período y sus reclamos abiertos (de `lib/mocks/panel.mock.ts`).
+ * cobro del mes (de `lib/mocks/periodos.mock.ts`, la misma fuente que cobros) y sus
+ * reclamos abiertos (de `lib/mocks/panel.mock.ts`).
  * La comparte `panel.service.ts` para los conteos del panel.
  */
 export function misPropiedadesMock(ownerId: string): PropiedadLocador[] {
+  const hoyIso = hoy().format('YYYY-MM-DD')
+  const delMes = filasDeLocadorMock(ownerId, hoyIso).filter((fila) => fila.periodo === hoyIso.slice(0, 7))
   return readPropiedadesMock()
     .filter((propiedad) => propiedad.ownerId === ownerId)
-    .map((propiedad) =>
-      propiedadMockToLocador(propiedad, {
-        cobro: cobrosElenco.find((cobro) => cobro.propertyId === propiedad.id) ?? null,
+    .map((propiedad) => {
+      const fila = delMes.find((item) => item.propiedadId === propiedad.id)
+      return propiedadMockToLocador(propiedad, {
+        cobro: fila ? { dueDate: fila.vencimiento, paidAt: fila.fechaPago } : null,
         openClaims: reclamosElenco.filter(
           (reclamo) => reclamo.propertyId === propiedad.id && (reclamo.status === 'abierto' || reclamo.status === 'en_proceso'),
         ).length,
-      }),
-    )
+      })
+    })
 }
 
 // ─── Búsqueda pública (US-34) ───────────────────────────────────────────

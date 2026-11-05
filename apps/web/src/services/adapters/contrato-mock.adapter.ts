@@ -192,7 +192,7 @@ function resumenDeAlquiler(propiedad: PropiedadMock): ContratoResumen | null {
     startDate: rental.startDate,
     endDate: rental.endDate,
     adjustmentIndex: propiedad.adjustmentIndex ?? 'sin_ajuste',
-    nextAdjustmentDate: rental.contractStatus === 'vigente' ? rental.nextAdjustmentDate : null,
+    nextAdjustmentDate: rental.contractStatus === 'vigente' && propiedad.adjustmentIndex ? rental.nextAdjustmentDate : null,
     solicitudId: null,
   }
 }

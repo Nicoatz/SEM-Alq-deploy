@@ -28,9 +28,11 @@ import dayjs from 'dayjs'
 import { calcularMora, type Mora } from '@/lib/cobros/mora'
 import { periodoAPagar, varianteDe } from '@/lib/cobros/proximoAlquiler'
 import { calendarioAjustes } from '@/lib/contratos/ajustes'
+import { fechaFin } from '@/lib/contratos/fechas'
 import {
   cobrosDePeriodos,
   periodos as periodosElenco,
+  periodosDeContrato,
   PLAZO_POR_CONTRATO,
   usuarios,
   type CobroRegistradoMock,
@@ -38,7 +40,7 @@ import {
   type PropiedadMock,
 } from '@/lib/mocks'
 import { readMockCollection, saveMockRecord } from '../shared/mockStore'
-import { readPropiedadesContratoMock } from './contrato-mock.adapter'
+import { readContratosMock, readPropiedadesContratoMock } from './contrato-mock.adapter'
 import { formatAddress } from './propiedad-mock.adapter'
 
 // ─── Lecturas ─────────────────────────────────────────────────────────
@@ -75,7 +77,28 @@ interface PeriodoCalculado {
 
 /** Vencimiento: inicio del período más el plazo del contrato (S4-2). */
 function vencimientoDe(periodo: PeriodoMock): string {
-  return dayjs(`${periodo.period}-01`).add(PLAZO_POR_CONTRATO[periodo.contractId] ?? 10, 'day').format('YYYY-MM-DD')
+  const plazo = periodo.termDays ?? PLAZO_POR_CONTRATO[periodo.contractId] ?? 10
+  return dayjs(periodo.startDate ?? `${periodo.period}-01`).add(plazo, 'day').format('YYYY-MM-DD')
+}
+
+/**
+ * Períodos de los contratos que quedaron vigentes en el navegador (US-07). Se
+ * derivan del contrato guardado, así que no ocupan `localStorage`.
+ */
+function periodosDeContratosNuevos(): PeriodoMock[] {
+  return readContratosMock().flatMap(({ status, code, propertyId, condiciones }) => {
+    const inicio = condiciones.startDate
+    const fin = inicio ? fechaFin(inicio, condiciones.durationMonths) : null
+    if (status !== 'vigente' || !code || !inicio || !fin) return []
+    return periodosDeContrato({
+      contractId: code,
+      propertyId,
+      amount: condiciones.initialAmount ?? 0,
+      termDays: condiciones.paymentTermDays ?? 10,
+      inicio,
+      fin,
+    })
+  })
 }
 
 /** Condiciones de la propiedad; sin tasa, no hay mora. */
@@ -87,13 +110,13 @@ function condicionesDe(propiedad: PropiedadMock): { tasaDiariaPct: number; diasG
 function calcular(periodo: PeriodoMock, propiedad: PropiedadMock, cobros: CobroRegistradoMock[], hoyIso: string): PeriodoCalculado {
   const cobro = cobros.find((item) => item.periodoId === periodo.id) ?? null
   const vencimiento = vencimientoDe(periodo)
-  const inicio = `${periodo.period}-01`
+  const inicio = periodo.startDate ?? `${periodo.period}-01`
   return {
     periodo,
     propiedad,
     cobro,
     inicio,
-    fin: dayjs(inicio).endOf('month').format('YYYY-MM-DD'),
+    fin: dayjs(`${periodo.period}-01`).endOf('month').format('YYYY-MM-DD'),
     vencimiento,
     estado: cobro ? 'pagado' : vencimiento < hoyIso ? 'vencido' : 'pendiente',
     mora: calcularMora({ alquiler: periodo.amount, ...condicionesDe(propiedad), vencimiento, fecha: cobro?.fecha ?? hoyIso }),
@@ -104,7 +127,7 @@ function calcular(periodo: PeriodoMock, propiedad: PropiedadMock, cobros: CobroR
 function periodosCalculados(hoyIso: string): PeriodoCalculado[] {
   const propiedades = readPropiedadesContratoMock()
   const cobros = readCobrosMock()
-  return periodosElenco.flatMap((periodo) => {
+  return [...periodosElenco, ...periodosDeContratosNuevos()].flatMap((periodo) => {
     const propiedad = propiedades.find((item) => item.id === periodo.propertyId)
     return propiedad ? [calcular(periodo, propiedad, cobros, hoyIso)] : []
   })
@@ -225,7 +248,7 @@ export function proximosMock(userId: string, hoyIso: string): ProximoItem[] {
     const { datos } = aPagar
     const ultimo = delContrato.filter((item) => item.cobro).at(-1)
     const anterior = delContrato.filter((item) => item.periodo.period < datos.periodo.period)
-    const todoPago = datos.inicio > hoyIso && anterior.every((item) => item.cobro)
+    const todoPago = datos.inicio > hoyIso && anterior.length > 0 && anterior.every((item) => item.cobro)
     const { tasaDiariaPct, diasGracia } = condicionesDe(datos.propiedad)
     return [
       {
