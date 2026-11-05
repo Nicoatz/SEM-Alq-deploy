@@ -1,17 +1,26 @@
 /**
- * /panel/cobros — Cobros (US-08 y US-09 Registrar y consultar cobros).
+ * /panel/cobros — Cobros (US-08 Registrar cobro y US-09 Consultar cobro).
  *
- * Placeholder: la pantalla es de otro sprint. Existe para que el botón que
- * lleva acá no quede roto.
+ * Qué es: los períodos del locador, con sus filtros, y el registro de un cobro.
+ * Solo para locadores: el locatario consulta en `/panel/pagos`.
  * Entra desde: el ítem "Cobros" del menú del locador.
  */
+import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { PlaceholderScreen } from '@/components/PlaceholderScreen'
+import { RequireRole } from '@/components/auth/RequireRole'
+import { Cobros } from '@/components/cobros/Cobros'
 
 /** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
 export const metadata: Metadata = { title: 'Cobros' }
 
-/** Placeholder de Cobros (otro sprint). */
+/** Monta Cobros, solo para locadores. */
 export default function CobrosPage() {
-  return <PlaceholderScreen title="Cobros" userStory="US-08 y US-09 Registrar y consultar cobros" />
+  return (
+    <RequireRole role="locador">
+      {/* Suspense: lee los filtros de la URL con useSearchParams. */}
+      <Suspense>
+        <Cobros />
+      </Suspense>
+    </RequireRole>
+  )
 }
