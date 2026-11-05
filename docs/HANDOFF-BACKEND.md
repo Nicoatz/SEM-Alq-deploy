@@ -996,6 +996,12 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 Falta que backend cargue: un locatario en Supabase Auth con un contrato vigente y otro pendiente; un
 contrato vigente coherente con períodos pendiente, vencido y pagado; y un contrato finalizado.
 
+**Prueba en real de US-20 y US-21 (05/11, Tanda 0, usuario 1).** Pasan la consulta del perfil, las
+validaciones de nombre, DNI, teléfono y fecha, cancelar, el aviso de cambios sin guardar y el
+`PATCH /usuarios/me` del teléfono (se cambió y se dejó como estaba). No se probaron el cambio de correo y
+de contraseña, el DNI duplicado ni el bloqueo por contrato. El formato E.123 no se pudo verificar: el
+teléfono del usuario 1 no tiene código de país y se muestra tal cual. De US-27, solo el estado vacío.
+
 **Prueba en real de US-27 pendiente (27/10).** La conexión de Mi alquiler / Mis alquileres no se pudo
 probar con login: no hay ningún usuario en Supabase Auth con contratos como locatario (el único
 locatario con contrato, el usuario 2 `locatario@rentar.com`, no está en Supabase Auth). Queda
