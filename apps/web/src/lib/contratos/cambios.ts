@@ -10,6 +10,15 @@
 import type { CambiosBorrador, CondicionesNuevoContrato, ContratoBorrador } from '@rentar/shared-types'
 
 /**
+ * Lo que se pierde al descartar un borrador (decisión del PO, HANDOFF §7, S4-11).
+ * Solo un borrador reabierto tiene código: se asigna al enviar a firmar.
+ */
+export function avisoAlDescartar(code: string | null): string {
+  const solicitud = 'La solicitud vuelve a pendiente: para iniciar otro contrato vas a tener que aceptarla de nuevo.'
+  return code ? `${solicitud} También se pierde el código ${code}.` : solicitud
+}
+
+/**
  * Compara el borrador con lo último guardado.
  * El paso viaja siempre: "recuerda el último paso en que estaba el usuario".
  *

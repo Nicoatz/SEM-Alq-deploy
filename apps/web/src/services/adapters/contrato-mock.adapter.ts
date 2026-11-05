@@ -92,15 +92,26 @@ export function guardarContratoMock(contrato: ContratoMock): boolean {
 }
 
 /**
+ * Devuelve a pendiente la solicitud de un borrador descartado, como
+ * `descartar_borrador_contrato`: sin respuesta ni motivo de rechazo.
+ */
+function solicitudAPendienteMock(solicitudId: string | null): boolean {
+  const solicitud = readMockCollection('solicitudes', solicitudesElenco).find((item) => item.id === solicitudId)
+  return solicitud ? saveMockRecord('solicitudes', { ...solicitud, status: 'pendiente', respondedAt: null, rejectionMessage: null }) : true
+}
+
+/**
  * Borra un borrador del navegador. Uno sembrado queda marcado `descartado`: el
  * elenco no se puede borrar, y "Reiniciar datos de prueba" lo vuelve a traer.
- * NOTA: la solicitud sigue aceptada y puede volver a originar un contrato
- * (US-06). TODO(backend): el back la pasa a pendiente (HANDOFF §7, S4-11).
+ * NOTA: la solicitud vuelve a pendiente, como en el back (decisión del PO,
+ * HANDOFF §7, S4-11): para iniciar otro contrato hay que aceptarla de nuevo.
  */
 export function eliminarContratoMock(id: string): boolean {
+  const solicitudId = readContratosMock().find((contrato) => contrato.id === id)?.solicitudId ?? null
   dniGarantesEnMemoria.delete(id)
   const sembrado = contratosElenco.find((contrato) => contrato.id === id)
-  return sembrado ? saveMockRecord('contratos', { ...sembrado, descartado: true }) : deleteMockRecord('contratos', id)
+  const eliminado = sembrado ? saveMockRecord('contratos', { ...sembrado, descartado: true }) : deleteMockRecord('contratos', id)
+  return eliminado && solicitudAPendienteMock(solicitudId)
 }
 
 // ─── Contratos activos ──────────────────────────────────────────────────

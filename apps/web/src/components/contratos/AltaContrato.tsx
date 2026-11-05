@@ -36,7 +36,7 @@ import { DeleteOutlined, SaveOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
 import type { CondicionesNuevoContrato, ContratoBorrador, ContratoEnviado, GaranteContrato } from '@rentar/shared-types'
 import { ConfirmActionModal, EmptyState, PageHeader, WizardLayout } from '@rentar/ui'
-import { cambiosDeBorrador } from '@/lib/contratos/cambios'
+import { avisoAlDescartar, cambiosDeBorrador } from '@/lib/contratos/cambios'
 import { errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
@@ -402,7 +402,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       <ConfirmActionModal
         open={confirmarEliminar}
         title="¿Eliminar este borrador?"
-        description={`Se borra el contrato en borrador de ${borrador.propiedad.address} con ${nombreLocatario}. Esta acción no se puede deshacer.`}
+        description={`Se borra el contrato en borrador de ${borrador.propiedad.address} con ${nombreLocatario}. ${avisoAlDescartar(borrador.code)} Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar borrador"
         cancelLabel="Cancelar"
         danger
