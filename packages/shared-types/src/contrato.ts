@@ -173,9 +173,6 @@ export interface CambiosBorrador {
   garantes?: GaranteContrato[]
 }
 
-/** Lo que se guarda de un borrador (`POST` / `PUT /contratos`). Las partes y la propiedad las pone el back. */
-export type DatosContrato = Pick<ContratoBorrador, 'solicitudId' | 'garantes' | 'condiciones' | 'clausulas' | 'ultimoPaso'>
-
 /** Base de una fila de Mis alquileres (US-27) y de la rama mock de US-43. Sin DNI ni datos de contacto. */
 export interface ContratoResumen {
   id: string

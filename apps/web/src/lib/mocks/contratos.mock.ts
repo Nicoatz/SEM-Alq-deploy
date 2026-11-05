@@ -109,6 +109,8 @@ export interface ContratoMock {
   eventos?: EventoMock[]
   /** Fecha y hora ISO de la última firma, cuando firmaron todas las partes. */
   firmadoPorTodasEl?: string | null
+  /** El PDF cargado (solo los datos: el archivo no entra en `localStorage`). */
+  pdf?: { nombre: string; tamanoBytes: number; subidoEl: string } | null
   /** `true` en un borrador sembrado que se eliminó en el navegador (el elenco no se borra). */
   descartado?: boolean
 }

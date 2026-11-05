@@ -34,6 +34,7 @@ export const PLAZO_VENCIMIENTO_POR_DEFECTO = 10
 
 export const MENSAJES_CONTRATO = {
   garanteNombreVacio: 'Escribí el nombre y apellido del garante.',
+  garanteSinApellido: 'Escribí el nombre y el apellido del garante.',
   garanteNombreInvalido: 'Usá solo letras, espacios, apóstrofos y guiones.',
   garanteDniInvalido: 'El DNI tiene 7 u 8 números, sin puntos.',
   garanteEmailInvalido: MENSAJES_SOLICITUD.emailInvalido,
@@ -51,7 +52,8 @@ export const MENSAJES_CONTRATO = {
   clausulaVacia: 'La cláusula no puede quedar vacía.',
   clausulaTituloVacio: 'Poné un título a la cláusula.',
   clausulaLarga: `La cláusula puede tener hasta ${CLAUSULA_MAX.toLocaleString('es-AR')} caracteres.`,
-  revisionSinMarcar: 'Para enviar a firmar, marcá que revisaste las condiciones y las cláusulas.',
+  revisionSinMarcar: 'Para enviar a firmar, marcá que revisaste la redacción del contrato.',
+  pdfFaltante: 'Cargá el PDF del contrato antes de enviarlo a firmar.',
 } as const
 
 // ─── Paso 1 · Garantes ──────────────────────────────────────────────────
@@ -82,6 +84,8 @@ export function erroresGarante(garante: GaranteContrato, otros: readonly Garante
   const nombre = garante.fullName.trim()
   if (!nombre) errores.fullName = MENSAJES_CONTRATO.garanteNombreVacio
   else if (!NOMBRE_REGEX.test(nombre)) errores.fullName = MENSAJES_CONTRATO.garanteNombreInvalido
+  // El back los guarda por separado y exige los dos (US-05: "nombre y apellido").
+  else if (nombre.split(/\s+/).length < 2) errores.fullName = MENSAJES_CONTRATO.garanteSinApellido
 
   const dni = claveDni(garante.dni)
   if (!DNI_REGEX.test(garante.dni.trim())) errores.dni = MENSAJES_CONTRATO.garanteDniInvalido
@@ -162,16 +166,14 @@ export function errorDeClausula(clausula: Pick<ClausulaContrato, 'tipo' | 'titul
  * las validaciones de los pasos 1 a 3: un borrador puede tener datos
  * incompletos, pero para enviarlo tienen que estar todos.
  */
-export function errorParaEnviar(contrato: Pick<ContratoBorrador, 'garantes' | 'condiciones' | 'clausulas' | 'locador' | 'locatario'>, hoyIso: string): string | null {
+export function errorParaEnviar(contrato: Pick<ContratoBorrador, 'garantes' | 'condiciones' | 'pdf' | 'locador' | 'locatario'>, hoyIso: string): string | null {
   const garantes = errorDeGarantes(contrato.garantes, [contrato.locador, contrato.locatario])
   if (garantes) return garantes
   const condiciones = erroresCondiciones(contrato.condiciones, hoyIso)
   const primera = Object.values(condiciones)[0]
   if (primera) return primera
-  for (const [indice, clausula] of contrato.clausulas.entries()) {
-    const error = errorDeClausula(clausula)
-    if (error) return `Cláusula ${indice + 1}: ${error}`
-  }
+  // US-05: "Para enviar a firmar, se debe haber cargado el PDF del contrato."
+  if (!contrato.pdf) return MENSAJES_CONTRATO.pdfFaltante
   return null
 }
 

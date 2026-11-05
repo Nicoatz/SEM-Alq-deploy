@@ -22,7 +22,6 @@ import type {
   ContratoDetalle,
   ContratoEnviado,
   ContratosDePropiedad,
-  DatosContrato,
   EventoContrato,
   FirmanteContrato,
   GaranteContrato,
@@ -49,7 +48,6 @@ import type {
   ContratoEnviadoResponse,
   ContratoPdfDto,
   ContratoPropiedadResponse,
-  ContratoRequest,
   ContratoResponse,
   ContratosInmuebleResponse,
   EventoContratoDto,
@@ -78,6 +76,7 @@ export const PROPIEDAD_CON_CONTRATO_MESSAGE = 'La propiedad ya tiene un contrato
 export const CONTRATO_NO_EDITABLE_MESSAGE = 'Este contrato ya se envió a firmar y no se puede editar.'
 /** US-43: "sin distinguir" si la propiedad no existe o no es del usuario. */
 export const PROPIEDAD_NO_ENCONTRADA_MESSAGE = 'No encontramos esta propiedad'
+export const PDF_SUBIDA_ERROR_MESSAGE = 'No pudimos subir el PDF. El que estaba cargado sigue igual: probá de nuevo.'
 export const DETALLE_CONTRATO_ERROR_MESSAGE = 'No pudimos abrir el contrato. Probá de nuevo en unos minutos.'
 export const CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE = 'Probá de nuevo en unos minutos. El resto de la propiedad está bien.'
 export const CONTRATO_ERROR_GENERICO_MESSAGE = 'No pudimos guardar el contrato. Probá de nuevo en unos minutos.'
@@ -568,8 +567,7 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
  *   bucket. Sin precio publicado ni condiciones de cobro (los medios de pago
  *   del contrato van en `datosApi.mediosPago`).
  * - Garantes: nombre y correo; sin DNI (el back no lo manda en la ficha).
- * - Condiciones: sin monto inicial ni duración (no vienen) y sin día de pago
- *   (el back modela un plazo en días: `datosApi.diasParaVencimiento`).
+ * - Condiciones: sin monto inicial ni duración (no vienen).
  * - Cláusulas e historial: vacíos. TODO(backend): el detalle no trae las
  *   cláusulas ni el historial de US-07.
  * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
@@ -673,28 +671,6 @@ export function contratoEnviadoDeDto(dto: ContratoEnviadoResponse, borrador: Pic
   }
 }
 
-// ─── Vista → DTO ────────────────────────────────────────────────────────
-
-/** Lo que se guarda → cuerpo de `POST` / `PUT /contratos`. */
-export function datosToContratoRequest(datos: DatosContrato): ContratoRequest {
-  const { condiciones } = datos
-  return {
-    id_solicitud: Number(datos.solicitudId),
-    garantes: datos.garantes.map((garante) => ({ nombre_apellido: garante.fullName.trim(), numero_documento: garante.dni.trim(), email: garante.email.trim().toLowerCase() })),
-    condiciones: {
-      fecha_inicio: condiciones.startDate,
-      duracion_meses: condiciones.durationMonths,
-      monto_inicial: condiciones.initialAmount,
-      deposito: condiciones.deposit,
-      dia_vencimiento: condiciones.paymentTermDays,
-      indice: condiciones.adjustmentIndex,
-      periodicidad: condiciones.adjustmentIndex === 'sin_ajuste' ? null : condiciones.adjustmentPeriod,
-    },
-    clausulas: datos.clausulas.map((clausula) => ({ clave: clausula.key, tipo: clausula.tipo, titulo: clausula.titulo, texto: clausula.texto, editada: clausula.editada })),
-    ultimo_paso: datos.ultimoPaso,
-  }
-}
-
 // ─── Errores ────────────────────────────────────────────────────────────
 
 /** Mensaje de cada 409 de contratos, por el `codigo` del sobre. */
@@ -767,6 +743,8 @@ export function errorDeContrato(
   if (error.code === 'validation' && TEXTOS_TECNICOS.some((texto) => texto.test(error.message))) return new ServiceError('validation', opciones.generico ?? CONTRATO_ERROR_GENERICO_MESSAGE)
   if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', opciones.noEncontrado ?? CONTRATO_NO_ENCONTRADO_MESSAGE)
   if (error.code === 'too_many_requests') return new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
+  // 413 de `PUT /pdf`: el texto del back se puede mostrar, y no es una caída.
+  if (error.code === 'server' && /supera?r? los 5 MB/.test(error.message)) return new ServiceError('validation', error.message)
   if (error.code === 'server') return new ServiceError('server', opciones.generico ?? CONTRATO_ERROR_GENERICO_MESSAGE)
   if (error.code === 'network') return new ServiceError('network', CONTRATO_SIN_RED_MESSAGE)
   return error

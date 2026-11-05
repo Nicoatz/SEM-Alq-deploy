@@ -30,7 +30,7 @@
  * Quién lo usa: la rama mock de `contratos.service.ts`, `solicitudes.service.ts`
  * y `perfil.service.ts`. Nunca las pantallas.
  */
-import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
+import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PdfContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
 import {
   contratos as contratosElenco,
   propiedades as propiedadesElenco,
@@ -49,6 +49,25 @@ import { formatAddress } from './propiedad-mock.adapter'
 
 /** DNI de los garantes cargados en el navegador, por contrato y garante (ver la NOTA del encabezado). */
 const dniGarantesEnMemoria = new Map<string, Map<string, string>>()
+
+/** El PDF ficticio del elenco (`public/mocks/`). Sin datos reales. */
+export const PDF_FICTICIO_URL = '/mocks/contrato-ficticio.pdf'
+
+/** URL de los PDF subidos en esta visita: el archivo no entra en `localStorage`. */
+const pdfsEnMemoria = new Map<string, string>()
+
+/** Recuerda el archivo subido hasta recargar; después se ve el PDF ficticio. */
+export function recordarPdfMock(contratoId: string, archivo: Blob): void {
+  const anterior = pdfsEnMemoria.get(contratoId)
+  if (anterior) URL.revokeObjectURL(anterior)
+  pdfsEnMemoria.set(contratoId, URL.createObjectURL(archivo))
+}
+
+/** El PDF de un contrato del elenco o del navegador; `null` si no tiene. */
+export function pdfDeContratoMock(contrato: Pick<ContratoMock, 'id' | 'pdf'>): PdfContrato | null {
+  if (!contrato.pdf) return null
+  return { ...contrato.pdf, url: pdfsEnMemoria.get(contrato.id) ?? PDF_FICTICIO_URL }
+}
 
 /** Las propiedades del modo mock (elenco + navegador), sin las eliminadas. */
 export function readPropiedadesContratoMock(): PropiedadMock[] {

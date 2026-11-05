@@ -26,16 +26,15 @@
 import type {
   AlquilerResumen,
   ContractStatus,
+  CambiosBorrador,
   ContratoBorrador,
   ContratoDePropiedad,
   ContratoDetalle,
   ContratoEnviado,
   ContratoResumen,
   ContratosDePropiedad,
-  DatosContrato,
   EventoContrato,
   FirmanteContrato,
-  GarantiaOfrecida,
   MiAlquiler,
   ParteContrato,
   PerfilUsuario,
@@ -46,6 +45,8 @@ import { fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from '@/lib/contratos/firmas'
 import { ordenarAlquileres } from '@/lib/contratos/listado'
 import { descargarContratoPdf } from '@/lib/contratos/pdf'
+import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
+import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
 import { completarClausulas } from '@/lib/contratos/plantilla'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
@@ -54,6 +55,9 @@ import { cobros as cobrosElenco, type ContratoMock, type FirmaMock, type Propied
 import {
   ahoraIsoMock,
   conEvento,
+  PDF_FICTICIO_URL,
+  pdfDeContratoMock,
+  recordarPdfMock,
   contratoDeSolicitudMock,
   contratosDeLocadorMock,
   contratosDeLocatarioMock,
@@ -74,14 +78,14 @@ import {
   CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_PENDIENTE_MESSAGE,
-  contratoDeDto,
+  borradorDeApi,
   contratoDetalleDeDto,
   contratoEnviadoDeDto,
   detalleDeLocadorDeDto,
   DETALLE_CONTRATO_ERROR_MESSAGE,
   CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
   contratosDePropiedadDeDto,
-  datosToContratoRequest,
+  patchDeCambios,
   errorDeMiAlquiler,
   errorDeContrato,
   FIRMA_ERROR_GENERICO_MESSAGE,
@@ -94,6 +98,7 @@ import {
   SOLICITUD_CON_CONTRATO_MESSAGE,
   SOLICITUD_NO_ACEPTADA_MESSAGE,
   SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE,
+  PDF_SUBIDA_ERROR_MESSAGE,
   PROPIEDAD_NO_ENCONTRADA_MESSAGE,
   SOLO_LOCADOR_MESSAGE,
   SOLO_LOCATARIO_MESSAGE,
@@ -105,10 +110,12 @@ import { apiRequest } from './shared/apiClient'
 import type {
   AlquilerLocatarioDetalleResponse,
   AlquilerLocatarioItemResponse,
+  ContratoBorradorApiResponse,
+  ContratoCreadoResponse,
   ContratoDetalleApiResponse,
   ContratoDetalleResponse,
-  ContratoEnviadoResponse,
-  ContratoResponse,
+  RegistrarPdfRequest,
+  UrlSubidaPdfResponse,
   ContratosInmuebleResponse,
   RechazarFirmaRequest,
   ReenviarInvitacionRequest,
@@ -196,8 +203,8 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
     condiciones: contrato.condiciones,
     clausulas: contrato.clausulas ?? [],
     ultimoPaso: contrato.ultimoPaso,
-    pdf: null,
-    fechaInicioVencida: false,
+    pdf: pdfDeContratoMock(contrato),
+    fechaInicioVencida: contrato.status === 'borrador' && contrato.condiciones.startDate !== null && contrato.condiciones.startDate < hoyIso(),
   }
   return { ...base, clausulas: completarClausulas(base.clausulas, base) }
 }
@@ -212,18 +219,19 @@ function contratoPropioMock(id: string, ownerId: string): ContratoMock {
 // ─── Inicio ─────────────────────────────────────────────────────────────
 
 /**
- * US-05 — "Se debe poder iniciar el contrato desde una solicitud aceptada
- * (botón 'Iniciar contrato'), con la propiedad y el locatario precargados."
- * Devuelve el contrato SIN guardar (`id: null`), con los valores por
- * defecto del paso 2 y la plantilla completa.
- * @backend GET /api/v1/contratos/preparar?id_solicitud=:id   (no existe: el borrador se crea con POST /api/v1/contratos y se lee con GET /api/v1/contratos/:id) → ContratoResponse
- * NOTA: en real "preparar" se toma como `:id` y da 400. Se reemplaza en la Tanda 2 del Sprint 4 (US-05).
+ * US-05 — "Se debe iniciar el contrato desde una solicitud aceptada (botón
+ * 'Iniciar contrato'), con la propiedad y el locatario precargados." El
+ * borrador se crea acá: el back copia las condiciones de la oferta y los
+ * valores por defecto de la US (24 meses, un mes de depósito).
+ * @backend POST /api/v1/contratos   (existe · rol locador) body `{ id_solicitud }` → 201 fila del contrato (se usa solo `id`)
+ * @backend GET  /api/v1/contratos/:id   (existe · rol locador) → ContratoBorradorApiResponse
+ * @returns el borrador creado.
  * @throws {ServiceError}
  *   - `not_found`: la solicitud no existe o no es de una propiedad del locador.
- *   - `conflict` (`apiCode`): `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`
- *     o `PROPIEDAD_CON_CONTRATO`.
+ *   - `conflict` (`apiCode`): `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`,
+ *     `PROPIEDAD_CON_BORRADOR`, `PROPIEDAD_CON_CONTRATO`, `PROPIEDAD_SIN_OFERTA` o `CONTRATO_DUPLICADO`.
  */
-export async function prepararContrato(solicitudId: string): Promise<ContratoBorrador> {
+export async function iniciarContrato(solicitudId: string): Promise<ContratoBorrador> {
   if (USE_MOCKS) {
     await delay(300)
     const ownerId = requireSessionUserId()
@@ -232,16 +240,17 @@ export async function prepararContrato(solicitudId: string): Promise<ContratoBor
     // US-05: inicio sin valor por defecto; se precarga la disponibilidad si todavía no pasó.
     const inicio = propiedad.availableFrom && propiedad.availableFrom >= hoyIso() ? propiedad.availableFrom : null
     const indice = propiedad.adjustmentIndex ?? 'sin_ajuste'
-    const base: ContratoBorrador = {
-      id: null,
+    const ahora = ahoraIsoMock()
+    const id = `BOR-${Date.now()}`
+    const contrato: ContratoMock = {
+      id,
       code: null,
       status: 'borrador',
-      solicitudId,
-      solicitudAceptadaEl: solicitud.respondedAt,
-      propiedad: propiedadDelContrato(propiedad),
-      locador: parteDe(perfilMockDe(ownerId), ownerId),
-      locatario: parteDe(perfilMockDe(solicitud.applicantUserId), solicitud.applicantUserId, solicitud.applicantName),
-      garantiasOfrecidas: solicitud.legajo?.guarantees ?? ([] as GarantiaOfrecida[]),
+      ownerId,
+      propertyId: propiedad.id,
+      solicitudId: solicitud.id,
+      tenantUserId: solicitud.applicantUserId,
+      tenantName: solicitud.applicantName,
       garantes: [],
       condiciones: {
         startDate: inicio,
@@ -254,99 +263,112 @@ export async function prepararContrato(solicitudId: string): Promise<ContratoBor
         adjustmentIndex: indice,
         adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),
       },
-      clausulas: [],
+      clausulas: null,
       ultimoPaso: 0,
-      pdf: null,
-      fechaInicioVencida: false,
+      createdAt: ahora,
+      updatedAt: ahora,
+      sentAt: null,
+      eventos: [{ id: `ev-${id}-1`, tipo: 'creado', fecha: ahora, rol: null, motivo: null }],
     }
-    return { ...base, clausulas: completarClausulas([], base) }
+    if (!guardarContratoMock(contrato)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+    return borradorDeContratoMock(contrato)
   }
   try {
-    const dto = await apiRequest<ContratoResponse>('/contratos/preparar', { query: { id_solicitud: solicitudId } })
-    return contratoDeDto(dto)
+    const creado = await apiRequest<ContratoCreadoResponse>('/contratos', { method: 'POST', body: { id_solicitud: Number(solicitudId) } })
+    return await getBorrador(String(creado.id))
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'SOLICITUD_CON_CONTRATO', noEncontrado: SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE })
+    throw errorDeContrato(error, { porDefecto409: 'SOLICITUD_CON_CONTRATO', noEncontrado: SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE, prohibido: SOLO_LOCADOR_MESSAGE })
   }
 }
 
 // ─── Borrador ───────────────────────────────────────────────────────────
 
 /**
- * US-05 — "Un borrador se puede retomar desde el paso en que quedó."
- * Trae un contrato del locador en sesión (cualquier estado: la pantalla
- * decide; si no es borrador, avisa que no se puede editar).
- * @backend GET /api/v1/contratos/:id   (existe · rol locador) → ContratoBorradorResponse
- * NOTA: el adaptador todavía espera `ContratoResponse`. Se conecta en la Tanda 2 del Sprint 4.
+ * US-06 — "Un borrador se debe retomar desde el paso en que quedó, con todos
+ * los datos cargados precargados." Trae un contrato del locador en sesión, en
+ * cualquier estado: si no es borrador, la pantalla explica por qué no se edita.
+ * @backend GET /api/v1/contratos/:id   (existe · rol locador) → ContratoBorradorApiResponse
  * @throws {ServiceError} `not_found` si no existe o no es suyo (no se distingue).
  */
-export async function getContrato(id: string): Promise<ContratoBorrador> {
+export async function getBorrador(id: string): Promise<ContratoBorrador> {
   if (USE_MOCKS) {
     await delay(300)
     return borradorDeContratoMock(contratoPropioMock(id, requireSessionUserId()))
   }
   try {
-    return contratoDeDto(await apiRequest<ContratoResponse>(`/contratos/${encodeURIComponent(id)}`))
+    return borradorDeApi(await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}`))
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE' })
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE, idInvalidoEsNoEncontrado: true })
   }
 }
 
 /**
- * US-05 — "Se puede guardar el contrato como borrador desde cualquier paso."
- * Sin `id`, crea el borrador; con `id`, lo actualiza. Los datos pueden estar
- * incompletos (se validan al enviar a firmar).
- * @backend POST  /api/v1/contratos   (existe · rol locador) body `{ id_solicitud }` → 201 fila del contrato (usar solo `id`)
- * @backend PATCH /api/v1/contratos/:id   (existe · rol locador) body `{ paso?, condiciones?, garantes? }` → 200 ContratoBorradorResponse
- * NOTA: la rama real todavía manda `PUT` y el contrato completo. Se conecta en la Tanda 2 del Sprint 4.
- * @returns el borrador guardado (con su `id`).
+ * US-05 — "Se puede guardar el contrato como borrador desde cualquier paso,
+ * sin completar los datos obligatorios de los pasos siguientes."
+ * @param cambios Solo lo que cambió (`cambiosDeBorrador`): reenviar una fecha de inicio vencida da 400.
+ * @backend PATCH /api/v1/contratos/:id   (existe · rol locador) body `{ paso?, condiciones?, garantes? }` → 200 ContratoBorradorApiResponse
+ * @returns el borrador guardado.
  * @throws {ServiceError}
  *   - `conflict` `CONTRATO_NO_EDITABLE`: el contrato ya no es borrador.
- *   - `conflict` `SOLICITUD_CON_CONTRATO` / `PROPIEDAD_CON_CONTRATO` al crear.
- *   - `not_found`: el contrato o la solicitud no son del locador.
+ *   - `validation`: el dato no cumple la US, con el texto del back.
+ *   - `not_found`: no existe o no es del locador.
  */
-export async function guardarBorrador(id: string | null, datos: DatosContrato): Promise<ContratoBorrador> {
+export async function guardarBorrador(id: string, cambios: CambiosBorrador): Promise<ContratoBorrador> {
   if (USE_MOCKS) {
     await delay()
-    const ownerId = requireSessionUserId()
-    const ahora = ahoraIsoMock()
-    let contrato: ContratoMock
-    if (id) {
-      const actual = contratoPropioMock(id, ownerId)
-      if (actual.status !== 'borrador') throw new ServiceError('conflict', CONTRATO_NO_EDITABLE_MESSAGE, 'CONTRATO_NO_EDITABLE')
-      contrato = { ...actual, garantes: datos.garantes, condiciones: datos.condiciones, clausulas: datos.clausulas, ultimoPaso: datos.ultimoPaso, updatedAt: ahora }
-    } else {
-      const { solicitud, propiedad } = solicitudParaContratoMock(datos.solicitudId, ownerId)
-      const nuevoId = `BOR-${Date.now()}`
-      contrato = {
-        id: nuevoId,
-        code: null,
-        status: 'borrador',
-        ownerId,
-        propertyId: propiedad.id,
-        solicitudId: solicitud.id,
-        tenantUserId: solicitud.applicantUserId,
-        tenantName: solicitud.applicantName,
-        garantes: datos.garantes,
-        condiciones: datos.condiciones,
-        clausulas: datos.clausulas,
-        ultimoPaso: datos.ultimoPaso,
-        createdAt: ahora,
-        updatedAt: ahora,
-        sentAt: null,
-        eventos: [{ id: `ev-${nuevoId}-1`, tipo: 'creado', fecha: ahora, rol: null, motivo: null }],
-      }
+    const actual = contratoPropioMock(id, requireSessionUserId())
+    if (actual.status !== 'borrador') throw new ServiceError('conflict', CONTRATO_NO_EDITABLE_MESSAGE, 'CONTRATO_NO_EDITABLE')
+    const contrato: ContratoMock = {
+      ...actual,
+      garantes: cambios.garantes ?? actual.garantes,
+      condiciones: { ...actual.condiciones, ...cambios.condiciones },
+      ultimoPaso: cambios.paso ?? actual.ultimoPaso,
+      updatedAt: ahoraIsoMock(),
     }
     if (!guardarContratoMock(contrato)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     return borradorDeContratoMock(contrato)
   }
   try {
-    const body = datosToContratoRequest(datos)
-    const dto = id
-      ? await apiRequest<ContratoResponse>(`/contratos/${encodeURIComponent(id)}`, { method: 'PUT', body })
-      : await apiRequest<ContratoResponse>('/contratos', { method: 'POST', body })
-    return contratoDeDto(dto)
+    return borradorDeApi(await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}`, { method: 'PATCH', body: patchDeCambios(cambios) }))
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: id ? 'CONTRATO_NO_EDITABLE' : 'SOLICITUD_CON_CONTRATO' })
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE })
+  }
+}
+
+/** Bucket privado del PDF del contrato. */
+const BUCKET_CONTRATOS = 'contratos-pdf'
+
+/**
+ * US-05, paso 3 — "Se debe cargar el contrato en formato PDF". El archivo no
+ * pasa por la API (acepta hasta 4,5 MB): va directo a Storage con una URL firmada.
+ * @backend POST /api/v1/contratos/:id/pdf/url-subida   (existe · rol locador) → UrlSubidaPdfResponse
+ * @backend PUT  /api/v1/contratos/:id/pdf   (existe · rol locador) body `{ path, nombre }` → 200 ContratoBorradorApiResponse
+ * @returns el borrador con el PDF nuevo. Si falla, el anterior queda como estaba.
+ * @throws {ServiceError}
+ *   - `validation`: no es un PDF real o supera los 5 MB (también 413).
+ *   - `conflict` `CONTRATO_NO_EDITABLE`: ya no es borrador.
+ */
+export async function subirPdfContrato(id: string, archivo: File): Promise<ContratoBorrador> {
+  if (USE_MOCKS) {
+    await delay()
+    const actual = contratoPropioMock(id, requireSessionUserId())
+    if (actual.status !== 'borrador') throw new ServiceError('conflict', CONTRATO_NO_EDITABLE_MESSAGE, 'CONTRATO_NO_EDITABLE')
+    const error = errorDeArchivoPdf(archivo, await cabeceraDe(archivo))
+    if (error) throw new ServiceError('validation', error)
+    const contrato: ContratoMock = { ...actual, pdf: { nombre: archivo.name, tamanoBytes: archivo.size, subidoEl: ahoraIsoMock() }, updatedAt: ahoraIsoMock() }
+    if (!guardarContratoMock(contrato)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+    recordarPdfMock(contrato.id, archivo)
+    return borradorDeContratoMock(contrato)
+  }
+  try {
+    const ruta = `/contratos/${encodeURIComponent(id)}/pdf`
+    const subida = await apiRequest<UrlSubidaPdfResponse>(`${ruta}/url-subida`, { method: 'POST' })
+    const { error } = await getSupabaseBrowserClient().storage.from(BUCKET_CONTRATOS).uploadToSignedUrl(subida.path, subida.token, archivo, { contentType: 'application/pdf' })
+    if (error) throw new ServiceError('server', PDF_SUBIDA_ERROR_MESSAGE)
+    const body: RegistrarPdfRequest = { path: subida.path, nombre: archivo.name }
+    return borradorDeApi(await apiRequest<ContratoBorradorApiResponse>(ruta, { method: 'PUT', body }))
+  } catch (error) {
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE, generico: PDF_SUBIDA_ERROR_MESSAGE })
   }
 }
 
@@ -374,29 +396,31 @@ export async function eliminarBorrador(id: string): Promise<void> {
 // ─── Enviar a firmar ────────────────────────────────────────────────────
 
 /**
- * US-05 — "Al enviarlo, el contrato pasa al estado 'pendiente de firma',
- * recibe un código con formato CT-AAAA-NNNN y no se puede editar." Guarda
- * lo último y lo envía. La propiedad sigue publicada (decisión del PO).
- * @backend PATCH /api/v1/contratos/:id   (existe; guarda lo último)
+ * En real no hay envío a firmar: el flujo termina en borrador (decisión del PO,
+ * Sprint 4). La pantalla deja "Enviar a firmar" deshabilitado.
+ * TODO(backend): `POST /contratos/:id/enviar` (issue del Sprint 4, punto 1).
+ */
+export const ENVIO_A_FIRMA_DISPONIBLE = USE_MOCKS
+
+/**
+ * US-05 — "Al enviarlo, el contrato pasa al estado 'pendiente de firma' y
+ * recibe un código con formato CT-AAAA-NNNN." La propiedad sigue publicada
+ * (decisión del PO). Lo último ya se guardó con `guardarBorrador`.
  * @backend POST /api/v1/contratos/:id/enviar   (no existe — propuesto) → 200 ContratoEnviadoResponse
  * @returns el código y quiénes firman (locador y locatario).
  * @throws {ServiceError}
  *   - `validation`: falta un dato o no cumple la US (el primer error).
- *   - `conflict` (`apiCode`): `CONTRATO_NO_EDITABLE`, `SOLICITUD_CON_CONTRATO`
- *     o `PROPIEDAD_CON_CONTRATO` (otra solicitud ya lo hizo mientras tanto).
+ *   - `conflict` (`apiCode`): `CONTRATO_NO_EDITABLE` o `PROPIEDAD_CON_CONTRATO`.
  */
-export async function enviarAFirmar(id: string | null, datos: DatosContrato): Promise<ContratoEnviado> {
-  const guardado = await guardarBorrador(id, datos)
-  const contratoId = guardado.id
-  if (!contratoId) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+export async function enviarAFirmar(id: string): Promise<ContratoEnviado> {
   if (USE_MOCKS) {
     await delay()
-    const ownerId = requireSessionUserId()
-    const error = errorParaEnviar(guardado, hoyIso())
+    const contrato = contratoPropioMock(id, requireSessionUserId())
+    const borrador = borradorDeContratoMock(contrato)
+    const error = errorParaEnviar(borrador, hoyIso())
     if (error) throw new ServiceError('validation', error)
-    const contrato = contratoPropioMock(contratoId, ownerId)
     if (propiedadConContratoActivoMock(contrato.propertyId, contrato.id)) throw new ServiceError('conflict', PROPIEDAD_CON_CONTRATO_MESSAGE, 'PROPIEDAD_CON_CONTRATO')
-    // NOTA: si el envío se había cancelado (US-07), conserva el código que ya tenía.
+    // NOTA: si el envío se había cancelado (US-06), conserva el código que ya tenía.
     const code = contrato.code ?? siguienteCodigoMock(hoy().year())
     const ahora = ahoraIsoMock()
     const aFirmar: ContratoMock = {
@@ -411,15 +435,10 @@ export async function enviarAFirmar(id: string | null, datos: DatosContrato): Pr
       eventos: conEvento(contrato, 'enviado', ahora),
     }
     if (!guardarContratoMock(aFirmar)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-    const enviado = contratoEnviadoDeDto({ id: 0, codigo: code, estado: 'pendiente_firma' }, guardado)
-    return { ...enviado, id: contratoId }
+    const enviado = contratoEnviadoDeDto({ id: 0, codigo: code, estado: 'pendiente_firma' }, borrador)
+    return { ...enviado, id: contrato.id }
   }
-  try {
-    const dto = await apiRequest<ContratoEnviadoResponse>(`/contratos/${encodeURIComponent(contratoId)}/enviar`, { method: 'POST' })
-    return contratoEnviadoDeDto(dto, guardado)
-  } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE' })
-  }
+  throw new ServiceError('conflict', CONTRATO_NO_EDITABLE_MESSAGE, 'CONTRATO_NO_EDITABLE')
 }
 
 // ─── US-07: detalle ─────────────────────────────────────────────────────
@@ -538,7 +557,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     },
     clausulas: [],
     ultimoPaso: 3,
-    pdf: null,
+    pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 0, subidoEl: null, url: PDF_FICTICIO_URL },
     fechaInicioVencida: false,
   }
   return {
@@ -795,6 +814,28 @@ export async function cancelarEnvio(id: string): Promise<ContratoDetalle> {
     return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}/cancelar-envio`, { method: 'POST' }))
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'OTRA_PARTE_FIRMO', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
+  }
+}
+
+/**
+ * US-06 — "Antes de modificar un contrato pendiente de firma, se debe solicitar
+ * confirmación" (la pide la pantalla). "Al confirmar, el contrato vuelve a
+ * 'borrador' y conserva su código": se cancela el envío y se borran las firmas.
+ * @backend POST /api/v1/contratos/:id/reabrir   (existe · rol locador) → 200 ContratoBorradorApiResponse
+ * @throws {ServiceError}
+ *   - `conflict` (`apiCode`): `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_VIGENTE`,
+ *     `CONTRATO_FINALIZADO` o `CONTRATO_YA_EN_BORRADOR`.
+ *   - `not_found`: no existe o no es suyo.
+ */
+export async function reabrirContrato(id: string): Promise<void> {
+  if (USE_MOCKS) {
+    await cancelarEnvio(id)
+    return
+  }
+  try {
+    await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}/reabrir`, { method: 'POST' })
+  } catch (error) {
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
   }
 }
 

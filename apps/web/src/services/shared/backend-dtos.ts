@@ -774,15 +774,6 @@ export interface ContratoResponse {
   ultimo_paso: number
 }
 
-/** Propuesta del Sprint 3. El back usa `POST /contratos` con `{ id_solicitud }` y `PATCH /contratos/:id` con `{ paso?, condiciones?, garantes? }`. */
-export interface ContratoRequest {
-  id_solicitud: number
-  garantes: GaranteDto[]
-  condiciones: CondicionesContratoDto
-  clausulas: ClausulaDto[]
-  ultimo_paso: number
-}
-
 /** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
 export interface ContratoEnviadoResponse {
   id: number
