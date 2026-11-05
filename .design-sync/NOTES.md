@@ -800,3 +800,20 @@ Aprobado por el PO. La API pública no cambió, pero sí el comportamiento:
 - Vaciar el campo lo deja vacío. Antes mostraba "$ 0" con el cursor adelante del cero y lo tipeado
   después quedaba multiplicado por 10. `onChange` sigue mandando 0.
 - El componente renderiza el aviso debajo del input. Sin APIs exclusivas de React 19.
+
+## Re-sync del 2026-11-05 (cierre del Sprint 4): verificado y NO subido
+
+**La subida quedó bloqueada.** `finalize_plan` pasó, pero `write_files` respondió 403 desde el primer archivo:
+"This design system moved to Claude. /design-sync can't send updates to Claude yet, so this upload stopped". No se
+escribió nada: el proyecto y su `_ds_sync.json` siguen como antes. No reintentar con otro proyecto sin preguntar al PO.
+
+Cuando se pueda volver a subir, correr el driver de nuevo. Sube `MoneyInput` (S4-14), `ActivityTimeline` (`dateFormat`
+y el ejemplo "por las 2 partes"), `IndexBadge` (CAC y "Sin ajuste"), el bundle y los estilos: 178 archivos, 0 borrados.
+
+- **Render check con Edge:** Chrome ya no está en esta máquina. `DS_CHROMIUM_PATH` con `msedge.exe`: 34 de 34, sin
+  `bad`, `thin` ni variantes iguales.
+- **React 18.3.1:** 33 de 34 tarjetas sin errores. `RoleSwitcher` queda vacía, igual que con React 19: no renderiza
+  nada en ese entorno, no es una regresión. `MoneyInput` probado con tipeo en su tarjeta. En el bundle, 0 usos de
+  `useEffectEvent` y de `React.use(`. No se probó en las plantillas: corren en la app, después de subir.
+- **No correr `finalize_plan` con la terminal parada en `ds-bundle/`:** con `localDir` relativo busca
+  `ds-bundle/ds-bundle`. Usar la ruta absoluta.
