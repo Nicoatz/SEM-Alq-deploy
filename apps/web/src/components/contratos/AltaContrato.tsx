@@ -6,7 +6,7 @@
  *
  * Cubre: US-05 Registrar contrato de alquiler:
  * - "El alta se realiza en 4 pasos (Partes y garantes, Condiciones,
- *   Cláusulas y Revisión). Se debe mostrar el paso actual y se puede volver
+ *   Carga y Revisión). Se debe mostrar el paso actual y se puede volver
  *   a los pasos anteriores sin perder lo cargado."
  * - Cada paso se valida al tocar "Siguiente"; volver atrás no valida.
  * - El borrador se crea al entrar desde una solicitud (`iniciarContrato`) y la
@@ -16,6 +16,10 @@
  * - Paso 4: la casilla de revisión es obligatoria y "Enviar a firmar" pide
  *   confirmación nombrando a los dos firmantes (decisión del PO: locador y
  *   locatario). Al enviar, el resultado va dentro del alta.
+ * - En real el flujo termina en borrador (decisión del PO): sin
+ *   `POST /contratos/:id/enviar`, "Enviar a firmar" queda visible y
+ *   deshabilitado en la Revisión (`WizardLayout` no tiene un botón final
+ *   deshabilitado y no se toca `@rentar/ui`).
  * Usa `WizardLayout` de `@rentar/ui` (como el alta de propiedad).
  *
  * Aviso de salida (US-21, `AvisoCambiosProvider`): marca cambios mientras
@@ -30,17 +34,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
 import { DeleteOutlined, SaveOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
-import type { ClausulaContrato, CondicionesNuevoContrato, ContratoBorrador, ContratoEnviado, GaranteContrato } from '@rentar/shared-types'
+import type { CondicionesNuevoContrato, ContratoBorrador, ContratoEnviado, GaranteContrato } from '@rentar/shared-types'
 import { ConfirmActionModal, EmptyState, PageHeader, WizardLayout } from '@rentar/ui'
 import { cambiosDeBorrador } from '@/lib/contratos/cambios'
-import { completarClausulas } from '@/lib/contratos/plantilla'
-import { errorDeClausula, errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/contratos/validaciones'
+import { errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
 import { hoy } from '@/lib/utils/fechas'
-import { eliminarBorrador, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato } from '@/services/contratos.service'
+import { eliminarBorrador, ENVIO_A_FIRMA_DISPONIBLE, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
-import { PasoClausulas } from './PasoClausulas'
+import { PasoCarga } from './PasoCarga'
 import { PasoCondiciones } from './PasoCondiciones'
 import { PasoPartes } from './PasoPartes'
 import { PasoRevision } from './PasoRevision'
@@ -57,7 +60,7 @@ const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
 export const PASOS_CONTRATO = [
   { key: 'partes', title: 'Partes y garantes' },
   { key: 'condiciones', title: 'Condiciones' },
-  { key: 'clausulas', title: 'Cláusulas' },
+  { key: 'carga', title: 'Carga' },
   { key: 'revision', title: 'Revisión' },
 ] as const
 
@@ -99,17 +102,12 @@ function iniciarUnaVez(solicitudId: string): Promise<ContratoBorrador> {
 
 /**
  * Primer error del paso, o `null` (lo que frena "Siguiente"):
- * 0 garantes, 1 condiciones, 2 cláusulas. La revisión (3) se valida al enviar.
+ * 0 garantes, 1 condiciones. La carga (2) no frena: el PDF se exige al enviar
+ * (US-05: "guardar el contrato como borrador desde cualquier paso").
  */
 export function errorDelPaso(borrador: ContratoBorrador, paso: number): string | null {
   if (paso === 0) return errorDeGarantes(borrador.garantes, [borrador.locador, borrador.locatario])
   if (paso === 1) return Object.values(erroresCondiciones(borrador.condiciones, hoy().format('YYYY-MM-DD')))[0] ?? null
-  if (paso === 2) {
-    for (const [indice, clausula] of borrador.clausulas.entries()) {
-      const error = errorDeClausula(clausula)
-      if (error) return `Cláusula ${indice + 1}: ${error}`
-    }
-  }
   return null
 }
 
@@ -159,23 +157,18 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   useAvisoCambiosSinGuardar(hayCambios)
 
   // ─── Handlers ───────────────────────────────────────────────────────
-  /** Los garantes y las condiciones completan de nuevo la plantilla (US-05, paso 3). */
   const cambiarGarantes = useCallback((garantes: GaranteContrato[]) => {
-    setBorrador((actual) => {
-      const nuevo = { ...actual, garantes }
-      return { ...nuevo, clausulas: completarClausulas(nuevo.clausulas, nuevo) }
-    })
+    setBorrador((actual) => ({ ...actual, garantes }))
   }, [])
 
   const cambiarCondiciones = useCallback((condiciones: CondicionesNuevoContrato) => {
-    setBorrador((actual) => {
-      const nuevo = { ...actual, condiciones }
-      return { ...nuevo, clausulas: completarClausulas(nuevo.clausulas, nuevo) }
-    })
+    setBorrador((actual) => ({ ...actual, condiciones }))
   }, [])
 
-  const cambiarClausulas = useCallback((clausulas: ClausulaContrato[]) => {
-    setBorrador((actual) => ({ ...actual, clausulas }))
+  /** El PDF ya se guardó en el contrato: no cuenta como cambio sin guardar. */
+  const cambiarPdf = useCallback((contrato: ContratoBorrador) => {
+    setBorrador((actual) => ({ ...actual, pdf: contrato.pdf }))
+    setGuardado((actual) => ({ ...actual, pdf: contrato.pdf }))
   }, [])
 
   /** Hacia adelante valida el paso actual; hacia atrás, nunca (US-05: "sin perder lo cargado"). */
@@ -200,7 +193,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
     try {
       const nuevo = await guardarBorrador(contratoId, cambiosDeBorrador(guardado, borrador, paso))
       setGuardado(nuevo)
-      setBorrador({ ...nuevo, clausulas: borrador.clausulas })
+      setBorrador(nuevo)
       setAviso(BORRADOR_GUARDADO)
     } catch (error) {
       setErrorAccion(mensajeDe(error, 'No pudimos guardar el borrador. Probá de nuevo.'))
@@ -284,9 +277,9 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       ) : indice === 1 ? (
         <PasoCondiciones borrador={borrador} onCondicionesChange={cambiarCondiciones} mostrarErrores={conErrores.has(1)} />
       ) : indice === 2 ? (
-        <PasoClausulas borrador={borrador} onClausulasChange={cambiarClausulas} mostrarErrores={conErrores.has(2)} />
+        <PasoCarga contratoId={contratoId} pdf={borrador.pdf} onPdfCargado={cambiarPdf} />
       ) : (
-        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} />
+        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} />
       ),
   }))
 
@@ -319,7 +312,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
         steps={steps}
         currentStep={paso}
         onStepChange={irAlPaso}
-        onFinish={pedirEnvio}
+        onFinish={ENVIO_A_FIRMA_DISPONIBLE ? pedirEnvio : undefined}
         finishLabel="Enviar a firmar"
         navigableSteps
         loading={enviando}

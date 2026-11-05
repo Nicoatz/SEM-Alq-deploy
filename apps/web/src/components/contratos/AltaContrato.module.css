@@ -18,6 +18,20 @@
   gap: 0.625rem;
 }
 
+.revisionPdf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.envioNoDisponible {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
 .fullWidth {
   width: 100%;
 }
