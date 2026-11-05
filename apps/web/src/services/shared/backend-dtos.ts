@@ -500,13 +500,16 @@ export type ActualizarLegajoRequest = LegajoDto
  */
 export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
 
-// ─── Contratos (US-05) · PROPUESTO ──────────────────────────────────────
-// NOTA: ninguna de estas rutas existe todavía (Sprint 3, tanda 2). Contrato
+// ─── Contratos (US-05) · PROPUESTA DEL SPRINT 3 ─────────────────────────
+// NOTA: el back ya implementó sus rutas con otra forma (05/11): estos DTO son
+// la propuesta del Sprint 3 y se reemplazan al conectar (Tandas 1 y 2 del
+// Sprint 4). Estado real y nombres front → back en `docs/api-endpoints.md`
+// ("Estado real de los endpoints"). Contrato
 // completo en `docs/api-endpoints.md` ("Contratos") y `HANDOFF-BACKEND.md`
 // §7 (US-05). Códigos de garantía igual que las solicitudes; medios de pago
 // con los ids de `medio_pago`, igual que `/mis-alquileres`.
 
-/** Estado del contrato (propuesto: hoy `estado_contrato` solo tiene disponible, vigente y finalizado). */
+/** Estado del contrato. `estado_contrato` ya tiene borrador y pendiente de firma; `rescindido` no existe en la base. */
 export type EstadoContratoDto = 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
 
 /** Índice del contrato (propuesto). `sin_ajuste` en lugar de `indice_aumento` en `NULL`. */
@@ -524,7 +527,7 @@ export interface InmuebleContratoDto {
   barrio: string | null
 }
 
-/** Una fila de `GET /contratos` (no existe — propuesto). Sin DNI ni contacto. */
+/** Propuesta anterior a `GET /inmuebles/:id/contratos` (existe, con otra forma; `GET /contratos` no existe). Sin DNI ni contacto. */
 export interface ContratoResumenResponse {
   id: number
   /** `null` en los borradores. */
@@ -579,8 +582,8 @@ export interface ClausulaDto {
 }
 
 /**
- * `GET /contratos/:id` y `GET /contratos/preparar?id_solicitud=` (no existen
- * — propuestos). `/preparar` devuelve el contrato todavía sin guardar:
+ * Propuesta de `GET /contratos/:id` (existe, con otra forma) y `GET /contratos/preparar?id_solicitud=` (no existe
+ * — lo reemplaza `POST /contratos`). `/preparar` devolvía el contrato todavía sin guardar:
  * `id`, `codigo`, `condiciones` y `clausulas` vacíos (el front los completa
  * con sus valores por defecto y su plantilla).
  */
@@ -610,7 +613,7 @@ export interface ContratoResponse {
   ultimo_paso: number
 }
 
-/** Cuerpo de `POST /contratos` y `PUT /contratos/:id` (no existen — propuestos). */
+/** Propuesta del Sprint 3. El back usa `POST /contratos` con `{ id_solicitud }` y `PATCH /contratos/:id` con `{ paso?, condiciones?, garantes? }`. */
 export interface ContratoRequest {
   id_solicitud: number
   garantes: GaranteDto[]
@@ -628,6 +631,9 @@ export interface ContratoEnviadoResponse {
 
 /**
  * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
+ * NOTA: faltan los que ya manda el back (`PROPIEDAD_CON_BORRADOR`, `PROPIEDAD_SIN_OFERTA`,
+ * `CONTRATO_DUPLICADO`, `CONTRATO_BORRADOR`, `CONTRATO_VIGENTE`, `CONTRATO_FINALIZADO`,
+ * `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_YA_EN_BORRADOR`): se suman al conectar.
  * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
  * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
  * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
@@ -645,20 +651,20 @@ export type CodigoErrorContrato =
   | 'FIRMANTE_NO_PENDIENTE'
 
 // ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────
-// NOTA: no existen (Sprint 3, tanda 3). Contrato en `docs/api-endpoints.md`
+// NOTA: firmar, rechazar y reenviar siguen sin existir (05/11). Contrato en `docs/api-endpoints.md`
 // ("Contratos", US-07). Firman el locador y el locatario (decisión del PO).
 
 /** Rol de quien firma. */
 export type RolFirmanteDto = 'locador' | 'locatario'
 
-/** Una parte que firma, con el estado de su firma. La IP la guarda el back y NO viaja al front. */
+/** Una parte que firma, con el estado de su firma. */
 export interface FirmanteDto {
   rol: RolFirmanteDto
   id_usuario: number
   nombre: string
   apellido: string | null
   estado: 'pendiente' | 'firmado' | 'rechazado'
-  /** Fecha y hora ISO de la firma (la registra el back, con la IP). */
+  /** Fecha y hora ISO de la firma (la registra el back). */
   fecha_firma: string | null
   fecha_rechazo: string | null
   motivo_rechazo: string | null
@@ -666,7 +672,7 @@ export interface FirmanteDto {
   fecha_ultima_invitacion: string | null
 }
 
-/** Un evento del historial del contrato. */
+/** Un evento del historial del contrato. NOTA: el historial salió de US-07; se borra en la Tanda 3 del Sprint 4. */
 export interface EventoContratoDto {
   id: number
   tipo: 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
@@ -679,7 +685,8 @@ export interface EventoContratoDto {
 }
 
 /**
- * `GET /contratos/:id` con lo de US-07 (propuesto): el mismo `ContratoResponse`
+ * Propuesta del Sprint 3. El detalle real es `GET /contratos/:id/detalle`, con otra forma
+ * (se conecta en la Tanda 1 del Sprint 4): el mismo `ContratoResponse`
  * más los firmantes y el historial, en una sola respuesta (el historial no
  * tiene otro uso que este detalle). También es la respuesta de firmar,
  * rechazar, cancelar el envío y reenviar.

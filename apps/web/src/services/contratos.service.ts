@@ -13,8 +13,8 @@
  *   `adapters/contrato-mock.adapter.ts` (ver ahí la NOTA de datos sensibles:
  *   el DNI de los garantes no se guarda en `localStorage`).
  * - Modo real: US-27 (Mis alquileres) contra `GET /alquileres-locatario`
- *   (EXISTE desde el 26/10). Lo de US-05 y US-07, contra rutas PROPUESTAS
- *   de `apps/api` (todavía no existen). Contrato de cada una en
+ *   (EXISTE desde el 26/10). Lo de US-05 y US-07 sigue contra las rutas PROPUESTAS
+ *   del Sprint 3 hasta conectarlo (Tandas 1 a 3 del Sprint 4). Estado de cada una en
  *   `docs/api-endpoints.md`, "Contratos" y "Alquileres del locatario".
  * Quién lo usa: `components/contratos/*` y `app/(app)/panel/contratos/*`.
  *
@@ -204,10 +204,10 @@ function contratoPropioMock(id: string, ownerId: string): ContratoMock {
  * US-05 — "Listado de contratos (/panel/contratos)": los contratos del
  * locador en sesión (borradores, pendientes de firma, vigentes y
  * finalizados), sin ordenar (ver `lib/contratos/listado.ts`).
- * @backend GET /api/v1/contratos   (no existe — propuesto · rol locador) → ContratoResumenResponse[]
+ * @backend GET /api/v1/contratos   (no existe: no hay listado general; lo reemplaza GET /api/v1/inmuebles/:id/contratos, que existe) → ContratoResumenResponse[]
  * @returns ContratoResumen[] — sin DNI ni contacto (solo el nombre del locatario).
  * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
- * TODO(backend): crear la ruta (contrato en `docs/api-endpoints.md`).
+ * NOTA: en real esta llamada falla. Se reemplaza en la Tanda 1 del Sprint 4 (US-43).
  */
 export async function listarContratos(): Promise<ContratoResumen[]> {
   if (USE_MOCKS) {
@@ -229,7 +229,8 @@ export async function listarContratos(): Promise<ContratoResumen[]> {
  * (botón 'Iniciar contrato'), con la propiedad y el locatario precargados."
  * Devuelve el contrato SIN guardar (`id: null`), con los valores por
  * defecto del paso 2 y la plantilla completa.
- * @backend GET /api/v1/contratos/preparar?id_solicitud=:id   (no existe — propuesto) → ContratoResponse
+ * @backend GET /api/v1/contratos/preparar?id_solicitud=:id   (no existe: el borrador se crea con POST /api/v1/contratos y se lee con GET /api/v1/contratos/:id) → ContratoResponse
+ * NOTA: en real "preparar" se toma como `:id` y da 400. Se reemplaza en la Tanda 2 del Sprint 4 (US-05).
  * @throws {ServiceError}
  *   - `not_found`: la solicitud no existe o no es de una propiedad del locador.
  *   - `conflict` (`apiCode`): `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`
@@ -285,7 +286,8 @@ export async function prepararContrato(solicitudId: string): Promise<ContratoBor
  * US-05 — "Un borrador se puede retomar desde el paso en que quedó."
  * Trae un contrato del locador en sesión (cualquier estado: la pantalla
  * decide; si no es borrador, avisa que no se puede editar).
- * @backend GET /api/v1/contratos/:id   (no existe — propuesto) → ContratoResponse
+ * @backend GET /api/v1/contratos/:id   (existe · rol locador) → ContratoBorradorResponse
+ * NOTA: el adaptador todavía espera `ContratoResponse`. Se conecta en la Tanda 2 del Sprint 4.
  * @throws {ServiceError} `not_found` si no existe o no es suyo (no se distingue).
  */
 export async function getContrato(id: string): Promise<ContratoBorrador> {
@@ -304,8 +306,9 @@ export async function getContrato(id: string): Promise<ContratoBorrador> {
  * US-05 — "Se puede guardar el contrato como borrador desde cualquier paso."
  * Sin `id`, crea el borrador; con `id`, lo actualiza. Los datos pueden estar
  * incompletos (se validan al enviar a firmar).
- * @backend POST /api/v1/contratos   (no existe — propuesto) body ContratoRequest → 201 ContratoResponse
- * @backend PUT  /api/v1/contratos/:id   (no existe — propuesto) body ContratoRequest → 200 ContratoResponse
+ * @backend POST  /api/v1/contratos   (existe · rol locador) body `{ id_solicitud }` → 201 fila del contrato (usar solo `id`)
+ * @backend PATCH /api/v1/contratos/:id   (existe · rol locador) body `{ paso?, condiciones?, garantes? }` → 200 ContratoBorradorResponse
+ * NOTA: la rama real todavía manda `PUT` y el contrato completo. Se conecta en la Tanda 2 del Sprint 4.
  * @returns el borrador guardado (con su `id`).
  * @throws {ServiceError}
  *   - `conflict` `CONTRATO_NO_EDITABLE`: el contrato ya no es borrador.
@@ -361,7 +364,7 @@ export async function guardarBorrador(id: string | null, datos: DatosContrato): 
 /**
  * US-05 — "Se puede eliminar un borrador, previa confirmación." (La
  * confirmación la pide la pantalla.)
- * @backend DELETE /api/v1/contratos/:id   (no existe — propuesto) → 204
+ * @backend DELETE /api/v1/contratos/:id   (existe · rol locador) → 200 sin `data`; la solicitud de origen vuelve a pendiente
  * @throws {ServiceError} `conflict` `CONTRATO_NO_EDITABLE` si ya no es borrador; `not_found`.
  */
 export async function eliminarBorrador(id: string): Promise<void> {
@@ -385,7 +388,7 @@ export async function eliminarBorrador(id: string): Promise<void> {
  * US-05 — "Al enviarlo, el contrato pasa al estado 'pendiente de firma',
  * recibe un código con formato CT-AAAA-NNNN y no se puede editar." Guarda
  * lo último y lo envía. La propiedad sigue publicada (decisión del PO).
- * @backend PUT  /api/v1/contratos/:id   (guarda lo último; o POST si todavía no tiene id)
+ * @backend PATCH /api/v1/contratos/:id   (existe; guarda lo último)
  * @backend POST /api/v1/contratos/:id/enviar   (no existe — propuesto) → 200 ContratoEnviadoResponse
  * @returns el código y quiénes firman (locador y locatario).
  * @throws {ServiceError}
@@ -568,9 +571,10 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
  * estado, documento e historial. Lo pueden ver el locador y el locatario
  * del contrato; un borrador, solo el locador (la pantalla lo manda a
  * `/editar`).
- * @backend GET /api/v1/contratos/:id   (no existe — propuesto) → ContratoDetalleResponse (con `firmantes` e `historial` en la misma respuesta)
+ * @backend GET /api/v1/contratos/:id/detalle   (existe · rol locador) → detalle del back, con otra forma que `ContratoDetalleResponse`; 409 `CONTRATO_BORRADOR` en un borrador
  * @throws {ServiceError} `not_found` "No encontramos este contrato." si no existe o no es suyo (US-07: "sin distinguir entre los dos casos").
- * TODO(backend): crear la ruta (contrato en `docs/api-endpoints.md`, US-07).
+ * NOTA: la rama real todavía llama a `GET /contratos/:id`. Se conecta en la Tanda 1 del Sprint 4 (US-42).
+ * El locatario no usa esta ruta: lee su contrato de `GET /alquileres-locatario/:idContrato`.
  */
 export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
   if (USE_MOCKS) {
@@ -705,7 +709,8 @@ function contratoDelLocadorMock(id: string, userId: string): ContratoMock {
  * registradas." Su propia firma no cuenta (se borra). Vuelve a ser
  * editable desde `/panel/contratos/[id]/editar`.
  * NOTA: conserva su código CT-AAAA-NNNN; si se vuelve a enviar, sale con el mismo.
- * @backend POST /api/v1/contratos/:id/cancelar-envio   (no existe — propuesto) → 200 ContratoDetalleResponse (en `borrador`)
+ * @backend POST /api/v1/contratos/:id/reabrir   (existe · rol locador; reemplaza al `cancelar-envio` propuesto) → 200 ContratoBorradorResponse
+ * NOTA: la rama real todavía llama a `cancelar-envio`, que no existe. Se conecta en la Tanda 3 del Sprint 4.
  * @throws {ServiceError}
  *   - `forbidden`: quien llama es el locatario.
  *   - `conflict`: `OTRA_PARTE_FIRMO` o `CONTRATO_NO_PENDIENTE`.
