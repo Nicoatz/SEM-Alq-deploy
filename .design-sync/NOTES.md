@@ -793,7 +793,9 @@ Aprobado por el PO. La API pública no cambió, pero sí el comportamiento:
 
 - La coma tipeada no entra: aparece "Ingresá un monto entero, sin centavos", el valor queda como
   estaba y no entran más dígitos hasta borrar, reemplazar el monto o volver al campo.
-- El punto tipeado es separador de miles y se descarta sin aviso: "150.000" queda en $ 150.000.
+- El punto tipeado es separador de miles y se descarta: "150.000" queda en $ 150.000. Al salir del
+  campo, si un punto no separa grupos de 3 dígitos ("1000.5"), aparece "Revisá el monto: el punto separa
+  miles" y el valor no cambia.
 - Al pegar, "1.500" y "$ 2.500" pasan; "1000,5", "1000.5" y "1.500,00" no.
 - Vaciar el campo lo deja vacío. Antes mostraba "$ 0" con el cursor adelante del cero y lo tipeado
   después quedaba multiplicado por 10. `onChange` sigue mandando 0.

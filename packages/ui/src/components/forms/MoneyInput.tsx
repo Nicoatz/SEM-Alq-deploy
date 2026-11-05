@@ -6,12 +6,15 @@
  * Quién lo usa: el paso Condiciones del alta de contrato (monto y depósito) y
  * el catálogo `/design-system`.
  */
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import type { ClipboardEvent, FormEvent } from 'react'
 import { InputNumber } from 'antd'
 
 /** Mensaje cuando se intenta cargar un monto con centavos. */
 const AVISO_SIN_CENTAVOS = 'Ingresá un monto entero, sin centavos'
+
+/** Mensaje cuando un punto tipeado no separa grupos de 3 dígitos. */
+const AVISO_PUNTO_MILES = 'Revisá el monto: el punto separa miles'
 
 /** Da formato de miles al valor mostrado (ej. `550000` -> "$ 550.000"). */
 function formatDisplay(value: number | string | undefined): string {
@@ -42,6 +45,24 @@ function traeCentavos(texto: string): boolean {
   return !/^-?\d{1,3}(\.\d{3})+$/.test(limpio)
 }
 
+/**
+ * `true` si lo tipeado usa bien los puntos: después de cada uno hay exactamente 3
+ * dígitos y, si el campo arrancó vacío, antes del primero hay de 1 a 3.
+ *
+ * @example
+ * puntosBienUsados('150.000', true) // → true
+ * puntosBienUsados('1.500.000', true) // → true
+ * puntosBienUsados('1000.5', true) // → false
+ * puntosBienUsados('1000.500', true) // → false
+ * puntosBienUsados('.500', false) // → true: siguió un monto que ya estaba
+ */
+function puntosBienUsados(tipeado: string, arrancoVacio: boolean): boolean {
+  if (!tipeado.includes('.')) return true
+  const [primero = '', ...resto] = tipeado.split('.')
+  const primeroBien = !arrancoVacio || (primero.length >= 1 && primero.length <= 3)
+  return primeroBien && resto.every((grupo) => grupo.length === 3)
+}
+
 /** Props de {@link MoneyInput}. */
 interface MoneyInputProps {
   value?: number
@@ -64,27 +85,46 @@ interface MoneyInputProps {
  * reemplazar el monto o al volver a entrar al campo.
  *
  * NOTA: un punto tipeado es un separador de miles y se descarta: "150.000" tiene
- * que quedar en $ 150.000. Frenarlo dejaba $ 150, un monto mil veces menor.
+ * que quedar en $ 150.000. Frenarlo dejaba $ 150, un monto mil veces menor. Como
+ * el punto no queda en el campo, se guarda lo tipeado: al salir, si un punto no
+ * separa grupos de 3 dígitos ("1000.5"), se avisa sin cambiar el valor.
  */
 export function MoneyInput({ value, onChange, placeholder, min = 0, max, ...rest }: MoneyInputProps) {
-  const [conAviso, setConAviso] = useState(false)
+  const [aviso, setAviso] = useState<string | null>(null)
   // `onChange` manda 0 al vaciar el campo: esto lo mantiene vacío en pantalla.
   const [vacio, setVacio] = useState(false)
   const avisoId = useId()
+  const tipeado = useRef('')
+  const arrancoVacio = useRef(true)
+
+  /** Guarda lo tipeado para revisar los puntos al salir. Lo pegado no cuenta. */
+  function recordar(campo: HTMLInputElement, texto: string): void {
+    if (campo.selectionStart !== campo.selectionEnd) {
+      tipeado.current = ''
+      arrancoVacio.current = true
+    }
+    tipeado.current = texto.length === 1 ? tipeado.current + texto : ''
+  }
 
   /** Frena lo que traiga centavos y lo que se tipee mientras está el aviso. */
   function filtrar(evento: { preventDefault: () => void; currentTarget: HTMLInputElement }, texto: string | undefined): void {
     if (!texto) return
     if (texto === '.') {
+      recordar(evento.currentTarget, texto)
       evento.preventDefault()
     } else if (traeCentavos(texto)) {
       evento.preventDefault()
-      setConAviso(true)
-    } else if (conAviso) {
+      setAviso(AVISO_SIN_CENTAVOS)
+    } else if (aviso) {
       // Con texto seleccionado se está reemplazando el monto, no siguiéndolo.
       const { selectionStart, selectionEnd } = evento.currentTarget
       if (selectionStart === selectionEnd) evento.preventDefault()
-      else setConAviso(false)
+      else {
+        setAviso(null)
+        recordar(evento.currentTarget, texto)
+      }
+    } else {
+      recordar(evento.currentTarget, texto)
     }
   }
 
@@ -98,8 +138,12 @@ export function MoneyInput({ value, onChange, placeholder, min = 0, max, ...rest
         step={5000}
         value={vacio && !value ? null : value}
         onChange={(next) => {
-          setConAviso(false)
+          setAviso(null)
           setVacio(next === null)
+          if (next === null) {
+            tipeado.current = ''
+            arrancoVacio.current = true
+          }
           onChange?.(Number(next ?? 0))
         }}
         onBeforeInput={(evento: FormEvent<HTMLInputElement>) => {
@@ -108,19 +152,28 @@ export function MoneyInput({ value, onChange, placeholder, min = 0, max, ...rest
         }}
         onPaste={(evento: ClipboardEvent<HTMLInputElement>) => filtrar(evento, evento.clipboardData.getData('text'))}
         onKeyDown={(evento) => {
-          if (evento.key === 'Backspace' || evento.key === 'Delete') setConAviso(false)
+          if (evento.key !== 'Backspace' && evento.key !== 'Delete') return
+          setAviso(null)
+          tipeado.current = tipeado.current.slice(0, -1)
         }}
-        onFocus={() => setConAviso(false)}
+        onFocus={(evento) => {
+          setAviso(null)
+          tipeado.current = ''
+          arrancoVacio.current = evento.target.value === ''
+        }}
+        onBlur={() => {
+          if (!aviso && !puntosBienUsados(tipeado.current, arrancoVacio.current)) setAviso(AVISO_PUNTO_MILES)
+        }}
         formatter={formatDisplay}
         parser={parseDisplay}
         placeholder={placeholder}
-        status={conAviso ? 'error' : undefined}
-        aria-describedby={conAviso ? avisoId : undefined}
+        status={aviso ? 'error' : undefined}
+        aria-describedby={aviso ? avisoId : undefined}
         {...rest}
       />
-      {conAviso && (
+      {aviso && (
         <div id={avisoId} role="alert" style={{ color: 'var(--rentar-color-error)', fontSize: 'var(--rentar-font-size-label)' }}>
-          {AVISO_SIN_CENTAVOS}
+          {aviso}
         </div>
       )}
     </>
