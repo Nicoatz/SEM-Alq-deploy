@@ -33,10 +33,8 @@ function parseDisplay(displayValue: string | undefined): number | string {
 /**
  * `true` si el texto que entra trae un separador que no es de miles.
  *
- * NOTA: `formatDisplay` pone los puntos solo, así que un punto o una coma
- * tipeados nunca hacen falta. Sin este filtro, "1000,5" terminaba en otro monto
- * sin avisar. Lo pegado sí puede traer miles bien escritos: "1.500" pasa,
- * "1000.5" y "1.500,00" no.
+ * Lo pegado puede traer miles bien escritos: "1.500" pasa, "1000.5" y
+ * "1.500,00" no. Un punto suelto no llega acá: ver {@link MoneyInput}.
  */
 function traeCentavos(texto: string): boolean {
   const limpio = texto.replace(/[$\s]/g, '')
@@ -60,10 +58,13 @@ interface MoneyInputProps {
  * reutilizable para cualquier campo de monto del panel (precio de
  * publicación, monto de un cobro, etc.).
  *
- * Solo acepta montos enteros: si se intenta cargar un separador decimal, el
- * valor no cambia y aparece el aviso. Mientras el aviso está, tampoco entran
- * más dígitos, para que "1000,5" no se convierta en 10.005. El aviso se va al
- * borrar, al reemplazar el monto o al volver a entrar al campo.
+ * Solo acepta montos enteros. La coma es el separador decimal: el valor no
+ * cambia y aparece el aviso. Mientras el aviso está, tampoco entran más dígitos,
+ * para que "1000,5" no se convierta en 10.005. El aviso se va al borrar, al
+ * reemplazar el monto o al volver a entrar al campo.
+ *
+ * NOTA: un punto tipeado es un separador de miles y se descarta: "150.000" tiene
+ * que quedar en $ 150.000. Frenarlo dejaba $ 150, un monto mil veces menor.
  */
 export function MoneyInput({ value, onChange, placeholder, min = 0, max, ...rest }: MoneyInputProps) {
   const [conAviso, setConAviso] = useState(false)
@@ -74,7 +75,9 @@ export function MoneyInput({ value, onChange, placeholder, min = 0, max, ...rest
   /** Frena lo que traiga centavos y lo que se tipee mientras está el aviso. */
   function filtrar(evento: { preventDefault: () => void; currentTarget: HTMLInputElement }, texto: string | undefined): void {
     if (!texto) return
-    if (traeCentavos(texto)) {
+    if (texto === '.') {
+      evento.preventDefault()
+    } else if (traeCentavos(texto)) {
       evento.preventDefault()
       setConAviso(true)
     } else if (conAviso) {

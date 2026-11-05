@@ -791,8 +791,9 @@ nuevo con el mismo patrón (`import x from './algo.svg'` + `.src`), aplicar el m
 
 Aprobado por el PO. La API pública no cambió, pero sí el comportamiento:
 
-- Un punto o una coma tipeados no entran: aparece "Ingresá un monto entero, sin centavos", el valor
-  queda como estaba y no entran más dígitos hasta borrar, reemplazar el monto o volver al campo.
+- La coma tipeada no entra: aparece "Ingresá un monto entero, sin centavos", el valor queda como
+  estaba y no entran más dígitos hasta borrar, reemplazar el monto o volver al campo.
+- El punto tipeado es separador de miles y se descarta sin aviso: "150.000" queda en $ 150.000.
 - Al pegar, "1.500" y "$ 2.500" pasan; "1000,5", "1000.5" y "1.500,00" no.
 - Vaciar el campo lo deja vacío. Antes mostraba "$ 0" con el cursor adelante del cero y lo tipeado
   después quedaba multiplicado por 10. `onChange` sigue mandando 0.
