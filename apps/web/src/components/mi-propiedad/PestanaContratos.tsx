@@ -37,8 +37,9 @@ import { fechaYHora, NOMBRE_ROL } from '@/lib/contratos/firmas'
 import { subtituloContratosDePropiedad, vigenciaDeContrato } from '@/lib/contratos/propiedad'
 import { contratoHref, editarContratoHref, iniciarContratoHref, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
-import { eliminarBorrador, listarContratosDePropiedad } from '@/services/contratos.service'
+import { eliminarBorrador, listarContratosDePropiedad, urlPdfDeContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
+import { BotonPdf } from '@/components/contratos/BotonPdf'
 import styles from './PestanaContratos.module.css'
 
 /** Props de {@link PestanaContratos}. */
@@ -204,11 +205,11 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
   /** US-43: "Se debe poder descargar el contrato en PDF, salvo que sea un borrador." */
   function botonPdf(contrato: ContratoDePropiedad) {
     if (contrato.status === 'borrador') return null
-    if (contrato.documento?.tipo === 'archivo') {
+    if (contrato.tienePdf) {
       return (
-        <Button icon={<DownloadOutlined />} href={contrato.documento.url} target="_blank" rel="noopener noreferrer" data-testid="propiedad-contrato-pdf">
+        <BotonPdf obtenerUrl={() => urlPdfDeContrato(contrato.id, 'locador')} icon={<DownloadOutlined />} data-testid="propiedad-contrato-pdf">
           Descargar PDF
-        </Button>
+        </BotonPdf>
       )
     }
     return (

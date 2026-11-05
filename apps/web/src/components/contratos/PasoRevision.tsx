@@ -18,7 +18,7 @@
  *
  * Quién lo usa: `AltaContrato.tsx`.
  */
-import type { ReactNode } from 'react'
+import { useCallback, type ReactNode } from 'react'
 import { Button, Checkbox } from 'antd'
 import { EditOutlined } from '@ant-design/icons'
 import type { ContratoBorrador } from '@rentar/shared-types'
@@ -27,6 +27,7 @@ import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO, textoPlazo } 
 import { tamanoLegible } from '@/lib/contratos/pdfCarga'
 import { MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { dniParaMostrar } from '@/lib/perfil/formato'
+import { urlPdfDeContrato } from '@/services/contratos.service'
 import { MiniaturaPdf } from './MiniaturaPdf'
 import styles from './AltaContrato.module.css'
 
@@ -66,6 +67,8 @@ function Bloque({ titulo, paso, onEditar, testId, children }: { titulo: string; 
 /** Paso 4 del alta: el resumen y la casilla de revisión. */
 export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible }: PasoRevisionProps) {
   const { condiciones, propiedad, locador, locatario, garantes } = borrador
+  const contratoId = borrador.id ?? ''
+  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
   const fin = fechaFin(condiciones.startDate, condiciones.durationMonths)
   const ajustes = cantidadAjustes(condiciones.durationMonths, condiciones.adjustmentIndex, condiciones.adjustmentPeriod)
   const falta = 'Sin cargar'
@@ -127,7 +130,7 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
       <Bloque titulo="Contrato" paso={2} onEditar={onEditar} testId="contrato-revision-pdf">
         {borrador.pdf ? (
           <div className={styles.revisionPdf}>
-            <MiniaturaPdf url={borrador.pdf.url} data-testid="contrato-revision-miniatura" />
+            <MiniaturaPdf obtenerUrl={obtenerPdf} data-testid="contrato-revision-miniatura" />
             <span className={styles.referencia}>
               {borrador.pdf.nombre} · {tamanoLegible(borrador.pdf.tamanoBytes)}
             </span>

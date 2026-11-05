@@ -59,8 +59,9 @@ import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { ahoraIso } from '@/lib/utils/fechas'
-import { getDetalleContrato, reabrirContrato, reenviarInvitacion } from '@/services/contratos.service'
+import { getDetalleContrato, reabrirContrato, reenviarInvitacion, urlPdfDeContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
+import { BotonPdf } from './BotonPdf'
 import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
@@ -167,6 +168,9 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   }, [])
 
   const { locador, locatario, condiciones, propiedad } = contrato
+  const contratoId = contrato.id ?? ''
+  const esFicha = vista === 'locatario'
+  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, esFicha ? 'locatario' : 'locador'), [contratoId, esFicha])
   const pendiente = contrato.status === 'pendiente_firma'
   const soyLocador = miRol === 'locador'
   const miFirma = contrato.firmantes.find((firmante) => firmante.rol === miRol) ?? null
@@ -292,13 +296,12 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   // Reenviar, igual: en real no existe.
   const accionesDeLocador = soyLocador && firmaEnLinea
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
-  const esFicha = vista === 'locatario'
-  // El PDF del contrato; en la ficha del locatario lo manda `datosApi`. Sin él, el botón queda deshabilitado.
-  const pdfUrl = datosApi?.pdfUrl ?? contrato.pdf?.url ?? null
-  const botonPdf = pdfUrl ? (
-    <Button icon={<DownloadOutlined />} href={pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="contrato-descargar-pdf">
+  // Sin PDF, el botón queda deshabilitado. La URL se pide al usarla (S4-13).
+  const tienePdf = Boolean(datosApi?.pdfUrl ?? contrato.pdf)
+  const botonPdf = tienePdf ? (
+    <BotonPdf obtenerUrl={obtenerPdf} icon={<DownloadOutlined />} data-testid="contrato-descargar-pdf">
       Descargar PDF
-    </Button>
+    </BotonPdf>
   ) : (
     <span className={styles.franjaAccion}>
       <Button icon={<DownloadOutlined />} disabled data-testid="contrato-descargar-pdf">
@@ -466,11 +469,11 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         </div>
 
         <div className={styles.columna}>
-          {firmaPendienteMia && miRol && firmaEnLinea && pdfUrl ? (
+          {firmaPendienteMia && miRol && firmaEnLinea && tienePdf ? (
             <FirmaContrato
               key={contrato.id}
               contratoId={contrato.id ?? ''}
-              pdfUrl={pdfUrl}
+              obtenerPdf={obtenerPdf}
               nombrePdf={contrato.pdf?.nombre}
               otraParte={nombreDe(miRol === 'locador' ? locatario : locador)}
               permitirRechazo={miRol === 'locatario'}
@@ -485,8 +488,8 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
                 // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
                 <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
               )}
-              {pdfUrl ? (
-                <VisorPdf url={pdfUrl} nombre={contrato.pdf?.nombre} data-testid="contrato-visor" />
+              {tienePdf ? (
+                <VisorPdf obtenerUrl={obtenerPdf} nombre={contrato.pdf?.nombre} data-testid="contrato-visor" />
               ) : (
                 <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
                   Sin dato: el contrato todavía no tiene un PDF cargado.

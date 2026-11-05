@@ -341,7 +341,6 @@ export type {
   ContratoDePropiedad,
   ContratoResumen,
   ContratosDePropiedad,
-  DocumentoDeContrato,
   PdfContrato,
   FirmaDePropiedad,
   DatosAlquilerApi,

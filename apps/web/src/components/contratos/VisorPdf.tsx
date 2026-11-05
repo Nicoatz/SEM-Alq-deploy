@@ -11,20 +11,21 @@
  * vez con su paginador; mientras carga, un esqueleto con la proporción de la
  * hoja; si falla, el aviso y "Descargar el PDF" como salida.
  *
- * De dónde saca los datos: `url` (en real, firmada: vence a los 5 minutos, pero
- * el documento ya abierto se sigue viendo).
- * Quién lo usa: `DetalleContrato.tsx` y `PasoRevision.tsx`.
+ * De dónde saca los datos: `obtenerUrl`, al abrirse: la URL firmada vence a los
+ * 5 minutos (S4-13). El documento ya abierto se sigue viendo.
+ * Quién lo usa: `DetalleContrato.tsx` y `FirmaContrato.tsx`.
  */
 import { useEffect, useRef, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
-import { dibujarPagina, usePdf } from '@/lib/contratos/pdfVisor'
+import { dibujarPagina, usePdf, type ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
+import { BotonPdf } from './BotonPdf'
 import styles from './VisorPdf.module.css'
 
 /** Props de {@link VisorPdf}. */
 interface VisorPdfProps {
-  url: string
+  obtenerUrl: ObtenerUrlPdf
   /** Nombre que se lee en el encabezado; sin él, solo la página. */
   nombre?: string
   /** Se llama con las páginas vistas (desde 1) y el total, cada vez que se ve una nueva. */
@@ -104,8 +105,8 @@ function Hoja({ documento, nombre, onPaginasVistas, testId }: HojaProps) {
 }
 
 /** Abre el PDF y muestra la hoja, el esqueleto o el error. */
-export function VisorPdf({ url, nombre, onPaginasVistas, 'data-testid': testId = 'contrato-visor' }: VisorPdfProps) {
-  const pdf = usePdf(url)
+export function VisorPdf({ obtenerUrl, nombre, onPaginasVistas, 'data-testid': testId = 'contrato-visor' }: VisorPdfProps) {
+  const pdf = usePdf(obtenerUrl)
 
   if (pdf.status === 'cargando') {
     return (
@@ -118,11 +119,9 @@ export function VisorPdf({ url, nombre, onPaginasVistas, 'data-testid': testId =
     return (
       <div className={styles.errorVisor} data-testid={`${testId}-error`}>
         <Alert type="warning" showIcon title="No se pudo cargar el documento" description="El resto del contrato se sigue viendo. Podés abrir el PDF aparte." />
-        <Button href={url} target="_blank" rel="noopener noreferrer">
-          Descargar el PDF
-        </Button>
+        <BotonPdf obtenerUrl={obtenerUrl}>Descargar el PDF</BotonPdf>
       </div>
     )
   }
-  return <Hoja key={url} documento={pdf.documento} nombre={nombre} onPaginasVistas={onPaginasVistas} testId={testId} />
+  return <Hoja documento={pdf.documento} nombre={nombre} onPaginasVistas={onPaginasVistas} testId={testId} />
 }

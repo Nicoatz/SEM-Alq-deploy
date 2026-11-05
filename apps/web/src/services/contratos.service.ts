@@ -612,7 +612,7 @@ function contratoDePropiedadMock(resumen: ContratoResumen, propiedad: PropiedadM
     firmantes: (detalle?.firmantes ?? []).map(({ rol, nombre, estado, firmadoEl }) => ({ rol, nombre, estado, firmadoEl })),
     firmadoPorTodasEl: detalle?.firmadoPorTodasEl ?? null,
     // US-43: el PDF, "salvo que sea un borrador". El detalle del anterior lo baja desde su pantalla.
-    documento: resumen.status !== 'borrador' && resumen.status !== 'finalizado' && detalle?.pdf ? { tipo: 'archivo', url: detalle.pdf.url } : null,
+    tienePdf: resumen.status !== 'borrador' && resumen.status !== 'finalizado' && Boolean(detalle?.pdf),
   }
 }
 
@@ -646,6 +646,31 @@ export async function listarContratosDePropiedad(propiedadId: string): Promise<C
       generico: CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
       idInvalidoEsNoEncontrado: true,
     })
+  }
+}
+
+/**
+ * S4-13 — La URL firmada del PDF vence a los 5 minutos: se pide al usarla, no al
+ * cargar la pantalla. Cada vista la saca de la ruta que puede leer.
+ * @backend GET /api/v1/contratos/:id   (existe · rol locador): `borrador`.
+ * @backend GET /api/v1/contratos/:id/detalle   (existe · rol locador): `locador`.
+ * @backend GET /api/v1/alquileres-locatario/:idContrato   (existe): `locatario`.
+ * TODO(backend): una ruta solo para la URL evitaría pedir el detalle entero.
+ * @returns la URL, o `null` si el contrato no tiene PDF.
+ * @throws {ServiceError} `not_found`, `unauthorized`, `network` / `server`.
+ */
+export async function urlPdfDeContrato(id: string, vista: 'borrador' | 'locador' | 'locatario'): Promise<string | null> {
+  if (USE_MOCKS) {
+    const guardado = buscarContratoMock(id)
+    return guardado ? (pdfDeContratoMock(guardado)?.url ?? null) : PDF_FICTICIO_URL
+  }
+  const ruta = encodeURIComponent(id)
+  try {
+    if (vista === 'locatario') return (await apiRequest<AlquilerLocatarioDetalleResponse>(`/alquileres-locatario/${ruta}`)).pdf_url
+    const contrato = await apiRequest<ContratoBorradorApiResponse | ContratoDetalleApiResponse>(vista === 'borrador' ? `/contratos/${ruta}` : `/contratos/${ruta}/detalle`)
+    return contrato.pdf?.url ?? null
+  } catch (error) {
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_BORRADOR', prohibido: SOLO_LOCADOR_MESSAGE })
   }
 }
 

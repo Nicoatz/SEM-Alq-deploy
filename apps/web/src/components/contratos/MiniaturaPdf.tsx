@@ -5,12 +5,12 @@
  *
  * Cubre: US-05 Registrar contrato de alquiler, paso 3 y paso 4 ("una miniatura
  * de la primera página del PDF").
- * De dónde saca los datos: `url`.
+ * De dónde saca los datos: `obtenerUrl`, al abrirse (S4-13).
  * Quién lo usa: `PasoCarga.tsx` y `PasoRevision.tsx`.
  */
 import { useEffect, useRef } from 'react'
 import { Skeleton } from 'antd'
-import { dibujarPagina, usePdf } from '@/lib/contratos/pdfVisor'
+import { dibujarPagina, usePdf, type ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
 import styles from './MiniaturaPdf.module.css'
 
 /** Ancho de la miniatura, en píxeles. */
@@ -18,13 +18,13 @@ const ANCHO = 112
 
 /** Props de {@link MiniaturaPdf}. */
 interface MiniaturaPdfProps {
-  url: string
+  obtenerUrl: ObtenerUrlPdf
   'data-testid'?: string
 }
 
 /** La miniatura. Si el PDF no abre, lo dice sin frenar el alta. */
-export function MiniaturaPdf({ url, 'data-testid': testId = 'contrato-pdf-miniatura' }: MiniaturaPdfProps) {
-  const pdf = usePdf(url)
+export function MiniaturaPdf({ obtenerUrl, 'data-testid': testId = 'contrato-pdf-miniatura' }: MiniaturaPdfProps) {
+  const pdf = usePdf(obtenerUrl)
   const canvas = useRef<HTMLCanvasElement>(null)
   const documento = pdf.status === 'listo' ? pdf.documento : null
 

@@ -18,14 +18,15 @@
  * De dónde saca los datos: `contratos.service#subirPdfContrato`.
  * Quién lo usa: `components/contratos/AltaContrato.tsx`.
  */
-import { useState } from 'react'
-import { Alert, Button, Spin } from 'antd'
+import { useCallback, useState } from 'react'
+import { Alert, Spin } from 'antd'
 import type { UploadFile } from 'antd'
 import type { ContratoBorrador, PdfContrato } from '@rentar/shared-types'
 import { FileDropzone, FormSection } from '@rentar/ui'
 import { cabeceraDe, errorDeArchivoPdf, tamanoLegible } from '@/lib/contratos/pdfCarga'
-import { subirPdfContrato } from '@/services/contratos.service'
+import { subirPdfContrato, urlPdfDeContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
+import { BotonPdf } from './BotonPdf'
 import { MiniaturaPdf } from './MiniaturaPdf'
 import styles from './PasoCarga.module.css'
 
@@ -46,6 +47,8 @@ export function PasoCarga({ contratoId, pdf, onPdfCargado }: PasoCargaProps) {
   const [intento, setIntento] = useState(0)
 
   // ─── Handlers ───────────────────────────────────────────────────────
+  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
+
   async function cargar(archivos: UploadFile[]): Promise<void> {
     const archivo = archivos.at(-1)?.originFileObj
     if (!archivo) return
@@ -73,7 +76,8 @@ export function PasoCarga({ contratoId, pdf, onPdfCargado }: PasoCargaProps) {
       <FormSection title="El contrato en PDF" description="Es el documento que van a firmar las partes: revisá que sea la versión final.">
         {pdf && (
           <div className={styles.cargado} data-testid="contrato-pdf-cargado">
-            <MiniaturaPdf url={pdf.url} />
+            {/* La `key` vuelve a abrir la miniatura al reemplazar el archivo. */}
+            <MiniaturaPdf key={pdf.url} obtenerUrl={obtenerPdf} />
             <div className={styles.datos}>
               <span className={styles.nombre} data-testid="contrato-pdf-nombre">
                 {pdf.nombre}
@@ -81,9 +85,9 @@ export function PasoCarga({ contratoId, pdf, onPdfCargado }: PasoCargaProps) {
               <span className={styles.tamano} data-testid="contrato-pdf-tamano">
                 {tamanoLegible(pdf.tamanoBytes)}
               </span>
-              <Button href={pdf.url} target="_blank" rel="noopener noreferrer" data-testid="contrato-pdf-abrir">
+              <BotonPdf obtenerUrl={obtenerPdf} data-testid="contrato-pdf-abrir">
                 Abrir
-              </Button>
+              </BotonPdf>
             </div>
           </div>
         )}

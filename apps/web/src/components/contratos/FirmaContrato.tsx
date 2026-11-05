@@ -30,6 +30,7 @@ import type { ContratoDetalle } from '@rentar/shared-types'
 import { ConfirmActionModal, SimulatedFeatureNotice } from '@rentar/ui'
 import { errorDeMotivoRechazo, MOTIVO_RECHAZO_MAX } from '@/lib/contratos/firmas'
 import { paginasQueFaltanLeer } from '@/lib/contratos/lectura'
+import type { ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
 import { firmarContrato, rechazarFirma } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { VisorPdf } from './VisorPdf'
@@ -38,8 +39,8 @@ import styles from './DetalleContrato.module.css'
 /** Props de {@link FirmaContrato}. */
 interface FirmaContratoProps {
   contratoId: string
-  /** El PDF del contrato. */
-  pdfUrl: string
+  /** Pide la URL del PDF al abrir el visor (S4-13). */
+  obtenerPdf: ObtenerUrlPdf
   nombrePdf?: string
   /** Nombre de la otra parte, para el aviso de la confirmación ("…queda pendiente la firma de Julieta"). */
   otraParte: string
@@ -58,7 +59,7 @@ function mensajeDe(error: unknown): string {
 }
 
 /** Visor con progreso, casilla, "Firmar contrato" y (si corresponde) "Rechazar firma". */
-export function FirmaContrato({ contratoId, pdfUrl, nombrePdf, otraParte, permitirRechazo = false, onCambio }: FirmaContratoProps) {
+export function FirmaContrato({ contratoId, obtenerPdf, nombrePdf, otraParte, permitirRechazo = false, onCambio }: FirmaContratoProps) {
   // ─── Estado local ───────────────────────────────────────────────────
   /** Cuántas páginas faltan; `null` mientras el PDF no abrió: sin PDF no se firma. */
   const [faltan, setFaltan] = useState<number | null>(null)
@@ -119,7 +120,7 @@ export function FirmaContrato({ contratoId, pdfUrl, nombrePdf, otraParte, permit
         data-testid="contrato-firma-aviso"
       />
 
-      <VisorPdf url={pdfUrl} nombre={nombrePdf} onPaginasVistas={verPaginas} data-testid="contrato-firma-visor" />
+      <VisorPdf obtenerUrl={obtenerPdf} nombre={nombrePdf} onPaginasVistas={verPaginas} data-testid="contrato-firma-visor" />
 
       {faltan !== null && faltan > 0 && (
         <p className={styles.firmaFaltan} data-testid="contrato-firma-faltan">

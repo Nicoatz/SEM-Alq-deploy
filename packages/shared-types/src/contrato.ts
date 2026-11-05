@@ -196,9 +196,6 @@ export interface ContratoResumen {
   solicitudId: string | null
 }
 
-/** El PDF de un contrato en la pestaña Contratos (US-43). `null` si no hay. */
-export type DocumentoDeContrato = { tipo: 'archivo'; url: string } | null
-
 /** Una firma en la pestaña Contratos (US-43: quién firmó, con fecha y hora, y quién falta). */
 export type FirmaDePropiedad = Pick<FirmanteContrato, 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
 
@@ -224,7 +221,8 @@ export interface ContratoDePropiedad {
   firmantes: FirmaDePropiedad[]
   /** Fecha y hora ISO de la última firma, con el contrato vigente; `null` si no se registró. */
   firmadoPorTodasEl: string | null
-  documento: DocumentoDeContrato
+  /** La URL no viaja acá: vence a los 5 minutos y se pide al usarla. */
+  tienePdf: boolean
 }
 
 /** La pestaña Contratos de una propiedad (US-43). */

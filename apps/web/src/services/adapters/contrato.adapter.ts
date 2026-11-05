@@ -155,7 +155,7 @@ function contratoDePropiedadDeDto(dto: ContratoPropiedadResponse): ContratoDePro
     firmasRegistradas: partes !== null,
     firmantes: (partes ?? []).map((parte) => ({ rol: parte.rol, nombre: nombreCompleto(parte), estado: parte.estado, firmadoEl: parte.fecha_firma })),
     firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
-    documento: dto.pdf ? { tipo: 'archivo', url: dto.pdf.url } : null,
+    tienePdf: dto.pdf !== null,
   }
 }
 
