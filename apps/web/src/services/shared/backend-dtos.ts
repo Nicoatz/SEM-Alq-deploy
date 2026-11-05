@@ -596,6 +596,49 @@ export interface ContratosInmuebleResponse {
   solicitud_para_contrato: number | null
 }
 
+/** Una parte del contrato, como la manda el back. Copia de `ParteContratoResponse`. */
+export interface ParteApiDto {
+  id: number
+  nombre: string
+  apellido: string
+  numero_documento: string
+  email: string
+  telefono: string | null
+}
+
+/** Respuesta de `GET /contratos/:id/detalle` (existe, US-42). Copia de `ContratoDetalleResponse` del back. */
+export interface ContratoDetalleApiResponse {
+  id: number
+  codigo: string | null
+  estado: 'pendiente_firma' | 'vigente' | 'finalizado'
+  id_solicitud: number | null
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string; ciudad: string | null }
+  locador: ParteApiDto | null
+  locatario: ParteApiDto | null
+  garantes: { id: number; nombre: string; apellido: string; dni: string; email: string }[]
+  condiciones: {
+    fecha_inicio_contrato: string | null
+    fecha_fin_contrato: string | null
+    duracion_meses: number | null
+    monto_inicial: number | null
+    monto_actual: number | null
+    deposito: number | null
+    /** Plazo en días, no el día del mes. TODO(backend): US-08 lo usa como día del mes (issue del Sprint 4, punto 4). */
+    dias_para_vencimiento: number | null
+    /** `null` = "Sin ajuste". */
+    indice: { id: number; descripcion: string } | null
+    frecuencia_ajuste: string | null
+    medios_pago: { id: number; nombre: string }[]
+    dias_gracia: number | null
+    interes_por_dia: number | null
+  }
+  /** NOTA: el front no lo usa: las fechas salen de `calendarioAjustes` y el monto es siempre "a definir" (decisión del PO). */
+  calendario_ajustes: { fecha: string; tipo: 'inicio' | 'ajuste'; monto: number | null }[] | null
+  firmas: FirmasApiDto
+  pdf: ContratoPdfDto | null
+  acciones: { modificar: boolean; firmar: boolean; descargar_pdf: boolean }
+}
+
 /** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
 export interface ParteContratoDto {
   id: number

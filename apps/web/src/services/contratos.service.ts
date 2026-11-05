@@ -77,6 +77,8 @@ import {
   contratoDeDto,
   contratoDetalleDeDto,
   contratoEnviadoDeDto,
+  detalleDeLocadorDeDto,
+  DETALLE_CONTRATO_ERROR_MESSAGE,
   CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
   contratosDePropiedadDeDto,
   contratoResumenDeDto,
@@ -104,6 +106,7 @@ import { apiRequest } from './shared/apiClient'
 import type {
   AlquilerLocatarioDetalleResponse,
   AlquilerLocatarioItemResponse,
+  ContratoDetalleApiResponse,
   ContratoDetalleResponse,
   ContratoEnviadoResponse,
   ContratoResponse,
@@ -575,14 +578,13 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
 }
 
 /**
- * US-07 — "Detalle del contrato": datos principales, firmantes con su
- * estado, documento e historial. Lo pueden ver el locador y el locatario
- * del contrato; un borrador, solo el locador (la pantalla lo manda a
- * `/editar`).
- * @backend GET /api/v1/contratos/:id/detalle   (existe · rol locador) → detalle del back, con otra forma que `ContratoDetalleResponse`; 409 `CONTRATO_BORRADOR` en un borrador
- * @throws {ServiceError} `not_found` "No encontramos este contrato." si no existe o no es suyo (US-07: "sin distinguir entre los dos casos").
- * NOTA: la rama real todavía llama a `GET /contratos/:id`. Se conecta en la Tanda 1 del Sprint 4 (US-42).
- * El locatario no usa esta ruta: lee su contrato de `GET /alquileres-locatario/:idContrato`.
+ * US-42 — "Consultar detalle del contrato": partes, condiciones, firmas y
+ * documento. Un borrador no tiene detalle: la pantalla lo manda a `/editar`.
+ * @backend GET /api/v1/contratos/:id/detalle   (existe · rol locador) → ContratoDetalleApiResponse
+ * @throws {ServiceError}
+ *   - `not_found` "No encontramos este contrato." si no existe o no es suyo, sin distinguir (US-42).
+ *   - `conflict` `CONTRATO_BORRADOR`: es un borrador.
+ * NOTA: el locatario no usa esta ruta: lee su contrato de `GET /alquileres-locatario/:idContrato`.
  */
 export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
   if (USE_MOCKS) {
@@ -596,9 +598,9 @@ export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
     return detalle
   }
   try {
-    return contratoDetalleDeDto(await apiRequest<ContratoDetalleResponse>(`/contratos/${encodeURIComponent(id)}`))
+    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/detalle`))
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE' })
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_BORRADOR', prohibido: SOLO_LOCADOR_MESSAGE, generico: DETALLE_CONTRATO_ERROR_MESSAGE, idInvalidoEsNoEncontrado: true })
   }
 }
 

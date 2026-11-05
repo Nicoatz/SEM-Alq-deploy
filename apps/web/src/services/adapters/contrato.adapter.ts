@@ -41,6 +41,7 @@ import type {
   AlquilerLocatarioItemResponse,
   ClausulaDto,
   CodigoErrorContrato,
+  ContratoDetalleApiResponse,
   ContratoDetalleResponse,
   ContratoEnviadoResponse,
   ContratoPropiedadResponse,
@@ -54,6 +55,7 @@ import type {
   FirmanteDto,
   FirmasApiDto,
   GaranteDto,
+  ParteApiDto,
   ParteContratoDto,
 } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
@@ -72,6 +74,7 @@ export const PROPIEDAD_CON_CONTRATO_MESSAGE = 'La propiedad ya tiene un contrato
 export const CONTRATO_NO_EDITABLE_MESSAGE = 'Este contrato ya se envió a firmar y no se puede editar.'
 /** US-43: "sin distinguir" si la propiedad no existe o no es del usuario. */
 export const PROPIEDAD_NO_ENCONTRADA_MESSAGE = 'No encontramos esta propiedad'
+export const DETALLE_CONTRATO_ERROR_MESSAGE = 'No pudimos abrir el contrato. Probá de nuevo en unos minutos.'
 export const CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE = 'Probá de nuevo en unos minutos. El resto de la propiedad está bien.'
 export const CONTRATO_ERROR_GENERICO_MESSAGE = 'No pudimos guardar el contrato. Probá de nuevo en unos minutos.'
 // US-07
@@ -178,6 +181,89 @@ function contratoDePropiedadDeDto(dto: ContratoPropiedadResponse): ContratoDePro
 export function contratosDePropiedadDeDto(dto: ContratosInmuebleResponse): ContratosDePropiedad {
   const solicitud = dto.solicitud_para_contrato === null ? null : String(dto.solicitud_para_contrato)
   return separarContratos(dto.contratos.map(contratoDePropiedadDeDto), solicitud)
+}
+
+/** Una parte del back → vista. `null` (contrato sin esa parte cargada) → vacía: se muestra "Sin dato". */
+function parteDeApi(dto: ParteApiDto | null): ParteContrato {
+  if (!dto) return { userId: '', nombre: '', apellido: '', dni: null, email: '', telefono: null }
+  return { userId: String(dto.id), nombre: dto.nombre, apellido: dto.apellido, dni: dto.numero_documento, email: dto.email, telefono: telefonoDelBack(dto.telefono) }
+}
+
+/**
+ * `GET /contratos/:id/detalle` → el detalle del locador (US-42).
+ * - Lo que no vino queda en `null` o vacío: la pantalla muestra "Sin dato".
+ * - `paymentDueDay` en `null`: el back manda un plazo en días, no un día del
+ *   mes (`datosApi.diasParaVencimiento`).
+ * - Sin `clausulas` ni historial: el documento es el PDF del back.
+ * - `datosApi` en lugar de `null`: no ofrece firma en línea (US-07 no existe en la API).
+ */
+export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): ContratoDetalle {
+  const { condiciones } = dto
+  const indice = indiceDeDescripcion(condiciones.indice?.descripcion ?? null)
+  const partes = partesQueFirman(dto.firmas)
+  return {
+    id: String(dto.id),
+    code: dto.codigo,
+    status: dto.estado,
+    solicitudId: dto.id_solicitud === null ? '' : String(dto.id_solicitud),
+    solicitudAceptadaEl: null,
+    propiedad: {
+      id: String(dto.inmueble.id),
+      address: formatExactAddress(dto.inmueble.direccion, dto.inmueble.numero, dto.inmueble.piso),
+      neighborhoodName: barrioDe(dto.inmueble.barrio).name,
+      priceMonthly: null,
+      adjustmentIndex: null,
+      cobro: {
+        paymentMethods: condiciones.medios_pago.flatMap((medio) => medioPagoFromId(medio.id) ?? []),
+        graceDays: condiciones.dias_gracia,
+        dailyInterestPct: condiciones.interes_por_dia,
+      },
+      photoSrc: null,
+    },
+    locador: parteDeApi(dto.locador),
+    locatario: parteDeApi(dto.locatario),
+    garantiasOfrecidas: [],
+    garantes: dto.garantes.map((garante, posicion) => ({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante), dni: garante.dni, email: garante.email })),
+    condiciones: {
+      startDate: condiciones.fecha_inicio_contrato,
+      durationMonths: condiciones.duracion_meses,
+      initialAmount: condiciones.monto_inicial,
+      deposit: condiciones.deposito,
+      paymentDueDay: null,
+      adjustmentIndex: indice,
+      adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(condiciones.frecuencia_ajuste),
+    },
+    clausulas: [],
+    ultimoPaso: 3,
+    enviadoEl: null,
+    firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
+    firmasRegistradas: partes !== null,
+    firmantes: (partes ?? []).map((parte) => ({
+      rol: parte.rol,
+      userId: '',
+      nombre: nombreCompleto(parte),
+      estado: parte.estado,
+      firmadoEl: parte.fecha_firma,
+      rechazadoEl: parte.fecha_rechazo,
+      motivoRechazo: parte.motivo_rechazo,
+      ultimaInvitacion: null,
+    })),
+    historial: [],
+    endDate: condiciones.fecha_fin_contrato,
+    montoActual: condiciones.monto_actual,
+    ajusteCadaMeses: indice === 'sin_ajuste' ? null : mesesDeFrecuencia(condiciones.frecuencia_ajuste),
+    datosApi: {
+      pdfUrl: dto.pdf?.url ?? null,
+      diasParaVencimiento: condiciones.dias_para_vencimiento,
+      proximoVencimientoPago: null,
+      proximoAjuste: null,
+      ultimoAjuste: null,
+      frecuenciaAjuste: condiciones.frecuencia_ajuste,
+      // NOTA: la vista del locador no usa `expensas`: el detalle no las manda.
+      expensas: 0,
+      mediosPago: condiciones.medios_pago.map((medio) => medio.nombre),
+    },
+  }
 }
 
 /**
