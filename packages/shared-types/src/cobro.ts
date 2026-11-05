@@ -12,6 +12,7 @@
  * NOTA (decisión del PO, 05/11): no hay pago parcial. Hay un cobro por período,
  * por el total (alquiler + mora), así que no hay saldo ni estado "parcial".
  */
+import type { IndiceContrato } from './contrato'
 import type { PaymentStatus } from './status'
 
 /** Estado de un período. "Anulado" y "parcial" no aplican (ver el encabezado). */
@@ -210,4 +211,109 @@ export interface Comprobante {
   medio: MedioCobro
   /** Fecha ISO del pago: es un dato distinto del período imputado (US-10). */
   fechaPago: string
+}
+
+// ─── Locatario (US-09 Mis pagos y US-12) ──────────────────────────────
+
+/** Filtros de Mis pagos, guardados en la URL (US-09). */
+export interface FiltrosPagos {
+  /** `null` = todos los años. */
+  anio: number | null
+  estado: FiltroEstadoCobro
+  /** `null` = todos los medios. */
+  medio: MedioCobro | null
+}
+
+/** Una fila del historial de Mis pagos: un período pagado. */
+export interface PagoFila {
+  /** Id del período. */
+  id: string
+  propiedad: string
+  /** Mes `AAAA-MM`. */
+  periodo: string
+  /** Total pagado. */
+  monto: number
+  /** Intereses por mora incluidos en el total. */
+  recargo: number
+  /** Días de atraso del pago, respecto del vencimiento. */
+  diasAtraso: number
+  medio: MedioCobro
+  /** Fecha ISO del pago. */
+  fechaPago: string
+  numeroComprobante: string | null
+  /**
+   * Índice, si es el primer período después de un ajuste (US-11); `null` si no.
+   * En real siempre `null`: todavía no hay ajustes aplicados.
+   */
+  indiceAjuste: IndiceContrato | null
+}
+
+/** Un período pendiente o vencido, en el bloque de arriba de Mis pagos. */
+export interface PeriodoPendiente {
+  id: string
+  propiedad: string
+  periodo: string
+  vencimiento: string
+  estado: Extract<EstadoPeriodo, 'pendiente' | 'vencido'>
+  /** Alquiler + mora a hoy. */
+  monto: number
+  recargo: number
+  diasAtraso: number
+}
+
+/** Lo que devuelve el service antes de filtrar. */
+export interface DatosPagos {
+  pendientes: PeriodoPendiente[]
+  pagos: PagoFila[]
+}
+
+/** Lo que muestra `/panel/pagos`. */
+export interface MisPagos extends DatosPagos {
+  /** Pagos sin filtros: en 0 y sin pendientes es el estado vacío. */
+  totalPagos: number
+  indicadores: { anio: number; totalPagado: number; aTermino: number; recargos: number }
+  anios: number[]
+  /** `true` con dos o más propiedades: la propiedad va en la primera columna (US-09). */
+  variasPropiedades: boolean
+}
+
+/** Variante de la tarjeta "Tu próximo alquiler" (US-12). */
+export type VarianteProximo =
+  | 'al_dia'
+  | 'por_vencer'
+  | 'vence_hoy'
+  | 'vencido_gracia'
+  | 'vencido_mora'
+  | 'pagado'
+  | 'pendiente_firma'
+
+/** El monto a pagar de un contrato (US-12). */
+export interface ProximoItem {
+  contratoId: string
+  propiedad: string
+  /** `null` si el contrato está pendiente de firma. */
+  periodoId: string | null
+  /** Mes `AAAA-MM`; `null` si está pendiente de firma. */
+  periodo: string | null
+  vencimiento: string | null
+  variante: VarianteProximo
+  /** Días que faltan, o días de atraso si está vencido. */
+  dias: number
+  alquiler: number
+  mora: number
+  diasMora: number
+  total: number
+  /** Interés diario en %; `null` si no se sabe (en real, el período no lo trae). */
+  tasaDiariaPct: number | null
+  /** Último día sin recargo; `null` si no se sabe. */
+  sinRecargoHasta: string | null
+  /** Período del último pago, para ver su comprobante. */
+  ultimoPagoPeriodoId: string | null
+}
+
+/** Lo que muestra la tarjeta. Sin ítems, no hay contrato. */
+export interface ProximoAlquiler {
+  items: ProximoItem[]
+  /** Total del mes con dos o más contratos vigentes; si no, `null`. */
+  totalMes: number | null
 }

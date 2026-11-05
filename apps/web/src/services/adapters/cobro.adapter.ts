@@ -13,16 +13,21 @@ import type {
   Comprobante,
   DetallePeriodo,
   EventoPeriodo,
+  PagoFila,
   ParteComprobante,
   PeriodoFila,
+  PeriodoPendiente,
   PeriodoRegistrable,
+  ProximoItem,
 } from '@rentar/shared-types'
+import { varianteDe } from '@/lib/cobros/proximoAlquiler'
 import type {
   CargoCobroResponse,
   CobroRegistradoResponse,
   ComprobantePagoResponse,
   DetalleCobroResponse,
   EventoPeriodoResponse,
+  PagoLocatarioResponse,
   PeriodoCobroItemResponse,
   PeriodoCobroResumenResponse,
   PersonaComprobanteResponse,
@@ -39,6 +44,10 @@ export const COBRO_NO_ENCONTRADO_MESSAGE = 'No encontramos este cobro'
 export const COMPROBANTE_NO_ENCONTRADO_MESSAGE = 'No encontramos este comprobante'
 
 export const COBROS_ERROR_MESSAGE = 'No pudimos traer los cobros. Probá de nuevo.'
+export const PAGOS_ERROR_MESSAGE = 'No pudimos traer tus pagos. Probá de nuevo.'
+
+/** El back dio 500 y el período no está en los listados: puede existir, así que no se dice que no. */
+export const COBRO_NO_DISPONIBLE_MESSAGE = 'No pudimos cargar este cobro por ahora'
 export const PERIODO_PAGADO_MESSAGE = 'Este período ya está pagado.'
 export const PERIODO_FUTURO_MESSAGE = 'Todavía no se puede registrar un cobro de este período.'
 export const CONTRATO_NO_VIGENTE_MESSAGE = 'Solo se pueden registrar cobros de contratos vigentes.'
@@ -186,9 +195,12 @@ export function detalleDeDto(dto: DetalleCobroResponse): DetallePeriodo {
  * `findDetalleByPeriodoIdAndUsuarioPermitido`. Corregido eso, va a seguir dando
  * 500 hasta aplicar la migración de US-09, porque lee `periodo_cobro_evento`.
  * Esto muestra lo que se sabe del período, sin cobros ni historial.
- * TODO(backend): sacarlo cuando las dos cosas estén resueltas.
+ * TODO(#27): sacarlo cuando las dos cosas estén resueltas.
+ *
+ * @param delLocatario `true` si la fila vino de `/cobros-locatario`: `locadorId`
+ *   queda vacío para que la pantalla no muestre acciones de locador.
  */
-export function detalleDeResumen(dto: PeriodoCobroResumenResponse): DetallePeriodo {
+export function detalleDeResumen(dto: PeriodoCobroResumenResponse, delLocatario = false): DetallePeriodo {
   return {
     id: String(dto.id_periodo),
     contratoId: String(dto.id_contrato),
@@ -196,7 +208,7 @@ export function detalleDeResumen(dto: PeriodoCobroResumenResponse): DetallePerio
     propiedadId: String(dto.propiedad.id),
     propiedad: domicilioDe(dto.propiedad),
     barrio: dto.propiedad.barrio,
-    locadorId: null,
+    locadorId: delLocatario ? '' : null,
     locatario: nombreDe(dto.locatario),
     periodo: dto.periodo.slice(0, 7),
     inicio: dto.fecha_inicio,
@@ -263,6 +275,65 @@ export function cobroCreadoDeDto(dto: RegistrarCobroResponse): CobroCreado {
   }
 }
 
+// ─── Locatario ────────────────────────────────────────────────────────
+
+/** Pago de `GET /cobros-locatario` → fila de Mis pagos. */
+export function pagoDeDto(dto: PagoLocatarioResponse): PagoFila {
+  return {
+    id: String(dto.id_periodo),
+    propiedad: domicilioDe(dto.propiedad),
+    periodo: dto.periodo.slice(0, 7),
+    monto: dto.monto_pagado,
+    recargo: dto.recargo_pagado,
+    diasAtraso: dto.dias_atraso,
+    medio: dto.medio,
+    fechaPago: dto.fecha_pago,
+    numeroComprobante: null,
+    // TODO(#27): el back todavía no aplica ajustes (punto 15).
+    indiceAjuste: null,
+  }
+}
+
+/** `proximo_periodo` → bloque de arriba de Mis pagos. */
+export function pendienteDeDto(dto: PeriodoCobroResumenResponse): PeriodoPendiente {
+  return {
+    id: String(dto.id_periodo),
+    propiedad: domicilioDe(dto.propiedad),
+    periodo: dto.periodo.slice(0, 7),
+    vencimiento: dto.fecha_vencimiento,
+    estado: dto.estado === 'vencido' ? 'vencido' : 'pendiente',
+    monto: dto.monto_exigible,
+    recargo: dto.intereses_mora,
+    diasAtraso: dto.dias_atraso,
+  }
+}
+
+/**
+ * `proximo_periodo` → monto a pagar (US-12). La mora es la que calcula el back.
+ *
+ * TODO(#27): `proximo_periodo` es uno solo, aunque haya varios contratos, y no
+ * trae tasa ni gracia (puntos 13b y 17).
+ *
+ * @param ultimoPagoPeriodoId Período del último pago, si lo hay.
+ */
+export function proximoDeDto(dto: PeriodoCobroResumenResponse, hoyIso: string, ultimoPagoPeriodoId: string | null): ProximoItem {
+  return {
+    contratoId: String(dto.id_contrato),
+    propiedad: domicilioDe(dto.propiedad),
+    periodoId: String(dto.id_periodo),
+    periodo: dto.periodo.slice(0, 7),
+    vencimiento: dto.fecha_vencimiento,
+    ...varianteDe({ vencimiento: dto.fecha_vencimiento, hoyIso, diasMora: dto.dias_interes, todoPago: false }),
+    alquiler: dto.monto_base_alquiler,
+    mora: dto.intereses_mora,
+    diasMora: dto.dias_interes,
+    total: dto.monto_exigible,
+    tasaDiariaPct: null,
+    sinRecargoHasta: null,
+    ultimoPagoPeriodoId,
+  }
+}
+
 // ─── Errores ──────────────────────────────────────────────────────────
 
 /**
@@ -273,6 +344,12 @@ export function cobroCreadoDeDto(dto: RegistrarCobroResponse): CobroCreado {
  */
 export function errorDeCobros(error: unknown): unknown {
   if (error instanceof ServiceError && error.code === 'server') return new ServiceError('server', COBROS_ERROR_MESSAGE)
+  return error
+}
+
+/** Error de `GET /cobros-locatario`, sin el texto técnico de un 500. */
+export function errorDePagos(error: unknown): unknown {
+  if (error instanceof ServiceError && error.code === 'server') return new ServiceError('server', PAGOS_ERROR_MESSAGE)
   return error
 }
 

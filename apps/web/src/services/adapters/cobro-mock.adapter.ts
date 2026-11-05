@@ -14,15 +14,20 @@ import type {
   CobroRegistrado,
   Comprobante,
   CondicionesCobro,
+  DatosPagos,
   DetallePeriodo,
   EstadoPeriodo,
   EventoPeriodo,
+  IndiceContrato,
   ParteComprobante,
   PeriodoFila,
   PeriodoRegistrable,
+  ProximoItem,
 } from '@rentar/shared-types'
 import dayjs from 'dayjs'
 import { calcularMora, type Mora } from '@/lib/cobros/mora'
+import { periodoAPagar, varianteDe } from '@/lib/cobros/proximoAlquiler'
+import { calendarioAjustes } from '@/lib/contratos/ajustes'
 import {
   cobrosDePeriodos,
   periodos as periodosElenco,
@@ -150,6 +155,96 @@ export function registrablesDeLocadorMock(userId: string, hoyIso: string): Perio
       vencimiento: item.vencimiento,
       alquiler: item.periodo.amount,
     }))
+}
+
+/** Períodos del locatario, calculados. */
+function periodosDeLocatario(userId: string, hoyIso: string): PeriodoCalculado[] {
+  return periodosCalculados(hoyIso).filter((item) => item.propiedad.rental?.tenantUserId === userId)
+}
+
+/**
+ * Índice, si `periodo` es el primero después de un ajuste (US-11: la insignia en
+ * Mis pagos). Sale del calendario del contrato.
+ */
+function indiceDeAjuste({ propiedad, periodo }: PeriodoCalculado): IndiceContrato | null {
+  const { rental, adjustmentIndex, adjustmentEveryMonths } = propiedad
+  if (!rental || !adjustmentIndex) return null
+  const ajustes = calendarioAjustes(rental.startDate, rental.endDate, adjustmentEveryMonths).filter((item) => item.tipo !== 'inicio')
+  return ajustes.some((item) => item.fecha.startsWith(periodo.period)) ? adjustmentIndex : null
+}
+
+/** Pendientes y pagos del locatario para Mis pagos. Los futuros no van. */
+export function datosPagosMock(userId: string, hoyIso: string): DatosPagos {
+  const propios = periodosDeLocatario(userId, hoyIso).filter((item) => item.inicio <= hoyIso)
+  return {
+    pendientes: propios.flatMap((item) =>
+      item.estado === 'pagado'
+        ? []
+        : [
+            {
+              id: item.periodo.id,
+              propiedad: formatAddress(item.propiedad),
+              periodo: item.periodo.period,
+              vencimiento: item.vencimiento,
+              estado: item.estado,
+              monto: item.mora.total,
+              recargo: item.mora.mora,
+              diasAtraso: item.mora.diasAtraso,
+            },
+          ],
+    ),
+    pagos: propios.flatMap((item) =>
+      item.cobro
+        ? [
+            {
+              id: item.periodo.id,
+              propiedad: formatAddress(item.propiedad),
+              periodo: item.periodo.period,
+              monto: item.mora.total,
+              recargo: item.mora.mora,
+              diasAtraso: item.mora.diasAtraso,
+              medio: item.cobro.medio,
+              fechaPago: item.cobro.fecha,
+              numeroComprobante: item.cobro.id,
+              indiceAjuste: indiceDeAjuste(item),
+            },
+          ]
+        : [],
+    ),
+  }
+}
+
+/** El monto a pagar de cada contrato vigente del locatario (US-12). */
+export function proximosMock(userId: string, hoyIso: string): ProximoItem[] {
+  const propios = periodosDeLocatario(userId, hoyIso)
+  const contratos = [...new Set(propios.map((item) => item.periodo.contractId))]
+  return contratos.flatMap((contratoId) => {
+    const delContrato = propios.filter((item) => item.periodo.contractId === contratoId)
+    const aPagar = periodoAPagar(delContrato.map((item) => ({ ...item, periodo: item.periodo.period, pagado: item.cobro !== null, datos: item })))
+    if (!aPagar) return []
+    const { datos } = aPagar
+    const ultimo = delContrato.filter((item) => item.cobro).at(-1)
+    const anterior = delContrato.filter((item) => item.periodo.period < datos.periodo.period)
+    const todoPago = datos.inicio > hoyIso && anterior.every((item) => item.cobro)
+    const { tasaDiariaPct, diasGracia } = condicionesDe(datos.propiedad)
+    return [
+      {
+        contratoId,
+        propiedad: formatAddress(datos.propiedad),
+        periodoId: datos.periodo.id,
+        periodo: datos.periodo.period,
+        vencimiento: datos.vencimiento,
+        ...varianteDe({ vencimiento: datos.vencimiento, hoyIso, diasMora: datos.mora.diasMora, todoPago }),
+        alquiler: datos.periodo.amount,
+        mora: datos.mora.mora,
+        diasMora: datos.mora.diasMora,
+        total: datos.mora.total,
+        tasaDiariaPct,
+        sinRecargoHasta: dayjs(datos.vencimiento).add(diasGracia, 'day').format('YYYY-MM-DD'),
+        ultimoPagoPeriodoId: ultimo?.periodo.id ?? null,
+      },
+    ]
+  })
 }
 
 /** Tasa, gracia e inicio del contrato; `null` si el contrato no está en el elenco. */

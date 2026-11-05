@@ -14,31 +14,43 @@
  * parcial, así que tampoco saldo.
  */
 import type {
+  AlquilerResumen,
   CobroCreado,
   Comprobante,
   CondicionesCobro,
+  DatosPagos,
   DetallePeriodo,
   FiltrosCobros,
+  FiltrosPagos,
   ListadoCobros,
+  MisPagos,
+  PagoFila,
   PeriodoFila,
   PeriodoRegistrable,
+  ProximoAlquiler,
+  ProximoItem,
   RegistrarCobroDatos,
 } from '@rentar/shared-types'
 import { armarListado } from '@/lib/cobros/listado'
+import { armarMisPagos, ultimosPagos } from '@/lib/cobros/misPagos'
+import { armarProximo, pendienteDeFirma } from '@/lib/cobros/proximoAlquiler'
 import { errorDeAdjunto, errorDeFechaCobro, errorDeNota } from '@/lib/cobros/validaciones'
 import { ahoraIso, hoy } from '@/lib/utils/fechas'
 import {
   comprobanteMock,
   condicionesDeContratoMock,
+  datosPagosMock,
   detalleMock,
   filasDeLocadorMock,
   guardarCobroMock,
   nombreDeUsuarioMock,
   periodoParaRegistrarMock,
+  proximosMock,
   registrablesDeLocadorMock,
   siguienteComprobanteMock,
 } from './adapters/cobro-mock.adapter'
 import {
+  COBRO_NO_DISPONIBLE_MESSAGE,
   COBRO_NO_ENCONTRADO_MESSAGE,
   cobroCreadoDeDto,
   comprobanteDeDto,
@@ -47,20 +59,27 @@ import {
   detalleDeResumen,
   errorDeCobros,
   errorDeComprobante,
+  errorDePagos,
   errorDePeriodo,
   errorDeRegistro,
   filaDeDto,
+  pagoDeDto,
+  pendienteDeDto,
   PERIODO_FUTURO_MESSAGE,
   PERIODO_PAGADO_MESSAGE,
+  proximoDeDto,
   REGISTRAR_ERROR_MESSAGE,
   registrableDeDto,
 } from './adapters/cobro.adapter'
+import { listarMisAlquileres } from './contratos.service'
 import { apiBlob, apiRequest } from './shared/apiClient'
 import type {
   ComprobantePagoResponse,
   ContratoDetalleApiResponse,
   DetalleCobroResponse,
   HistorialCobrosResponse,
+  PagoLocatarioResponse,
+  PagosLocatarioResponse,
   PeriodoCobroResumenResponse,
   PeriodosCobroResponse,
   RegistrarCobroResponse,
@@ -82,6 +101,11 @@ const LIMITE_POR_PAGINA = 100
 /** Hoy en ISO, `AAAA-MM-DD`. */
 function hoyIso(): string {
   return hoy().format('YYYY-MM-DD')
+}
+
+/** Un contrato pendiente de firma → ítem de la tarjeta (US-12). */
+function itemPendienteDeFirma(alquiler: AlquilerResumen): ProximoItem {
+  return pendienteDeFirma(alquiler.id, alquiler.propertyAddress, alquiler.currentAmount ?? 0)
 }
 
 /** Trae todas las páginas de un listado. */
@@ -176,11 +200,11 @@ export async function getCondicionesCobro(contratoId: string): Promise<Condicion
 /**
  * Detalle de un período (US-09). Lo pueden pedir las dos partes.
  *
- * NOTA (PO, 05/11): si `GET /cobros/:id` da 500, se busca el período en el
- * listado del locador, así el historial no rompe toda la pantalla. Ver
- * `detalleDeResumen`. Ese listado solo trae períodos propios: si no está ahí,
- * para el locador no existe. Si el listado también falla (el locatario no tiene
- * acceso), se muestra el error con "Reintentar".
+ * NOTA (PO, 05/11): si `GET /cobros/:id` da 500, se busca el período en los
+ * listados del locador y del locatario, así el historial no rompe toda la
+ * pantalla (ver `detalleDeResumen`). Si no aparece, NO se dice "No encontramos
+ * este cobro": puede existir. Eso queda para el 404 o el id inválido.
+ * TODO(#27): sacar el respaldo cuando `GET /cobros/:id` responda.
  *
  * @backend GET /api/v1/cobros/:id (existe; hoy da 500 siempre, S4-16)
  * @throws {ServiceError} `not_found` si no existe o es ajeno.
@@ -196,11 +220,13 @@ export async function getPeriodo(id: string): Promise<DetallePeriodo> {
     return detalleDeDto(await apiRequest<DetalleCobroResponse>(`/cobros/${encodeURIComponent(id)}`))
   } catch (error) {
     if (!(error instanceof ServiceError) || error.code !== 'server') throw errorDePeriodo(error)
-    const items = await historialCompleto().catch(() => null)
-    if (!items) throw errorDePeriodo(error)
-    const item = items.find((periodo) => String(periodo.id_periodo) === id)
-    if (!item) throw new ServiceError('not_found', COBRO_NO_ENCONTRADO_MESSAGE)
-    return detalleDeResumen(item)
+    const esEste = (periodo: PeriodoCobroResumenResponse) => String(periodo.id_periodo) === id
+    const delLocador = (await historialCompleto().catch(() => [])).find(esEste)
+    if (delLocador) return detalleDeResumen(delLocador)
+    const pagos = await pagosLocatario().catch(() => null)
+    const delLocatario = pagos ? [...pagos.items, ...(pagos.proximo ? [pagos.proximo] : [])].find(esEste) : undefined
+    if (delLocatario) return detalleDeResumen(delLocatario, true)
+    throw new ServiceError('server', COBRO_NO_DISPONIBLE_MESSAGE)
   }
 }
 
@@ -214,6 +240,79 @@ export async function urlAdjuntoDeCobro(periodoId: string, cobroId: string): Pro
   const url = detalle.cobros.find((cobro) => String(cobro.id_cobro) === cobroId)?.adjunto_url
   if (!url) throw new ServiceError('not_found', 'No encontramos el adjunto.')
   return url
+}
+
+// ─── Locatario ────────────────────────────────────────────────────────
+
+/** `GET /cobros-locatario` completo: sin `anio`, porque también filtraría `proximo_periodo`. */
+async function pagosLocatario(): Promise<{ items: PagoLocatarioResponse[]; proximo: PeriodoCobroResumenResponse | null }> {
+  const items: PagoLocatarioResponse[] = []
+  for (let page = 1; ; page += 1) {
+    const respuesta = await apiRequest<PagosLocatarioResponse>('/cobros-locatario', { query: { page, limit: LIMITE_POR_PAGINA } })
+    items.push(...respuesta.items)
+    if (respuesta.items.length === 0 || items.length >= respuesta.total) return { items, proximo: respuesta.proximo_periodo }
+  }
+}
+
+/** Pendientes y pagos del usuario, sin filtrar. */
+async function datosPagos(): Promise<DatosPagos> {
+  if (USE_MOCKS) {
+    await delay()
+    return datosPagosMock(requireSessionUserId(), hoyIso())
+  }
+  try {
+    const { items, proximo } = await pagosLocatario()
+    return { pendientes: proximo ? [pendienteDeDto(proximo)] : [], pagos: items.map(pagoDeDto) }
+  } catch (error) {
+    throw errorDePagos(error)
+  }
+}
+
+/**
+ * Mis pagos (US-09): lo pendiente arriba, indicadores del año e historial.
+ *
+ * @backend GET /api/v1/cobros-locatario (existe). Los filtros se aplican acá: ver
+ * `lib/cobros/misPagos.ts`.
+ */
+export async function listarMisPagos(filtros: FiltrosPagos): Promise<MisPagos> {
+  return armarMisPagos(await datosPagos(), filtros, hoyIso())
+}
+
+/**
+ * Los últimos 3 pagos, para el panel (US-12).
+ *
+ * @backend GET /api/v1/cobros-locatario (existe)
+ */
+export async function getUltimosPagos(): Promise<PagoFila[]> {
+  const { pagos } = await datosPagos()
+  return ultimosPagos(pagos)
+}
+
+/**
+ * Monto a pagar de cada contrato, para la tarjeta "Tu próximo alquiler" y Mi
+ * alquiler (US-12). Los pendientes de firma salen de Mis alquileres.
+ *
+ * TODO(#27): en real, `proximo_periodo` es uno solo, aunque haya varios contratos.
+ *
+ * @backend GET /api/v1/cobros-locatario y GET /api/v1/alquileres-locatario (existen)
+ */
+export async function getProximoAlquiler(): Promise<ProximoAlquiler> {
+  const alquileres = await listarMisAlquileres()
+  const pendientes = alquileres.filter((alquiler) => alquiler.status === 'pendiente_firma').map(itemPendienteDeFirma)
+  let vigentes: ProximoItem[]
+  if (USE_MOCKS) {
+    await delay()
+    vigentes = proximosMock(requireSessionUserId(), hoyIso())
+  } else {
+    try {
+      const { items, proximo } = await pagosLocatario()
+      const ultimo = items.length > 0 ? String(ultimosPagos(items.map(pagoDeDto))[0]?.id) : null
+      vigentes = proximo ? [proximoDeDto(proximo, hoyIso(), ultimo)] : []
+    } catch (error) {
+      throw errorDePagos(error)
+    }
+  }
+  return armarProximo([...vigentes, ...pendientes])
 }
 
 // ─── Registrar ────────────────────────────────────────────────────────

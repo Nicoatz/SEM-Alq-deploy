@@ -1008,3 +1008,25 @@ export interface ComprobantePagoResponse {
   fecha_cobro: string
   nota: string | null
 }
+
+/** Fila de `GET /cobros-locatario`: un pago, con los datos de su período. */
+export interface PagoLocatarioResponse extends PeriodoCobroResumenResponse {
+  fecha_pago: string
+  monto_pagado: number
+  medio: MedioCobroDto
+  recargo_pagado: number
+  pagos_a_termino: boolean
+}
+
+/**
+ * `GET /cobros-locatario`.
+ * NOTA: `proximo_periodo` es uno solo, aunque haya varios contratos, y `anio`
+ * también lo filtra: se pide sin `anio` (issue #27, punto 17).
+ */
+export interface PagosLocatarioResponse {
+  proximo_periodo: PeriodoCobroResumenResponse | null
+  items: PagoLocatarioResponse[]
+  total: number
+  page: number
+  limit: number
+}
