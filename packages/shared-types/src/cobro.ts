@@ -48,9 +48,13 @@ export interface PeriodoFila {
   /** Fecha ISO de vencimiento. */
   vencimiento: string
   estado: EstadoPeriodo
+  /** Alquiler del período, sin mora. */
+  alquiler: number
   /** Total: lo cobrado si está pagado; si no, alquiler + mora a hoy. */
   monto: number
   diasAtraso: number
+  /** Fecha ISO del pago; `null` si no está pagado o el listado no la trae. */
+  fechaPago: string | null
 }
 
 /** Indicadores del mes elegido, o del mes actual sin filtro (US-09). */

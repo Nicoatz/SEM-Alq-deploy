@@ -177,7 +177,7 @@ export function Cobros() {
         <>
           <div className={styles.indicadores} data-testid="cobros-indicadores">
             <StatCard title={`Cobrado · ${nombreDeMes(listado.indicadores.mes)}`} value={formatARS(listado.indicadores.cobrado)} data-testid="cobros-indicador-cobrado" />
-            <StatCard title={`Vencido · ${nombreDeMes(listado.indicadores.mes)}`} value={formatARS(listado.indicadores.vencido)} data-testid="cobros-indicador-vencido" />
+            <StatCard title={`Vencido · ${nombreDeMes(listado.indicadores.mes)}`} value={formatARS(listado.indicadores.vencido)} delta={{ label: 'Incluye intereses por mora', trend: 'neutral' }} data-testid="cobros-indicador-vencido" />
           </div>
 
           <div className={styles.toolbar}>

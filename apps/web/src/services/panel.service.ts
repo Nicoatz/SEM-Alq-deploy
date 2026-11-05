@@ -17,7 +17,6 @@
  * de "Viendo como" del UserMenu).
  */
 import type {
-  CobroPanel,
   EventoContratoPanel,
   ReclamoPanel,
   ResumenCobros,
@@ -26,9 +25,11 @@ import type {
   SolicitudPanel,
   UserRole,
 } from '@rentar/shared-types'
-import { cobros as cobrosElenco, propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
+import { propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
+import { resumenDelMes } from '@/lib/cobros/resumenPanel'
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
+import { filasDeLocador } from './cobros.service'
 import { listarMisPropiedades } from './propiedades.service'
 import { listarSolicitudesRecibidas, readSolicitudesMock } from './solicitudes.service'
 import { USE_MOCKS } from './shared/config'
@@ -49,61 +50,16 @@ function propiedadesDe(ownerId: string): PropiedadMock[] {
   return readMockCollection('propiedades', propiedadesElenco).filter((propiedad) => propiedad.ownerId === ownerId)
 }
 
-/** Orden del diseño para "Próximos cobros": vencidos, pendientes por fecha, pagados al final. */
-function ordenCobro(cobro: CobroPanel): number {
-  return cobro.status === 'vencido' ? 0 : cobro.status === 'pendiente' ? 1 : 2
-}
-
-/** Cobros del período de las propiedades de un locador, ya como `CobroPanel`. */
-function cobrosDe(ownerId: string): CobroPanel[] {
-  const propias = propiedadesDe(ownerId)
-  return cobrosElenco
-    .map((cobro): CobroPanel | null => {
-      const propiedad = propias.find((item) => item.id === cobro.propertyId)
-      if (!propiedad?.rental) return null
-      const vencido = !cobro.paidAt && diasHasta(cobro.dueDate) < 0
-      return {
-        id: cobro.id,
-        propertyId: propiedad.id,
-        propertyAddress: formatAddress(propiedad),
-        tenantName: propiedad.rental.tenantName,
-        amount: cobro.amount,
-        dueDate: cobro.dueDate,
-        status: cobro.paidAt ? 'pagado' : vencido ? 'vencido' : 'pendiente',
-        paidAt: cobro.paidAt,
-      }
-    })
-    .filter((cobro): cobro is CobroPanel => cobro !== null)
-    .sort((a, b) => ordenCobro(a) - ordenCobro(b) || a.dueDate.localeCompare(b.dueDate))
-}
-
 // ─── Bloques del panel ──────────────────────────────────────────────────
 
 /**
  * Cobros del mes del locador en sesión: cobrado, total, vencidos y la lista
- * "Próximos cobros".
- * @backend GET /api/v1/panel/cobros   (no existe — propuesto) → ResumenCobros
- * TODO(backend): crear la ruta cuando exista el módulo de cobros (US-08/US-09).
- * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
- * existe: así el panel muestra su estado vacío y no un error.
+ * "Próximos cobros". Sale de los mismos períodos que `/panel/cobros`, con la
+ * misma mora (decisión del PO, 05/11).
+ * @backend GET /api/v1/cobros-locador/historial (existe), a través de `filasDeLocador`
  */
 export async function getResumenCobros(): Promise<ResumenCobros> {
-  if (USE_MOCKS) {
-    await delay(500)
-    const items = cobrosDe(requireSessionUserId())
-    const vencidos = items.filter((cobro) => cobro.status === 'vencido')
-    return {
-      // El período de los cobros del elenco (septiembre de 2026).
-      month: cobrosElenco[0]?.period ?? hoy().format('YYYY-MM'),
-      collected: items.filter((cobro) => cobro.status === 'pagado').reduce((total, cobro) => total + cobro.amount, 0),
-      total: items.reduce((total, cobro) => total + cobro.amount, 0),
-      overdueAmount: vencidos.reduce((total, cobro) => total + cobro.amount, 0),
-      overdueCount: vencidos.length,
-      items,
-    }
-  }
-  // TODO(backend): cuando exista la ruta: return apiRequest<ResumenCobros>('/panel/cobros')
-  return { month: hoy().format('YYYY-MM'), collected: 0, total: 0, overdueAmount: 0, overdueCount: 0, items: [] }
+  return resumenDelMes(await filasDeLocador(), hoy().format('YYYY-MM-DD'))
 }
 
 /**
@@ -261,7 +217,7 @@ export async function getResumenRoles(roles: UserRole[]): Promise<ResumenContext
     const resumen: ResumenContextoRol[] = []
     if (roles.includes('locador')) {
       const propias = propiedadesDe(userId)
-      const vencidos = cobrosDe(userId).filter((cobro) => cobro.status === 'vencido').length
+      const { overdueCount: vencidos } = resumenDelMes(await filasDeLocador(), hoy().format('YYYY-MM-DD'))
       const partes = [contarTexto(propias.length, 'propiedad', 'propiedades')]
       if (vencidos > 0) partes.push(contarTexto(vencidos, 'cobro vencido', 'cobros vencidos'))
       resumen.push({ role: 'locador', description: partes.join(' · '), pendingCount: vencidos })

@@ -129,8 +129,10 @@ export function filasDeLocadorMock(userId: string, hoyIso: string): PeriodoFila[
       inicio: item.inicio,
       vencimiento: item.vencimiento,
       estado: item.estado,
+      alquiler: item.periodo.amount,
       monto: item.mora.total,
       diasAtraso: item.mora.diasAtraso,
+      fechaPago: item.cobro?.fecha ?? null,
     }))
 }
 

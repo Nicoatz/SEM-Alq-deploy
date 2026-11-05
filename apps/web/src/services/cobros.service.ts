@@ -112,14 +112,21 @@ async function historialCompleto(): Promise<PeriodoCobroResumenResponse[]> {
  * acá: las cantidades del back dependen del estado y trae períodos futuros.
  */
 export async function listarCobrosLocador(filtros: FiltrosCobros): Promise<ListadoCobros> {
-  let filas: PeriodoFila[]
+  return armarListado(await filasDeLocador(), filtros, hoyIso())
+}
+
+/**
+ * Todos los períodos del locador, sin armar. También los usa el panel: así
+ * `/panel` y `/panel/cobros` leen lo mismo.
+ *
+ * @backend GET /api/v1/cobros-locador/historial (existe)
+ */
+export async function filasDeLocador(): Promise<PeriodoFila[]> {
   if (USE_MOCKS) {
     await delay()
-    filas = filasDeLocadorMock(requireSessionUserId(), hoyIso())
-  } else {
-    filas = (await historialCompleto()).map(filaDeDto)
+    return filasDeLocadorMock(requireSessionUserId(), hoyIso())
   }
-  return armarListado(filas, filtros, hoyIso())
+  return (await historialCompleto()).map(filaDeDto)
 }
 
 /**

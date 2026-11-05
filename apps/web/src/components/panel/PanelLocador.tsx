@@ -172,7 +172,7 @@ export function PanelLocador({ nombre }: { nombre: string }) {
         value={<span className={cobros.data.overdueAmount > 0 ? styles.overdueValue : undefined}>{formatARS(cobros.data.overdueAmount)}</span>}
         delta={
           cobros.data.overdueCount > 0
-            ? { label: `${contar(cobros.data.overdueCount, 'cobro', 'cobros')} · el más viejo, ${textoDias(vencidoMasViejo)}`, trend: 'down' }
+            ? { label: `Incluye intereses por mora · ${contar(cobros.data.overdueCount, 'cobro', 'cobros')} · el más viejo, ${textoDias(vencidoMasViejo)}`, trend: 'down' }
             : { label: 'Nada vencido', trend: 'neutral' }
         }
         data-testid="panel-stat-vencidos"

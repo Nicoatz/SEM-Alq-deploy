@@ -88,9 +88,11 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - **Cobros (US-08, US-09 y US-10):** `periodos.mock.ts` tiene agosto (cobrado), septiembre y octubre (futuro:
   no se muestra) de los 5 vigentes, con 0,5 % diario y 5 días de gracia. Los ids son `PER-0102-2026-09`; los
   comprobantes, `RC-AAAA-NNNN`. Al 23/09, Nicolás tiene dos vencidos, uno pendiente y uno pagado en septiembre.
-  El indicador "Vencido" suma la mora ($1.021.000) y el panel no ($980.000). Lo que se registra va a
-  `rentar:mock:cobros` y no cambia el panel ni Mis propiedades. Un contrato que queda vigente en la sesión no
-  genera períodos.
+  "Vencido" da $1.021.000 en `/panel` y en `/panel/cobros`: los dos leen estos períodos y suman la mora (el
+  alquiler solo serían $980.000). "Total del mes" sigue en $1.890.000: es lo pactado, sin mora. Lo que se
+  registra va a `rentar:mock:cobros` y también cambia el panel. Pendiente del mock: Mis propiedades (US-02)
+  sigue leyendo `cobros` de `panel.mock.ts`, así que no se entera. Un contrato que queda vigente en la sesión
+  no genera períodos.
 - **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
   `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
   sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.

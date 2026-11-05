@@ -99,8 +99,10 @@ export function filaDeDto(dto: PeriodoCobroResumenResponse): PeriodoFila {
     inicio: dto.fecha_inicio,
     vencimiento: dto.fecha_vencimiento,
     estado: dto.estado,
+    alquiler: dto.monto_base_alquiler,
     monto: dto.estado === 'pagado' ? dto.total_cobrado : dto.monto_exigible,
     diasAtraso: dto.dias_atraso,
+    fechaPago: null,
   }
 }
 

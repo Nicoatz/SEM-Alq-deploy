@@ -8,7 +8,10 @@
  * escritas a mano: "vence en 5 días" o "hace 2 días" se calculan contra
  * hoy (`lib/utils/fechas.ts`).
  *
- * Cómo se calcula cada cifra del panel (en `services/panel.service.ts`):
+ * NOTA: desde la Tanda 4 del Sprint 4, `/panel` lee `periodos.mock.ts`, como
+ * `/panel/cobros`. Este array lo sigue usando Mis propiedades (US-02).
+ *
+ * Cómo se calculaba cada cifra del panel:
  * - **Cobrado / Total del mes**: suma de los `amount` de {@link cobros} del
  *   período con `paidAt` (cobrado) sobre la suma de todos los del período
  *   (total). Nicolás, septiembre: $470.000 / $1.890.000.

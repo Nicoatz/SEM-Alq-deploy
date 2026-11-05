@@ -92,6 +92,7 @@ export function BloqueError({ title, onReintentar, ...rest }: BloqueErrorProps) 
 
 /** Segunda línea de un cobro: quién, cuándo y cuánto falta (o cuánto se atrasó). */
 function detalleCobro(cobro: CobroPanel): string {
+  if (cobro.status === 'pagado' && !cobro.paidAt) return `${cobro.tenantName} · pagado`
   if (cobro.status === 'pagado' && cobro.paidAt) return `${cobro.tenantName} · acreditado el ${formatDate(cobro.paidAt, DIA_MES)}`
   if (cobro.status === 'vencido') {
     return `${cobro.tenantName} · venció el ${formatDate(cobro.dueDate, DIA_MES)} · ${textoDias(diasDesde(cobro.dueDate))} de atraso`
