@@ -36,7 +36,7 @@ import type {
 import { MESES_POR_PERIODO } from '@/lib/contratos/fechas'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { completarClausulas } from '@/lib/contratos/plantilla'
-import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO } from '@/lib/contratos/validaciones'
+import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO } from '@/lib/contratos/validaciones'
 import { telefonoAE164, telefonoDelBack } from '@/lib/perfil/formato'
 import type {
   AlquilerLocatarioDetalleResponse,
@@ -220,7 +220,7 @@ export function borradorDeApi(dto: ContratoBorradorApiResponse): ContratoBorrado
       durationMonths: condiciones.duracion_meses,
       initialAmount: condiciones.monto_alquiler,
       deposit: condiciones.deposito,
-      paymentDueDay: condiciones.dias_para_vencimiento,
+      paymentTermDays: condiciones.dias_para_vencimiento,
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(condiciones.frecuencia_ajuste),
     },
@@ -256,7 +256,7 @@ export function patchDeCambios(cambios: CambiosBorrador): GuardarBorradorRequest
     if ('durationMonths' in condiciones) salida.duracion_meses = condiciones.durationMonths
     if ('initialAmount' in condiciones) salida.monto_alquiler = condiciones.initialAmount
     if ('deposit' in condiciones) salida.deposito = condiciones.deposit
-    if ('paymentDueDay' in condiciones) salida.dias_para_vencimiento = condiciones.paymentDueDay
+    if ('paymentTermDays' in condiciones) salida.dias_para_vencimiento = condiciones.paymentTermDays
     if (condiciones.adjustmentIndex) salida.indice_aumento = condiciones.adjustmentIndex === 'sin_ajuste' ? null : INDICE_ID[condiciones.adjustmentIndex]
     if ('adjustmentPeriod' in condiciones) salida.frecuencia_ajuste = condiciones.adjustmentPeriod
     if (Object.keys(salida).length > 0) cuerpo.condiciones = salida
@@ -273,8 +273,6 @@ function parteDeApi(dto: ParteApiDto | null): ParteContrato {
 /**
  * `GET /contratos/:id/detalle` → el detalle del locador (US-42).
  * - Lo que no vino queda en `null` o vacío: la pantalla muestra "Sin dato".
- * - `paymentDueDay` en `null`: el back manda un plazo en días, no un día del
- *   mes (`datosApi.diasParaVencimiento`).
  * - Sin `clausulas` ni historial: el documento es el PDF del back.
  * - `datosApi` en lugar de `null`: no ofrece firma en línea (US-07 no existe en la API).
  */
@@ -310,7 +308,7 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
       durationMonths: condiciones.duracion_meses,
       initialAmount: condiciones.monto_inicial,
       deposit: condiciones.deposito,
-      paymentDueDay: null,
+      paymentTermDays: condiciones.dias_para_vencimiento,
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(condiciones.frecuencia_ajuste),
     },
@@ -390,7 +388,7 @@ export function contratoDeDto(dto: ContratoResponse): ContratoBorrador {
           durationMonths: dto.condiciones.duracion_meses,
           initialAmount: dto.condiciones.monto_inicial,
           deposit: dto.condiciones.deposito,
-          paymentDueDay: dto.condiciones.dia_vencimiento,
+          paymentTermDays: dto.condiciones.dia_vencimiento,
           adjustmentIndex: dto.condiciones.indice,
           adjustmentPeriod: dto.condiciones.periodicidad,
         }
@@ -399,7 +397,7 @@ export function contratoDeDto(dto: ContratoResponse): ContratoBorrador {
           durationMonths: DURACION_POR_DEFECTO,
           initialAmount: precio,
           deposit: precio,
-          paymentDueDay: DIA_VENCIMIENTO_POR_DEFECTO,
+          paymentTermDays: PLAZO_VENCIMIENTO_POR_DEFECTO,
           adjustmentIndex: inmueble.indice_publicacion ?? 'sin_ajuste',
           // NOTA: la periodicidad de la publicación es texto libre en el back: se elige en el paso 2.
           adjustmentPeriod: null,
@@ -614,7 +612,7 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
       durationMonths: null,
       initialAmount: null,
       deposit: dto.deposito,
-      paymentDueDay: null,
+      paymentTermDays: dto.dias_para_vencimiento,
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDeFrecuencia(dto.frecuencia_ajuste),
     },
@@ -688,7 +686,7 @@ export function datosToContratoRequest(datos: DatosContrato): ContratoRequest {
       duracion_meses: condiciones.durationMonths,
       monto_inicial: condiciones.initialAmount,
       deposito: condiciones.deposit,
-      dia_vencimiento: condiciones.paymentDueDay,
+      dia_vencimiento: condiciones.paymentTermDays,
       indice: condiciones.adjustmentIndex,
       periodicidad: condiciones.adjustmentIndex === 'sin_ajuste' ? null : condiciones.adjustmentPeriod,
     },

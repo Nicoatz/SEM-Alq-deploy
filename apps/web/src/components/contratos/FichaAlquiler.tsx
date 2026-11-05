@@ -8,7 +8,7 @@
  *   el estado y el código del contrato ({@link EncabezadoAlquiler});
  * - el locador con su nombre y contacto ({@link LocadorAlquiler});
  * - las condiciones: vigencia, monto actual, depósito, índice y
- *   periodicidad, día de pago, medios de pago y garantes
+ *   periodicidad, plazo de vencimiento, medios de pago y garantes
  *   ({@link CondicionesAlquiler});
  * - "Lo que viene": próximo pago, próximo ajuste con su índice (monto "a
  *   definir", decisión del PO) y fin del contrato, con los días que faltan
@@ -28,7 +28,7 @@ import { HomeOutlined } from '@ant-design/icons'
 import type { ContratoDetalle } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount, StatusTag } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
-import { fechaCorta } from '@/lib/contratos/fechas'
+import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaDesdeHoy, loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
@@ -86,7 +86,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
     hoyIso,
     inicio: condiciones.startDate,
     fin: contrato.endDate,
-    diaPago: condiciones.paymentDueDay,
+    plazoDias: condiciones.paymentTermDays,
     indice: condiciones.adjustmentIndex,
     cadaMeses: contrato.ajusteCadaMeses,
   })
@@ -94,7 +94,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
   const pago = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoVencimientoPago) : calculado.pago
   const ajuste = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoAjuste) : calculado.ajuste
   const { fin } = calculado
-  const tienePlazoDePago = datosApi ? datosApi.diasParaVencimiento !== null : condiciones.paymentDueDay !== null
+  const tienePlazoDePago = condiciones.paymentTermDays !== null
   return (
     <section className={styles.tarjeta} aria-labelledby="mi-alquiler-viene-titulo" data-testid="mi-alquiler-lo-que-viene">
       <h2 id="mi-alquiler-viene-titulo" className={styles.tarjetaTitulo}>
@@ -153,12 +153,7 @@ export function CondicionesAlquiler({ contrato }: FichaProps) {
    * días desde que el monto está disponible: se dice eso, sin convertirlo en
    * un día del mes. Tema a decidir con el equipo (HANDOFF §7, US-05).
    */
-  const vencimiento = datosApi
-    ? {
-        label: 'Vencimiento del pago',
-        value: datosApi.diasParaVencimiento === null ? 'Sin dato' : `Vence a los ${datosApi.diasParaVencimiento} ${datosApi.diasParaVencimiento === 1 ? 'día' : 'días'} de cada período`,
-      }
-    : { label: 'Día de pago', value: condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes` }
+  const vencimiento = { label: 'Vencimiento del pago', value: condiciones.paymentTermDays === null ? 'Sin dato' : textoPlazo(condiciones.paymentTermDays) }
   // "cada N meses" si se reconoce la frecuencia; si no, el texto del back tal cual ("cada 6 meses" / "Semestral").
   const frecuencia = contrato.ajusteCadaMeses ? cadaTexto(contrato.ajusteCadaMeses) : (datosApi?.frecuenciaAjuste ?? '')
   const sinRegistro = !contrato.firmasRegistradas && contrato.garantes.length === 0

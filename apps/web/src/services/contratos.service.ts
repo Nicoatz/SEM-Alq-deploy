@@ -48,7 +48,7 @@ import { ordenarAlquileres } from '@/lib/contratos/listado'
 import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { completarClausulas } from '@/lib/contratos/plantilla'
 import { separarContratos } from '@/lib/contratos/propiedad'
-import { DIA_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
+import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
 import { cobros as cobrosElenco, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
 import {
@@ -249,7 +249,7 @@ export async function prepararContrato(solicitudId: string): Promise<ContratoBor
         initialAmount: precio,
         // US-05: "por defecto equivale a un mes de alquiler".
         deposit: precio,
-        paymentDueDay: DIA_VENCIMIENTO_POR_DEFECTO,
+        paymentTermDays: PLAZO_VENCIMIENTO_POR_DEFECTO,
         // Decisión del PO: el índice de la publicación (IPC o ICL); si no tiene, "Sin ajuste".
         adjustmentIndex: indice,
         adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),
@@ -493,10 +493,10 @@ function cadaMesesDe(condiciones: ContratoBorrador['condiciones']): number | nul
 }
 
 /**
- * Día de pago de un alquiler del elenco: el del vencimiento de su cobro en
- * `panel.mock.ts` (dato del elenco, no inventado); `null` si no tiene.
+ * Plazo de vencimiento de un alquiler del elenco, en días: sale del vencimiento
+ * de su cobro en `panel.mock.ts` (dato del elenco, no inventado); `null` si no tiene.
  */
-function diaDePagoDelElenco(contractId: string): number | null {
+function plazoDelElenco(contractId: string): number | null {
   const cobro = cobrosElenco.find((item) => item.contractId === contractId)
   return cobro ? dayjs(cobro.dueDate).date() : null
 }
@@ -506,7 +506,7 @@ function diaDePagoDelElenco(contractId: string): number | null {
  * Solo con lo que el elenco tiene: sin firmas, historial ni monto inicial
  * (se muestran vacíos, nunca inventados); el depósito y los garantes, solo
  * donde el elenco los cargó. El monto
- * actual y el próximo ajuste salen de `rental`; el día de pago, de su
+ * actual y el próximo ajuste salen de `rental`; el plazo de pago, de su
  * cobro en `panel.mock.ts` (US-27, tanda 4).
  */
 function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null {
@@ -532,7 +532,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
       // NOTA: `rental` guarda el monto ACTUAL (ya ajustado), no el inicial.
       initialAmount: null,
       deposit: rental.deposit ?? null,
-      paymentDueDay: diaDePagoDelElenco(rental.contractId),
+      paymentTermDays: plazoDelElenco(rental.contractId),
       adjustmentIndex: indice,
       adjustmentPeriod: indice === 'sin_ajuste' ? null : periodicidadDePublicacion(propiedad),
     },

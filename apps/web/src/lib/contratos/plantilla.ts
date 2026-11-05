@@ -105,7 +105,7 @@ const CLAUSULAS: readonly ClausulaPlantilla[] = [
     titulo: 'Precio y forma de pago',
     texto: ({ condiciones, propiedad }) => {
       const medios = propiedad.cobro.paymentMethods.map((medio) => MEDIO_PAGO_CORTO[medio.method]).join(', ')
-      return `El alquiler mensual inicial es de ${monto(condiciones.initialAmount)}, pagadero por mes adelantado del día 1 al día ${condiciones.paymentDueDay ?? FALTA} de cada mes, a través de la plataforma RentAR${medios ? ` por alguno de estos medios: ${medios}` : ''}. Cada pago queda registrado en la plataforma, que emite el comprobante.`
+      return `El alquiler mensual inicial es de ${monto(condiciones.initialAmount)}, pagadero por mes adelantado dentro de los ${condiciones.paymentTermDays ?? FALTA} días de cada período, a través de la plataforma RentAR${medios ? ` por alguno de estos medios: ${medios}` : ''}. Cada pago queda registrado en la plataforma, que emite el comprobante.`
     },
   },
   {

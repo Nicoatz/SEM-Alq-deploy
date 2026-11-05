@@ -25,10 +25,10 @@ export const GARANTES_MAX = 3
 export const CLAUSULA_MAX = 1000
 /** US-05: "por defecto es 24 meses". */
 export const DURACION_POR_DEFECTO = 24
-/** US-05: "entre 1 y 28. Por defecto es el día 10". */
-export const DIA_VENCIMIENTO_MIN = 1
-export const DIA_VENCIMIENTO_MAX = 28
-export const DIA_VENCIMIENTO_POR_DEFECTO = 10
+/** US-05: "plazo de vencimiento del pago, en días, entre 1 y 28. Por defecto es de 10 días". */
+export const PLAZO_VENCIMIENTO_MIN = 1
+export const PLAZO_VENCIMIENTO_MAX = 28
+export const PLAZO_VENCIMIENTO_POR_DEFECTO = 10
 
 // ─── Mensajes ───────────────────────────────────────────────────────────
 
@@ -46,7 +46,7 @@ export const MENSAJES_CONTRATO = {
   duracionInvalida: 'La duración es un número entero de meses, mayor a 0.',
   montoInvalido: 'El monto es un número entero mayor a 0, sin decimales.',
   depositoInvalido: 'El depósito es un número entero, 0 o más, sin decimales.',
-  diaInvalido: `El día de vencimiento va de ${DIA_VENCIMIENTO_MIN} a ${DIA_VENCIMIENTO_MAX}.`,
+  plazoInvalido: `El plazo de vencimiento va de ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX} días.`,
   periodicidadVacia: 'Elegí cada cuánto se ajusta.',
   clausulaVacia: 'La cláusula no puede quedar vacía.',
   clausulaTituloVacio: 'Poné un título a la cláusula.',
@@ -124,7 +124,7 @@ function esEntero(valor: number | null | undefined): valor is number {
  * - Duración: entero mayor a 0.
  * - Monto inicial: entero mayor a 0.
  * - Depósito: entero mayor o igual a 0 (puede quedar vacío: "se puede indicar").
- * - Día de vencimiento: de 1 a 28.
+ * - Plazo de vencimiento: de 1 a 28 días.
  * - Periodicidad obligatoria si el índice no es "Sin ajuste".
  */
 export function erroresCondiciones(condiciones: CondicionesNuevoContrato, hoyIso: string): ErroresCondiciones {
@@ -134,8 +134,8 @@ export function erroresCondiciones(condiciones: CondicionesNuevoContrato, hoyIso
   if (!esEntero(condiciones.durationMonths) || condiciones.durationMonths <= 0) errores.durationMonths = MENSAJES_CONTRATO.duracionInvalida
   if (!esEntero(condiciones.initialAmount) || condiciones.initialAmount <= 0) errores.initialAmount = MENSAJES_CONTRATO.montoInvalido
   if (condiciones.deposit !== null && (!esEntero(condiciones.deposit) || condiciones.deposit < 0)) errores.deposit = MENSAJES_CONTRATO.depositoInvalido
-  const dia = condiciones.paymentDueDay
-  if (!esEntero(dia) || dia < DIA_VENCIMIENTO_MIN || dia > DIA_VENCIMIENTO_MAX) errores.paymentDueDay = MENSAJES_CONTRATO.diaInvalido
+  const plazo = condiciones.paymentTermDays
+  if (!esEntero(plazo) || plazo < PLAZO_VENCIMIENTO_MIN || plazo > PLAZO_VENCIMIENTO_MAX) errores.paymentTermDays = MENSAJES_CONTRATO.plazoInvalido
   if (condiciones.adjustmentIndex !== 'sin_ajuste' && !condiciones.adjustmentPeriod) errores.adjustmentPeriod = MENSAJES_CONTRATO.periodicidadVacia
   return errores
 }

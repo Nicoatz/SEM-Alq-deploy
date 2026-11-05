@@ -63,7 +63,7 @@ function datosDelContrato(contrato: ContratoDetalle): [string, string][] {
     ['Monto inicial', condiciones.initialAmount === null ? 'Sin dato' : pesos.format(condiciones.initialAmount)],
     ['Depósito', condiciones.deposit === null ? 'Sin dato' : pesos.format(condiciones.deposit)],
     ['Ajuste', ajuste],
-    ['Vencimiento del pago', condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes`],
+    ['Vencimiento del pago', condiciones.paymentTermDays === null ? 'Sin dato' : `Vence a los ${condiciones.paymentTermDays} días de cada período`],
   ]
 }
 

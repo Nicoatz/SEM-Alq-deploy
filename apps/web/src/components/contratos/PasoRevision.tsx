@@ -23,7 +23,7 @@ import { Button, Checkbox } from 'antd'
 import { EditOutlined } from '@ant-design/icons'
 import type { ContratoBorrador } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount } from '@rentar/ui'
-import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
+import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO, textoPlazo } from '@/lib/contratos/fechas'
 import { contarClausulas, PLANTILLA_NOMBRE } from '@/lib/contratos/plantilla'
 import { MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { dniParaMostrar } from '@/lib/perfil/formato'
@@ -116,7 +116,7 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
                 ),
             },
             { label: 'Depósito', value: condiciones.deposit === null ? 'Sin depósito' : <MoneyAmount amount={condiciones.deposit} /> },
-            { label: 'Vencimiento del pago', value: condiciones.paymentDueDay === null ? falta : `Día ${condiciones.paymentDueDay} de cada mes` },
+            { label: 'Vencimiento del pago', value: condiciones.paymentTermDays === null ? falta : textoPlazo(condiciones.paymentTermDays) },
           ]}
           column={1}
         />

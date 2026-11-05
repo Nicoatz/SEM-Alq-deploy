@@ -72,8 +72,8 @@ export interface CondicionesNuevoContrato {
   initialAmount: number | null
   /** Depósito en garantía, entero mayor o igual a 0 (por defecto, un mes). */
   deposit: number | null
-  /** Día de vencimiento del pago, de 1 a 28 (10 por defecto). */
-  paymentDueDay: number | null
+  /** US-05: plazo de vencimiento del pago, en días, de 1 a 28 (10 por defecto). No es el día del mes. */
+  paymentTermDays: number | null
   adjustmentIndex: IndiceContrato
   /** Solo si el índice no es `sin_ajuste`; si no, `null`. */
   adjustmentPeriod: PeriodicidadAjuste | null
@@ -356,8 +356,7 @@ export interface DatosAlquilerApi {
   pdfUrl: string | null
   /**
    * Plazo en días para pagar, contado desde que el monto está disponible en
-   * cada período. NOTA: no es el "día de vencimiento de 1 a 28" de US-05
-   * (diferencia anotada en HANDOFF §7). `null` si no se cargó.
+   * cada período. `null` si no se cargó.
    */
   diasParaVencimiento: number | null
   /** Próximo vencimiento del pago; `null` si no hay (sin plazo, finalizado o después del fin). */

@@ -54,7 +54,7 @@ import Link from 'next/link'
 import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
 import { ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
-import { fechaCorta } from '@/lib/contratos/fechas'
+import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio } from '@/lib/contratos/firmas'
 import { descargarContratoPdf } from '@/lib/contratos/pdf'
 import { tituloContrato } from '@/lib/contratos/plantilla'
@@ -289,8 +289,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
     },
     {
       label: 'Vencimiento del pago',
-      // En real, un plazo en días, no un día del mes (HANDOFF §7, S4-2).
-      value: contrato.datosApi?.diasParaVencimiento ? `A los ${contrato.datosApi.diasParaVencimiento} días de cada período` : condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes`,
+      value: condiciones.paymentTermDays === null ? 'Sin dato' : textoPlazo(condiciones.paymentTermDays),
     },
     { label: 'Condiciones de cobro', value: condicionesDeCobro(propiedad.cobro) },
     {

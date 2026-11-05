@@ -7,7 +7,7 @@
  * - fecha de inicio (no anterior a hoy), duración en meses (entero > 0, 24
  *   por defecto) y fecha de fin calculada, no editable;
  * - monto inicial (entero > 0, el precio publicado por defecto), depósito
- *   (entero ≥ 0, un mes por defecto) y día de vencimiento (1 a 28, 10 por
+ *   (entero ≥ 0, un mes por defecto) y plazo de vencimiento (1 a 28 días, 10 por
  *   defecto);
  * - índice (Sin ajuste, ICL, IPC o CAC) y periodicidad solo si hay índice;
  * - cantidad de ajustes y fecha del primero;
@@ -27,7 +27,7 @@ import type { CondicionesNuevoContrato, ContratoBorrador, IndiceContrato, Period
 import { DetailList, FormSection, IndexBadge, MoneyAmount, MoneyInput } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { cantidadAjustes, fechaCorta, fechaFin, fechaPrimerAjuste } from '@/lib/contratos/fechas'
-import { DIA_VENCIMIENTO_MAX, DIA_VENCIMIENTO_MIN, erroresCondiciones } from '@/lib/contratos/validaciones'
+import { PLAZO_VENCIMIENTO_MAX, PLAZO_VENCIMIENTO_MIN, erroresCondiciones } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
 import styles from './AltaContrato.module.css'
 
@@ -138,13 +138,13 @@ export function PasoCondiciones({ borrador, onCondicionesChange, mostrarErrores 
             <Form.Item label="Depósito en garantía" {...item('deposit', 'Por defecto, un mes de alquiler. Puede ser 0.')}>
               <MoneyInput value={condiciones.deposit ?? undefined} onChange={(valor) => cambiar('deposit', numeroDe(valor))} min={SIN_MINIMO} placeholder="Depósito" data-testid="contrato-deposito" />
             </Form.Item>
-            <Form.Item label="Día de vencimiento del pago" {...item('paymentDueDay', `Del ${DIA_VENCIMIENTO_MIN} al ${DIA_VENCIMIENTO_MAX} de cada mes.`)}>
+            <Form.Item label="Plazo de vencimiento del pago" {...item('paymentTermDays', `En días, de ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX}.`)}>
               <InputNumber<number>
-                value={condiciones.paymentDueDay}
-                onChange={(valor) => cambiar('paymentDueDay', numeroDe(valor))}
+                value={condiciones.paymentTermDays}
+                onChange={(valor) => cambiar('paymentTermDays', numeroDe(valor))}
                 controls={false}
                 className={styles.fullWidth}
-                data-testid="contrato-dia-vencimiento"
+                data-testid="contrato-plazo-vencimiento"
               />
             </Form.Item>
           </div>
