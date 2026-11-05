@@ -184,7 +184,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
 | `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Sin bloqueo en el GET ni `codigo` en los 409 (§7, "US-20 y US-21") |
 | `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-21) | **Pendiente** (propuesto): en real el legajo se ve "Sin cargar" |
-| `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Implementado en API** (03/11): registro del contrato (iniciar, consultar, editar por pasos y cargar el PDF). Contrato de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos", y guía en [`registrar_contrato_front.md`](registrar_contrato_front.md). El front en real todavía llama a las rutas de su propuesta: tiene que adaptarse (el back define el contrato) |
+| `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | `/panel/contratos`, `/nuevo` y `/[id]/editar` (US-05, Sprint 3) | **Implementado en API** (03/11): registro del contrato (iniciar, consultar, editar por pasos y cargar el PDF). Contrato de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos". El front en real todavía llama a las rutas de su propuesta: tiene que adaptarse (el back define el contrato) |
 | `GET /inmuebles/:id/contratos` | Alquileres del locador (US-43) | **Implementado en API** (04/11): Bearer + rol locador; los contratos de una propiedad, sin la oferta (estado 1) ni bajas lógicas; sin DNI ni contacto ni datos de la propiedad; más reciente primero; 404 si la propiedad no es suya. Campos en [`api-endpoints.md`](api-endpoints.md), `ContratoResumenResponse`. El front en real tiene que adaptarse (`fecha_inicio_contrato` / `fecha_fin_contrato`) |
 | `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | `/panel/contratos` y `/[id]/editar` (US-06, Sprint 3) | **Implementado en API** (04/11): `reabrir` vuelve a borrador un contrato pendiente de firma sin la firma del locatario (borra las firmas, conserva el código); `DELETE` descarta un borrador y devuelve la solicitud de origen a **pendiente** (migración `20261104000001`). El cliente pide la confirmación antes de llamar. Códigos 409 y contrato en [`api-endpoints.md`](api-endpoints.md), "Contratos" |
 | `POST /contratos/:id/enviar` | `/panel/contratos` (US-05, Sprint 3) | **Pendiente** (propuesto): en mock funciona; la rama real ya llama a esta ruta (§7, "US-05") |
@@ -211,6 +211,22 @@ de error:
 
 Lo que cada pantalla necesita y todavía no hay. **Dueño:** `backend` (`apps/api`), `db` (esquema o
 datos en Supabase) o `front`. No se modificó `apps/api` ni `supabase/` desde esta rama.
+
+**Brechas nuevas del Sprint 4 (relevadas el 05/11/2026 sobre `develop` 952550d).** Estado de cada
+endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Estado real de los endpoints".
+
+| # | Brecha | Efecto | Dueño |
+|---|---|---|---|
+| S4-1 | **No existen enviar a firmar ni firmar.** Nada escribe `codigo` ni pasa un contrato a estado 4 o 2 | En real el flujo termina en borrador. Los períodos se generan al pasar a 2, así que no hay períodos ni cobros (0 y 0 en la base) | backend |
+| S4-2 | **`dias_para_vencimiento` tiene dos significados:** plazo en US-05 y US-27, **día del mes** en la generación de períodos (`us08_registrar_cobro.sql`) | Cobros muestra una fecha de vencimiento y la ficha del locatario otra | backend |
+| S4-3 | **Garantes contados como firmantes:** `armarFirmas` los suma a `firmantes` y `faltan`. Con garantes, `firmado_por_todos_el` queda `null`. **Decisión del PO: los garantes no firman.** El front los excluye y recalcula `faltan` | Detalle y pestaña Contratos | backend |
+| S4-4 | **Garantes vacíos en `/alquileres-locatario/:idContrato`:** se leen de `contrato_x_usuario` tipo 3, y viven en `garante` | US-27 muestra una lista vacía | backend |
+| S4-5 | **Filtro `.or()` sin probar** en `GET /cobros/:id` y comprobante, y el comprobante no tiene segundo control de dueño | Podría dar 500 siempre o exponer el DNI de terceros | backend |
+| S4-6 | **Falta aplicar `20261104000000_us09_consultar_cobro.sql`:** no existe `periodo_cobro_evento` | Sin eventos de período | db |
+| S4-7 | **Versiones de migración repetidas** (`20261103000000`, `20261104000000`, `20261104000001`) | Riesgo con `supabase db push` | db |
+| S4-8 | **US-12 sigue hablando de pago parcial** (decisión del PO: no hay). La corrige el PO | Criterios de US-12 | PO |
+| S4-9 | **Ajustes:** el monto se copia a todos los períodos al generarlos y nadie escribe `ajuste_contrato`. No hay valores de índice por fecha | US-11 y US-12: el monto del próximo ajuste sigue "a definir" | backend |
+| S4-10 | **Baja de propiedad con borrador:** 500 sin monto; con monto, el borrador aparece como finalizado al locatario | US-04 | backend |
 
 **Contratos del locador en real (04/11):** las pantallas de alta, detalle y firma siguen contra rutas propuestas y no andan en real; contra la API del 03/11 faltan `PATCH` en lugar de `PUT`, `/contratos/:id/detalle` y el paso 3 con PDF. Se resuelve en la tanda de conexión de contratos.
 
@@ -300,17 +316,13 @@ US-05 (el esquema de dos filas por inmueble, resuelto en la sección de US-05 de
 | 3b | `GET /alquileres-locatario`: listado de contratos donde el usuario autenticado es **locatario**; reemplaza la ruta propuesta `GET /contratos?rol=locatario` para US-27. US-07 todavía requiere su detalle extendido de contrato | Mi alquiler (`/panel/alquiler`) elige el pendiente de firma o el vigente | backend |
 | 4 | `POST /contratos/:id/firmar`, `/rechazar`, `/cancelar-envio` y `/reenviar` con los `codigo` de los 409 y el **429** del reenvío | Las acciones | backend |
 | 5 | **Al quedar vigente, en una transacción:** el inmueble pasa a alquilado y sale de `/inmuebles/disponibles`; sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." (el campo existe desde la tanda B del Sprint 2). En mock lo hace `contrato-mock.adapter.ts#pasarAVigenteMock` | US-07, "Contrato vigente" | backend |
-| 6 | Registrar la **IP** de cada firma (del request: `x-forwarded-for` detrás del proxy). No viaja al front | US-07 | backend |
 | 7 | Mails de invitación y reenvío: **no existen**. El front lo dice con `SimulatedFeatureNotice` ("Reenviar la invitación no manda ningún mail") | Cuando haya mails | backend |
 
 **Decisiones del PO de esta tanda**
 
-- Pueden firmar el locador, un único locatario y los garantes asociados al contrato. El listado de
-  US-27 expone el estado de firma de cada participante; los endpoints para registrar esas firmas
-  siguen fuera de esta implementación.
-  > NOTA (front, 27/10): este punto está **pendiente de confirmar con el PO**. La decisión del
-  > Sprint 3 que sigue el front es que firman el locador y el locatario, y los garantes se muestran
-  > como datos, sin estado de firma (también en la ficha real de Mi alquiler). Lo habla el PO con backend.
+- Firman el locador y el locatario. **Los garantes no firman** (confirmado por el PO el 05/11): se
+  muestran como datos, sin estado de firma, también en la ficha real de Mi alquiler. Brecha S4-3.
+- US-07 no lleva historial del contrato ni registro de IP.
 - El locador firma desde el detalle (`/panel/contratos/[id]`); el locatario, desde **Mi alquiler**
   (`/panel/alquiler`, desde esta tanda) con el mismo componente (`FirmaContrato`). Mi alquiler es la
   base de la ficha de US-27 (tanda 4: condiciones, "Lo que viene" y el listado con varios). Sin
@@ -368,10 +380,9 @@ dato".
 
 **Estado (03/11/2026).** El **registro del contrato** está implementado en el back: iniciarlo desde una
 solicitud aceptada, consultarlo, editarlo por pasos (garantes y condiciones) y cargar su PDF. Contrato
-de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos"; guía para integrar en
-[`registrar_contrato_front.md`](registrar_contrato_front.md); explicación del modelo y de los cambios en
-la base en [`registrar_contrato_desarrollo.md`](registrar_contrato_desarrollo.md). **Todavía no existen**
-descartar un borrador (`DELETE /contratos/:id`) ni enviar a firmar (`POST /contratos/:id/enviar`).
+de la API en [`api-endpoints.md`](api-endpoints.md), "Contratos". Descartar un borrador
+(`DELETE /contratos/:id`) y reabrirlo (`POST /contratos/:id/reabrir`) existen desde el 04/11. **Todavía no
+existe** enviar a firmar (`POST /contratos/:id/enviar`).
 
 **Contratos de una propiedad (US-43, 04/11/2026).** `GET /inmuebles/:id/contratos` está
 **implementado** (Bearer + rol locador): el historial de contratos de **una propiedad**, para que el
@@ -388,7 +399,7 @@ trae `inmueble`, y ni `GET /contratos` ni `GET /contratos?rol=locatario` existen
 El front (`services/contratos.service.ts`, `services/adapters/contrato.adapter.ts`,
 `components/contratos/*`, `lib/contratos/*` y `app/(app)/panel/contratos/*`) funciona en **modo mock**.
 En real llama a rutas que no coinciden con las del back: **el back define el contrato de la API** y el
-front se adapta (equivalencias en `registrar_contrato_front.md`, sección 7).
+front se adapta (equivalencias en `api-endpoints.md`, "Estado real de los endpoints").
 
 **Cambio de la US-05 (02/11/2026):** el paso 3 pasó de "Cláusulas" a **"Carga"**: el contrato se sube
 como **PDF de hasta 5 MB**. Ya no hay plantilla ni cláusulas editables en el alta.
@@ -408,7 +419,7 @@ propiedades): cada inmueble tiene **dos filas** en `contrato`.
 Las dos filas se garantizan con índices únicos parciales. El contrato en curso nace de la oferta (no la
 modifica), así el precio público no cambia mientras se negocia, y al terminar el contrato la propiedad
 vuelve con la misma oferta. Migraciones: `20261102000000` a `20261103000001` (ver
-`registrar_contrato_desarrollo.md`). Endpoints existentes ajustados: listado y detalle de propiedades
+el comentario de cada migración). Endpoints existentes ajustados: listado y detalle de propiedades
 (leen la oferta), "Mis alquileres" del locador y la baja lógica de propiedades (US-04, que ahora da 409
 si hay un contrato pendiente de firma).
 
@@ -442,8 +453,8 @@ si hay un contrato pendiente de firma).
 
 | # | Qué | Para qué | Dueño |
 |---|---|---|---|
-| 6 | Tabla de **firmas** del locador y el locatario (fecha y hora, IP, estado, motivo de rechazo, última invitación) | US-07 (tanda 3) | db |
-| 8 | Las rutas que faltan: `DELETE /contratos/:id` y `POST /contratos/:id/enviar` (el listado por propiedad ya está: `GET /inmuebles/:id/contratos`, US-43) (valida lo obligatorio y que haya PDF, asigna `CT-AAAA-NNNN` y pasa a pendiente de firma) | Cerrar US-05 | backend |
+| 6 | Firmas del locador y el locatario: las columnas están en `contrato_x_usuario` (fecha y hora, estado, motivo de rechazo). Faltan `fecha_ultima_invitacion` y sacar la IP y el hash que hoy exige el CHECK en estado `firmado` | US-07 | db |
+| 8 | La ruta que falta: `POST /contratos/:id/enviar` (el listado por propiedad ya está: `GET /inmuebles/:id/contratos`, US-43) (valida lo obligatorio y que haya PDF, asigna `CT-AAAA-NNNN` y pasa a pendiente de firma) | Cerrar US-05 | backend |
 | 9 | `/solicitudes/recibidas`: sumar `id_contrato` y `estado_contrato` (el contrato que originó la solicitud) e `inmueble_con_contrato` (si el inmueble tiene otro vigente o pendiente) | "Iniciar contrato" / "Continuar contrato". Mientras no vengan, en real el botón aparece en toda aceptada y lo frena el 409 de `POST /contratos` (TODO(backend) en `solicitud.adapter.ts`) | backend |
 | 10 | `AdjustmentIndex` (el índice de la publicación) no tiene CAC: el alta de propiedad solo ofrece ICL e IPC. El contrato sí lo ofrece (`IndiceContrato`). Si la publicación tiene que poder usar CAC, se suma a US-01 y al tipo | Coherencia publicación/contrato | front + PO |
 
@@ -465,7 +476,7 @@ si hay un contrato pendiente de firma).
 - **Índice por defecto:** el de la publicación (ICL o IPC); si no tiene, "Sin ajuste".
 - **Guard:** `RequireRole role="locador"` en `/panel/contratos` y subrutas (`layout.tsx`).
 
-**Día de vencimiento: tema a decidir con el equipo (anotado el 27/10, sin resolver).** US-05 pide un
+**Día de vencimiento: quedó como plazo en días en US-05 y la API, pero sigue sin resolverse en la generación de períodos (brecha S4-2, 05/11).** Lo anotado el 27/10: US-05 pide un
 **día fijo de vencimiento, de 1 a 28** (el alta del front lo carga en el paso 2, 10 por defecto, y
 lo propone como `dia_vencimiento`). El back de US-27 (migración `20261026000000`) modela otra cosa:
 `contrato.dias_para_vencimiento`, un **plazo en días** contado desde que el monto está disponible en
@@ -973,6 +984,17 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 | Solicitud **6** (C): usuario **16** sobre el inmueble **8**, **rechazada** por el locador (usuario 20). Mensaje "[TEST tanda 5] Solicitud C del usuario 12 - borrar" | `solicitud` **6** (sin filas en `solicitud_x_garantia`) | `solicitud` |
 | Solicitud **21** (tanda B, A): usuario **16** sobre el inmueble **8**, **rechazada sin motivo** por el locador (usuario 20); el `PATCH` salió sin cuerpo y `mensaje_rechazo` quedó `null`. Mensaje "[TEST tanda B] Solicitud A del usuario 16 - borrar". Recorrido real de la tanda B del testing (16/10, `feature/fix-testing-s2-b`). NOTA: hasta este día la tabla tenía cruzados los usuarios de las solicitudes 4, 5 y 6 (se corrigió mirando la base: 4 y 5 son del usuario 12 y 6 del 16; el texto de sus mensajes conserva el número equivocado) | `solicitud` **21** (sin filas en `solicitud_x_garantia`) | `solicitud` |
 | Solicitud **22** (tanda B, B): usuario **16** sobre el inmueble **8**, **rechazada con un motivo de 81 caracteres** por el locador (usuario 20): "Gracias por tu interés. Elegimos a otra persona que podía mudarse antes de princi". Mensaje "[TEST tanda B] Solicitud B del usuario 16 - borrar" | `solicitud` **22** (sin filas en `solicitud_x_garantia`) | `solicitud` |
+
+**Contratos para probar en real (relevados en la base el 05/11).** No borrarlos hasta cerrar el Sprint 4. Sin credenciales.
+
+| Contrato | Estado | Inmueble | Locador | Locatario | Sirve para |
+|---|---|---|---|---|---|
+| **31** | Borrador, sin PDF | 17 | Usuario 1 (en Supabase Auth) | Usuario 23 (en Supabase Auth) | US-05 y US-06 |
+| **2** | Pendiente de firma | 2 | Usuario 1 | Usuario 2 (**no** está en Supabase Auth) | US-42, US-43 y reabrir, del lado del locador |
+| **3** | Vigente, sin locatario, sin plazo y sin períodos | 3 | Usuario 1 | — | US-43, a medias |
+
+Falta que backend cargue: un locatario en Supabase Auth con un contrato vigente y otro pendiente; un
+contrato vigente coherente con períodos pendiente, vencido y pagado; y un contrato finalizado.
 
 **Prueba en real de US-27 pendiente (27/10).** La conexión de Mi alquiler / Mis alquileres no se pudo
 probar con login: no hay ningún usuario en Supabase Auth con contratos como locatario (el único

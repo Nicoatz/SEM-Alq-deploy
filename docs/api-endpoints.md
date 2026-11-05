@@ -14,6 +14,52 @@ Lista de las rutas de `apps/api` (y de Supabase) que llama `apps/web`, sacada de
 - **Estado:** **conectado** = el front lo usa y la pantalla funciona completa; **parcial** = lo usa
   pero faltan datos; **pendiente** = no existe (propuesto) o el front todavía no lo puede usar.
 
+## Estado real de los endpoints (Sprint 4, 05/11/2026)
+
+Revisado contra el código de `develop` (952550d) y contra la base con consultas de solo lectura. Nada
+de esto se probó llamando a la API. **Listo:** cumple la US en el back, aunque el front necesite
+adaptador. **Parcial:** existe pero le faltan campos o reglas. **No existe:** propuesto. Que el front
+ya use cada ruta se ve en las secciones de abajo: los contratos del locador **todavía no están
+conectados** (Tandas 1 a 3 del Sprint 4).
+
+| Endpoint | Rol | Estado | Notas |
+|---|---|---|---|
+| `POST /contratos` | locador | Listo | Body `{ id_solicitud }`; usar solo `id` |
+| `GET /contratos/:id` | locador | Listo | Nombres distintos (tabla de abajo) |
+| `GET /contratos/:id/detalle` | locador | Parcial | 409 `CONTRATO_BORRADOR`: redirigir al alta. `firmas` cuenta garantes |
+| `PATCH /contratos/:id` | locador | Listo | Mandar **solo lo que cambió**: una fecha vencida reenviada da 400 |
+| `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | locador | Listo | Subida directa al bucket; 5 MB |
+| `POST /contratos/:id/reabrir` | locador | Listo | Conserva el código y resetea las firmas. Cubre el `cancelar-envio` propuesto |
+| `DELETE /contratos/:id` | locador | Listo | Borra el contrato; la solicitud vuelve a pendiente. 200 sin `data` |
+| `GET /inmuebles/:id/contratos` | locador | Parcial | Sin DNI ni contacto. `firmas` cuenta garantes |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
+| `GET /cobros-locador` | locador | Parcial | Incluye períodos futuros, que el `POST` rechaza |
+| `POST /cobros-locador` | locador | Parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500 |
+| `GET /cobros-locador/historial` | locador | Parcial | `cantidades` depende del filtro de estado; `resumen` sin pendiente |
+| `GET /cobros-locatario` | sesión (`tipo_firmante = 2`) | Parcial | Un solo `proximo_periodo`; `anio` también lo filtra |
+| `GET /cobros/:id` (**id de período**) | sesión | Parcial, en riesgo | Filtro `.or()` sin probar. **Falta aplicar `us09_consultar_cobro`** |
+| `GET /cobros/:id/comprobante[/pdf]` (**id de cobro**) | sesión | Parcial, en riesgo | Mismo `.or()`, sin segundo control de dueño. Total en letras con errores |
+| Anular cobro, variación del monto (US-11) | — | **No existe** | Sin valores de índice por fecha |
+| `GET /alquileres-locatario[/:idContrato]` | sesión | Parcial | Garantes llegan `[]`, ajustes ignorados, `puede_firmar` siempre `false` |
+| `GET /mis-alquileres` | locador | Parcial | Puede devolver el id de la oferta |
+| `GET` y `PATCH /usuarios/me` | sesión | Parcial | Sin legajo ni `bloqueo_identidad`; 409 sin `codigo` |
+| `PATCH /usuarios/me/legajo` | — | **No existe** | |
+
+**Nombres (front → back):**
+
+| Propuesta del front | API |
+|---|---|
+| `fecha_inicio`, `fecha_fin` | `fecha_inicio_contrato`, `fecha_fin_contrato` |
+| `monto_inicial` | `monto_alquiler` en `/:id`; `monto_inicial` en `/detalle` |
+| `dia_vencimiento` | `dias_para_vencimiento` |
+| `periodicidad` | `frecuencia_ajuste` |
+| `ultimo_paso` | `paso` en el `PATCH` |
+| `indice` | Id `indice_aumento` en `/:id`; `{ id, descripcion }` en `/detalle`; sigla en el listado |
+| `GaranteDto { nombre_apellido, numero_documento, email }` | `{ id, nombre, apellido, dni, email }` |
+| `garantias_ofrecidas: GarantiaDto[]` | `string[]` con nombres |
+| `fecha_firma_completa`, `firmas_registradas`, `firmantes` | `firmas.firmado_por_todos_el`, `firmas.registradas`, `firmas.firmantes` |
+| `monto_actual` en la raíz | `condiciones.monto_actual` |
+
 ## Autenticación y usuarios
 
 | Método y ruta | Auth | Estado | US | Service | Body | Respuesta (`data`) |
@@ -259,15 +305,10 @@ PDF) está **implementado en el back**: `apps/api/src/routes/v1/contratos.routes
 `/api/v1/docs` (sección Contratos). Todas las rutas con **Bearer** y **solo para el locador dueño del
 inmueble** (el usuario sale del token).
 
-- Cuerpos, respuestas, errores, reglas y ejemplos para integrar:
-  [`registrar_contrato_front.md`](registrar_contrato_front.md).
-- Cómo funciona y qué se cambió en la base:
-  [`registrar_contrato_desarrollo.md`](registrar_contrato_desarrollo.md).
-
 **El back define el contrato de la API.** Estas rutas reemplazan la propuesta que había armado el front
 en el Sprint 3 (`GET /contratos/preparar`, `POST` y `PUT` con el contrato completo, paso 3 de
 cláusulas): la US-05 pasó el paso 3 a la **carga de un PDF** y el borrador se crea al iniciar el
-contrato. La tabla de equivalencias de nombres está en la sección 7 de `registrar_contrato_front.md`.
+contrato. La tabla de equivalencias de nombres está en "Estado real de los endpoints".
 
 | Método y ruta | Estado | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|
@@ -280,7 +321,6 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 | `DELETE /contratos/:id` | **implementado** (US-06) | — | 200 sin `data`: descarta el borrador y devuelve la solicitud de origen a **pendiente**. El cliente confirma antes | 400, 404, **409** (`CONTRATO_NO_EDITABLE`) |
 | `GET /inmuebles/:id/contratos` | **implementado** (US-43) | — | `{ contratos: ContratoResumenResponse[], solicitud_para_contrato: number \| null }` (los de esa propiedad, sin la oferta, estado 1; ver abajo) | 400, 401, 403, 404 |
 | `GET /contratos/:id/detalle` | **implementado** (US-42) | — | `ContratoDetalleResponse` (el detalle para `/panel/contratos/[id]`; ver abajo) | 400, 401, 403, 404 (no existe o no es suyo), **409** `CONTRATO_BORRADOR` |
-| `DELETE /contratos/:id` | pendiente (propuesto) | — | 204 | 404, **409** |
 | `POST /contratos/:id/enviar` | pendiente (propuesto) | — | 200 `ContratoEnviadoResponse` | 400, 404, **409** |
 | `GET /solicitudes/recibidas` | conectado; **faltan dos campos** | (sin cambios) | Lo de hoy + `id_contrato`, `estado_contrato` y `inmueble_con_contrato` (propuestos) | (sin cambios) |
 
@@ -288,7 +328,7 @@ contrato. La tabla de equivalencias de nombres está en la sección 7 de `regist
 depende del texto: `SOLICITUD_NO_ACEPTADA`, `SOLICITUD_CON_CONTRATO`, `PROPIEDAD_CON_BORRADOR`,
 `PROPIEDAD_CON_CONTRATO`, `PROPIEDAD_SIN_OFERTA`, `CONTRATO_DUPLICADO` (`POST /contratos`) y
 `CONTRATO_NO_EDITABLE` (`PATCH`, `url-subida`, `PUT /pdf` y `DELETE /contratos/:id`); `CONTRATO_VIGENTE`, `CONTRATO_FINALIZADO`, `CONTRATO_FIRMADO_POR_LOCATARIO` y `CONTRATO_YA_EN_BORRADOR` (`POST /contratos/:id/reabrir`, US-06). Los textos y los casos están en
-`registrar_contrato_front.md`, sección 6. El manejador de errores (`error.middleware.ts`) incluye `codigo`
+El manejador de errores (`error.middleware.ts`) incluye `codigo`
 en el sobre de cualquier error que lo traiga.
 
 **`ContratoBorradorResponse`** (`GET /contratos/:id` y la respuesta de `PATCH` y `PUT /pdf`):
@@ -351,7 +391,7 @@ en Vercel acepta cuerpos de hasta 4,5 MB.
 
 ## Contratos: rutas propuestas todavía no implementadas (US-05)
 
-`DELETE /contratos/:id` y `POST /contratos/:id/enviar` siguen **propuestas**.
+`POST /contratos/:id/enviar` sigue **propuesta**.
 
 **`ContratoResumenResponse`** (`GET /inmuebles/:id/contratos`, **implementado**, US-43): una fila del
 listado de contratos de **una propiedad** del locador (su historial). Bearer + rol locador. **Sin la
@@ -470,33 +510,31 @@ Responde `{ id, codigo, estado: "pendiente_firma" }`.
 
 ## Firma de contratos (Sprint 3, US-07) · PROPUESTO
 
-Las rutas de detalle de US-07 y las acciones de firma siguen propuestas; el listado del locatario
-ahora usa `GET /alquileres-locatario` (US-27), que está implementado. El detalle y la firma funcionan
-en modo mock y la rama real todavía llama a las rutas de US-07. Front: `contratos.service.ts`
+Las acciones de firma siguen propuestas. El detalle del locador ya existe (`GET /contratos/:id/detalle`,
+US-42) y el listado del locatario usa `GET /alquileres-locatario` (US-27). El detalle y la firma funcionan
+en modo mock y la rama real todavía llama a las rutas propuestas. Front: `contratos.service.ts`
 (`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `cancelarEnvio`, `reenviarInvitacion`),
 `contrato.adapter.ts#contratoDetalleDeDto` y los DTO de `backend-dtos.ts` ("Firma de contratos").
-Todas con **Bearer**; el usuario sale del token. Pueden firmar el locador, un único locatario y los
-garantes asociados. Los endpoints de firma siguen propuestos y no forman parte de la implementación
-actual de US-27.
+Todas con **Bearer**; el usuario sale del token. **Firman el locador y el locatario.** Los endpoints de
+firma siguen propuestos y no forman parte de la implementación actual de US-27.
 
-> NOTA (front, 27/10): que firmen los garantes está **pendiente de confirmar con el PO**. La decisión
-> vigente del Sprint 3 es que firman el locador y el locatario, y el garante es un dato del contrato.
-> El front sigue esa decisión (en la ficha real de Mi alquiler, los garantes se muestran como datos,
-> sin estado de firma). Lo habla el PO con backend.
+> NOTA (PO, 05/11): **los garantes no firman**; son un dato del contrato. Que el back los cuente como
+> firmantes es una brecha (HANDOFF §7): el front los excluye y recalcula `faltan`. **US-07 no lleva
+> historial del contrato ni registro de IP.** El criterio del rechazo se está confirmando con el equipo:
+> la tabla de abajo sigue la versión con la que se armó el mock.
 
 | Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|
 | `GET /alquileres-locatario[?estado=]` | implementado para US-27 | `AlquilerLocatarioService#listar` | el usuario autenticado como locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
-| `GET /contratos/:id` | pendiente (propuesto; amplía el de US-05) | `#getDetalleContrato` (y `#getContrato` del alta) | locador o locatario del contrato; un **borrador, solo el locador** | — | `ContratoDetalleResponse` | **404** si no existe o no es parte (**uno solo**, sin distinguir) |
 | `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
 | `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
-| `POST /contratos/:id/cancelar-envio` | pendiente (propuesto) | `#cancelarEnvio` | **solo el locador** | — | 200 `ContratoDetalleResponse` (`estado: "borrador"`) | 403 (es el locatario), 404, **409** `OTRA_PARTE_FIRMO`, `CONTRATO_NO_PENDIENTE` |
+| `POST /contratos/:id/reabrir` | **implementado** (reemplaza a `cancelar-envio`) | `#cancelarEnvio` (la rama real todavía llama a la ruta propuesta) | **solo el locador** | — | 200 `ContratoBorradorResponse` | 409 con `codigo` |
 | `POST /contratos/:id/reenviar` | pendiente (propuesto) | `#reenviarInvitacion` | **solo el locador** | `{ "rol": "locatario" }` | 200 `ContratoDetalleResponse` | 403, 404, **409** `FIRMANTE_NO_PENDIENTE`, `CONTRATO_NO_PENDIENTE`, **429** (menos de una hora desde la última invitación) |
 
-**El historial viene dentro del detalle** (propuesta): no tiene otro uso y así la pantalla hace un
-solo pedido. Las cuatro acciones responden el detalle actualizado, así el front no vuelve a pedirlo.
+Las acciones responden el detalle actualizado, así el front no vuelve a pedirlo.
 
-**`ContratoDetalleResponse`** = `ContratoResponse` (ver "Contratos") más:
+**Propuesta del Sprint 3.** El detalle real es el de "Contratos" (`GET /contratos/:id/detalle`). De acá le siguen
+faltando `fecha_envio`, `firmantes[].id_usuario` y `fecha_ultima_invitacion`:
 
 ```json
 {
@@ -511,31 +549,23 @@ solo pedido. Las cuatro acciones responden el detalle actualizado, así el front
     { "rol": "locatario", "id_usuario": 3, "nombre": "Julieta", "apellido": "Peralta", "estado": "pendiente",
       "fecha_firma": null, "fecha_rechazo": null, "motivo_rechazo": null,
       "fecha_ultima_invitacion": "2026-09-23T15:47:00" }
-  ],
-  "historial": [
-    { "id": 4, "tipo": "firmado", "fecha": "2026-09-23T15:47:00", "rol": "locador", "nombre": "Nicolás Arrieta", "motivo": null },
-    { "id": 3, "tipo": "reenviado", "fecha": "2026-09-23T15:47:00", "rol": "locatario", "nombre": "Julieta Peralta", "motivo": null },
-    { "id": 2, "tipo": "enviado", "fecha": "2026-09-22T11:40:00", "rol": null, "nombre": null, "motivo": null },
-    { "id": 1, "tipo": "creado", "fecha": "2026-09-21T17:22:00", "rol": null, "nombre": null, "motivo": null }
   ]
 }
 ```
 
-- `firmantes[].estado`: `pendiente`, `firmado` o `rechazado`. **La IP se guarda en la base y NO viaja
-  al front** (US-07: "se deben registrar la fecha, la hora y la IP de cada firma").
+- `firmantes[].estado`: `pendiente`, `firmado` o `rechazado`. US-07 pide registrar la fecha y la hora de
+  cada firma, sin IP.
 - `fecha_ultima_invitacion`: el envío o el último reenvío. Con eso el front explica hasta cuándo no
   se puede reenviar (una hora después).
-- `historial[].tipo`: `creado`, `enviado`, `firmado`, `rechazado`, `reenviado`, `envio_cancelado` o
-  `vigente`. Del más reciente al más viejo. `motivo` solo en `rechazado`.
 - `fecha_firma_completa`: la de la última firma, cuando firmaron las dos partes ("Firmado por todas
   las partes el dd/mm/aaaa").
-- `firmas_registradas`: `false` en los contratos cargados antes de RentAR (sin firmas ni historial).
+- `firmas_registradas`: `false` en los contratos cargados antes de RentAR (sin firmas).
 
 **Reglas que tiene que aplicar el back**
 
 | Acción | Regla (US-07) |
 |---|---|
-| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha, hora e **IP**. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador cancela el envío y lo vuelve a enviar. |
+| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha y hora. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador cancela el envío y lo vuelve a enviar. |
 | Última firma | En **una transacción**: el contrato pasa a `vigente` (con `fecha_firma_completa`); el inmueble, a **alquilado** (deja de salir en `/inmuebles/disponibles`); y sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." |
 | Rechazar | Solo el locatario y solo `pendiente_firma`. Motivo opcional, hasta 300 caracteres (`null` si viene vacío). **No cambia el estado del contrato.** |
 | Cancelar el envío | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
@@ -610,6 +640,7 @@ La tabla append-only `periodo_cobro_evento` se pobla desde triggers en las inser
 cobro y transición a pagado; la migración incluye backfill idempotente para los registros existentes.
 El bucket privado `comprobantes-cobros` ya existe en Supabase y no requiere cambios en esta migración.
 Debe aplicarse `supabase/migrations/20261104000000_us09_consultar_cobro.sql` antes de usar estos GET.
+**Al 05/11 no está aplicada:** `periodo_cobro_evento` no existe en la base.
 
 ## Panel del locador (`/panel`)
 
