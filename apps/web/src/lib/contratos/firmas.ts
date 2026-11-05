@@ -12,7 +12,7 @@
  * Quién lo usa: `components/contratos/DetalleContrato.tsx`,
  * `components/contratos/FirmaContrato.tsx` y `services/contratos.service.ts`.
  */
-import type { ContratoDetalle, EventoContrato, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
+import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
 import dayjs from 'dayjs'
 
 /** US-07: "como máximo una vez por hora". */
@@ -97,23 +97,3 @@ export function errorDeMotivoRechazo(motivo: string | null | undefined): string 
   return limpio && limpio.length > MOTIVO_RECHAZO_MAX ? `El motivo puede tener hasta ${MOTIVO_RECHAZO_MAX} caracteres.` : null
 }
 
-/** Título de cada evento del historial (US-07), en la voz del detalle. */
-export function tituloDeEvento(evento: EventoContrato): string {
-  const quien = evento.nombre ?? (evento.rol ? NOMBRE_ROL[evento.rol] : '')
-  switch (evento.tipo) {
-    case 'creado':
-      return 'Se creó el borrador'
-    case 'enviado':
-      return 'Se envió a firmar'
-    case 'firmado':
-      return `Firmó ${quien}`
-    case 'rechazado':
-      return `${quien} rechazó la firma`
-    case 'reenviado':
-      return `Se le reenvió la invitación a ${quien}`
-    case 'envio_cancelado':
-      return 'Se canceló el envío: volvió a borrador'
-    case 'vigente':
-      return 'Firmado por todas las partes: el contrato está vigente'
-  }
-}

@@ -4,7 +4,7 @@
  *
  * Qué es: TIPOS DE VISTA DEL FRONT. Cubren US-05 Registrar contrato de
  * alquiler (listado, inicio desde una solicitud aceptada, alta y borrador) y
- * US-07 Firmar contrato de alquiler (detalle, firmantes, historial y firma).
+ * US-07 Firmar contrato de alquiler (detalle, firmantes y firma).
  * No confundir con `CondicionesContrato` de `propiedad.ts`: esas son las
  * condiciones que el locador cargó al PUBLICAR (US-01); acá están las del
  * contrato real con un locatario.
@@ -278,25 +278,9 @@ export interface FirmanteContrato {
   ultimaInvitacion: string | null
 }
 
-/** Qué pasó en el contrato (US-07: "creación, envío a firmar, firmas, rechazos, reenvíos y cancelaciones"). */
-export type TipoEventoContrato = 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
-
-/** Un evento del historial del contrato. */
-export interface EventoContrato {
-  id: string
-  tipo: TipoEventoContrato
-  /** Fecha y hora ISO. */
-  fecha: string
-  /** Quién (en firmas y rechazos) o a quién (en reenvíos); `null` en el resto. */
-  rol: RolFirmante | null
-  nombre: string | null
-  /** Motivo del rechazo; `null` en el resto. */
-  motivo: string | null
-}
-
 /**
  * El detalle de un contrato (`/panel/contratos/[id]`, US-07): lo del alta
- * más los firmantes y el historial.
+ * más los firmantes.
  */
 export interface ContratoDetalle extends ContratoBorrador {
   /** Fecha y hora ISO en que se envió a firmar; `null` si es borrador o no se registró. */
@@ -309,14 +293,12 @@ export interface ContratoDetalle extends ContratoBorrador {
   firmadoPorTodasEl: string | null
   /**
    * `false` en los contratos anteriores a RentAR (los vigentes y el
-   * finalizado del elenco): no hay registro de firmas ni historial, y no se
+   * finalizado del elenco): no hay registro de firmas, y no se
    * inventan.
    */
   firmasRegistradas: boolean
   /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
   firmantes: FirmanteContrato[]
-  /** Del más reciente al más viejo. */
-  historial: EventoContrato[]
   /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
   endDate: string | null
   /**

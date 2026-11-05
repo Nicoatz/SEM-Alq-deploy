@@ -829,36 +829,20 @@ export interface FirmanteDto {
   fecha_ultima_invitacion: string | null
 }
 
-/** Un evento del historial del contrato. NOTA: el historial salió de US-07; se borra en la Tanda 3 del Sprint 4. */
-export interface EventoContratoDto {
-  id: number
-  tipo: 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
-  /** Fecha y hora ISO. */
-  fecha: string
-  rol: RolFirmanteDto | null
-  /** Nombre y apellido de quien firmó o rechazó, o a quien se le reenvió. */
-  nombre: string | null
-  motivo: string | null
-}
-
 /**
  * Propuesta del Sprint 3. El detalle real es `GET /contratos/:id/detalle`, con otra forma
  * (se conecta en la Tanda 1 del Sprint 4): el mismo `ContratoResponse`
- * más los firmantes y el historial, en una sola respuesta (el historial no
- * tiene otro uso que este detalle). También es la respuesta de firmar,
- * rechazar, cancelar el envío y reenviar.
+ * más los firmantes. También es la respuesta de firmar, rechazar y reenviar.
  * Lo pueden pedir el locador y el locatario del contrato; un borrador, solo el locador.
  */
 export interface ContratoDetalleResponse extends ContratoResponse {
   fecha_envio: string | null
   /** Fecha y hora de la última firma, cuando firmaron todas las partes. */
   fecha_firma_completa: string | null
-  /** `false` en los contratos cargados antes de RentAR: sin firmas ni historial. */
+  /** `false` en los contratos cargados antes de RentAR: sin firmas. */
   firmas_registradas: boolean
   fecha_fin: string | null
   firmantes: FirmanteDto[]
-  /** Del más reciente al más viejo. */
-  historial: EventoContratoDto[]
   /** Monto mensual actual, con los ajustes aplicados (US-27; propuesto). */
   monto_actual: number | null
 }

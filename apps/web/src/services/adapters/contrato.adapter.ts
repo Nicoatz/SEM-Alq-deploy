@@ -7,7 +7,7 @@
  * `ContratoBorrador` / `ContratoEnviado`. Cuando el back haga las rutas, lo
  * que cambie de forma se ajusta acá, nunca en las pantallas.
  * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
- * alquiler (detalle, firmas, historial), contra rutas propuestas; y US-27
+ * alquiler (detalle y firmas), contra rutas propuestas; y US-27
  * Consultar mis alquileres contra `GET /alquileres-locatario` (EXISTE, ver
  * "Alquileres del locatario (US-27)" más abajo).
  * Quién lo usa: `services/contratos.service.ts` (los mensajes, también la
@@ -22,7 +22,6 @@ import type {
   ContratoDetalle,
   ContratoEnviado,
   ContratosDePropiedad,
-  EventoContrato,
   FirmanteContrato,
   GaranteContrato,
   IndiceContrato,
@@ -50,7 +49,6 @@ import type {
   ContratoPropiedadResponse,
   ContratoResponse,
   ContratosInmuebleResponse,
-  EventoContratoDto,
   FirmaAlquilerDto,
   FirmanteApiDto,
   FirmanteDto,
@@ -272,7 +270,7 @@ function parteDeApi(dto: ParteApiDto | null): ParteContrato {
 /**
  * `GET /contratos/:id/detalle` → el detalle del locador (US-42).
  * - Lo que no vino queda en `null` o vacío: la pantalla muestra "Sin dato".
- * - Sin `clausulas` ni historial: el documento es el PDF del back.
+ * - Sin `clausulas`: el documento es el PDF del back.
  * - `datosApi` en lugar de `null`: no ofrece firma en línea (US-07 no existe en la API).
  */
 export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): ContratoDetalle {
@@ -328,7 +326,6 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
       motivoRechazo: parte.motivo_rechazo,
       ultimaInvitacion: null,
     })),
-    historial: [],
     endDate: condiciones.fecha_fin_contrato,
     montoActual: condiciones.monto_actual,
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : mesesDeFrecuencia(condiciones.frecuencia_ajuste),
@@ -421,11 +418,6 @@ function firmanteDeDto(dto: FirmanteDto): FirmanteContrato {
   }
 }
 
-/** Evento del historial del back → vista. */
-function eventoDeDto(dto: EventoContratoDto): EventoContrato {
-  return { id: String(dto.id), tipo: dto.tipo, fecha: dto.fecha, rol: dto.rol, nombre: dto.nombre, motivo: dto.motivo }
-}
-
 /** `GET /contratos/:id` (y las acciones de US-07) → `ContratoDetalle`. Los firmantes, locador primero. */
 export function contratoDetalleDeDto(dto: ContratoDetalleResponse): ContratoDetalle {
   const orden: Record<FirmanteDto['rol'], number> = { locador: 0, locatario: 1 }
@@ -435,7 +427,6 @@ export function contratoDetalleDeDto(dto: ContratoDetalleResponse): ContratoDeta
     firmadoPorTodasEl: dto.fecha_firma_completa,
     firmasRegistradas: dto.firmas_registradas,
     firmantes: [...dto.firmantes].sort((a, b) => orden[a.rol] - orden[b.rol]).map(firmanteDeDto),
-    historial: dto.historial.map(eventoDeDto),
     endDate: dto.fecha_fin,
     montoActual: dto.monto_actual,
     ajusteCadaMeses: dto.condiciones?.indice && dto.condiciones.indice !== 'sin_ajuste' && dto.condiciones.periodicidad ? MESES_POR_PERIODO[dto.condiciones.periodicidad] : null,
@@ -568,8 +559,7 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
  *   del contrato van en `datosApi.mediosPago`).
  * - Garantes: nombre y correo; sin DNI (el back no lo manda en la ficha).
  * - Condiciones: sin monto inicial ni duración (no vienen).
- * - Cláusulas e historial: vacíos. TODO(backend): el detalle no trae las
- *   cláusulas ni el historial de US-07.
+ * - Cláusulas: vacías: el documento es el PDF.
  * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
  */
 export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): ContratoDetalle {
@@ -622,7 +612,6 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     firmadoPorTodasEl: firmadoPorTodas ? ([...fechasDeFirma].sort().at(-1) ?? null) : null,
     firmasRegistradas: firmantes.length > 0,
     firmantes,
-    historial: [],
     endDate: dto.fecha_fin_contrato,
     montoActual: dto.monto_actual,
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : mesesDeFrecuencia(dto.frecuencia_ajuste),

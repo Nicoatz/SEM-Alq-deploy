@@ -33,7 +33,6 @@ import type {
   ContratoEnviado,
   ContratoResumen,
   ContratosDePropiedad,
-  EventoContrato,
   FirmanteContrato,
   MiAlquiler,
   ParteContrato,
@@ -53,7 +52,6 @@ import { hoy } from '@/lib/utils/fechas'
 import { cobros as cobrosElenco, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
 import {
   ahoraIsoMock,
-  conEvento,
   PDF_FICTICIO_URL,
   pdfDeContratoMock,
   recordarPdfMock,
@@ -61,7 +59,6 @@ import {
   contratosDeLocadorMock,
   contratosDeLocatarioMock,
   eliminarContratoMock,
-  eventosDe,
   firmasAlEnviar,
   guardarContratoMock,
   pasarAVigenteMock,
@@ -267,7 +264,6 @@ export async function iniciarContrato(solicitudId: string): Promise<ContratoBorr
       createdAt: ahora,
       updatedAt: ahora,
       sentAt: null,
-      eventos: [{ id: `ev-${id}-1`, tipo: 'creado', fecha: ahora, rol: null, motivo: null }],
     }
     if (!guardarContratoMock(contrato)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     return borradorDeContratoMock(contrato)
@@ -435,7 +431,6 @@ export async function enviarAFirmar(id: string): Promise<ContratoEnviado> {
       // US-07: las dos partes quedan invitadas a firmar, con las firmas en cero.
       firmas: firmasAlEnviar(ahora),
       firmadoPorTodasEl: null,
-      eventos: conEvento(contrato, 'enviado', ahora),
     }
     if (!guardarContratoMock(aFirmar)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     const enviado = contratoEnviadoDeDto({ id: 0, codigo: code, estado: 'pendiente_firma' }, borrador)
@@ -485,20 +480,12 @@ function detalleDeContratoMock(contrato: ContratoMock): ContratoDetalle {
   const firmantes: FirmanteContrato[] = firmas
     ? (['locador', 'locatario'] as const).map((rol) => ({ rol, userId: ids[rol], nombre: nombres[rol], ...firmas[rol] }))
     : []
-  // Los anteriores a RentAR (sin solicitud de origen ni firmas, como CT-2023-0041) no tienen historial: no se inventa.
-  const conRegistro = Boolean(firmas) || contrato.status === 'borrador' || contrato.solicitudId !== null
-  const historial: EventoContrato[] = conRegistro
-    ? eventosDe(contrato)
-        .map((evento) => ({ ...evento, nombre: evento.rol ? nombres[evento.rol] : null }))
-        .reverse()
-    : []
   return {
     ...base,
     enviadoEl: contrato.sentAt,
     firmadoPorTodasEl: contrato.firmadoPorTodasEl ?? null,
     firmasRegistradas: Boolean(firmas),
     firmantes,
-    historial,
     endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
     // NOTA: en mock los ajustes no se calculan: el monto actual es el inicial.
     montoActual: contrato.condiciones.initialAmount,
@@ -525,7 +512,7 @@ function plazoDelElenco(contractId: string): number | null {
 
 /**
  * Un vigente del elenco (`propiedad.rental`, anterior a RentAR) → detalle.
- * Solo con lo que el elenco tiene: sin firmas, historial ni monto inicial
+ * Solo con lo que el elenco tiene: sin firmas ni monto inicial
  * (se muestran vacíos, nunca inventados); el depósito y los garantes, solo
  * donde el elenco los cargó. El monto
  * actual y el próximo ajuste salen de `rental`; el plazo de pago, de su
@@ -570,7 +557,6 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     firmadoPorTodasEl: null,
     firmasRegistradas: false,
     firmantes: [],
-    historial: [],
     endDate: rental.endDate,
     montoActual: rental.currentAmount,
     // El elenco ajusta cada 4 o 12 meses (la periodicidad del contrato de RentAR no tiene 4).
@@ -708,9 +694,9 @@ export async function firmarContrato(id: string): Promise<ContratoDetalle> {
     const firmada: FirmaMock = { ...firmas[rol], estado: 'firmado', firmadoEl: ahora }
     const nuevas: Record<RolFirmante, FirmaMock> = { ...firmas, [rol]: firmada }
     const todas = nuevas.locador.estado === 'firmado' && nuevas.locatario.estado === 'firmado'
-    const conFirma: ContratoMock = { ...contrato, firmas: nuevas, eventos: conEvento(contrato, 'firmado', ahora, rol), updatedAt: ahora }
+    const conFirma: ContratoMock = { ...contrato, firmas: nuevas, updatedAt: ahora }
     const firmado: ContratoMock = todas
-      ? { ...conFirma, status: 'vigente', firmadoPorTodasEl: ahora, eventos: conEvento(conFirma, 'vigente', ahora) }
+      ? { ...conFirma, status: 'vigente', firmadoPorTodasEl: ahora }
       : conFirma
     const detalle = guardarAccionMock(firmado)
     if (todas && !pasarAVigenteMock(firmado, ahora)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
@@ -751,7 +737,6 @@ export async function rechazarFirma(id: string, motivo: string | null): Promise<
     return guardarAccionMock({
       ...contrato,
       firmas: { ...firmas, locatario: { ...firmas.locatario, estado: 'rechazado', rechazadoEl: ahora, motivoRechazo: limpio } },
-      eventos: conEvento(contrato, 'rechazado', ahora, 'locatario', limpio),
       updatedAt: ahora,
     })
   }
@@ -800,7 +785,6 @@ export async function cancelarEnvio(id: string): Promise<ContratoDetalle> {
       status: 'borrador',
       sentAt: null,
       firmadoPorTodasEl: null,
-      eventos: conEvento(contrato, 'envio_cancelado', ahora),
       updatedAt: ahora,
     })
   }
@@ -857,7 +841,6 @@ export async function reenviarInvitacion(id: string, rol: RolFirmante): Promise<
     return guardarAccionMock({
       ...contrato,
       firmas: { ...firmas, [rol]: { ...firma, ultimaInvitacion: ahora } },
-      eventos: conEvento(contrato, 'reenviado', ahora, rol),
       updatedAt: ahora,
     })
   }

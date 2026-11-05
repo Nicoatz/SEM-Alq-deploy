@@ -21,7 +21,7 @@
  * de pago, las expensas y la frecuencia son los textos del back.
  *
  * Lo arma `VistaContrato` (`DetalleContrato.tsx`) con `vista="locatario"`;
- * la firma, el documento, el PDF y el historial son los mismos que ve el locador.
+ * la firma, el documento y el PDF son los mismos que ve el locador.
  */
 import Image from 'next/image'
 import { HomeOutlined } from '@ant-design/icons'

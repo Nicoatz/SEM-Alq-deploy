@@ -14,7 +14,6 @@
  * - El documento paginado (`VisorPdf`) y "Descargar PDF" en cualquier estado.
  * - US-06: "Modificar" un pendiente sin la firma del locatario, con confirmación.
  * - Se entra desde la pestaña Contratos de la propiedad (US-43); la miga vuelve ahí.
- * Decisión del PO: sin historial ni registro de IP (salieron de US-07 y US-42).
  * - El locador firma acá (`FirmaContrato`), cancela el envío (si el
  *   locatario no firmó) y reenvía la invitación (una vez por hora).
  * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma,

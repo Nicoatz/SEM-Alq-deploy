@@ -14,8 +14,8 @@
  *   suyo o no existe, "No encontramos este alquiler", sin distinguir.
  * - La ficha (`VistaContrato` con `vista="locatario"`): propiedad con foto,
  *   estado y código, locador con su contacto, condiciones, "Lo que viene",
- *   firmas (y la firma, si falta la suya: `FirmaContrato`), documento, PDF e
- *   historial. Un finalizado, en solo lectura y sin "Lo que viene".
+ *   firmas (y la firma, si falta la suya: `FirmaContrato`), documento y PDF.
+ *   Un finalizado, en solo lectura y sin "Lo que viene".
  *
  * - En real (`GET /alquileres-locatario`): sin firma en línea ni PDF armado
  *   en el navegador (decisiones del PO, ver `DetalleContrato.tsx`).

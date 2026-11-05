@@ -345,7 +345,6 @@ export type {
   PdfContrato,
   FirmaDePropiedad,
   DatosAlquilerApi,
-  EventoContrato,
   FirmanteContrato,
   GaranteContrato,
   IndiceContrato,
@@ -355,7 +354,6 @@ export type {
   PropiedadDelContrato,
   RolFirmante,
   TipoClausula,
-  TipoEventoContrato,
 } from './contrato';
 export type {
   ContactoSolicitud,
