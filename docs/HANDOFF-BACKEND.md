@@ -238,7 +238,7 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 | S4-19 | **`proximo_periodo` es uno solo y no trae tasa ni gracia:** en real, con dos contratos la tarjeta muestra el que venga; no dice desde cuándo corre el recargo, y el contrato sin ese período no muestra el monto en Mi alquiler (issue #27, puntos 13b y 17) | US-12 | backend |
 | S4-20 | **US-11 sin valores del índice por fecha:** el monto después de un ajuste va "a definir", y los ajustes ya pasados del calendario también, porque nadie escribe `ajuste_contrato` (issue #27, punto 15). La insignia de Mis pagos solo existe en mock | US-11 | backend |
 | S4-22 | **Falta aplicar `20261104000001_us03_modificar_oferta.sql`:** `actualizar_propiedad_completa` no actualiza la oferta y rechaza `condiciones_contrato`. Probado en real con el inmueble 17 (§9), que además tiene `precio_publicado` 600.500 y oferta 1.000.000.000 | El precio editado no llega a la búsqueda (§10, punto 25). Editar las condiciones de la oferta no se puede | db |
-| S4-23 | **Una publicada con "Disponible desde" vencida no se puede guardar:** `EditarPropiedad` pide una fecha de hoy en adelante, aunque solo cambie el precio. Pasa con el inmueble 17 (02/11/2026). El PO decide si la regla aplica a una fecha que no se tocó | US-03 | PO |
+| S4-23 | **Resuelta en el front (PO, 05/11):** "Disponible desde" se valida solo si el usuario la cambia (`reglasDisponibleDesdeEdicion`). Una fecha vencida sin tocar ya no frena otros cambios. El back no la valida y el `PUT` solo manda lo que cambió | — | — |
 | S4-21 | **`GET /mis-alquileres` tarda más de 30 segundos** (31 s medidos el 05/11, en local contra Supabase, con el usuario 1). La pestaña Contratos y Mis propiedades quedan cargando todo ese tiempo. Es nuevo: no está en #27 | US-02, US-43 | backend |
 
 **Lado del locatario (Tanda 5, 05/11):** `/panel/pagos`, la tarjeta "Tu próximo alquiler", los últimos pagos y el monto y el calendario de Mi alquiler están conectados. En real no hay locatario con períodos: solo se probaron vacíos y errores. El panel del locador ya no es un mock aparte: `/panel` y `/panel/cobros` leen los mismos períodos, y "Vencido" incluye la mora en los dos. No se implementan el botón Pagar, "Incluye expensas fijas", gastos informados, reclamos ni mensajes en el panel.
@@ -1034,8 +1034,8 @@ escribió la re-aceptación de la solicitud 23: los contratos 2, 3 y 31 siguen e
 estaba: `precio_publicado` pasó de 600.500 a 600.600 y volvió a **600.500**. La oferta (contrato **17**) no
 cambió: siguió en 1.000.000.000. Con 600.600, `GET /inmuebles/disponibles/17` y el detalle público mostraron
 $ 1.000.000.000. `/buscar` no se confirmó en pantalla: la propiedad no apareció en el texto de la primera
-carga. El `PUT` se mandó solo con `precio_publicado` desde la sesión, porque la pantalla no deja guardar
-(§7, S4-23). El recorrido por los contratos 2 y 31 fue de solo lectura.
+carga. El `PUT` se mandó solo con `precio_publicado` desde la sesión, porque en ese momento la pantalla no
+dejaba guardar (§7, S4-23, ya resuelta). El recorrido por los contratos 2 y 31 fue de solo lectura.
 
 Las pruebas reales de las Tandas 4 y 5 y del cierre (05/11) no escribieron nada: la base sigue con 0 períodos y 0 cobros. Se probaron
 los estados vacíos, los no encontrados y los errores, con una guarda que cortaba toda escritura. El detalle con
