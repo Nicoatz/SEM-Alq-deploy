@@ -480,6 +480,7 @@ function detalleDeContratoMock(contrato: ContratoMock): ContratoDetalle {
     enviadoEl: contrato.sentAt,
     firmadoPorTodasEl: contrato.firmadoPorTodasEl ?? null,
     firmasRegistradas: Boolean(firmas),
+    modificarDelBack: null,
     firmantes,
     endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
     // NOTA: en mock los ajustes no se calculan: el monto actual es el inicial.
@@ -545,6 +546,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     enviadoEl: null,
     firmadoPorTodasEl: null,
     firmasRegistradas: false,
+    modificarDelBack: null,
     firmantes: [],
     endDate: rental.endDate,
     montoActual: rental.currentAmount,

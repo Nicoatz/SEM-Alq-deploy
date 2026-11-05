@@ -280,6 +280,7 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
     enviadoEl: null,
     firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
     firmasRegistradas: partes !== null,
+    modificarDelBack: dto.acciones.modificar,
     firmantes: (partes ?? []).map((parte) => ({
       rol: parte.rol,
       userId: '',
@@ -481,6 +482,7 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     enviadoEl: null,
     firmadoPorTodasEl: firmadoPorTodas ? ([...fechasDeFirma].sort().at(-1) ?? null) : null,
     firmasRegistradas: firmantes.length > 0,
+    modificarDelBack: null,
     firmantes,
     endDate: dto.fecha_fin_contrato,
     montoActual: dto.monto_actual,

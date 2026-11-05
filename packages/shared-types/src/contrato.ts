@@ -272,6 +272,8 @@ export interface ContratoDetalle extends ContratoBorrador {
    * inventan.
    */
   firmasRegistradas: boolean
+  /** `acciones.modificar` del back (US-06); `null` en mock y en la ficha del locatario. */
+  modificarDelBack: boolean | null
   /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
   firmantes: FirmanteContrato[]
   /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
