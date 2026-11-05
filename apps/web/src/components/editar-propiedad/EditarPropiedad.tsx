@@ -284,7 +284,7 @@ function FormularioEdicion({ detalle }: { detalle: PropiedadLocadorDetalle }) {
             <PasoUbicacion />
           </section>
           <section id="caracteristicas" className={styles.seccion}>
-            <PasoCaracteristicas estadoSoloLectura />
+            <PasoCaracteristicas estadoSoloLectura disponibleGuardada={original.availableFrom} />
           </section>
           <section id="fotos" className={styles.seccion}>
             {/* El mínimo de 3 fotos se pide solo si se cambian las fotos (ver `reglasFotosEdicion`). */}

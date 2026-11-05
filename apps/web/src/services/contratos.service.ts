@@ -197,6 +197,7 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
     ultimoPaso: contrato.ultimoPaso,
     pdf: pdfDeContratoMock(contrato),
     fechaInicioVencida: contrato.status === 'borrador' && contrato.condiciones.startDate !== null && contrato.condiciones.startDate < hoyIso(),
+    endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
   }
   return base
 }
@@ -480,6 +481,7 @@ function detalleDeContratoMock(contrato: ContratoMock): ContratoDetalle {
     enviadoEl: contrato.sentAt,
     firmadoPorTodasEl: contrato.firmadoPorTodasEl ?? null,
     firmasRegistradas: Boolean(firmas),
+    modificarDelBack: null,
     firmantes,
     endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
     // NOTA: en mock los ajustes no se calculan: el monto actual es el inicial.
@@ -539,14 +541,15 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     ultimoPaso: 3,
     pdf: { nombre: `${rental.contractId}.pdf`, tamanoBytes: 1, subidoEl: null, url: PDF_FICTICIO_URL },
     fechaInicioVencida: false,
+    endDate: rental.endDate,
   }
   return {
     ...base,
     enviadoEl: null,
     firmadoPorTodasEl: null,
     firmasRegistradas: false,
+    modificarDelBack: null,
     firmantes: [],
-    endDate: rental.endDate,
     montoActual: rental.currentAmount,
     // El elenco ajusta cada 4 o 12 meses (la periodicidad del contrato de RentAR no tiene 4).
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : propiedad.adjustmentEveryMonths,
@@ -794,7 +797,8 @@ export async function reabrirContrato(id: string): Promise<void> {
     // Se borran las firmas registradas: el registro queda sin `firmas`, como un borrador.
     const sinFirmas: ContratoMock = { ...contrato }
     delete sinFirmas.firmas
-    guardarAccionMock({ ...sinFirmas, status: 'borrador', sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
+    // Vuelve al paso 1, como el back.
+    guardarAccionMock({ ...sinFirmas, status: 'borrador', ultimoPaso: 0, sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
     return
   }
   try {

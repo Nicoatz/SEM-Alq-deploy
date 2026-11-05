@@ -36,10 +36,12 @@ interface PasoCargaProps {
   pdf: PdfContrato | null
   /** El PDF ya quedó guardado en el contrato: la subida no espera a "Guardar borrador". */
   onPdfCargado: (contrato: ContratoBorrador) => void
+  /** El contrato dejó de ser borrador (409 `CONTRATO_NO_EDITABLE`): el alta lleva al detalle. */
+  onNoEditable: (mensaje: string) => void
 }
 
 /** Paso 3 del alta: cargar o reemplazar el PDF. */
-export function PasoCarga({ contratoId, pdf, onPdfCargado }: PasoCargaProps) {
+export function PasoCarga({ contratoId, pdf, onPdfCargado, onNoEditable }: PasoCargaProps) {
   // ─── Estado local ───────────────────────────────────────────────────
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +66,10 @@ export function PasoCarga({ contratoId, pdf, onPdfCargado }: PasoCargaProps) {
     try {
       onPdfCargado(await subirPdfContrato(contratoId, archivo))
     } catch (causa) {
+      if (causa instanceof ServiceError && causa.apiCode === 'CONTRATO_NO_EDITABLE') {
+        onNoEditable(causa.message)
+        return
+      }
       setError(causa instanceof ServiceError ? causa.message : 'No pudimos subir el PDF. El que estaba cargado sigue igual: probá de nuevo.')
     } finally {
       setSubiendo(false)

@@ -200,6 +200,21 @@ export const reglasDisponibleDesde: FormRule[] = [
   },
 ]
 
+/**
+ * La misma regla en la edición (US-03): se valida solo si el usuario cambió la
+ * fecha. Decisión del PO (HANDOFF §7, S4-23): una fecha guardada que venció no
+ * frena otros cambios, como el precio.
+ * @param guardada La fecha guardada de la propiedad.
+ */
+export function reglasDisponibleDesdeEdicion(guardada: string | null | undefined): FormRule[] {
+  return [
+    {
+      validator: (_rule, value?: string | null) =>
+        value && value !== guardada && dayjs(value).isBefore(hoy()) ? Promise.reject(new Error(MENSAJES_ALTA.disponiblePasada)) : Promise.resolve(),
+    },
+  ]
+}
+
 /** US-01: "al menos tres fotos" (el máximo, el formato y el peso se controlan al agregarlas). */
 export const reglasFotos: FormRule[] = [
   {

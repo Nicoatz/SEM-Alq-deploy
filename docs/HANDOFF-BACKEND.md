@@ -227,7 +227,7 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 | S4-8 | **US-12 sigue hablando de pago parcial** (decisión del PO: no hay). La corrige el PO | Criterios de US-12 | PO |
 | S4-9 | **Ajustes:** el monto se copia a todos los períodos al generarlos y nadie escribe `ajuste_contrato`. No hay valores de índice por fecha | US-11 y US-12: el monto del próximo ajuste sigue "a definir" | backend |
 | S4-10 | **Baja de propiedad con borrador:** 500 sin monto; con monto, el borrador aparece como finalizado al locatario | US-04 | backend |
-| S4-11 | **Descartar un borrador devuelve la solicitud a pendiente** (`descartar_borrador_contrato`). US-06 pide que siga aceptada y pueda volver a originar un contrato. En mock sigue aceptada | Hay que volver a aceptar la solicitud para iniciar otro contrato | backend |
+| S4-11 | **Resuelta: comportamiento decidido (PO, 05/11).** Descartar un borrador devuelve la solicitud a pendiente (`descartar_borrador_contrato`), en real y en mock, y la confirmación lo avisa. Motivo: una aceptada sin contrato bloqueaba aceptar a otro locatario (US-37). El PO corrige el texto de US-06 | Hay que volver a aceptar la solicitud para iniciar otro contrato | — |
 | S4-12 | **Resuelta en el cierre:** `package-lock.json` se regeneró desde el de `develop`, con `pdfjs-dist` y sin `jspdf` ni `html2canvas`. `npm ci` y el build andan desde una instalación limpia | — | — |
 | S4-13 | **Resuelta en el front (Tanda 3):** la URL del PDF vence a los 5 minutos, así que cada botón la pide al usarla (`BotonPdf`, `urlPdfDeContrato`) y reintenta una vez. Probado en real con el contrato 31: tras 310 s la URL vieja da 400 y el botón abre el PDF | — | — |
 | S4-14 | **Resuelta en `@rentar/ui`:** `MoneyInput` ya no cambia el monto solo. La coma muestra "Ingresá un monto entero, sin centavos", el punto tipeado se toma como separador de miles y vaciar el campo ya no deja un "$ 0" que multiplicaba por 10 lo tipeado | — | — |
@@ -237,6 +237,8 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 | S4-18 | **Sin períodos ni cobros en la base:** el listado, el modal, el detalle y el comprobante reales no se probaron con datos, ni el chequeo de seguridad de S4-5 | US-08, US-09, US-10 | backend |
 | S4-19 | **`proximo_periodo` es uno solo y no trae tasa ni gracia:** en real, con dos contratos la tarjeta muestra el que venga; no dice desde cuándo corre el recargo, y el contrato sin ese período no muestra el monto en Mi alquiler (issue #27, puntos 13b y 17) | US-12 | backend |
 | S4-20 | **US-11 sin valores del índice por fecha:** el monto después de un ajuste va "a definir", y los ajustes ya pasados del calendario también, porque nadie escribe `ajuste_contrato` (issue #27, punto 15). La insignia de Mis pagos solo existe en mock | US-11 | backend |
+| S4-22 | **Falta aplicar `20261104000001_us03_modificar_oferta.sql`:** `actualizar_propiedad_completa` no actualiza la oferta y rechaza `condiciones_contrato`. Probado en real con el inmueble 17 (§9), que además tiene `precio_publicado` 600.500 y oferta 1.000.000.000 | El precio editado no llega a la búsqueda (§10, punto 25). Editar las condiciones de la oferta no se puede | db |
+| S4-23 | **Resuelta en el front (PO, 05/11):** "Disponible desde" se valida solo si el usuario la cambia (`reglasDisponibleDesdeEdicion`). Una fecha vencida sin tocar ya no frena otros cambios. El back no la valida y el `PUT` solo manda lo que cambió | — | — |
 | S4-21 | **`GET /mis-alquileres` tarda más de 30 segundos** (31 s medidos el 05/11, en local contra Supabase, con el usuario 1). La pestaña Contratos y Mis propiedades quedan cargando todo ese tiempo. Es nuevo: no está en #27 | US-02, US-43 | backend |
 
 **Lado del locatario (Tanda 5, 05/11):** `/panel/pagos`, la tarjeta "Tu próximo alquiler", los últimos pagos y el monto y el calendario de Mi alquiler están conectados. En real no hay locatario con períodos: solo se probaron vacíos y errores. El panel del locador ya no es un mock aparte: `/panel` y `/panel/cobros` leen los mismos períodos, y "Vencido" incluye la mora en los dos. No se implementan el botón Pagar, "Incluye expensas fijas", gastos informados, reclamos ni mensajes en el panel.
@@ -1028,6 +1030,13 @@ equipo) y el usuario **31** del Sprint 3 (`rentar.qa+test-perfil-2210@example.co
 No se reabrió el contrato 2. El contrato 2 y el 3 siguen sin PDF. La prueba real de la Tanda 3 (05/11) solo
 escribió la re-aceptación de la solicitud 23: los contratos 2, 3 y 31 siguen en el mismo estado.
 
+**Prueba del precio (05/11, auditoría de las guías del back).** Se editó el inmueble **17** y se dejó como
+estaba: `precio_publicado` pasó de 600.500 a 600.600 y volvió a **600.500**. La oferta (contrato **17**) no
+cambió: siguió en 1.000.000.000. Con 600.600, `GET /inmuebles/disponibles/17` y el detalle público mostraron
+$ 1.000.000.000. `/buscar` no se confirmó en pantalla: la propiedad no apareció en el texto de la primera
+carga. El `PUT` se mandó solo con `precio_publicado` desde la sesión, porque en ese momento la pantalla no
+dejaba guardar (§7, S4-23, ya resuelta). El recorrido por los contratos 2 y 31 fue de solo lectura.
+
 Las pruebas reales de las Tandas 4 y 5 y del cierre (05/11) no escribieron nada: la base sigue con 0 períodos y 0 cobros. Se probaron
 los estados vacíos, los no encontrados y los errores, con una guarda que cortaba toda escritura. El detalle con
 "No disponible por ahora" se probó con respuestas simuladas en el navegador. El usuario 1 solo tiene el rol
@@ -1153,6 +1162,8 @@ Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear)
     locador edita el precio en `/editar`, lo ve en Mis propiedades y en su detalle, y `/buscar` y el
     detalle público siguen con el viejo. Propuesta: que el `PUT` actualice también el monto del
     contrato cuando no hay uno vigente, o que las vistas públicas lean `precio_publicado`.
+    **Actualización (05/11):** `20261104000001_us03_modificar_oferta.sql` lo resuelve, pero no está
+    aplicada. Sigue abierto hasta aplicarla (§7, S4-22).
 26. **🟡 Bajo · Línea suelta en la migración.** `supabase/migrations/20261010000000_actualizar_propiedad_atomica.sql`
     empieza con una línea `sql` (resto de un bloque de código): `supabase db push` falla. En la base la
     función está aplicada (se cargó a mano). Borrar esa línea.

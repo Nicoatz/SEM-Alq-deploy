@@ -110,8 +110,9 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   sin contrato. Crea el borrador al entrar, como el back: si salís sin guardar, queda en la pestaña. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
 - **Borrador sembrado: BOR-2026-0001** (Chacabuco 690, desde SOL-2026-0041 de Matías). Chacabuco sigue
   **pausada**: el locador la pausó mientras arma el contrato, y no aparece en `/buscar`. Eliminarlo lo
-  marca `descartado` en el navegador y la solicitud **sigue aceptada** (US-06), así que vuelve "Iniciar
-  contrato"; "Reiniciar datos de prueba" lo trae de nuevo. Matías tiene además la 0032 pendiente en
+  marca `descartado` en el navegador y la solicitud **vuelve a pendiente**, como en el back (decisión del
+  PO, 05/11): para iniciar otro contrato hay que aceptarla de nuevo. "Reiniciar datos de prueba" trae
+  los dos de vuelta. Matías tiene además la 0032 pendiente en
   Rondeau: la regla de una sola activa es por propiedad (US-35).
 - Los borradores se guardan en `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en
   memoria hasta recargar (mismo criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.

@@ -5,9 +5,19 @@
  * Cubre: US-05 ("guardar el contrato como borrador desde cualquier paso") y
  * US-06: reenviar una fecha de inicio ya vencida da 400, así que un contrato
  * reabierto se guarda sin tocar la fecha mientras no se cambie.
- * Quién lo usa: `components/contratos/AltaContrato.tsx`.
+ * Quién lo usa: `components/contratos/AltaContrato.tsx` y
+ * `components/mi-propiedad/PestanaContratos.tsx`.
  */
 import type { CambiosBorrador, CondicionesNuevoContrato, ContratoBorrador } from '@rentar/shared-types'
+
+/**
+ * Lo que se pierde al descartar un borrador (decisión del PO, HANDOFF §7, S4-11).
+ * Solo un borrador reabierto tiene código: se asigna al enviar a firmar.
+ */
+export function avisoAlDescartar(code: string | null): string {
+  const solicitud = 'La solicitud vuelve a pendiente: para iniciar otro contrato vas a tener que aceptarla de nuevo.'
+  return code ? `${solicitud} También se pierde el código ${code}.` : solicitud
+}
 
 /**
  * Compara el borrador con lo último guardado.

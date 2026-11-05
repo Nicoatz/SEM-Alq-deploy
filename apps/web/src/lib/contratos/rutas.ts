@@ -30,9 +30,12 @@ export function editarContratoHref(contratoId: string): string {
   return `${contratoHref(contratoId)}/editar`
 }
 
-/** Iniciar el contrato desde una solicitud aceptada (US-05). */
-export function iniciarContratoHref(solicitudId: string): string {
-  return `/panel/contratos/nuevo?solicitud=${encodeURIComponent(solicitudId)}`
+/**
+ * Iniciar el contrato desde una solicitud aceptada (US-05). La propiedad viaja
+ * para ofrecer su pestaña Contratos si la solicitud ya originó uno.
+ */
+export function iniciarContratoHref(solicitudId: string, propiedadId: string): string {
+  return `/panel/contratos/nuevo?solicitud=${encodeURIComponent(solicitudId)}&propiedad=${encodeURIComponent(propiedadId)}`
 }
 
 /** Las solicitudes de una propiedad (US-43: "el acceso a las solicitudes de la propiedad"). */

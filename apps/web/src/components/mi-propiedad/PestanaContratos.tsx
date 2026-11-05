@@ -35,6 +35,7 @@ import { ConfirmActionModal, DataTable, EmptyState, IndexBadge, MoneyAmount, Sta
 import { fechaCorta } from '@/lib/contratos/fechas'
 import { fechaYHora, NOMBRE_ROL } from '@/lib/contratos/firmas'
 import { subtituloContratosDePropiedad, vigenciaDeContrato } from '@/lib/contratos/propiedad'
+import { avisoAlDescartar } from '@/lib/contratos/cambios'
 import { contratoHref, editarContratoHref, iniciarContratoHref, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { eliminarBorrador, listarContratosDePropiedad, urlPdfDeContrato } from '@/services/contratos.service'
@@ -191,7 +192,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
     try {
       await eliminarBorrador(actual.id)
       setConfirmarEliminar(false)
-      setAviso('Eliminaste el borrador.')
+      setAviso('Eliminaste el borrador. La solicitud volvió a pendiente.')
       carga.reintentar()
     } catch (error) {
       setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos eliminar el borrador. Probá de nuevo.')
@@ -291,7 +292,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
             description={solicitudParaContrato ? 'Ya aceptaste una solicitud: podés iniciar el contrato.' : 'El contrato nace de una solicitud aceptada.'}
             action={
               solicitudParaContrato ? (
-                <Button type="primary" onClick={() => router.push(iniciarContratoHref(solicitudParaContrato))} data-testid="propiedad-contrato-iniciar">
+                <Button type="primary" onClick={() => router.push(iniciarContratoHref(solicitudParaContrato, propiedadId))} data-testid="propiedad-contrato-iniciar">
                   Iniciar contrato
                 </Button>
               ) : (
@@ -323,7 +324,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
       <ConfirmActionModal
         open={confirmarEliminar}
         title="¿Eliminar el borrador?"
-        description="Se descarta el borrador y la propiedad queda sin contrato actual. Esta acción no se puede deshacer."
+        description={`Se descarta el borrador y la propiedad queda sin contrato actual. ${avisoAlDescartar(actual?.code ?? null)} Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar borrador"
         cancelLabel="Volver"
         danger

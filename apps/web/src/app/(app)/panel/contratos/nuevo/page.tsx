@@ -20,7 +20,7 @@ export const metadata: Metadata = { title: 'Nuevo contrato' }
 
 /** El alta (con solicitud) o el selector (sin solicitud). */
 export default async function NuevoContratoPage({ searchParams }: PageProps<'/panel/contratos/nuevo'>) {
-  const { solicitud } = await searchParams
+  const { solicitud, propiedad } = await searchParams
   const solicitudId = typeof solicitud === 'string' && solicitud ? solicitud : null
-  return solicitudId ? <AltaContrato key={solicitudId} solicitudId={solicitudId} /> : <SelectorSolicitud />
+  return solicitudId ? <AltaContrato key={solicitudId} solicitudId={solicitudId} propiedadId={typeof propiedad === 'string' ? propiedad : undefined} /> : <SelectorSolicitud />
 }

@@ -44,6 +44,7 @@ import {
   reglasCalle,
   reglasDiasGracia,
   reglasDisponibleDesde,
+  reglasDisponibleDesdeEdicion,
   reglasDormitorios,
   reglasEstado,
   reglasExpensas,
@@ -145,9 +146,11 @@ interface PasoCaracteristicasProps {
    * propuesta). "Disponible desde" sigue editable: es del inmueble.
    */
   estadoSoloLectura?: boolean
+  /** Solo la edición (US-03): la fecha guardada, que no se valida si no se cambia. */
+  disponibleGuardada?: string | null
 }
 
-export function PasoCaracteristicas({ estadoSoloLectura = false }: PasoCaracteristicasProps = {}) {
+export function PasoCaracteristicas({ estadoSoloLectura = false, disponibleGuardada }: PasoCaracteristicasProps = {}) {
   const form = Form.useFormInstance<AltaValues>()
   const tipo = Form.useWatch('type', form)
   const ambientes = Form.useWatch('rooms', form) ?? 2
@@ -231,7 +234,7 @@ export function PasoCaracteristicas({ estadoSoloLectura = false }: PasoCaracteri
           <Form.Item
             name="availableFrom"
             label={<Opcional>Disponible desde</Opcional>}
-            rules={reglasDisponibleDesde}
+            rules={estadoSoloLectura ? reglasDisponibleDesdeEdicion(disponibleGuardada) : reglasDisponibleDesde}
             extra={estado === 'alquilada' ? 'Si la cargás, la propiedad se publica para el próximo inquilino.' : 'Dejalo vacío si ya está disponible.'}
             {...fechaIso}
           >

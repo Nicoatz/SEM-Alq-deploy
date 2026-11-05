@@ -200,8 +200,13 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
       setConfirmarModificar(false)
       router.replace(`${editarContratoHref(contrato.id ?? '')}?envio=cancelado`)
     } catch (error) {
-      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos reabrir el contrato. Probá de nuevo.')
       setConfirmarModificar(false)
+      // Ya estaba en borrador (otra pestaña u otro dispositivo): no es un error, se sigue editando.
+      if (error instanceof ServiceError && error.apiCode === 'CONTRATO_YA_EN_BORRADOR') {
+        router.replace(editarContratoHref(contrato.id ?? ''))
+        return
+      }
+      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos reabrir el contrato. Probá de nuevo.')
       setReabriendo(false)
     }
   }

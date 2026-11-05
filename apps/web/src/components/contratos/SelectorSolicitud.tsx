@@ -98,7 +98,7 @@ export function SelectorSolicitud() {
               </span>
               <Button
                 type="primary"
-                onClick={() => router.push(iniciarContratoHref(solicitud.id))}
+                onClick={() => router.push(iniciarContratoHref(solicitud.id, solicitud.property.id))}
                 data-testid="contrato-selector-iniciar"
               >
                 Iniciar contrato

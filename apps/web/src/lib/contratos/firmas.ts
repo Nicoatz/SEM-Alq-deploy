@@ -77,10 +77,12 @@ export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): 
 }
 
 /**
- * ¿El locador puede modificar el contrato? (US-06: "pendiente de firma sin la
- * firma del locatario". La firma del propio locador no cuenta: se borra.)
+ * ¿El locador puede modificar el contrato? En real decide el back
+ * (`acciones.modificar`); en mock, la regla de US-06: "pendiente de firma sin la
+ * firma del locatario". La firma del propio locador no cuenta: se borra.
  */
-export function puedeModificar(contrato: Pick<ContratoDetalle, 'status' | 'firmantes'>): boolean {
+export function puedeModificar(contrato: Pick<ContratoDetalle, 'status' | 'firmantes' | 'modificarDelBack'>): boolean {
+  if (contrato.modificarDelBack !== null) return contrato.modificarDelBack
   if (contrato.status !== 'pendiente_firma') return false
   return !contrato.firmantes.some((firmante) => firmante.rol !== 'locador' && firmante.estado === 'firmado')
 }

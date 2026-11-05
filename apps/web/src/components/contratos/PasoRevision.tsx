@@ -42,6 +42,8 @@ interface PasoRevisionProps {
   mostrarErrorCasilla: boolean
   /** `false` en real: sin `POST /contratos/:id/enviar`, el botón se muestra deshabilitado. */
   envioDisponible: boolean
+  /** Fecha de fin guardada (la del back); `null` si cambiaron el inicio o la duración sin guardar. */
+  finGuardado: string | null
 }
 
 /** "Nombre Apellido". */
@@ -65,11 +67,11 @@ function Bloque({ titulo, paso, onEditar, testId, children }: { titulo: string; 
 }
 
 /** Paso 4 del alta: el resumen y la casilla de revisión. */
-export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible }: PasoRevisionProps) {
+export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible, finGuardado }: PasoRevisionProps) {
   const { condiciones, propiedad, locador, locatario, garantes } = borrador
   const contratoId = borrador.id ?? ''
   const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
-  const fin = fechaFin(condiciones.startDate, condiciones.durationMonths)
+  const fin = finGuardado ?? fechaFin(condiciones.startDate, condiciones.durationMonths)
   const ajustes = cantidadAjustes(condiciones.durationMonths, condiciones.adjustmentIndex, condiciones.adjustmentPeriod)
   const falta = 'Sin cargar'
 

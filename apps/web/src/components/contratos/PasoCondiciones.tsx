@@ -68,6 +68,14 @@ function numeroDe(valor: number | string | null | undefined): number | null {
   return Number.isNaN(numero) ? null : numero
 }
 
+/**
+ * El monto inicial: `MoneyInput` vacío manda 0, y el back rechaza 0 pero acepta
+ * `null` (US-05: "guardar el contrato como borrador desde cualquier paso").
+ */
+function montoDe(valor: number | string | null | undefined): number | null {
+  return numeroDe(valor) || null
+}
+
 /** Paso 2 del alta: plazo, dinero, ajuste y cobro. */
 export function PasoCondiciones({ borrador, onCondicionesChange, mostrarErrores }: PasoCondicionesProps) {
   const { condiciones, propiedad } = borrador
@@ -133,12 +141,12 @@ export function PasoCondiciones({ borrador, onCondicionesChange, mostrarErrores 
         <FormSection title="Dinero y ajuste" description="El monto inicial, el depósito, cuándo se paga y cómo se ajusta.">
           <div className={styles.grid3}>
             <Form.Item label="Monto inicial" {...item('initialAmount', precioPublicado === null ? undefined : `Publicaste ${new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(precioPublicado)}. Podés cambiarlo acá.`)}>
-              <MoneyInput value={condiciones.initialAmount ?? undefined} onChange={(valor) => cambiar('initialAmount', numeroDe(valor))} min={SIN_MINIMO} placeholder="Alquiler mensual" data-testid="contrato-monto" />
+              <MoneyInput value={condiciones.initialAmount ?? undefined} onChange={(valor) => cambiar('initialAmount', montoDe(valor))} min={SIN_MINIMO} placeholder="Alquiler mensual" data-testid="contrato-monto" />
             </Form.Item>
             <Form.Item label="Depósito en garantía" {...item('deposit', 'Por defecto, un mes de alquiler. Puede ser 0.')}>
               <MoneyInput value={condiciones.deposit ?? undefined} onChange={(valor) => cambiar('deposit', numeroDe(valor))} min={SIN_MINIMO} placeholder="Depósito" data-testid="contrato-deposito" />
             </Form.Item>
-            <Form.Item label="Plazo de vencimiento del pago" {...item('paymentTermDays', `En días, de ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX}.`)}>
+            <Form.Item label="Plazo de vencimiento del pago, en días" {...item('paymentTermDays', `De ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX}.`)}>
               <InputNumber<number>
                 value={condiciones.paymentTermDays}
                 onChange={(valor) => cambiar('paymentTermDays', numeroDe(valor))}
