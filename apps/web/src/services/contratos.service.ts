@@ -392,7 +392,7 @@ export async function eliminarBorrador(id: string): Promise<void> {
 /**
  * En real no hay envío a firmar: el flujo termina en borrador (decisión del PO,
  * Sprint 4). La pantalla deja "Enviar a firmar" deshabilitado.
- * TODO(backend): `POST /contratos/:id/enviar` (issue del Sprint 4, punto 1).
+ * TODO(backend): `POST /contratos/:id/enviar` (issue #27, punto 1).
  */
 export const ENVIO_A_FIRMA_DISPONIBLE = USE_MOCKS
 

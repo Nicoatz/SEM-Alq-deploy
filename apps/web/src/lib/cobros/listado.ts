@@ -6,7 +6,7 @@
  *
  * NOTA: se calcula acá porque el back saca `cantidades` después de filtrar por
  * estado, no manda `resumen` de pendientes e incluye períodos futuros, que no se
- * pueden cobrar (issue del Sprint 4, puntos 9 y 11).
+ * pueden cobrar (issue #27, puntos 9 y 11).
  * TODO(backend): filtrar del lado del back cuando esté corregido.
  *
  * Quién lo usa: `services/cobros.service.ts`.

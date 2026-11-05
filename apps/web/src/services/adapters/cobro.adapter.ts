@@ -299,7 +299,7 @@ export function errorDeComprobante(error: unknown): unknown {
  * NOTA: se distingue por el texto porque el back no manda `codigo`, y el
  * middleware pisa con 400 el 409 de `registrar_cobro_manual`. Multer manda el
  * archivo grande y el tipo inválido como 500.
- * TODO(backend): mandar `codigo` y los status correctos (issue, punto 8).
+ * TODO(backend): mandar `codigo` y los status correctos (issue #27, punto 8).
  */
 export function errorDeRegistro(error: unknown): unknown {
   if (!(error instanceof ServiceError)) return error

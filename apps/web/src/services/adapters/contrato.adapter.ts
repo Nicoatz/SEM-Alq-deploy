@@ -86,7 +86,7 @@ const CONTRATO_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revis�
  * Las firmas del back → solo locador y locatario. `null` si alguna de las dos
  * partes no tiene registro: no se inventa quién firmó (US-42).
  * TODO(backend): el back cuenta al garante como firmante, y el garante no firma
- * (decisión del PO; issue del Sprint 4, punto 2). Se saca acá y `faltan` se
+ * (decisión del PO; issue #27, punto 2). Se saca acá y `faltan` se
  * recalcula en la vista con `firmasQueFaltan`.
  */
 function partesQueFirman(firmas: FirmasApiDto | null): (FirmanteApiDto & { rol: RolFirmante; estado: FirmanteContrato['estado'] })[] | null {

@@ -529,7 +529,7 @@ export interface ContratoPdfDto {
 
 /** Un firmante, como lo manda el back (US-42, US-43). Copia de `FirmanteDetalleResponse`. */
 export interface FirmanteApiDto {
-  /** TODO(backend): el back cuenta al garante como firmante; el adaptador lo saca (issue del Sprint 4, punto 2). */
+  /** TODO(backend): el back cuenta al garante como firmante; el adaptador lo saca (issue #27, punto 2). */
   rol: 'locador' | 'locatario' | 'garante'
   nombre: string
   apellido: string
@@ -680,7 +680,7 @@ export interface ContratoDetalleApiResponse {
     monto_inicial: number | null
     monto_actual: number | null
     deposito: number | null
-    /** Plazo en días, no el día del mes. TODO(backend): US-08 lo usa como día del mes (issue del Sprint 4, punto 4). */
+    /** Plazo en días, no el día del mes. TODO(backend): US-08 lo usa como día del mes (issue #27, punto 4). */
     dias_para_vencimiento: number | null
     /** `null` = "Sin ajuste". */
     indice: { id: number; descripcion: string } | null

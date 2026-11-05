@@ -10,7 +10,7 @@ import type { MedioCobro } from '@rentar/shared-types'
 /**
  * Límite del adjunto: 4,5 MB, el más chico de los tres (decisión del PO, 05/11).
  * TODO(backend): la US dice 8 MB, el back y el bucket 5 MB y Vercel 4,5 MB. El
- * equipo define uno (issue del Sprint 4, punto 8).
+ * equipo define uno (issue #27, punto 8).
  */
 export const ADJUNTO_MAX_BYTES = 4_500_000
 

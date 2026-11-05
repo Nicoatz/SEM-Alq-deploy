@@ -2,7 +2,7 @@
  * montoEnLetras.ts — el total del comprobante en letras.
  *
  * Qué es: US-10 pide el total en números y en letras. Se arma acá, en mock y en
- * real, porque el texto del back tiene errores (issue del Sprint 4, punto 7).
+ * real, porque el texto del back tiene errores (issue #27, punto 7).
  * Quién lo usa: `HojaComprobante`.
  */
 
