@@ -5,7 +5,7 @@ import {
   ContratoBorradorResponse,
   ContratoDetalleResponse,
   ContratoDTO,
-  ContratoResumenResponse,
+  ContratosInmuebleResponse,
   UrlSubidaPdfResponse,
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
@@ -18,17 +18,24 @@ export class ContratoController {
     return Number.isInteger(id) && id > 0 ? id : null;
   }
 
-  /** GET /contratos · US-43: los contratos del locador (sin las ofertas). */
-  async listar(
+  /** GET /inmuebles/:id/contratos · US-43: los contratos de una propiedad del locador (sin la oferta). */
+  async listarPorInmueble(
     req: Request,
-    res: Response<ApiResponse<ContratoResumenResponse[]>>,
+    res: Response<ApiResponse<ContratosInmuebleResponse>>,
     next: NextFunction
   ): Promise<void> {
     try {
-      const user = (req as any).user as AuthenticatedUser;
-      const contratos = await contratoService.listar(user);
+      const idInmueble = this.parseContratoId(req);
 
-      res.status(200).json({ success: true, data: contratos });
+      if (idInmueble === null) {
+        res.status(400).json({ success: false, error: 'El identificador de la propiedad no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const listado = await contratoService.listarPorInmueble(user, idInmueble);
+
+      res.status(200).json({ success: true, data: listado });
     } catch (error) {
       next(error);
     }
@@ -161,6 +168,55 @@ export class ContratoController {
         message: 'Borrador guardado exitosamente.',
         data: contrato
       });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /contratos/:id/reabrir · US-06: vuelve a borrador un contrato pendiente de firma sin la
+   * firma del locatario (cancela el envío y borra las firmas). El cliente confirma antes.
+   */
+  async reabrir(
+    req: Request,
+    res: Response<ApiResponse<ContratoBorradorResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const contrato = await contratoService.reabrir(user, idContrato);
+
+      res.status(200).json({
+        success: true,
+        message: 'El contrato volvió a borrador.',
+        data: contrato
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /** DELETE /contratos/:id · US-06: descarta un borrador (el cliente confirma antes). */
+  async descartar(req: Request, res: Response<ApiResponse<null>>, next: NextFunction): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      await contratoService.descartar(user, idContrato);
+
+      res.status(200).json({ success: true, message: 'Borrador descartado exitosamente.' });
     } catch (error) {
       next(error);
     }

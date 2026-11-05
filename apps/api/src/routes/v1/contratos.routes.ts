@@ -57,70 +57,6 @@ router.post(
 
 /**
  * @openapi
- * /api/v1/contratos:
- *   get:
- *     summary: Listar los contratos del locador (US-43)
- *     description: >
- *       Devuelve los contratos de las propiedades del locador autenticado: borradores, pendientes
- *       de firma, vigentes y finalizados. **No** incluye las ofertas (estado 1), que son las
- *       condiciones de la publicación. Sin DNI ni datos de contacto del locatario o de los garantes.
- *       Orden por defecto: pendientes de firma, borradores y el resto por fecha de fin. Los
- *       filtros por estado, los conteos y la búsqueda los resuelve el cliente sobre esta lista.
- *     tags:
- *       - Contratos
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Lista de contratos (vacía si el locador no tiene).
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success: { type: boolean }
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id: { type: integer }
- *                       codigo: { type: string, nullable: true, description: 'null en los borradores' }
- *                       estado: { type: string, enum: [borrador, pendiente_firma, vigente, finalizado] }
- *                       inmueble:
- *                         type: object
- *                         properties:
- *                           id: { type: integer }
- *                           direccion: { type: string }
- *                           numero: { type: integer }
- *                           piso: { type: string, nullable: true }
- *                           barrio: { type: string }
- *                       locatario:
- *                         type: object
- *                         nullable: true
- *                         properties:
- *                           nombre: { type: string }
- *                           apellido: { type: string }
- *                       monto_actual: { type: number, nullable: true }
- *                       fecha_inicio_contrato: { type: string, format: date, nullable: true }
- *                       fecha_fin_contrato: { type: string, format: date, nullable: true }
- *                       indice: { type: string, enum: [sin_ajuste, ICL, IPC, CAC] }
- *                       proximo_ajuste: { type: string, format: date, nullable: true }
- *                       id_solicitud: { type: integer, nullable: true }
- *       401:
- *         description: No autorizado.
- *       403:
- *         description: El usuario no tiene rol locador.
- */
-router.get(
-  '/',
-  authenticateGateway,
-  requireRole('locador'),
-  contratoController.listar.bind(contratoController)
-);
-
-/**
- * @openapi
  * /api/v1/contratos/{id}/detalle:
  *   get:
  *     summary: Consultar el detalle de un contrato del locador (US-42)
@@ -477,6 +413,94 @@ router.put(
   authenticateGateway,
   requireRole('locador'),
   contratoController.registrarPdf.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/reabrir:
+ *   post:
+ *     summary: Modificar un contrato pendiente de firma (US-06)
+ *     description: >
+ *       Vuelve a borrador un contrato pendiente de firma **sin la firma del locatario**. Cancela el
+ *       envío, borra las firmas registradas (partes y garantes, y los enlaces de los garantes) y
+ *       conserva el código CT-AAAA-NNNN. Después se edita con `PATCH /contratos/{id}` (los mismos
+ *       4 pasos y validaciones que el alta). **El cliente debe pedir confirmación al locador antes
+ *       de llamar**, avisando las tres consecuencias.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: El contrato volvió a borrador; devuelve el contrato completo.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador ("No encontramos este contrato.").
+ *       409:
+ *         description: >
+ *           No se puede modificar. Trae `codigo` con el motivo: CONTRATO_VIGENTE,
+ *           CONTRATO_FINALIZADO, CONTRATO_FIRMADO_POR_LOCATARIO o CONTRATO_YA_EN_BORRADOR
+ *           (un borrador se retoma directo con `GET` y `PATCH`).
+ */
+router.post(
+  '/:id/reabrir',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.reabrir.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}:
+ *   delete:
+ *     summary: Descartar un borrador de contrato (US-06)
+ *     description: >
+ *       Elimina un contrato en borrador con sus garantes, partes, PDF. La solicitud
+ *       de origen vuelve a **pendiente**: el locador puede aceptarla de nuevo o elegir a otra
+ *       persona, y el locatario no queda bloqueado.
+ *       **El cliente debe pedir confirmación antes de llamar.** Solo borradores.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Borrador descartado.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador.
+ *       409:
+ *         description: El contrato ya no está en borrador (`codigo` CONTRATO_NO_EDITABLE).
+ */
+router.delete(
+  '/:id',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.descartar.bind(contratoController)
 );
 
 export default router;

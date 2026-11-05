@@ -1,8 +1,44 @@
 import { Router } from 'express';
 import { comprobantePagoController } from '../../controllers/comprobante-pago.controller';
+import { cobroConsultaController } from '../../controllers/cobro-consulta.controller';
 import { authenticateGateway } from '../../gateway/middlewares/auth.middleware';
 
 const router = Router();
+
+/**
+ * @openapi
+ * /api/v1/cobros/{id}:
+ *   get:
+ *     summary: Consultar un período de cobro
+ *     description: Acceso solo para el locador propietario o el locatario principal. Un período ajeno e inexistente responden igual.
+ *     tags: [Cobros]
+ *     security:
+ *       - SupabaseBearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer, minimum: 1 }
+ *     responses:
+ *       200:
+ *         description: Detalle del período, cobros y eventos de su historial.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data: { $ref: '#/components/schemas/DetalleCobroConsulta' }
+ *       400:
+ *         description: ID inválido.
+ *       401:
+ *         description: No autenticado.
+ *       404:
+ *         description: No encontramos este cobro.
+ *       500:
+ *         description: Error de consulta o de Storage.
+ */
+router.get('/:id', authenticateGateway, cobroConsultaController.detalle.bind(cobroConsultaController));
 
 /**
  * @openapi

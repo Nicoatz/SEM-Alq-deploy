@@ -132,7 +132,9 @@ router.get(
  *       404:
  *         description: Solicitud inexistente o ajena.
  *       409:
- *         description: La solicitud ya no está pendiente.
+ *         description: >
+ *           La solicitud ya no está pendiente, o la propiedad ya tiene otra solicitud aceptada en
+ *           curso (`codigo` PROPIEDAD_CON_SOLICITUD_ACEPTADA): solo se acepta una por propiedad.
  */
 router.patch(
   '/:id/aceptar',

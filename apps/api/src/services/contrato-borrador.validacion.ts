@@ -22,6 +22,17 @@ const FECHA_ISO = /^(\d{4})-(\d{2})-(\d{2})$/;
 const PERIODICIDADES: PeriodicidadAjuste[] = ['trimestral', 'semestral', 'anual'];
 
 export const MAX_GARANTES = 3;
+
+/** US-06: claves con las que alguien intentaría cambiar la propiedad, el locatario o el locador. */
+const CLAVES_NO_MODIFICABLES = [
+  'id_inmueble',
+  'inmueble',
+  'id_locatario',
+  'locatario',
+  'id_locador',
+  'locador',
+  'id_solicitud',
+];
 // numeric(12, 2) y fechas razonables: evitan un error de la base por desborde.
 const MAX_MONTO = 9_999_999_999;
 const MAX_DURACION_MESES = 600;
@@ -183,6 +194,11 @@ function validarGarantes(crudo: unknown): GaranteRequest[] {
 export function validarGuardarBorrador(cuerpo: unknown, hoy: string): GuardarBorradorRequest {
   if (!esObjeto(cuerpo)) fallar('El cuerpo de la solicitud debe ser un objeto.');
   const salida: GuardarBorradorRequest = {};
+
+  // US-06: la propiedad y el locatario vienen de la solicitud de origen y no se pueden cambiar.
+  if (CLAVES_NO_MODIFICABLES.some(clave => clave in cuerpo)) {
+    fallar('La propiedad y el locatario no se pueden modificar: vienen de la solicitud de origen.');
+  }
 
   if ('paso' in cuerpo) {
     if (!esEntero(cuerpo.paso) || cuerpo.paso < 1 || cuerpo.paso > 4) {

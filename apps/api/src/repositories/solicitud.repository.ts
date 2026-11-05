@@ -30,6 +30,7 @@ export interface ISolicitudRepository {
     idLocador: number,
     filtros?: FiltrosMisSolicitudesDTO
   ): Promise<SolicitudResponse[]>;
+  existeOtraAceptadaEnCurso(idInmueble: number, idSolicitudExcluida: number): Promise<boolean>;
   updateEstado(
     idSolicitud: number,
     idLocador: number,
@@ -184,6 +185,43 @@ export class SolicitudRepository implements ISolicitudRepository {
     return respuestas.filter(
       (respuesta): respuesta is SolicitudResponse => respuesta !== null
     );
+  }
+
+  /**
+   * ¿La propiedad ya tiene otra solicitud aceptada "en curso"? Es la que todavía no originó un
+   * contrato o la que originó uno borrador, pendiente de firma o vigente. Una aceptada cuyo
+   * contrato ya finalizó no cuenta: la propiedad volvió a alquilarse y puede aceptar otra.
+   * Solo hay una aceptada en curso por propiedad (el locador elige a un solo locatario).
+   */
+  async existeOtraAceptadaEnCurso(idInmueble: number, idSolicitudExcluida: number): Promise<boolean> {
+    const supabase = getSupabaseAdmin();
+
+    const { data: aceptadas, error } = await supabase
+      .from('solicitud')
+      .select('id')
+      .eq('id_inmueble', idInmueble)
+      .eq('id_estado_solicitud', 2)
+      .neq('id', idSolicitudExcluida);
+    if (error) throw error;
+
+    const ids = ((aceptadas ?? []) as { id: number }[]).map(solicitud => solicitud.id);
+    if (ids.length === 0) return false;
+
+    const { data: contratos, error: errorContratos } = await supabase
+      .from('contrato')
+      .select('id_solicitud, estado')
+      .in('id_solicitud', ids);
+    if (errorContratos) throw errorContratos;
+
+    // Estados de contrato: 2 vigente, 4 pendiente de firma, 5 borrador (3 = finalizado, no cuenta).
+    const enCurso = new Set(
+      ((contratos ?? []) as { id_solicitud: number; estado: number }[])
+        .filter(contrato => [2, 4, 5].includes(contrato.estado))
+        .map(contrato => contrato.id_solicitud)
+    );
+    const conContrato = new Set(((contratos ?? []) as { id_solicitud: number }[]).map(c => c.id_solicitud));
+
+    return ids.some(id => !conContrato.has(id) || enCurso.has(id));
   }
 
   async updateEstado(

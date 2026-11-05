@@ -79,27 +79,20 @@ export interface ParteContratoResponse {
   telefono: string | null;
 }
 
-// ─── US-43: listado de contratos del locador ───
+// ─── US-43: contratos de una propiedad del locador ───
 
 /** Índice de ajuste del contrato en el listado; `sin_ajuste` cuando no tiene índice. */
 export type IndiceContratoResponse = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC';
 
 /**
- * Una fila de `GET /contratos` (US-43). Sin DNI ni datos de contacto del locatario ni de los
- * garantes: el listado solo muestra el nombre del locatario.
+ * Una fila de `GET /inmuebles/:id/contratos` (US-43). Sin DNI ni datos de contacto del locatario
+ * ni de los garantes: solo el nombre del locatario. No trae la propiedad: ya es la de la ruta.
  */
 export interface ContratoResumenResponse {
   id: number;
   /** `null` en los borradores: el código se asigna al enviar a firmar. */
   codigo: string | null;
   estado: EstadoContratoResponse;
-  inmueble: {
-    id: number;
-    direccion: string;
-    numero: number;
-    piso: string | null;
-    barrio: string;
-  };
   /** `null` si el contrato todavía no tiene locatario cargado. */
   locatario: { nombre: string; apellido: string } | null;
   /** Último ajuste aplicado o, si no hubo, el monto inicial. `null` en un borrador sin monto. */
@@ -111,6 +104,34 @@ export interface ContratoResumenResponse {
   proximo_ajuste: string | null;
   /** Solicitud de origen; `null` en los contratos anteriores a US-05. */
   id_solicitud: number | null;
+  /**
+   * Las firmas, igual que en el detalle (US-42): con el contrato pendiente de firma, quién firmó
+   * (con fecha y hora) y quién falta; con el vigente, `firmado_por_todos_el`. `null` en un borrador
+   * (todavía no se envió a firmar) y en un finalizado (para eso está el detalle).
+   */
+  firmas: ContratoDetalleResponse['firmas'] | null;
+  /**
+   * El PDF, con URL firmada que vence a los 5 minutos, igual que en el detalle. Solo en los
+   * pendientes de firma y vigentes que tienen archivo; `null` en un borrador (no se descarga), en
+   * un finalizado (se descarga desde el detalle) y si no hay archivo.
+   */
+  pdf: ContratoPdfResponse | null;
+}
+
+/**
+ * `GET /inmuebles/:id/contratos` (US-43): los contratos de la propiedad y, para la propiedad sin
+ * contrato actual, desde qué solicitud se puede iniciar uno.
+ */
+export interface ContratosInmuebleResponse {
+  /** Más reciente primero. Sin la oferta (estado 1). */
+  contratos: ContratoResumenResponse[];
+  /**
+   * Id de la solicitud aceptada de la propiedad que todavía no originó un contrato. Con un id, el
+   * cliente ofrece "Iniciar contrato" (`POST /contratos` con ese `id_solicitud`); con `null`, el
+   * acceso a las solicitudes de la propiedad. `null` también si la propiedad ya tiene un contrato
+   * en curso (borrador, pendiente de firma o vigente).
+   */
+  solicitud_para_contrato: number | null;
 }
 
 export interface GaranteResponse extends GaranteRequest {
@@ -160,7 +181,14 @@ export interface ContratoBorradorResponse {
   pdf: ContratoPdfResponse | null;
   /** De 1 a 4, para retomar el borrador donde quedó. */
   ultimo_paso: number | null;
+  /**
+   * US-06: `true` si la fecha de inicio guardada quedó en el pasado (hoy en Córdoba). Hay que
+   * pedir una nueva antes de volver a enviar a firmar.
+   */
+  fecha_inicio_vencida: boolean;
 }
+
+// ─── US-06: modificar contrato ───
 
 // ─── US-42: detalle del contrato del locador ───
 

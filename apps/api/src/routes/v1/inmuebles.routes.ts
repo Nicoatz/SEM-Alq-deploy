@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { contratoController } from "../../controllers/contrato.controller";
 import { inmuebleController } from "../../controllers/inmueble.controller";
 import { authenticateGateway, requireRole } from "../../gateway/middlewares/auth.middleware";
 
@@ -161,7 +162,14 @@ router.post(
  *       incluyendo sus fotos y tags.
  *
  *       Las fotos y los tags enviados reemplazan las colecciones existentes.
- *       No se permite modificar el estado de alquiler ni los datos del contrato.
+ *       No se permite modificar el estado de alquiler.
+ *
+ *       También modifica las **condiciones de la oferta** (lo que está publicado) con
+ *       `condiciones_contrato`: parcial, solo se cambia lo que viene, y se puede enviar solo, sin
+ *       datos de la propiedad. Todo se guarda en una sola transacción. El monto de la oferta y
+ *       `precio_publicado` son el mismo dato: si llega uno, el otro se actualiza; si llegan los dos
+ *       con valores distintos, responde 400. `medios_pago`, si se envía, reemplaza la lista. El
+ *       contrato en curso (borrador, pendiente de firma o vigente) no se modifica.
  *       Tampoco se permite modificar una propiedad que se encuentre alquilada
  *       o publicada/alquilada.
  *     tags:
@@ -271,6 +279,23 @@ router.post(
  *                       type: boolean
  *                       default: false
  *                       example: true
+ *               condiciones_contrato:
+ *                 type: object
+ *                 description: Condiciones de la oferta. Todas opcionales.
+ *                 properties:
+ *                   monto_alquiler: { type: number, minimum: 1, description: 'Debe coincidir con precio_publicado si llegan los dos' }
+ *                   expensas: { type: number, minimum: 0 }
+ *                   indice_aumento: { type: integer, nullable: true, description: 'null = sin ajuste' }
+ *                   frecuencia_ajuste: { type: string, nullable: true }
+ *                   duracion_meses: { type: integer, minimum: 1, nullable: true }
+ *                   deposito: { type: number, minimum: 0, nullable: true }
+ *                   interes_por_dia: { type: number, nullable: true, description: 'Si es mayor a 0 hacen falta los días de gracia' }
+ *                   dias_gracia: { type: integer, nullable: true }
+ *                   medios_pago:
+ *                     type: array
+ *                     minItems: 1
+ *                     description: Lista completa de IDs de medios de pago (reemplaza la existente).
+ *                     items: { type: integer }
  *               tags:
  *                 type: array
  *                 description: |
@@ -344,6 +369,118 @@ router.put(
   authenticateGateway,
   requireRole("locador"),
   inmuebleController.update.bind(inmuebleController)
+);
+
+/**
+ * @openapi
+ * /api/v1/inmuebles/{id}/contratos:
+ *   get:
+ *     summary: Listar los contratos de una propiedad del locador (US-43)
+ *     description: >
+ *       Devuelve `contratos` (todos los de la propiedad: borradores, pendientes de firma, vigentes y
+ *       finalizados) para que el locador vea su historial. **No** incluye la oferta (estado 1), que
+ *       son las condiciones de la publicación. Sin DNI ni datos de contacto del locatario o de los
+ *       garantes, y sin los datos de la propiedad (ya es la de la ruta). Orden: el más reciente
+ *       primero por fecha de inicio, con los borradores sin fecha arriba. Una propiedad inexistente,
+ *       ajena o dada de baja responde siempre 404.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Lista de contratos (vacía si la propiedad no tiene).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     solicitud_para_contrato:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: >
+ *                         Id de la solicitud aceptada de la propiedad que todavía no originó un contrato.
+ *                         Con un id, ofrecer "Iniciar contrato" (`POST /contratos` con ese id); con null,
+ *                         el acceso a las solicitudes. Es null también si la propiedad ya tiene un contrato
+ *                         en curso (borrador, pendiente de firma o vigente).
+ *                     contratos:
+ *                       type: array
+ *                       items:
+ *                        type: object
+ *                        properties:
+ *                          id: { type: integer }
+ *                          codigo: { type: string, nullable: true, description: 'null en los borradores' }
+ *                          estado: { type: string, enum: [borrador, pendiente_firma, vigente, finalizado] }
+ *                          locatario:
+ *                            type: object
+ *                            nullable: true
+ *                            properties:
+ *                              nombre: { type: string }
+ *                              apellido: { type: string }
+ *                          monto_actual: { type: number, nullable: true }
+ *                          fecha_inicio_contrato: { type: string, format: date, nullable: true }
+ *                          fecha_fin_contrato: { type: string, format: date, nullable: true }
+ *                          indice: { type: string, enum: [sin_ajuste, ICL, IPC, CAC] }
+ *                          proximo_ajuste: { type: string, format: date, nullable: true }
+ *                          id_solicitud: { type: integer, nullable: true }
+ *                          firmas:
+ *                            type: object
+ *                            nullable: true
+ *                            description: >
+ *                              Igual que en el detalle (US-42). Solo en pendientes de firma y vigentes;
+ *                              `null` en borradores y finalizados.
+ *                            properties:
+ *                              registradas: { type: boolean }
+ *                              faltan: { type: integer, nullable: true, description: 'Solo pendiente de firma' }
+ *                              firmado_por_todos_el: { type: string, format: date-time, nullable: true, description: 'Solo vigente' }
+ *                              firmantes:
+ *                                type: array
+ *                                items:
+ *                                  type: object
+ *                                  properties:
+ *                                    rol: { type: string, enum: [locador, locatario, garante] }
+ *                                    nombre: { type: string }
+ *                                    apellido: { type: string }
+ *                                    estado: { type: string, enum: [pendiente, firmado, rechazado, sin_registro] }
+ *                                    fecha_firma: { type: string, format: date-time, nullable: true }
+ *                                    fecha_rechazo: { type: string, format: date-time, nullable: true }
+ *                                    motivo_rechazo: { type: string, nullable: true }
+ *                          pdf:
+ *                            type: object
+ *                            nullable: true
+ *                            description: >
+ *                              Igual que en el detalle, con URL firmada que vence a los 5 minutos. Solo en
+ *                              pendientes de firma y vigentes con archivo; `null` si no.
+ *                            properties:
+ *                              nombre: { type: string }
+ *                              tamano_bytes: { type: integer }
+ *                              subido_en: { type: string, format: date-time }
+ *                              url: { type: string }
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: La propiedad no existe, no es del locador o está dada de baja.
+ */
+router.get(
+  "/:id/contratos",
+  authenticateGateway,
+  requireRole("locador"),
+  contratoController.listarPorInmueble.bind(contratoController)
 );
 
 /**
