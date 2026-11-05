@@ -16,6 +16,7 @@ import type { IndiceContrato } from '@rentar/shared-types'
 import { IndexBadge, MoneyAmount } from '@rentar/ui'
 import { calendarioAjustes } from '@/lib/contratos/ajustes'
 import { fechaCorta } from '@/lib/contratos/fechas'
+import { hoy } from '@/lib/utils/fechas'
 import styles from './CalendarioAjustes.module.css'
 
 /** Props de {@link CalendarioAjustes}. */
@@ -32,6 +33,9 @@ interface CalendarioAjustesProps {
 export function CalendarioAjustes({ inicio, fin, cadaMeses, indice, montoInicial }: CalendarioAjustesProps) {
   const fechas = calendarioAjustes(inicio, fin, cadaMeses)
   if (fechas.length === 0) return null
+  // US-11: "Se debe destacar el próximo ajuste."
+  const hoyIso = hoy().format('YYYY-MM-DD')
+  const proximo = fechas.find((item) => item.tipo === 'ajuste' && item.fecha >= hoyIso)?.fecha
   return (
     <section className={styles.tarjeta} aria-labelledby="contrato-calendario-titulo" data-testid="contrato-detalle-calendario">
       <h2 id="contrato-calendario-titulo" className={styles.titulo}>
@@ -39,14 +43,14 @@ export function CalendarioAjustes({ inicio, fin, cadaMeses, indice, montoInicial
       </h2>
       <ol className={styles.lista}>
         {fechas.map(({ fecha, tipo }, posicion) => (
-          <li key={fecha} className={tipo === 'inicio' ? `${styles.fila} ${styles.filaInicio}` : styles.fila} data-testid="contrato-calendario-fila" data-tipo={tipo}>
+          <li key={fecha} data-proximo={fecha === proximo || undefined} className={tipo === 'inicio' ? `${styles.fila} ${styles.filaInicio}` : styles.fila} data-testid="contrato-calendario-fila" data-tipo={tipo}>
             <span className={styles.fecha}>
               <strong>{fechaCorta(fecha)}</strong>
               {tipo === 'inicio' ? (
                 <span className={styles.detalle}>Inicio · monto inicial</span>
               ) : (
                 <span className={styles.detalle}>
-                  Ajuste {posicion} <IndexBadge index={indice} />
+                  {fecha === proximo ? 'Próximo ajuste' : `Ajuste ${posicion}`} <IndexBadge index={indice} />
                 </span>
               )}
             </span>

@@ -61,6 +61,7 @@ import { ahoraIso } from '@/lib/utils/fechas'
 import { getDetalleContrato, reabrirContrato, reenviarInvitacion, urlPdfDeContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { BotonPdf } from './BotonPdf'
+import { MontoAlquiler } from '@/components/cobros/MontoAlquiler'
 import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
@@ -391,6 +392,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
 
       <div className={styles.grilla}>
         <div className={styles.columna}>
+          {esFicha && contrato.status === 'vigente' && contrato.id && <MontoAlquiler contratoId={contrato.id} />}
           {esFicha && !terminado && <LoQueVieneAlquiler contrato={contrato} />}
           {esFicha && <CondicionesAlquiler contrato={contrato} />}
           {esFicha && <LocadorAlquiler contrato={contrato} />}
@@ -497,7 +499,8 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
             </section>
           )}
 
-          {!esFicha && (
+          {/* US-11: en la ficha del locatario, solo para contratos vigentes. */}
+          {(!esFicha || contrato.status === 'vigente') && (
             <CalendarioAjustes inicio={condiciones.startDate} fin={contrato.endDate} cadaMeses={contrato.ajusteCadaMeses} indice={condiciones.adjustmentIndex} montoInicial={condiciones.initialAmount} />
           )}
         </div>

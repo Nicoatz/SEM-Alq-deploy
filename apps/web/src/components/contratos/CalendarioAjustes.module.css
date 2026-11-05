@@ -63,3 +63,8 @@
   font-weight: 600;
   color: var(--rentar-color-text-secondary);
 }
+
+/* US-11: el próximo ajuste se destaca. */
+.lista [data-proximo] {
+  outline: 2px solid var(--rentar-status-money-border);
+}

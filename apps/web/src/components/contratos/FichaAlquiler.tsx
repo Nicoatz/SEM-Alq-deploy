@@ -26,7 +26,7 @@
 import Image from 'next/image'
 import { HomeOutlined } from '@ant-design/icons'
 import type { ContratoDetalle } from '@rentar/shared-types'
-import { DetailList, IndexBadge, MoneyAmount, StatusTag } from '@rentar/ui'
+import { DetailList, IndexBadge, MoneyAmount, StatusTag, formatARS } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
 import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaDesdeHoy, loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
@@ -111,6 +111,13 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
             <span className={styles.valorSecundario}>{tienePlazoDePago ? 'No quedan pagos en este contrato.' : 'Sin dato del vencimiento del pago.'}</span>
           )}
         </li>
+        {/* US-11: "Si el contrato es Sin ajuste, se debe mostrar que el monto se mantiene hasta la fecha de fin". */}
+        {condiciones.adjustmentIndex === 'sin_ajuste' && (
+          <li className={styles.vieneItem} data-testid="mi-alquiler-sin-ajuste">
+            <span className={styles.vieneTitulo}>Sin ajuste</span>
+            <span>El monto se mantiene hasta la fecha de fin del contrato.</span>
+          </li>
+        )}
         {/* US-27: "contrato sin ajuste → no se muestra la fecha de próximo ajuste". */}
         {condiciones.adjustmentIndex !== 'sin_ajuste' && (
           <li className={styles.vieneItem} data-testid="mi-alquiler-proximo-ajuste">
@@ -118,7 +125,11 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
             {ajuste ? (
               <span className={styles.ajuste}>
                 <strong>{fechaCorta(ajuste.fecha)}</strong> · {textoFaltan(ajuste.dias)} · <IndexBadge index={condiciones.adjustmentIndex} />
-                <span className={styles.valorSecundario}>Monto: a definir</span>
+                {contrato.ajusteCadaMeses !== null && <span className={styles.valorSecundario}>cada {contrato.ajusteCadaMeses} meses</span>}
+                {/* US-11: sin valores del índice por fecha, el monto va "a definir" (issue #27, punto 15). */}
+                <span className={styles.valorSecundario} data-testid="mi-alquiler-ajuste">
+                  Monto actual {contrato.montoActual === null ? 'sin dato' : formatARS(contrato.montoActual)}. Después del ajuste: a definir. Se confirma con el valor del índice a la fecha del ajuste.
+                </span>
               </span>
             ) : (
               <span className={styles.valorSecundario}>No quedan ajustes antes del fin del contrato.</span>
