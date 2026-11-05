@@ -47,7 +47,7 @@ import type {
   SignatureStatus,
 } from '@rentar/shared-types'
 
-/** La firma de una parte, como la guardaría el back (US-07). En mock no hay IP. */
+/** La firma de una parte, como la guardaría el back (US-07). */
 export interface FirmaMock {
   estado: SignatureStatus
   /** Fecha y hora ISO; `null` si no firmó. */

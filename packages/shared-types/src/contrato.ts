@@ -268,7 +268,7 @@ export interface FirmanteContrato {
   nombre: string
   /** US-07: "pendiente, firmado (con fecha y hora) o rechazado (con el motivo)". Es el dominio `firma` de `StatusTag`. */
   estado: SignatureStatus
-  /** Fecha y hora ISO de la firma; `null` si no firmó. La IP la guarda el back y no se muestra. */
+  /** Fecha y hora ISO de la firma; `null` si no firmó. */
   firmadoEl: string | null
   /** Fecha y hora ISO del rechazo; `null` si no rechazó. */
   rechazadoEl: string | null

@@ -669,8 +669,8 @@ function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, Firma
  * US-07 — "Firma": registra la firma de quien está en sesión (el locador
  * desde el detalle; el locatario, desde Mi alquiler). La pantalla ya pidió
  * leer hasta la última página, la casilla y la confirmación.
- * - "Se deben registrar la fecha, la hora y la IP de cada firma": lo hace el
- *   back. En mock, el "hoy" del elenco con la hora real (`ahora()`); la IP no.
+ * - "Se deben registrar la fecha y la hora de cada firma": lo hace el back. En
+ *   mock, el "hoy" del elenco con la hora real (`ahora()`).
  * - "Una parte no puede firmar más de una vez el mismo contrato": 409.
  * - "Cuando firman todas las partes, el contrato pasa a 'vigente'": la
  *   propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas
