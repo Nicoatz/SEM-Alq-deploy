@@ -60,7 +60,7 @@ export const SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE = 'No encontramos esa
 export const SOLICITUD_NO_ACEPTADA_MESSAGE = 'Solo se puede iniciar un contrato desde una solicitud aceptada.'
 export const SOLICITUD_CON_CONTRATO_MESSAGE = 'Esta solicitud ya originó un contrato: una solicitud aceptada puede originar uno solo.'
 export const PROPIEDAD_CON_CONTRATO_MESSAGE = 'La propiedad ya tiene un contrato vigente o pendiente de firma. No se puede iniciar otro.'
-export const CONTRATO_NO_EDITABLE_MESSAGE = 'Este contrato ya se envió a firmar y no se puede editar.'
+export const CONTRATO_NO_EDITABLE_MESSAGE = 'Este contrato ya no es un borrador y no se puede editar.'
 /** US-43: "sin distinguir" si la propiedad no existe o no es del usuario. */
 export const PROPIEDAD_NO_ENCONTRADA_MESSAGE = 'No encontramos esta propiedad'
 export const PDF_SUBIDA_ERROR_MESSAGE = 'No pudimos subir el PDF. El que estaba cargado sigue igual: probá de nuevo.'
