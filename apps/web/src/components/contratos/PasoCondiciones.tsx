@@ -146,7 +146,7 @@ export function PasoCondiciones({ borrador, onCondicionesChange, mostrarErrores 
             <Form.Item label="Depósito en garantía" {...item('deposit', 'Por defecto, un mes de alquiler. Puede ser 0.')}>
               <MoneyInput value={condiciones.deposit ?? undefined} onChange={(valor) => cambiar('deposit', numeroDe(valor))} min={SIN_MINIMO} placeholder="Depósito" data-testid="contrato-deposito" />
             </Form.Item>
-            <Form.Item label="Plazo de vencimiento del pago" {...item('paymentTermDays', `En días, de ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX}.`)}>
+            <Form.Item label="Plazo de vencimiento del pago, en días" {...item('paymentTermDays', `De ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX}.`)}>
               <InputNumber<number>
                 value={condiciones.paymentTermDays}
                 onChange={(valor) => cambiar('paymentTermDays', numeroDe(valor))}
