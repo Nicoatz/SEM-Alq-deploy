@@ -196,6 +196,8 @@ function borradorDeContratoMock(contrato: ContratoMock): ContratoBorrador {
     condiciones: contrato.condiciones,
     clausulas: contrato.clausulas ?? [],
     ultimoPaso: contrato.ultimoPaso,
+    pdf: null,
+    fechaInicioVencida: false,
   }
   return { ...base, clausulas: completarClausulas(base.clausulas, base) }
 }
@@ -254,6 +256,8 @@ export async function prepararContrato(solicitudId: string): Promise<ContratoBor
       },
       clausulas: [],
       ultimoPaso: 0,
+      pdf: null,
+      fechaInicioVencida: false,
     }
     return { ...base, clausulas: completarClausulas([], base) }
   }
@@ -534,6 +538,8 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     },
     clausulas: [],
     ultimoPaso: 3,
+    pdf: null,
+    fechaInicioVencida: false,
   }
   return {
     ...base,

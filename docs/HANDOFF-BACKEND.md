@@ -1204,6 +1204,10 @@ de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
 
 ## 12. `data-testid` para Selenium
 
+> **Antes de compilar o correr los tests:** `npm run build --workspace=@rentar/shared-types` después de traer
+> la rama. `packages/shared-types/dist/` no está versionado y el front lee los tipos de ahí: sin este paso,
+> `npm run typecheck` falla con "has no exported member".
+
 Las acciones clave de cada pantalla tienen `data-testid`, así los tests no dependen de clases CSS
 ni del texto visible.
 

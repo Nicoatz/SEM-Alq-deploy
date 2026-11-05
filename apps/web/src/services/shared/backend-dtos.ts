@@ -590,6 +590,87 @@ export interface ParteApiDto {
   telefono: string | null
 }
 
+/** Un garante, como lo manda el back. Copia de `GaranteResponse`. */
+export interface GaranteApiDto {
+  id: number
+  nombre: string
+  apellido: string
+  dni: string
+  email: string
+}
+
+/**
+ * `GET /contratos/:id` y respuesta de `PATCH /contratos/:id`, `PUT /contratos/:id/pdf` y
+ * `POST /contratos/:id/reabrir` (existen, US-05, US-06). Copia de `ContratoBorradorResponse`.
+ */
+export interface ContratoBorradorApiResponse {
+  id: number
+  codigo: string | null
+  estado: 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado'
+  id_solicitud: number | null
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string; precio_publicado: number }
+  locador: ParteApiDto | null
+  locatario: ParteApiDto | null
+  /** Nombres de `tipo_garantia` ("garantía propietaria"), no códigos. */
+  garantias_ofrecidas: string[]
+  garantes: GaranteApiDto[]
+  condiciones: {
+    fecha_inicio_contrato: string | null
+    fecha_fin_contrato: string | null
+    duracion_meses: number | null
+    monto_alquiler: number | null
+    deposito: number | null
+    /** Plazo en días (1 a 28), no el día del mes. */
+    dias_para_vencimiento: number | null
+    /** Id de `tipo_indice`; `null` = "Sin ajuste". */
+    indice_aumento: number | null
+    frecuencia_ajuste: string | null
+    medios_pago: number[]
+    dias_gracia: number | null
+    interes_por_dia: number | null
+  }
+  pdf: ContratoPdfDto | null
+  /** De 1 a 4. */
+  ultimo_paso: number | null
+  fecha_inicio_vencida: boolean
+}
+
+/** Respuesta de `POST /contratos` (existe): la fila creada. Solo se usa `id`. */
+export interface ContratoCreadoResponse {
+  id: number
+}
+
+/** Cuerpo de `PATCH /contratos/:id` (existe). Solo viaja lo que cambió. Copia de `GuardarBorradorRequest`. */
+export interface GuardarBorradorRequest {
+  /** De 1 a 4. */
+  paso?: number
+  condiciones?: {
+    fecha_inicio_contrato?: string | null
+    duracion_meses?: number | null
+    monto_alquiler?: number | null
+    deposito?: number | null
+    dias_para_vencimiento?: number | null
+    /** `null` = "Sin ajuste". */
+    indice_aumento?: number | null
+    frecuencia_ajuste?: PeriodicidadDto | null
+  }
+  garantes?: { nombre: string; apellido: string; dni: string; email: string }[]
+}
+
+/** Respuesta de `POST /contratos/:id/pdf/url-subida` (existe). Copia de `UrlSubidaPdfResponse`. */
+export interface UrlSubidaPdfResponse {
+  path: string
+  token: string
+  url_firmada: string
+  tamano_maximo_bytes: number
+}
+
+/** Cuerpo de `PUT /contratos/:id/pdf` (existe). Copia de `RegistrarPdfRequest`. */
+export interface RegistrarPdfRequest {
+  path: string
+  nombre: string
+}
+
 /** Respuesta de `GET /contratos/:id/detalle` (existe, US-42). Copia de `ContratoDetalleResponse` del back. */
 export interface ContratoDetalleApiResponse {
   id: number

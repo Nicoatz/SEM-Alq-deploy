@@ -125,6 +125,16 @@ export interface PropiedadDelContrato {
   photoSrc: string | null
 }
 
+/** El PDF del contrato (US-05, paso 3). */
+export interface PdfContrato {
+  nombre: string
+  tamanoBytes: number
+  /** Fecha y hora ISO de la subida; `null` si no se registró. */
+  subidoEl: string | null
+  /** URL para verlo. En real es firmada y vence a los 5 minutos. */
+  url: string
+}
+
 /**
  * Un contrato en el alta: lo que se carga en los 4 pasos, guardado o no.
  * `id` es `null` hasta guardar el primer borrador.
@@ -148,6 +158,19 @@ export interface ContratoBorrador {
   clausulas: ClausulaContrato[]
   /** Paso en que quedó (0 a 3), para retomarlo (US-05: "un borrador se puede retomar desde el paso en que quedó"). */
   ultimoPaso: number
+  /** El PDF cargado en el paso 3; `null` si todavía no hay. */
+  pdf: PdfContrato | null
+  /** US-06: la fecha de inicio guardada quedó en el pasado: hay que pedir una nueva antes de volver a enviar. */
+  fechaInicioVencida: boolean
+}
+
+/** Lo que cambió de un borrador: solo eso viaja al back (reenviar una fecha vencida da 400). */
+export interface CambiosBorrador {
+  /** Paso en que quedó, de 0 a 3. */
+  paso?: number
+  condiciones?: Partial<CondicionesNuevoContrato>
+  /** Reemplaza la lista completa. */
+  garantes?: GaranteContrato[]
 }
 
 /** Lo que se guarda de un borrador (`POST` / `PUT /contratos`). Las partes y la propiedad las pone el back. */
