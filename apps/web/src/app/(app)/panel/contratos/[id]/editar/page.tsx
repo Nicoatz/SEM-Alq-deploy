@@ -6,14 +6,14 @@
  * guardado. Si el contrato ya no es borrador, avisa que no se puede editar.
  * `?guardado=1` llega del primer "Guardar borrador" del alta (que reemplaza
  * `/nuevo` por esta URL) y muestra el aviso de guardado. `?envio=cancelado`
- * llega de "Cancelar envío" del detalle (US-07).
+ * llega de "Modificar" en el detalle (US-06).
  * NOTA: esta ruta NO está en `docs/MapaDePantallas.pdf` (el mapa solo tiene
  * `/nuevo` y `/[id]`). Decisión del PO, Sprint 3: `/[id]` queda para el
  * detalle de US-07 y el borrador se edita acá (como
  * `/panel/propiedades/[id]/editar`). Anotado en HANDOFF §7.
  * El guard de locador está en `../../layout.tsx`.
  * Entra desde: "Continuar" del listado, "Continuar contrato" de la solicitud,
- * el primer "Guardar borrador" del alta y "Cancelar envío" del detalle
+ * el primer "Guardar borrador" del alta y "Modificar" del detalle
  * (y el detalle de un borrador, que redirige acá).
  */
 import type { Metadata } from 'next'

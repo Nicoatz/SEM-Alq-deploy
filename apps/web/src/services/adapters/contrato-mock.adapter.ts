@@ -20,8 +20,8 @@
  * el borrador pide el DNI de nuevo. El DNI de las partes no se guarda en el
  * contrato: se lee del perfil al abrirlo.
  *
- * US-07 (tanda 3): las firmas y el historial viven en el mismo registro
- * (`firmas`, `eventos`). Cuando firman las dos partes, este adaptador
+ * US-07 (tanda 3): las firmas viven en el mismo registro (`firmas`). Cuando
+ * firman las dos partes, este adaptador
  * refleja lo que en real hace el back ({@link pasarAVigenteMock}): la
  * propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas.
  *
@@ -30,13 +30,12 @@
  * Quién lo usa: la rama mock de `contratos.service.ts`, `solicitudes.service.ts`
  * y `perfil.service.ts`. Nunca las pantallas.
  */
-import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PeriodicidadAjuste, RolFirmante, TipoEventoContrato } from '@rentar/shared-types'
+import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PdfContrato, PeriodicidadAjuste, RolFirmante } from '@rentar/shared-types'
 import {
   contratos as contratosElenco,
   propiedades as propiedadesElenco,
   solicitudes as solicitudesElenco,
   type ContratoMock,
-  type EventoMock,
   type FirmaMock,
   type PropiedadMock,
 } from '@/lib/mocks'
@@ -50,6 +49,25 @@ import { formatAddress } from './propiedad-mock.adapter'
 /** DNI de los garantes cargados en el navegador, por contrato y garante (ver la NOTA del encabezado). */
 const dniGarantesEnMemoria = new Map<string, Map<string, string>>()
 
+/** El PDF ficticio del elenco (`public/mocks/`). Sin datos reales. */
+export const PDF_FICTICIO_URL = '/mocks/contrato-ficticio.pdf'
+
+/** URL de los PDF subidos en esta visita: el archivo no entra en `localStorage`. */
+const pdfsEnMemoria = new Map<string, string>()
+
+/** Recuerda el archivo subido hasta recargar; después se ve el PDF ficticio. */
+export function recordarPdfMock(contratoId: string, archivo: Blob): void {
+  const anterior = pdfsEnMemoria.get(contratoId)
+  if (anterior) URL.revokeObjectURL(anterior)
+  pdfsEnMemoria.set(contratoId, URL.createObjectURL(archivo))
+}
+
+/** El PDF de un contrato del elenco o del navegador; `null` si no tiene. */
+export function pdfDeContratoMock(contrato: Pick<ContratoMock, 'id' | 'pdf'>): PdfContrato | null {
+  if (!contrato.pdf) return null
+  return { ...contrato.pdf, url: pdfsEnMemoria.get(contrato.id) ?? PDF_FICTICIO_URL }
+}
+
 /** Las propiedades del modo mock (elenco + navegador), sin las eliminadas. */
 export function readPropiedadesContratoMock(): PropiedadMock[] {
   return readMockCollection('propiedades', propiedadesElenco).filter((propiedad) => !propiedad.deletedAt)
@@ -57,7 +75,7 @@ export function readPropiedadesContratoMock(): PropiedadMock[] {
 
 /** Los contratos guardados (elenco + navegador), con el DNI de los garantes que está en memoria. */
 export function readContratosMock(): ContratoMock[] {
-  return readMockCollection('contratos', contratosElenco).map((contrato) => {
+  return readMockCollection('contratos', contratosElenco).filter((contrato) => !contrato.descartado).map((contrato) => {
     const enMemoria = dniGarantesEnMemoria.get(contrato.id)
     if (!enMemoria) return contrato
     return { ...contrato, garantes: contrato.garantes.map((garante) => ({ ...garante, dni: enMemoria.get(garante.key) ?? garante.dni })) }
@@ -73,10 +91,16 @@ export function guardarContratoMock(contrato: ContratoMock): boolean {
   return saveMockRecord('contratos', { ...contrato, garantes: contrato.garantes.map((garante) => ({ ...garante, dni: '' })) })
 }
 
-/** Borra un borrador del navegador. */
+/**
+ * Borra un borrador del navegador. Uno sembrado queda marcado `descartado`: el
+ * elenco no se puede borrar, y "Reiniciar datos de prueba" lo vuelve a traer.
+ * NOTA: la solicitud sigue aceptada y puede volver a originar un contrato
+ * (US-06). TODO(backend): el back la pasa a pendiente (HANDOFF §7, S4-11).
+ */
 export function eliminarContratoMock(id: string): boolean {
   dniGarantesEnMemoria.delete(id)
-  return deleteMockRecord('contratos', id)
+  const sembrado = contratosElenco.find((contrato) => contrato.id === id)
+  return sembrado ? saveMockRecord('contratos', { ...sembrado, descartado: true }) : deleteMockRecord('contratos', id)
 }
 
 // ─── Contratos activos ──────────────────────────────────────────────────
@@ -168,7 +192,7 @@ function resumenDeAlquiler(propiedad: PropiedadMock): ContratoResumen | null {
     startDate: rental.startDate,
     endDate: rental.endDate,
     adjustmentIndex: propiedad.adjustmentIndex ?? 'sin_ajuste',
-    nextAdjustmentDate: rental.contractStatus === 'vigente' ? rental.nextAdjustmentDate : null,
+    nextAdjustmentDate: rental.contractStatus === 'vigente' && propiedad.adjustmentIndex ? rental.nextAdjustmentDate : null,
     solicitudId: null,
   }
 }
@@ -263,29 +287,12 @@ export function ahoraIsoMock(): string {
   return ahoraIso()
 }
 
-// ─── Firmas e historial (US-07) ─────────────────────────────────────────
+// ─── Firmas (US-07) ─────────────────────────────────────────────────────
 
 /** Las dos firmas al enviar a firmar: pendientes e invitadas en ese momento. */
 export function firmasAlEnviar(fecha: string): Record<RolFirmante, FirmaMock> {
   const pendiente: FirmaMock = { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: fecha }
   return { locador: { ...pendiente }, locatario: { ...pendiente } }
-}
-
-/**
- * El historial guardado. Los contratos guardados antes de la tanda 3 no lo
- * tienen: se arma con lo que sí hay (`createdAt` y `sentAt`).
- */
-export function eventosDe(contrato: ContratoMock): EventoMock[] {
-  if (contrato.eventos) return contrato.eventos
-  const eventos: EventoMock[] = [{ id: `ev-${contrato.id}-1`, tipo: 'creado', fecha: contrato.createdAt, rol: null, motivo: null }]
-  if (contrato.sentAt) eventos.push({ id: `ev-${contrato.id}-2`, tipo: 'enviado', fecha: contrato.sentAt, rol: null, motivo: null })
-  return eventos
-}
-
-/** El historial con un evento nuevo al final. */
-export function conEvento(contrato: ContratoMock, tipo: TipoEventoContrato, fecha: string, rol: RolFirmante | null = null, motivo: string | null = null): EventoMock[] {
-  const actuales = eventosDe(contrato)
-  return [...actuales, { id: `ev-${contrato.id}-${actuales.length + 1}`, tipo, fecha, rol, motivo }]
 }
 
 /** US-07: "un mensaje automático de que la propiedad ya fue alquilada" (va en `mensaje_rechazo`). */

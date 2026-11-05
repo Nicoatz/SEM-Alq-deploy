@@ -1,13 +1,13 @@
 /**
  * /panel/contratos/[id] — detalle de un contrato (ruta A5 del mapa).
  *
- * Qué es: estado de cada firmante, datos principales, documento, historial y
+ * Qué es: estado de cada firmante, datos principales, documento y
  * las acciones del locador (firmar, cancelar el envío y reenviar la
  * invitación). Cubre US-07 Firmar contrato de alquiler. Un borrador abierto
  * por acá va a `/[id]/editar` (US-05).
  * El guard de locador está en `../layout.tsx`. El locatario firma desde Mi
  * alquiler (`/panel/alquiler`), con el mismo `FirmaContrato`.
- * Entra desde: el listado `/panel/contratos` (código y "Ver contrato") y el
+ * Entra desde: la pestaña Contratos de la propiedad ("Ver contrato completo") y el
  * resultado del envío a firmar.
  */
 import type { Metadata } from 'next'

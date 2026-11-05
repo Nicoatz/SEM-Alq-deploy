@@ -24,6 +24,7 @@ import { USE_MOCKS } from '@/services/shared/config'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { diasHasta, nombreMes } from '@/lib/utils/fechas'
 import styles from './MisPropiedades.module.css'
+import { contratoHref, contratosDePropiedadHref } from '@/lib/contratos/rutas'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -171,9 +172,9 @@ function Locatario({ propiedad }: { propiedad: PropiedadLocador }) {
   return (
     <span className={styles.stack}>
       <span className={styles.tenant}>{propiedad.tenantName}</span>
-      {/* US-07: el detalle del contrato; sin id (no vino del back), el listado de contratos. */}
+      {/* US-42: el detalle del contrato; sin id (no vino del back), la pestaña Contratos de la propiedad. */}
       <Link
-        href={propiedad.contractId ? `/panel/contratos/${encodeURIComponent(propiedad.contractId)}` : '/panel/contratos'}
+        href={propiedad.contractId ? contratoHref(propiedad.contractId) : contratosDePropiedadHref(propiedad.id)}
         className={styles.inlineLink}
         onClick={cortarClick}
         data-testid="mis-propiedades-ver-contrato"

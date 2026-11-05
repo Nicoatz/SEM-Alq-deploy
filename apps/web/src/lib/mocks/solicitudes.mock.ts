@@ -19,7 +19,8 @@
  * - Julieta no tiene ninguna sobre Fructuoso Rivera 785: ahí se prueba el
  *   envío completo de US-35.
  * - Una propiedad alquilada (sin fecha de disponibilidad) o pausada no recibe
- *   solicitudes: no hay ninguna sobre esas.
+ *   solicitudes. La única sobre una pausada es 0041 (Chacabuco 690): la aceptaron
+ *   y el locador la pausó mientras arma el contrato (Sprint 4, US-43).
  * - Tanda C de correcciones (US-36, tiempo en horas): 0039 (Sofía, hace 3 h)
  *   y 0040 (Diego, hace menos de 1 h), las dos pendientes de Nicolás.
  * - Prefijo de id: `SOL-2026-XXXX`.
@@ -135,6 +136,21 @@ export const solicitudes: SolicitudMock[] = [
     status: 'pendiente',
     createdAt: '2026-09-19T18:40:00',
     respondedAt: null,
+    contact: CONTACTO_MATIAS,
+    legajo: LEGAJO_MATIAS,
+  },
+  // Chacabuco 690: de esta nace el borrador sembrado BOR-2026-0001 (US-43).
+  // NOTA: Matías tiene además la 0032 pendiente en Rondeau: la regla de "una sola
+  // activa" es por propiedad (US-35), así que puede tener las dos.
+  {
+    id: 'SOL-2026-0041',
+    propertyId: 'prop-chacabuco-690',
+    applicantUserId: 'usr-matias',
+    applicantName: 'Matías Quiroga',
+    message: 'Hola, me interesa para mudarme en octubre. Puedo presentar seguro de caución.',
+    status: 'aceptada',
+    createdAt: '2026-09-18T10:15:00',
+    respondedAt: '2026-09-21T09:30:00',
     contact: CONTACTO_MATIAS,
     legajo: LEGAJO_MATIAS,
   },

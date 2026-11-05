@@ -1,10 +1,10 @@
 /**
- * contrato.ts — el contrato de alquiler, tal como lo ven el listado
- * `/panel/contratos` y el alta en 4 pasos.
+ * contrato.ts — el contrato de alquiler, tal como lo ven la pestaña Contratos
+ * de la propiedad, el detalle y el alta en 4 pasos.
  *
  * Qué es: TIPOS DE VISTA DEL FRONT. Cubren US-05 Registrar contrato de
  * alquiler (listado, inicio desde una solicitud aceptada, alta y borrador) y
- * US-07 Firmar contrato de alquiler (detalle, firmantes, historial y firma).
+ * US-07 Firmar contrato de alquiler (detalle, firmantes y firma).
  * No confundir con `CondicionesContrato` de `propiedad.ts`: esas son las
  * condiciones que el locador cargó al PUBLICAR (US-01); acá están las del
  * contrato real con un locatario.
@@ -72,33 +72,11 @@ export interface CondicionesNuevoContrato {
   initialAmount: number | null
   /** Depósito en garantía, entero mayor o igual a 0 (por defecto, un mes). */
   deposit: number | null
-  /** Día de vencimiento del pago, de 1 a 28 (10 por defecto). */
-  paymentDueDay: number | null
+  /** US-05: plazo de vencimiento del pago, en días, de 1 a 28 (10 por defecto). No es el día del mes. */
+  paymentTermDays: number | null
   adjustmentIndex: IndiceContrato
   /** Solo si el índice no es `sin_ajuste`; si no, `null`. */
   adjustmentPeriod: PeriodicidadAjuste | null
-}
-
-/**
- * Tipo de cláusula (US-05, paso 3): las fijas no se editan; las editables
- * vienen de la plantilla y se pueden cambiar; las propias las agrega el
- * locador y se pueden eliminar.
- */
-export type TipoClausula = 'fija' | 'editable' | 'propia'
-
-/** Una cláusula del contrato. El número sale del orden en la lista. */
-export interface ClausulaContrato {
-  /** Clave estable de la plantilla (`objeto`, `precio`…) o `propia-<n>`. */
-  key: string
-  tipo: TipoClausula
-  titulo: string
-  /** Texto final (ya completado con los datos de los pasos 1 y 2). Hasta 1.000 caracteres si no es fija. */
-  texto: string
-  /**
-   * `true` si el locador cambió el texto de una editable (US-05: "cuántas
-   * fueron editadas"). En las fijas y las propias, siempre `false`.
-   */
-  editada: boolean
 }
 
 /** Condiciones de cobro que el locador cargó en la propiedad (US-05, paso 2: solo lectura). */
@@ -125,6 +103,16 @@ export interface PropiedadDelContrato {
   photoSrc: string | null
 }
 
+/** El PDF del contrato (US-05, paso 3). */
+export interface PdfContrato {
+  nombre: string
+  tamanoBytes: number
+  /** Fecha y hora ISO de la subida; `null` si no se registró. */
+  subidoEl: string | null
+  /** URL para verlo. En real es firmada y vence a los 5 minutos. */
+  url: string
+}
+
 /**
  * Un contrato en el alta: lo que se carga en los 4 pasos, guardado o no.
  * `id` es `null` hasta guardar el primer borrador.
@@ -145,15 +133,24 @@ export interface ContratoBorrador {
   garantiasOfrecidas: GarantiaOfrecida[]
   garantes: GaranteContrato[]
   condiciones: CondicionesNuevoContrato
-  clausulas: ClausulaContrato[]
   /** Paso en que quedó (0 a 3), para retomarlo (US-05: "un borrador se puede retomar desde el paso en que quedó"). */
   ultimoPaso: number
+  /** El PDF cargado en el paso 3; `null` si todavía no hay. */
+  pdf: PdfContrato | null
+  /** US-06: la fecha de inicio guardada quedó en el pasado: hay que pedir una nueva antes de volver a enviar. */
+  fechaInicioVencida: boolean
 }
 
-/** Lo que se guarda de un borrador (`POST` / `PUT /contratos`). Las partes y la propiedad las pone el back. */
-export type DatosContrato = Pick<ContratoBorrador, 'solicitudId' | 'garantes' | 'condiciones' | 'clausulas' | 'ultimoPaso'>
+/** Lo que cambió de un borrador: solo eso viaja al back (reenviar una fecha vencida da 400). */
+export interface CambiosBorrador {
+  /** Paso en que quedó, de 0 a 3. */
+  paso?: number
+  condiciones?: Partial<CondicionesNuevoContrato>
+  /** Reemplaza la lista completa. */
+  garantes?: GaranteContrato[]
+}
 
-/** Una fila del listado `/panel/contratos` (US-05). Sin DNI ni datos de contacto. */
+/** Base de una fila de Mis alquileres (US-27) y de la rama mock de US-43. Sin DNI ni datos de contacto. */
 export interface ContratoResumen {
   id: string
   /** `null` en los borradores. */
@@ -174,6 +171,45 @@ export interface ContratoResumen {
   nextAdjustmentDate: string | null
   /** Solicitud de origen; `null` en los contratos anteriores a US-05. */
   solicitudId: string | null
+}
+
+/** Una firma en la pestaña Contratos (US-43: quién firmó, con fecha y hora, y quién falta). */
+export type FirmaDePropiedad = Pick<FirmanteContrato, 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
+
+/** Un contrato en la pestaña Contratos de una propiedad (US-43). Sin DNI ni datos de contacto. */
+export interface ContratoDePropiedad {
+  id: string
+  /** `null` en un borrador sin código ("Borrador sin código"). */
+  code: string | null
+  status: ContractStatus
+  /** Nombre y apellido del locatario; `null` si no hay uno cargado. */
+  tenantName: string | null
+  /** Alquiler actual; `null` en un borrador sin monto. */
+  currentAmount: number | null
+  startDate: string | null
+  endDate: string | null
+  /** `null` si un borrador todavía no lo tiene. */
+  adjustmentIndex: IndiceContrato | null
+  /** Fecha ISO del próximo ajuste; `null` si no hay. */
+  nextAdjustmentDate: string | null
+  /** `false` si no hay registro de las firmas: no se inventan. */
+  firmasRegistradas: boolean
+  /** Solo locador y locatario: el garante no firma (decisión del PO). */
+  firmantes: FirmaDePropiedad[]
+  /** Fecha y hora ISO de la última firma, con el contrato vigente; `null` si no se registró. */
+  firmadoPorTodasEl: string | null
+  /** La URL no viaja acá: vence a los 5 minutos y se pide al usarla. */
+  tienePdf: boolean
+}
+
+/** La pestaña Contratos de una propiedad (US-43). */
+export interface ContratosDePropiedad {
+  /** Borrador, pendiente de firma o vigente: como máximo uno. */
+  actual: ContratoDePropiedad | null
+  /** Finalizados, del más reciente al más antiguo por fecha de inicio. */
+  anteriores: ContratoDePropiedad[]
+  /** Solicitud aceptada que todavía no originó un contrato ("Iniciar contrato"); `null` si no hay. */
+  solicitudParaContrato: string | null
 }
 
 /** Resultado de enviar a firmar (US-05, paso 4). */
@@ -207,7 +243,7 @@ export interface FirmanteContrato {
   nombre: string
   /** US-07: "pendiente, firmado (con fecha y hora) o rechazado (con el motivo)". Es el dominio `firma` de `StatusTag`. */
   estado: SignatureStatus
-  /** Fecha y hora ISO de la firma; `null` si no firmó. La IP la guarda el back y no se muestra. */
+  /** Fecha y hora ISO de la firma; `null` si no firmó. */
   firmadoEl: string | null
   /** Fecha y hora ISO del rechazo; `null` si no rechazó. */
   rechazadoEl: string | null
@@ -217,25 +253,9 @@ export interface FirmanteContrato {
   ultimaInvitacion: string | null
 }
 
-/** Qué pasó en el contrato (US-07: "creación, envío a firmar, firmas, rechazos, reenvíos y cancelaciones"). */
-export type TipoEventoContrato = 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
-
-/** Un evento del historial del contrato. */
-export interface EventoContrato {
-  id: string
-  tipo: TipoEventoContrato
-  /** Fecha y hora ISO. */
-  fecha: string
-  /** Quién (en firmas y rechazos) o a quién (en reenvíos); `null` en el resto. */
-  rol: RolFirmante | null
-  nombre: string | null
-  /** Motivo del rechazo; `null` en el resto. */
-  motivo: string | null
-}
-
 /**
  * El detalle de un contrato (`/panel/contratos/[id]`, US-07): lo del alta
- * más los firmantes y el historial.
+ * más los firmantes.
  */
 export interface ContratoDetalle extends ContratoBorrador {
   /** Fecha y hora ISO en que se envió a firmar; `null` si es borrador o no se registró. */
@@ -248,14 +268,12 @@ export interface ContratoDetalle extends ContratoBorrador {
   firmadoPorTodasEl: string | null
   /**
    * `false` en los contratos anteriores a RentAR (los vigentes y el
-   * finalizado del elenco): no hay registro de firmas ni historial, y no se
+   * finalizado del elenco): no hay registro de firmas, y no se
    * inventan.
    */
   firmasRegistradas: boolean
   /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
   firmantes: FirmanteContrato[]
-  /** Del más reciente al más viejo. */
-  historial: EventoContrato[]
   /** Fecha ISO de fin (inicio + duración); `null` si faltan datos. */
   endDate: string | null
   /**
@@ -289,8 +307,7 @@ export interface DatosAlquilerApi {
   pdfUrl: string | null
   /**
    * Plazo en días para pagar, contado desde que el monto está disponible en
-   * cada período. NOTA: no es el "día de vencimiento de 1 a 28" de US-05
-   * (diferencia anotada en HANDOFF §7). `null` si no se cargó.
+   * cada período. `null` si no se cargó.
    */
   diasParaVencimiento: number | null
   /** Próximo vencimiento del pago; `null` si no hay (sin plazo, finalizado o después del fin). */

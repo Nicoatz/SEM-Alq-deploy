@@ -3,19 +3,21 @@
 /**
  * DetalleContrato.tsx — `/panel/contratos/[id]`, el detalle de un contrato.
  *
- * Cubre: US-07 Firmar contrato de alquiler, "Detalle del contrato",
- * "Rechazo y cancelación" y "Contrato vigente":
+ * Cubre: US-42 Consultar detalle del contrato y US-07 Firmar contrato de
+ * alquiler ("Detalle del contrato", "Rechazo y cancelación" y "Contrato vigente"):
  * - Estado de cada firmante (pendiente / firmado con fecha y hora /
  *   rechazado con el motivo) y cuántas firmas faltan.
- * - Datos principales: propiedad, partes, garantes, vigencia, monto
- *   inicial, depósito, ajuste y día de vencimiento.
- * - El documento (`VisorContrato`), "Descargar PDF" en cualquier estado
- *   (`lib/contratos/pdf.ts`, con `jsPDF` cargado al tocarlo) y el historial
- *   (`ActivityTimeline`).
- * - El locador firma acá (`FirmaContrato`), cancela el envío (si el
- *   locatario no firmó) y reenvía la invitación (una vez por hora).
- * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma,
- *   reenvío ni cancelación.
+ * - Datos (US-42): propiedad, partes con DNI, correo y teléfono, garantes,
+ *   condiciones, condiciones de cobro y acceso a la solicitud de origen. Lo
+ *   que no está registrado dice "Sin dato".
+ * - El calendario de ajustes (`CalendarioAjustes`), salvo "Sin ajuste".
+ * - El documento paginado (`VisorPdf`) y "Descargar PDF" en cualquier estado.
+ * - US-06: "Modificar" un pendiente sin la firma del locatario, con confirmación.
+ * - Se entra desde la pestaña Contratos de la propiedad (US-43); la miga vuelve ahí.
+ * - El locador firma acá (`FirmaContrato`), modifica (si el locatario no firmó)
+ *   y reenvía la invitación (una vez por hora).
+ * - Vigente: "Firmado por todas las partes el dd/mm/aaaa"; sin firma, reenvío
+ *   ni "Modificar".
  * - Inexistente o ajeno: "No encontramos este contrato", sin distinguir.
  * - Un borrador abierto por esta URL va a `/[id]/editar`.
  * Decisión del PO (Sprint 3): firman el locador y el locatario; los garantes
@@ -25,48 +27,53 @@
  * - Sin "Firmar contrato" ni "Rechazar" (aunque el back diga `puede_firmar`):
  *   un aviso "La firma todavía no está disponible en línea". TODO(backend): US-07.
  * - "Descargar PDF" baja el PDF del back (`pdfUrl`); sin él, deshabilitado.
- *   No se arma con jsPDF: sin las cláusulas saldría otro documento.
- * - Sin cláusulas ni historial (el back no los manda): se dice, no se inventan.
+ * Detalle del locador en modo real (`GET /contratos/:id/detalle`, US-42): usa
+ * el mismo `datosApi`: sin firma ni reenvío en línea hasta que
+ * se conecten (TODO(backend): US-07). "Modificar" sí: `reabrir` existe.
  *
- * Qué muestra (Claude Design, "Flujo de contratos" · 05 y 09): la franja de
- * estado arriba, firmantes y datos a la izquierda, documento e historial a
+ * Qué muestra (Claude Design, "Flujo de contratos" · 04 y 08): la franja de
+ * estado arriba, firmantes y datos a la izquierda, documento y calendario a
  * la derecha; en móvil, una sola columna.
  * NOTA (diseño vs. decisión del PO): el diseño muestra tres firmas (con el
- * garante), "el link vence el…" y el calendario de ajustes con montos
- * estimados. Acá: dos firmas, sin vencimiento de links (no hay mails) y
- * sin calendario (US-07 no lo pide).
+ * garante) y "el link vence el…", y ya no tiene el calendario. Acá: dos
+ * firmas, sin vencimiento de links (no hay mails) y con calendario (US-42).
  *
  * De dónde saca los datos: `contratos.service#getDetalleContrato`; las
- * acciones, `#cancelarEnvio` y `#reenviarInvitacion` (firmar y rechazar, en
+ * acciones, `#reabrirContrato` y `#reenviarInvitacion` (firmar y rechazar, en
  * `FirmaContrato`).
  * Quién lo usa: `app/(app)/panel/contratos/[id]/page.tsx`.
  */
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Button, Skeleton } from 'antd'
-import { DownloadOutlined, MailOutlined, RollbackOutlined } from '@ant-design/icons'
+import { DownloadOutlined, EditOutlined, MailOutlined } from '@ant-design/icons'
 import { useRouter } from 'next/navigation'
-import type { ContratoDetalle, EventoContrato, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
-import { ActivityTimeline, ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
-import type { SemanticColorKey } from '@rentar/ui'
-import { fechaCorta, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
-import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeCancelarEnvio, tituloDeEvento } from '@/lib/contratos/firmas'
-import { descargarContratoPdf } from '@/lib/contratos/pdf'
-import { tituloContrato } from '@/lib/contratos/plantilla'
+import Link from 'next/link'
+import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
+import { ConfirmActionModal, DetailList, EmptyState, IndexBadge, MoneyAmount, PageHeader, SimulatedFeatureNotice, StatusTag } from '@rentar/ui'
+import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
+import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
+import { fechaYHora, firmasQueFaltan, motivoSinReenvio, NOMBRE_ROL, puedeModificar } from '@/lib/contratos/firmas'
+import { contratosDePropiedadHref, editarContratoHref, MIS_PROPIEDADES_HREF, solicitudesDePropiedadHref } from '@/lib/contratos/rutas'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
-import { dniParaMostrar } from '@/lib/perfil/formato'
+import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { ahoraIso } from '@/lib/utils/fechas'
-import { cancelarEnvio, getDetalleContrato, reenviarInvitacion } from '@/services/contratos.service'
+import { getDetalleContrato, reabrirContrato, reenviarInvitacion, urlPdfDeContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
+import { BotonPdf } from './BotonPdf'
+import { MontoAlquiler } from '@/components/cobros/MontoAlquiler'
+import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
 import { FirmaContrato } from './FirmaContrato'
-import { VisorContrato } from './VisorContrato'
+import { VisorPdf } from './VisorPdf'
 import styles from './DetalleContrato.module.css'
 
-const MIGA_BASE = [
-  { label: 'Mi panel', href: '/panel' },
-  { label: 'Contratos', href: '/panel/contratos' },
-]
+const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
+
+/** Miga (decisión del PO): Mis propiedades › [dirección] › Contrato [código]. La dirección vuelve a la pestaña Contratos. */
+function migaDeContrato(contrato: ContratoDetalle) {
+  return [...MIGA_BASE, { label: contrato.propiedad.address, href: contratosDePropiedadHref(contrato.propiedad.id) }, { label: `Contrato ${contrato.code ?? ''}`.trim() }]
+}
 
 /** Props de {@link DetalleContrato}. */
 interface DetalleContratoProps {
@@ -78,30 +85,14 @@ function nombreDe(parte: ContratoDetalle['locador']): string {
   return `${parte.nombre} ${parte.apellido}`.trim()
 }
 
-/** Color del punto de cada evento del historial. */
-const COLOR_EVENTO: Record<EventoContrato['tipo'], SemanticColorKey> = {
-  creado: 'neutral',
-  enviado: 'info',
-  firmado: 'success',
-  rechazado: 'error',
-  reenviado: 'info',
-  envio_cancelado: 'warning',
-  vigente: 'success',
-}
-
-/**
- * Historial (US-07: "con fecha y hora"): `ActivityTimeline` con
- * `dateFormat="absolute"` (decisión del PO, tanda 3). El motivo de un
- * rechazo va en la descripción.
- */
-function eventosDelHistorial(historial: readonly EventoContrato[]) {
-  return historial.map((evento) => ({
-    id: evento.id,
-    title: tituloDeEvento(evento),
-    date: evento.fecha,
-    colorKey: COLOR_EVENTO[evento.tipo],
-    description: evento.motivo ? `Motivo: "${evento.motivo}"` : undefined,
-  }))
+/** US-42: "las condiciones de cobro de la propiedad": medios, días de gracia e interés. */
+function condicionesDeCobro({ paymentMethods, graceDays, dailyInterestPct }: ContratoDetalle['propiedad']['cobro']): string {
+  const partes = [
+    ...(paymentMethods.length > 0 ? [paymentMethods.map((medio) => MEDIO_PAGO_CORTO[medio.method]).join(', ')] : []),
+    ...(graceDays === null ? [] : [`${graceDays} ${graceDays === 1 ? 'día' : 'días'} de gracia`]),
+    ...(dailyInterestPct === null ? [] : [`${String(dailyInterestPct).replace('.', ',')} % de interés por día`]),
+  ]
+  return partes.length > 0 ? partes.join(' · ') : 'Sin dato'
 }
 
 /** Lo que se ve debajo del nombre de cada firmante (US-07: fecha y hora, o el motivo). */
@@ -165,10 +156,9 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const [contrato, setContrato] = useState<ContratoDetalle>(inicial)
   const [aviso, setAviso] = useState<string | null>(null)
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
-  const [confirmarCancelar, setConfirmarCancelar] = useState(false)
-  const [cancelando, setCancelando] = useState(false)
   const [reenviando, setReenviando] = useState<RolFirmante | null>(null)
-  const [descargando, setDescargando] = useState(false)
+  const [confirmarModificar, setConfirmarModificar] = useState(false)
+  const [reabriendo, setReabriendo] = useState(false)
   /** "Ahora", para el límite de un reenvío por hora; se renueva cada 30 s. */
   const [ahora, setAhora] = useState(ahoraIso)
 
@@ -178,13 +168,15 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   }, [])
 
   const { locador, locatario, condiciones, propiedad } = contrato
+  const contratoId = contrato.id ?? ''
+  const esFicha = vista === 'locatario'
+  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, esFicha ? 'locatario' : 'locador'), [contratoId, esFicha])
   const pendiente = contrato.status === 'pendiente_firma'
   const soyLocador = miRol === 'locador'
   const miFirma = contrato.firmantes.find((firmante) => firmante.rol === miRol) ?? null
   const faltan = firmasQueFaltan(contrato.firmantes)
-  const cancelable = puedeCancelarEnvio(contrato)
+  const modificable = puedeModificar(contrato)
   const rechazoLocatario = contrato.firmantes.find((firmante) => firmante.rol === 'locatario' && firmante.estado === 'rechazado') ?? null
-  const titulo = tituloContrato(contrato)
 
   // ─── Handlers ───────────────────────────────────────────────────────
   /** Después de firmar o rechazar (`FirmaContrato`). */
@@ -196,34 +188,21 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
     else setAviso(`Firmaste el contrato. Falta la firma de ${nombreDe(miRol === 'locador' ? locatario : locador)}.`)
   }
 
-  async function cancelar(): Promise<void> {
-    setCancelando(true)
-    setErrorAccion(null)
-    try {
-      await cancelarEnvio(contrato.id ?? '')
-      setConfirmarCancelar(false)
-      // US-07: "el contrato vuelve a 'borrador'": se sigue editando en el alta.
-      router.replace(`/panel/contratos/${encodeURIComponent(contrato.id ?? '')}/editar?envio=cancelado`)
-    } catch (error) {
-      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos cancelar el envío. Probá de nuevo.')
-      setCancelando(false)
-    }
-  }
-
   /**
-   * US-07: "permitir descargarlo en PDF en cualquier estado". `jsPDF` se carga
-   * recién acá. Solo en mock y en el detalle del locador: con `datosApi`, el
-   * botón es un link al PDF del back (ver `botonPdf`).
+   * US-06: "Al confirmar, el contrato vuelve a 'borrador' y conserva su código".
+   * Se sigue editando en el alta.
    */
-  async function descargar(): Promise<void> {
-    setDescargando(true)
+  async function modificar(): Promise<void> {
+    setReabriendo(true)
     setErrorAccion(null)
     try {
-      await descargarContratoPdf(contrato)
-    } catch {
-      setErrorAccion('No pudimos armar el PDF. Probá de nuevo; el documento se sigue viendo en la pantalla.')
-    } finally {
-      setDescargando(false)
+      await reabrirContrato(contrato.id ?? '')
+      setConfirmarModificar(false)
+      router.replace(`${editarContratoHref(contrato.id ?? '')}?envio=cancelado`)
+    } catch (error) {
+      setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos reabrir el contrato. Probá de nuevo.')
+      setConfirmarModificar(false)
+      setReabriendo(false)
     }
   }
 
@@ -235,7 +214,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
       setContrato(actualizado)
       setAhora(ahoraIso())
       const firmante = actualizado.firmantes.find((item) => item.rol === rol)
-      setAviso(`Le reenviaste la invitación a ${firmante?.nombre ?? NOMBRE_ROL[rol]}. Quedó registrado en el historial (no se mandó ningún mail).`)
+      setAviso(`Le reenviaste la invitación a ${firmante?.nombre ?? NOMBRE_ROL[rol]} (no se mandó ningún mail).`)
     } catch (error) {
       setErrorAccion(error instanceof ServiceError ? error.message : 'No pudimos reenviar la invitación. Probá de nuevo.')
     } finally {
@@ -247,12 +226,18 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const vigencia = condiciones.startDate && contrato.endDate
     ? `Del ${fechaCorta(condiciones.startDate)} al ${fechaCorta(contrato.endDate)}${condiciones.durationMonths ? ` · ${condiciones.durationMonths} meses` : ''}`
     : 'Sin dato'
-  const parte = (persona: ContratoDetalle['locador']) => (
-    <span className={styles.valorCompuesto}>
-      <span>{nombreDe(persona) || 'Sin dato'}</span>
-      {persona.dni && <span className={styles.valorSecundario}>DNI {dniParaMostrar(persona.dni)}</span>}
-    </span>
-  )
+  /** US-42: "nombre, apellido, DNI, correo y teléfono"; lo que falta dice "Sin dato". */
+  const parte = (persona: ContratoDetalle['locador']) =>
+    nombreDe(persona) ? (
+      <span className={styles.valorCompuesto}>
+        <span>{nombreDe(persona)}</span>
+        <span className={styles.valorSecundario}>DNI {persona.dni ? dniParaMostrar(persona.dni) : 'Sin dato'}</span>
+        <span className={styles.valorSecundario}>{persona.email || 'Correo: Sin dato'}</span>
+        <span className={styles.valorSecundario}>{persona.telefono ? telefonoParaMostrar(persona.telefono) : 'Teléfono: Sin dato'}</span>
+      </span>
+    ) : (
+      'Sin dato'
+    )
   const datos = [
     { label: 'Propiedad', value: `${propiedad.address}${propiedad.neighborhoodName ? ` · ${propiedad.neighborhoodName}` : ''}` },
     { label: 'Locador', value: parte(locador) },
@@ -261,7 +246,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
       label: contrato.garantes.length === 1 ? 'Garante' : 'Garantes',
       value:
         contrato.garantes.length === 0 ? (
-          'Sin garantes'
+          contrato.firmasRegistradas ? 'Sin garantes' : 'Sin dato'
         ) : (
           <span className={styles.valorCompuesto} data-testid="contrato-detalle-garantes">
             {contrato.garantes.map((garante) => (
@@ -276,34 +261,47 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
     },
     { label: 'Vigencia', value: vigencia },
     { label: 'Monto inicial', value: condiciones.initialAmount === null ? 'Sin dato' : <MoneyAmount amount={condiciones.initialAmount} emphasis /> },
+    { label: 'Monto actual', value: contrato.montoActual === null ? 'Sin dato' : <MoneyAmount amount={contrato.montoActual} /> },
     { label: 'Depósito', value: condiciones.deposit === null ? 'Sin dato' : <MoneyAmount amount={condiciones.deposit} /> },
     {
       label: 'Ajuste',
       value: (
         <span className={styles.ajuste}>
           <IndexBadge index={condiciones.adjustmentIndex} />
-          {condiciones.adjustmentIndex !== 'sin_ajuste' && condiciones.adjustmentPeriod ? `cada ${MESES_POR_PERIODO[condiciones.adjustmentPeriod]} meses` : null}
+          {condiciones.adjustmentIndex !== 'sin_ajuste' && contrato.ajusteCadaMeses ? `cada ${contrato.ajusteCadaMeses} meses` : null}
         </span>
       ),
     },
-    { label: 'Vencimiento del pago', value: condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes` },
+    {
+      label: 'Vencimiento del pago',
+      value: condiciones.paymentTermDays === null ? 'Sin dato' : textoPlazo(condiciones.paymentTermDays),
+    },
+    { label: 'Condiciones de cobro', value: condicionesDeCobro(propiedad.cobro) },
+    {
+      label: 'Solicitud de origen',
+      value: contrato.solicitudId ? (
+        <Link href={solicitudesDePropiedadHref(propiedad.id)} data-testid="contrato-detalle-solicitud">
+          Ver solicitudes de la propiedad
+        </Link>
+      ) : (
+        'Sin dato'
+      ),
+    },
   ]
 
   // ─── Render ─────────────────────────────────────────────────────────
   const { datosApi } = contrato
   // Decisión del PO: en real no hay firma en línea (US-07 no existe en la API).
   const firmaEnLinea = datosApi === null
+  // Reenviar, igual: en real no existe.
+  const accionesDeLocador = soyLocador && firmaEnLinea
   const firmaPendienteMia = pendiente && miFirma?.estado === 'pendiente'
-  const esFicha = vista === 'locatario'
-  // Decisión del PO: en real, el PDF es el del back (`pdfUrl`); si no hay, el botón queda deshabilitado.
-  const botonPdf = !datosApi ? (
-    <Button icon={<DownloadOutlined />} loading={descargando} onClick={() => void descargar()} data-testid="contrato-descargar-pdf">
+  // Sin PDF, el botón queda deshabilitado. La URL se pide al usarla (S4-13).
+  const tienePdf = Boolean(datosApi?.pdfUrl ?? contrato.pdf)
+  const botonPdf = tienePdf ? (
+    <BotonPdf obtenerUrl={obtenerPdf} icon={<DownloadOutlined />} data-testid="contrato-descargar-pdf">
       Descargar PDF
-    </Button>
-  ) : datosApi.pdfUrl ? (
-    <Button icon={<DownloadOutlined />} href={datosApi.pdfUrl} target="_blank" rel="noopener noreferrer" data-testid="contrato-descargar-pdf">
-      Descargar PDF
-    </Button>
+    </BotonPdf>
   ) : (
     <span className={styles.franjaAccion}>
       <Button icon={<DownloadOutlined />} disabled data-testid="contrato-descargar-pdf">
@@ -353,21 +351,22 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
             {rechazoLocatario ? (
               <strong data-testid="contrato-rechazo-explicacion">
                 {soyLocador
-                  ? `${locatario.nombre || 'El locatario'} rechazó la firma. Para volver a enviarlo, cancelá el envío, editá lo que haga falta y envialo de nuevo.`
+                  ? `${locatario.nombre || 'El locatario'} rechazó la firma. Tocá Modificar para corregirlo y volver a enviarlo.`
                   : `Rechazaste la firma${rechazoLocatario.rechazadoEl ? ` el ${fechaCorta(rechazoLocatario.rechazadoEl)}` : ''}. El contrato sigue pendiente: si ${locador.nombre || 'el locador'} lo corrige, te lo va a volver a enviar.`}
               </strong>
             ) : (
               'Cuando firmen las dos partes, el contrato pasa a vigente y la propiedad, a alquilada.'
             )}
           </span>
-          {soyLocador && (
+          {/* US-06: se modifica mientras el locatario no haya firmado; si firmó, se explica el motivo. */}
+          {soyLocador && !esFicha && (
             <span className={styles.franjaAccion}>
-              <Button icon={<RollbackOutlined />} disabled={!cancelable} onClick={() => setConfirmarCancelar(true)} data-testid="contrato-cancelar-envio">
-                Cancelar envío
+              <Button icon={<EditOutlined />} disabled={!modificable} onClick={() => setConfirmarModificar(true)} data-testid="contrato-modificar">
+                Modificar
               </Button>
-              {!cancelable && (
-                <span className={styles.motivo} data-testid="contrato-cancelar-envio-motivo">
-                  {locatario.nombre || 'El locatario'} ya firmó: el envío no se puede cancelar.
+              {!modificable && (
+                <span className={styles.motivo} data-testid="contrato-modificar-motivo">
+                  {locatario.nombre || 'El locatario'} ya firmó: el contrato no se puede modificar.
                 </span>
               )}
             </span>
@@ -385,7 +384,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
           {!esFicha && <StatusTag domain="contrato" status={contrato.status} />}
           {!contrato.firmasRegistradas && (
             <span className={styles.franjaTexto} data-testid="contrato-sin-registro">
-              {datosApi ? 'Todavía no hay registro del estado de cada firma.' : 'Contrato anterior a RentAR: no hay registro de las firmas ni del historial.'}
+              {datosApi ? 'Todavía no hay registro del estado de cada firma.' : 'Contrato anterior a RentAR: no hay registro de las firmas.'}
             </span>
           )}
         </div>
@@ -393,6 +392,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
 
       <div className={styles.grilla}>
         <div className={styles.columna}>
+          {esFicha && contrato.status === 'vigente' && contrato.id && <MontoAlquiler contratoId={contrato.id} />}
           {esFicha && !terminado && <LoQueVieneAlquiler contrato={contrato} />}
           {esFicha && <CondicionesAlquiler contrato={contrato} />}
           {esFicha && <LocadorAlquiler contrato={contrato} />}
@@ -409,7 +409,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               <ul className={styles.firmantes}>
                 {contrato.firmantes.map((firmante) => {
                   const motivoReenvio = motivoSinReenvio(firmante, ahora)
-                  const reenviable = soyLocador && pendiente && firmante.rol !== 'locador'
+                  const reenviable = accionesDeLocador && pendiente && firmante.rol !== 'locador'
                   return (
                     <li key={firmante.rol} className={styles.firmante} data-testid="contrato-firmante" data-rol={firmante.rol} data-estado={firmante.estado}>
                       <span className={styles.avatar} data-estado={firmante.estado} aria-hidden>
@@ -450,11 +450,11 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
                   )
                 })}
               </ul>
-              {soyLocador && pendiente && (
+              {accionesDeLocador && pendiente && (
                 <footer className={styles.tarjetaPie}>
                   <SimulatedFeatureNotice
                     feature="el envío de mails"
-                    reason="Reenviar la invitación no manda ningún mail: queda registrado en el historial. Se puede reenviar una vez por hora."
+                    reason="Reenviar la invitación no manda ningún mail. Se puede reenviar una vez por hora."
                     data-testid="contrato-reenviar-aviso"
                   />
                 </footer>
@@ -470,13 +470,12 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
         </div>
 
         <div className={styles.columna}>
-          {firmaPendienteMia && miRol && firmaEnLinea ? (
+          {firmaPendienteMia && miRol && firmaEnLinea && tienePdf ? (
             <FirmaContrato
               key={contrato.id}
               contratoId={contrato.id ?? ''}
-              titulo={titulo}
-              codigo={contrato.code}
-              clausulas={contrato.clausulas}
+              obtenerPdf={obtenerPdf}
+              nombrePdf={contrato.pdf?.nombre}
               otraParte={nombreDe(miRol === 'locador' ? locatario : locador)}
               permitirRechazo={miRol === 'locatario'}
               onCambio={alCambiar}
@@ -486,52 +485,41 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
               <h2 id="contrato-documento-titulo" className={styles.tarjetaTitulo}>
                 Documento
               </h2>
-              {datosApi ? (
-                <>
-                  {pendiente && (
-                    // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
-                    <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
-                  )}
-                  {/* TODO(backend): el detalle no trae las cláusulas; el documento es el PDF que guarda el back. */}
-                  <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
-                    {datosApi.pdfUrl ? 'El texto del contrato está en el PDF: descargalo desde el botón de arriba.' : 'El texto del contrato se va a poder ver en el PDF cuando esté disponible.'}
-                  </p>
-                </>
+              {datosApi && pendiente && (
+                // Decisión del PO: sin botones de firma en real. TODO(backend): firmar y rechazar (US-07) no existen en la API.
+                <Alert type="info" showIcon title="La firma todavía no está disponible en línea." data-testid="mi-alquiler-firma-no-disponible" />
+              )}
+              {tienePdf ? (
+                <VisorPdf obtenerUrl={obtenerPdf} nombre={contrato.pdf?.nombre} data-testid="contrato-visor" />
               ) : (
-                <VisorContrato titulo={titulo} codigo={contrato.code} clausulas={contrato.clausulas} />
+                <p className={styles.valorSecundario} data-testid="mi-alquiler-documento-pdf">
+                  Sin dato: el contrato todavía no tiene un PDF cargado.
+                </p>
               )}
             </section>
           )}
 
-          <section className={styles.tarjeta} aria-labelledby="contrato-historial-titulo" data-testid="contrato-historial">
-            <h2 id="contrato-historial-titulo" className={styles.tarjetaTitulo}>
-              Historial
-            </h2>
-            {contrato.historial.length === 0 ? (
-              <p className={styles.valorSecundario}>
-                {/* TODO(backend): `/alquileres-locatario/:id` no trae el historial de US-07. */}
-                {datosApi ? 'El historial del contrato todavía no está disponible.' : 'Sin historial registrado: el contrato es anterior a RentAR.'}
-              </p>
-            ) : (
-              <ActivityTimeline events={eventosDelHistorial(contrato.historial)} dateFormat="absolute" data-testid="contrato-historial-eventos" />
-            )}
-          </section>
+          {/* US-11: en la ficha del locatario, solo para contratos vigentes. */}
+          {(!esFicha || contrato.status === 'vigente') && (
+            <CalendarioAjustes inicio={condiciones.startDate} fin={contrato.endDate} cadaMeses={contrato.ajusteCadaMeses} indice={condiciones.adjustmentIndex} montoInicial={condiciones.initialAmount} />
+          )}
         </div>
       </div>
 
-      {/* US-07: "mientras ninguna otra parte haya firmado. El contrato vuelve a 'borrador' y se borran las firmas registradas." */}
+      {/* US-06: "se debe solicitar confirmación avisando que el envío se cancela, que se borran las firmas registradas y que el contrato vuelve a 'borrador'". */}
       <ConfirmActionModal
-        open={confirmarCancelar}
-        title="¿Cancelar el envío?"
-        description={`El contrato vuelve a borrador y se borran las firmas registradas${miFirma?.estado === 'firmado' ? ' (también la tuya)' : ''}. Lo vas a poder editar y volver a enviar.`}
-        confirmLabel="Cancelar envío"
+        open={confirmarModificar}
+        title="¿Modificar el contrato?"
+        description="Se cancela el envío, se borran las firmas registradas y el contrato vuelve a borrador, con el mismo código. Después lo vas a tener que enviar a firmar de nuevo."
+        confirmLabel="Modificar contrato"
         cancelLabel="Volver"
         danger
-        confirmLoading={cancelando}
-        onConfirm={() => void cancelar()}
-        onCancel={() => setConfirmarCancelar(false)}
-        data-testid="contrato-cancelar-envio-modal"
+        confirmLoading={reabriendo}
+        onConfirm={() => void modificar()}
+        onCancel={() => setConfirmarModificar(false)}
+        data-testid="contrato-modificar-modal"
       />
+
     </div>
   )
 }
@@ -544,11 +532,11 @@ export function DetalleContrato({ contratoId }: DetalleContratoProps) {
   const { user } = useAuth()
   const cargar = useCallback(() => getDetalleContrato(contratoId), [contratoId])
   const carga = useServiceCall(cargar)
-  const esBorrador = carga.status === 'listo' && carga.data.status === 'borrador'
+  // US-42: "Un borrador no tiene detalle: al abrirlo se retoma en el alta". En real llega como 409.
+  const esBorrador = (carga.status === 'listo' && carga.data.status === 'borrador') || (carga.status === 'error' && carga.apiCode === 'CONTRATO_BORRADOR')
 
-  // US-07 (decisión del PO): un borrador se sigue editando en el alta.
   useEffect(() => {
-    if (esBorrador) router.replace(`/panel/contratos/${encodeURIComponent(contratoId)}/editar`)
+    if (esBorrador) router.replace(editarContratoHref(contratoId))
   }, [esBorrador, contratoId, router])
 
   if (carga.status === 'cargando' || esBorrador) {
@@ -568,11 +556,11 @@ export function DetalleContrato({ contratoId }: DetalleContratoProps) {
         <div className={styles.bloqueado} data-testid={noEncontrado ? 'contrato-no-encontrado' : 'contrato-detalle-error-carga'}>
           <EmptyState
             title={noEncontrado ? 'No encontramos este contrato' : 'No pudimos abrir el contrato'}
-            description={noEncontrado ? 'Puede que no exista o que no sea tuyo. Revisá tus contratos.' : carga.message}
+            description={noEncontrado ? 'Puede que no exista o que no sea tuyo. Revisá tus propiedades.' : carga.message}
             action={
               <span className={styles.acciones}>
-                <Button type="primary" onClick={() => router.push('/panel/contratos')} data-testid="contrato-ir-contratos">
-                  Ir a Contratos
+                <Button type="primary" onClick={() => router.push(MIS_PROPIEDADES_HREF)} data-testid="contrato-ir-propiedades">
+                  Ir a mis propiedades
                 </Button>
                 {!noEncontrado && (
                   <Button onClick={carga.reintentar} data-testid="contrato-reintentar">
@@ -593,7 +581,7 @@ export function DetalleContrato({ contratoId }: DetalleContratoProps) {
       key={`${contrato.id}-${contrato.status}`}
       inicial={contrato}
       miRol={rolEnContrato(contrato, user?.id)}
-      miga={[...MIGA_BASE, { label: contrato.code ?? 'Contrato' }]}
+      miga={migaDeContrato(contrato)}
     />
   )
 }

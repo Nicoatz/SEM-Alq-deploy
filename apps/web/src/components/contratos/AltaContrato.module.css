@@ -18,6 +18,20 @@
   gap: 0.625rem;
 }
 
+.revisionPdf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.875rem;
+}
+
+.envioNoDisponible {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
 .fullWidth {
   width: 100%;
 }
@@ -183,113 +197,11 @@
     flex-direction: column;
     align-items: flex-start;
   }
-}
-
-/* ─── Paso 3 · Cláusulas ──────────────────────────────────────────────── */
-
-.clausulasHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.clausulasResumen {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9375rem;
-  color: var(--rentar-color-text-primary);
-}
-
-.plantillaTag {
-  margin: 0;
-}
-
-.clausulas {
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.clausula {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.75rem 0.875rem;
-  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
-  border-radius: var(--rentar-radius-md);
-  background: var(--rentar-color-bg-surface);
-}
-
-/* Editada o agregada por el locador: resaltada, como en el diseño (· 04). */
-.clausulaMarcada {
-  border-color: var(--rentar-status-info-border);
-  background: var(--rentar-status-info-bg);
-}
-
-.clausulaHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.clausulaTitulo {
-  font-weight: 700;
-  color: var(--rentar-color-text-primary);
-}
-
-.clausulaTexto {
-  margin: 0;
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--rentar-color-text-secondary);
-  white-space: pre-wrap;
-}
-
-.clausulaEditor {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.5rem;
-}
-
-.clausulaError {
+}.errorCasilla {
   margin: 0;
   font-size: 0.8125rem;
   color: var(--rentar-color-error);
-}
-
-.documento {
-  max-height: 65vh;
-  overflow-y: auto;
-  padding-right: 0.5rem;
-}
-
-.documentoTitulo {
-  margin: 0 0 1rem;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--rentar-color-text-primary);
-}
-
-.documentoClausula {
-  margin: 0 0 0.875rem;
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  color: var(--rentar-color-text-primary);
-  text-align: justify;
-  white-space: pre-wrap;
-}
-
-/* ─── Paso 4 · Revisión ───────────────────────────────────────────────── */
+}/* ─── Paso 4 · Revisión ───────────────────────────────────────────────── */
 
 .bloqueRevision {
   display: flex;

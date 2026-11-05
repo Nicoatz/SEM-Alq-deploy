@@ -6,7 +6,7 @@
  * Cubre: US-05 Registrar contrato de alquiler, paso 2 ("se debe calcular
  * automáticamente la fecha de fin…"; "se debe informar la cantidad de
  * ajustes que tendrá el contrato y la fecha del primero").
- * Quién lo usa: `components/contratos/*`, `lib/contratos/plantilla.ts`,
+ * Quién lo usa: `components/contratos/*`,
  * `lib/contratos/listado.ts` y la rama mock de `services/contratos.service.ts`.
  *
  * Las fechas viajan como texto ISO (`YYYY-MM-DD`), igual que en el resto del front.
@@ -19,6 +19,11 @@ export const MESES_POR_PERIODO: Record<PeriodicidadAjuste, number> = {
   trimestral: 3,
   semestral: 6,
   anual: 12,
+}
+
+/** US-05: el plazo de vencimiento, igual en todas las pantallas: "Vence a los 10 días de cada período". */
+export function textoPlazo(dias: number): string {
+  return `Vence a los ${dias} ${dias === 1 ? 'día' : 'días'} de cada período`
 }
 
 /** Formato ISO de las fechas del contrato. */

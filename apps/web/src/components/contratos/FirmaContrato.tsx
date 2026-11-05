@@ -7,40 +7,41 @@
  * - "Antes de firmar, se debe informar que en esta versión de la plataforma
  *   la firma es simulada" (`SimulatedFeatureNotice`, arriba de todo).
  * - "El botón 'Firmar contrato' solo se habilita cuando el usuario llegó a
- *   la última página del documento y marcó la casilla 'Leí el contrato
- *   completo y acepto sus condiciones y cláusulas'." Mientras tanto, cuántas
- *   páginas faltan (`VisorContrato`).
+ *   la última página del documento y marcó la casilla". Mientras tanto, cuántas
+ *   páginas faltan: se cuentan las vistas en el PDF (`VisorPdf`) y volver atrás
+ *   no resta. Decisión del PO: la casilla dice "Leí el contrato completo y
+ *   acepto sus condiciones", sin "cláusulas": el contrato es un PDF.
  * - "Se debe solicitar confirmación antes de firmar, avisando que la firma no
  *   se puede deshacer." Cancelar la confirmación no registra nada.
  * - Rechazo (solo el locatario, `permitirRechazo`): motivo opcional de hasta
  *   300 caracteres, con confirmación. El contrato sigue pendiente de firma.
  *
- * NOTA: es reutilizable y no depende de la ruta. Hoy lo monta el detalle del
- * locador (`/panel/contratos/[id]`); el locatario lo va a usar desde Mi
- * alquiler (`/panel/alquiler`, tanda 4). Habla con el service solo para
- * firmar y rechazar, y devuelve el contrato actualizado con `onCambio`.
+ * NOTA: es reutilizable y no depende de la ruta: lo usan el detalle del locador
+ * (`/panel/contratos/[id]`) y Mi alquiler (`/panel/alquiler`). Solo en mock: en
+ * real no existe la firma. Habla con el service solo para firmar y rechazar, y
+ * devuelve el contrato actualizado con `onCambio`.
  *
  * Quién lo usa: `DetalleContrato.tsx`.
  */
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { Alert, Button, Checkbox, Input } from 'antd'
 import { CloseCircleOutlined, EditOutlined } from '@ant-design/icons'
-import type { ClausulaContrato, ContratoDetalle } from '@rentar/shared-types'
+import type { ContratoDetalle } from '@rentar/shared-types'
 import { ConfirmActionModal, SimulatedFeatureNotice } from '@rentar/ui'
 import { errorDeMotivoRechazo, MOTIVO_RECHAZO_MAX } from '@/lib/contratos/firmas'
-import { paginarContrato } from '@/lib/contratos/paginas'
+import { paginasQueFaltanLeer } from '@/lib/contratos/lectura'
+import type { ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
 import { firmarContrato, rechazarFirma } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
-import { VisorContrato } from './VisorContrato'
+import { VisorPdf } from './VisorPdf'
 import styles from './DetalleContrato.module.css'
 
 /** Props de {@link FirmaContrato}. */
 interface FirmaContratoProps {
   contratoId: string
-  /** Título y código del documento. */
-  titulo: string
-  codigo: string | null
-  clausulas: readonly ClausulaContrato[]
+  /** Pide la URL del PDF al abrir el visor (S4-13). */
+  obtenerPdf: ObtenerUrlPdf
+  nombrePdf?: string
   /** Nombre de la otra parte, para el aviso de la confirmación ("…queda pendiente la firma de Julieta"). */
   otraParte: string
   /** `true` para el locatario: muestra "Rechazar firma" (US-07: "el locatario puede rechazar la firma"). */
@@ -49,8 +50,8 @@ interface FirmaContratoProps {
   onCambio: (contrato: ContratoDetalle) => void
 }
 
-/** Texto de la casilla, literal de la US. */
-const TEXTO_CASILLA = 'Leí el contrato completo y acepto sus condiciones y cláusulas.'
+/** Texto de la casilla (decisión del PO, 05/11). */
+const TEXTO_CASILLA = 'Leí el contrato completo y acepto sus condiciones.'
 
 /** Mensaje de un error del service, o uno genérico. */
 function mensajeDe(error: unknown): string {
@@ -58,11 +59,10 @@ function mensajeDe(error: unknown): string {
 }
 
 /** Visor con progreso, casilla, "Firmar contrato" y (si corresponde) "Rechazar firma". */
-export function FirmaContrato({ contratoId, titulo, codigo, clausulas, otraParte, permitirRechazo = false, onCambio }: FirmaContratoProps) {
-  const total = paginarContrato(clausulas).length
-
+export function FirmaContrato({ contratoId, obtenerPdf, nombrePdf, otraParte, permitirRechazo = false, onCambio }: FirmaContratoProps) {
   // ─── Estado local ───────────────────────────────────────────────────
-  const [leidaHasta, setLeidaHasta] = useState(1)
+  /** Cuántas páginas faltan; `null` mientras el PDF no abrió: sin PDF no se firma. */
+  const [faltan, setFaltan] = useState<number | null>(null)
   const [acepto, setAcepto] = useState(false)
   const [confirmarFirma, setConfirmarFirma] = useState(false)
   const [firmando, setFirmando] = useState(false)
@@ -72,11 +72,13 @@ export function FirmaContrato({ contratoId, titulo, codigo, clausulas, otraParte
   const [rechazando, setRechazando] = useState(false)
   const [errorRechazo, setErrorRechazo] = useState<string | null>(null)
 
-  const llegoAlFinal = leidaHasta >= total
+  const llegoAlFinal = faltan === 0
   const puedeFirmar = llegoAlFinal && acepto
   const errorMotivo = errorDeMotivoRechazo(motivo)
 
   // ─── Handlers ───────────────────────────────────────────────────────
+  const verPaginas = useCallback((vistas: ReadonlySet<number>, total: number) => setFaltan(paginasQueFaltanLeer(vistas, total)), [])
+
   async function firmar(): Promise<void> {
     setFirmando(true)
     setErrorFirma(null)
@@ -118,13 +120,13 @@ export function FirmaContrato({ contratoId, titulo, codigo, clausulas, otraParte
         data-testid="contrato-firma-aviso"
       />
 
-      <VisorContrato
-        titulo={titulo}
-        codigo={codigo}
-        clausulas={clausulas}
-        conProgreso
-        onProgreso={(leidas) => setLeidaHasta(leidas)}
-      />
+      <VisorPdf obtenerUrl={obtenerPdf} nombre={nombrePdf} onPaginasVistas={verPaginas} data-testid="contrato-firma-visor" />
+
+      {faltan !== null && faltan > 0 && (
+        <p className={styles.firmaFaltan} data-testid="contrato-firma-faltan">
+          {faltan === 1 ? 'Te falta 1 página para poder firmar.' : `Te faltan ${faltan} páginas para poder firmar.`}
+        </p>
+      )}
 
       <div className={styles.firmaAcciones}>
         <Checkbox checked={acepto} onChange={(evento) => setAcepto(evento.target.checked)} data-testid="contrato-firma-acepto">
@@ -168,7 +170,7 @@ export function FirmaContrato({ contratoId, titulo, codigo, clausulas, otraParte
       <ConfirmActionModal
         open={confirmarFirma}
         title="¿Firmar el contrato?"
-        description={`La firma no se puede deshacer: para cambiar algo después, habría que rescindir el contrato. Cuando firme ${otraParte}, el contrato queda vigente.`}
+        description={`La firma no se puede deshacer. Cuando firmen las dos partes, el contrato queda vigente. La otra parte es ${otraParte}.`}
         confirmLabel="Firmar contrato"
         cancelLabel="Volver"
         confirmLoading={firmando}

@@ -1,0 +1,228 @@
+/* Pestaña Contratos (Claude Design, "Detalle de propiedad del locador" · 02, 02b y 02c). */
+
+.pestania {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.625rem;
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.secundario {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Contrato actual ─────────────────────────────────────────────────── */
+
+.actual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  padding: 1rem 1.125rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+/* Pendiente de firma y vigente se destacan; el borrador, no (diseño, §02). */
+.actualDestacado {
+  border: 2px solid var(--rentar-color-blue);
+  background: rgba(var(--rentar-color-blue-rgb), 0.04);
+}
+
+.actualFila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.875rem 1.75rem;
+}
+
+.actualCodigo {
+  display: flex;
+  flex: 1 1 8rem;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.eyebrow {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rentar-color-blue);
+}
+
+.codigo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.locatario {
+  display: flex;
+  flex: 1 1 12rem;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--rentar-radius-pill);
+  background: rgba(var(--rentar-color-blue-rgb), 0.1);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+}
+
+.locatarioDatos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+}
+
+.datos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.875rem 1.75rem;
+}
+
+.dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+}
+
+.datoLabel {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rentar-color-text-secondary);
+}
+
+.datoValor {
+  font-size: 0.90625rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.ajuste {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ─── Firmas ──────────────────────────────────────────────────────────── */
+
+.firmas {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0.75rem 0 0;
+  border-top: 1px solid rgba(var(--rentar-color-ink-rgb), 0.08);
+  list-style: none;
+}
+
+.firma {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.firmado {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.pdfNoDisponible {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ─── Sin contrato, anteriores y error ────────────────────────────────── */
+
+.vacio {
+  padding: 1rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.anteriores {
+  background: var(--rentar-color-bg-surface);
+}
+
+.verContrato {
+  font-size: 0.84375rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--rentar-color-blue);
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-error-bg);
+}
+
+.errorTitulo {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+/* ─── Móvil (· 02c): una sola columna ─────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .datos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .acciones :global(.ant-btn) {
+    width: 100%;
+  }
+
+  .pdfNoDisponible {
+    width: 100%;
+  }
+}

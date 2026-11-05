@@ -11,6 +11,9 @@ npm run dev:api      # API (Express + Swagger) en http://localhost:3000 · docs 
 npm run dev:web      # Frontend (Next.js) en http://localhost:3001
 ```
 
+> `packages/shared-types/dist/` no está versionado. La web y `@rentar/ui` no lo necesitan: leen `src/` por
+> `paths` del `tsconfig.json`. La API sí lo usa, y su `npm run build` lo compila solo con el `prebuild`.
+
 El frontend corre con datos de prueba por defecto; no necesita la API levantada. Para conectarlo a
 la API, ver [`docs/HANDOFF-BACKEND.md`](docs/HANDOFF-BACKEND.md).
 

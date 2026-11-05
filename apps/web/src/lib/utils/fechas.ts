@@ -20,6 +20,23 @@ import { USE_MOCKS } from '@/services/shared/config'
  */
 export const HOY_ELENCO = '2026-09-23'
 
+/** Clave para simular otra fecha en modo mock (US-12: las variantes de la tarjeta). */
+const CLAVE_HOY_MOCK = 'rentar:mock:hoy'
+
+/**
+ * El "hoy" del mock: {@link HOY_ELENCO}, salvo que el navegador tenga otra fecha
+ * en `rentar:mock:hoy`. "Reiniciar datos de prueba" la borra.
+ */
+function hoyDelMock(): string {
+  if (typeof window === 'undefined') return HOY_ELENCO
+  try {
+    const guardado = window.localStorage.getItem(CLAVE_HOY_MOCK)
+    return guardado && /^\d{4}-\d{2}-\d{2}$/.test(guardado) ? guardado : HOY_ELENCO
+  } catch {
+    return HOY_ELENCO
+  }
+}
+
 /**
  * EL reloj de la app: ahora, con la hora. Todo lo que necesita "ahora" u
  * "hoy" pasa por acá (decisión del PO, tanda 3 del Sprint 3: un solo reloj).
@@ -38,7 +55,7 @@ export const HOY_ELENCO = '2026-09-23'
 export function ahora(): Dayjs {
   const reloj = dayjs()
   if (!USE_MOCKS) return reloj
-  return dayjs(HOY_ELENCO).hour(reloj.hour()).minute(reloj.minute()).second(reloj.second()).millisecond(reloj.millisecond())
+  return dayjs(hoyDelMock()).hour(reloj.hour()).minute(reloj.minute()).second(reloj.second()).millisecond(reloj.millisecond())
 }
 
 /**

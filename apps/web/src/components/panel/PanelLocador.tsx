@@ -31,6 +31,7 @@ import { useRouter } from 'next/navigation'
 import type { PropiedadLocador, ResumenCobros, ResumenReclamos, SolicitudPanel } from '@rentar/shared-types'
 import { StatCard } from '@rentar/ui'
 import { formatARS } from '@rentar/ui/src/utils/formatARS'
+import { MIS_PROPIEDADES_HREF } from '@/lib/contratos/rutas'
 import { useServiceCall, type EstadoServicio } from '@/lib/hooks/useServiceCall'
 import { ahora, diasDesde, esDelMesActual, fechaLarga, hoy, nombreMes, textoDias } from '@/lib/utils/fechas'
 import { getEventosContratos, getResumenCobros, getResumenReclamos, getSolicitudesPendientes } from '@/services/panel.service'
@@ -171,7 +172,7 @@ export function PanelLocador({ nombre }: { nombre: string }) {
         value={<span className={cobros.data.overdueAmount > 0 ? styles.overdueValue : undefined}>{formatARS(cobros.data.overdueAmount)}</span>}
         delta={
           cobros.data.overdueCount > 0
-            ? { label: `${contar(cobros.data.overdueCount, 'cobro', 'cobros')} · el más viejo, ${textoDias(vencidoMasViejo)}`, trend: 'down' }
+            ? { label: `Incluye intereses por mora · ${contar(cobros.data.overdueCount, 'cobro', 'cobros')} · el más viejo, ${textoDias(vencidoMasViejo)}`, trend: 'down' }
             : { label: 'Nada vencido', trend: 'neutral' }
         }
         data-testid="panel-stat-vencidos"
@@ -284,7 +285,7 @@ export function PanelLocador({ nombre }: { nombre: string }) {
 
       <Bloque
         title="Contratos por vencer o por ajustar · próximos 60 días"
-        link={{ href: '/panel/contratos', label: 'Ir a Contratos', testId: 'panel-ir-contratos' }}
+        link={{ href: MIS_PROPIEDADES_HREF, label: 'Ir a mis propiedades', testId: 'panel-ir-contratos' }}
         data-testid="panel-bloque-contratos"
       >
         {contratos.status === 'listo' && <ContratosProximos eventos={contratos.data} />}

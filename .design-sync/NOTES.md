@@ -786,3 +786,34 @@ fallback de tamaño, 202×113, sale del `viewBox` del SVG) y los 6 usos leen de 
 capturas del render check: el logo se ve bien en `Header`/`Footer`/`AuthLayout` (no son floor card,
 así que es el render real). Es el único asset importado así en el paquete — si se agrega uno
 nuevo con el mismo patrón (`import x from './algo.svg'` + `.src`), aplicar el mismo helper.
+
+## `MoneyInput`: solo montos enteros (S4-14, 05/11/2026) — pendiente de subir
+
+Aprobado por el PO. La API pública no cambió, pero sí el comportamiento:
+
+- La coma tipeada no entra: aparece "Ingresá un monto entero, sin centavos", el valor queda como
+  estaba y no entran más dígitos hasta borrar, reemplazar el monto o volver al campo.
+- El punto tipeado es separador de miles y se descarta: "150.000" queda en $ 150.000. Al salir del
+  campo, si un punto no separa grupos de 3 dígitos ("1000.5"), aparece "Revisá el monto: el punto separa
+  miles" y el valor no cambia.
+- Al pegar, "1.500" y "$ 2.500" pasan; "1000,5", "1000.5" y "1.500,00" no.
+- Vaciar el campo lo deja vacío. Antes mostraba "$ 0" con el cursor adelante del cero y lo tipeado
+  después quedaba multiplicado por 10. `onChange` sigue mandando 0.
+- El componente renderiza el aviso debajo del input. Sin APIs exclusivas de React 19.
+
+## Re-sync del 2026-11-05 (cierre del Sprint 4): verificado y NO subido
+
+**La subida quedó bloqueada.** `finalize_plan` pasó, pero `write_files` respondió 403 desde el primer archivo:
+"This design system moved to Claude. /design-sync can't send updates to Claude yet, so this upload stopped". No se
+escribió nada: el proyecto y su `_ds_sync.json` siguen como antes. No reintentar con otro proyecto sin preguntar al PO.
+
+Cuando se pueda volver a subir, correr el driver de nuevo. Sube `MoneyInput` (S4-14), `ActivityTimeline` (`dateFormat`
+y el ejemplo "por las 2 partes"), `IndexBadge` (CAC y "Sin ajuste"), el bundle y los estilos: 178 archivos, 0 borrados.
+
+- **Render check con Edge:** Chrome ya no está en esta máquina. `DS_CHROMIUM_PATH` con `msedge.exe`: 34 de 34, sin
+  `bad`, `thin` ni variantes iguales.
+- **React 18.3.1:** 33 de 34 tarjetas sin errores. `RoleSwitcher` queda vacía, igual que con React 19: no renderiza
+  nada en ese entorno, no es una regresión. `MoneyInput` probado con tipeo en su tarjeta. En el bundle, 0 usos de
+  `useEffectEvent` y de `React.use(`. No se probó en las plantillas: corren en la app, después de subir.
+- **No correr `finalize_plan` con la terminal parada en `ds-bundle/`:** con `localDir` relativo busca
+  `ds-bundle/ds-bundle`. Usar la ruta absoluta.

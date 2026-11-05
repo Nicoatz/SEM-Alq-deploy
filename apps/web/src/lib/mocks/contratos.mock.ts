@@ -16,6 +16,14 @@
  *   NOTA: termina el día antes de que empiece CT-2026-0133, así respeta "un
  *   inquilino pertenece a una sola propiedad" a la vez (mapa; PO, tanda 3).
  *
+ * - **BOR-2026-0001, borrador sin código:** Chacabuco 690 (pausada: el locador
+ *   la pausó mientras arma el contrato), con Matías Quiroga, desde
+ *   SOL-2026-0041. "Sin ajuste", quedó en el paso 2. Es el borrador sembrado de
+ *   la pestaña Contratos (US-43): "Continuar" y "Eliminar".
+ * - **CT-2024-0031, finalizado:** Chacabuco 690, con Valentina Ríos (del diseño),
+ *   "Sin ajuste". Contrato histórico sin cuenta: es el detalle sin calendario
+ *   (US-42) y no aparece en ningún Mis alquileres.
+ *
  * Los 5 vigentes del elenco (CT-2026-0102, 0115, 0121, 0133 y 0148) NO se
  * repiten acá: salen de `propiedades.mock.ts` (`rental`), así el listado de
  * contratos, Mis propiedades y el panel nunca se contradicen.
@@ -24,23 +32,21 @@
  * `services/adapters/contrato-mock.adapter.ts`). Ninguna pantalla lo importa.
  *
  * US-07 (tanda 3): CT-2026-0207 arranca pendiente de firma con 0 firmas
- * (`firmas` y `eventos`). CT-2023-0041 no tiene registro de firmas ni
- * historial: es anterior a RentAR y no se inventan.
+ * (`firmas`). CT-2023-0041 no tiene registro de firmas: es anterior a RentAR
+ * y no se inventan.
  *
- * TODO(db): son filas de `contrato` + garantes + cláusulas + firmas, que
+ * TODO(db): son filas de `contrato` + garantes + firmas, que
  * hoy no existen en el esquema (HANDOFF §7, US-05).
  */
 import type {
-  ClausulaContrato,
   CondicionesNuevoContrato,
   ContractStatus,
   GaranteContrato,
   RolFirmante,
   SignatureStatus,
-  TipoEventoContrato,
 } from '@rentar/shared-types'
 
-/** La firma de una parte, como la guardaría el back (US-07). En mock no hay IP. */
+/** La firma de una parte, como la guardaría el back (US-07). */
 export interface FirmaMock {
   estado: SignatureStatus
   /** Fecha y hora ISO; `null` si no firmó. */
@@ -49,16 +55,6 @@ export interface FirmaMock {
   motivoRechazo: string | null
   /** Fecha y hora ISO de la última invitación (envío o reenvío). */
   ultimaInvitacion: string | null
-}
-
-/** Un evento del historial (US-07). El nombre de quien firma se resuelve al leer. */
-export interface EventoMock {
-  id: string
-  tipo: TipoEventoContrato
-  /** Fecha y hora ISO. */
-  fecha: string
-  rol: RolFirmante | null
-  motivo: string | null
 }
 
 /**
@@ -83,8 +79,6 @@ export interface ContratoMock {
   tenantName: string
   garantes: GaranteContrato[]
   condiciones: CondicionesNuevoContrato
-  /** `null` = la plantilla sin cambios (se arma al leer, con los datos de hoy). */
-  clausulas: ClausulaContrato[] | null
   /** Paso en que quedó el borrador (0 a 3). */
   ultimoPaso: number
   /** Fecha y hora ISO de creación y del último cambio. */
@@ -97,11 +91,16 @@ export interface ContratoMock {
    * borradores y los anteriores a RentAR, como CT-2023-0041).
    */
   firmas?: Record<RolFirmante, FirmaMock>
-  /** Historial (US-07), en el orden en que pasó. Sin el campo, se arma con `createdAt` y `sentAt`. */
-  eventos?: EventoMock[]
   /** Fecha y hora ISO de la última firma, cuando firmaron todas las partes. */
   firmadoPorTodasEl?: string | null
+  /** El PDF cargado (solo los datos: el archivo no entra en `localStorage`). */
+  pdf?: { nombre: string; tamanoBytes: number; subidoEl: string } | null
+  /** `true` en un borrador sembrado que se eliminó en el navegador (el elenco no se borra). */
+  descartado?: boolean
 }
+
+/** Tamaño de `public/mocks/contrato-ficticio.pdf`, el PDF de todo el elenco (6 páginas, sin datos reales). */
+const PDF_FICTICIO_BYTES = 7602
 
 /** Los contratos del elenco que no salen de `propiedades.mock.ts` (ver el encabezado). */
 export const contratos: ContratoMock[] = [
@@ -121,11 +120,10 @@ export const contratos: ContratoMock[] = [
       durationMonths: 36,
       initialAmount: 385000,
       deposit: 385000,
-      paymentDueDay: 10,
+      paymentTermDays: 10,
       adjustmentIndex: 'ICL',
       adjustmentPeriod: 'semestral',
     },
-    clausulas: null,
     ultimoPaso: 3,
     // NOTA: el diseño fecha la aceptación el 14/09, pero en el elenco la
     // solicitud se envió el 20/09: se acepta el 21, el borrador es del 21 y
@@ -133,16 +131,13 @@ export const contratos: ContratoMock[] = [
     createdAt: '2026-09-21T17:22:00',
     updatedAt: '2026-09-22T11:40:00',
     sentAt: '2026-09-22T11:40:00',
+    pdf: { nombre: 'contrato-rondeau-480-pb.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2026-09-22T11:30:00' },
     // US-07 (tanda 3): arranca pendiente con 0 firmas. Las dos partes fueron
     // invitadas al enviarlo, así que el primer reenvío ya se puede hacer.
     firmas: {
       locador: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
       locatario: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
     },
-    eventos: [
-      { id: 'ev-0207-1', tipo: 'creado', fecha: '2026-09-21T17:22:00', rol: null, motivo: null },
-      { id: 'ev-0207-2', tipo: 'enviado', fecha: '2026-09-22T11:40:00', rol: null, motivo: null },
-    ],
   },
   {
     id: 'CT-2023-0041',
@@ -161,14 +156,64 @@ export const contratos: ContratoMock[] = [
       // NOTA: el monto con que terminó (el diseño muestra $240.000); los ajustes no se guardan.
       initialAmount: 240000,
       deposit: 240000,
-      paymentDueDay: 10,
+      paymentTermDays: 10,
       adjustmentIndex: 'IPC',
       adjustmentPeriod: 'semestral',
     },
-    clausulas: null,
     ultimoPaso: 3,
     createdAt: '2023-11-20T10:00:00',
     updatedAt: '2023-11-25T10:00:00',
     sentAt: '2023-11-25T10:00:00',
+    pdf: { nombre: 'CT-2023-0041.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2023-11-25T10:00:00' },
+  },
+  {
+    id: 'BOR-2026-0001',
+    code: null,
+    status: 'borrador',
+    ownerId: 'usr-nicolas',
+    propertyId: 'prop-chacabuco-690',
+    solicitudId: 'SOL-2026-0041',
+    tenantUserId: 'usr-matias',
+    tenantName: 'Matías Quiroga',
+    garantes: [],
+    condiciones: {
+      startDate: '2026-10-01',
+      durationMonths: 24,
+      initialAmount: 445000,
+      deposit: 445000,
+      paymentTermDays: 10,
+      adjustmentIndex: 'sin_ajuste',
+      adjustmentPeriod: null,
+    },
+    ultimoPaso: 1,
+    createdAt: '2026-09-21T10:00:00',
+    updatedAt: '2026-09-21T10:30:00',
+    sentAt: null,
+  },
+  {
+    id: 'CT-2024-0031',
+    code: 'CT-2024-0031',
+    status: 'finalizado',
+    ownerId: 'usr-nicolas',
+    propertyId: 'prop-chacabuco-690',
+    solicitudId: null,
+    // Histórico sin cuenta en el elenco.
+    tenantUserId: null,
+    tenantName: 'Valentina Ríos',
+    garantes: [],
+    condiciones: {
+      startDate: '2024-03-01',
+      durationMonths: 24,
+      initialAmount: 415000,
+      deposit: 415000,
+      paymentTermDays: 10,
+      adjustmentIndex: 'sin_ajuste',
+      adjustmentPeriod: null,
+    },
+    ultimoPaso: 3,
+    createdAt: '2024-02-20T10:00:00',
+    updatedAt: '2024-02-25T10:00:00',
+    sentAt: '2024-02-25T10:00:00',
+    pdf: { nombre: 'CT-2024-0031.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2024-02-25T10:00:00' },
   },
 ]

@@ -23,7 +23,6 @@ import {
   CreditCardOutlined,
   DollarOutlined,
   ExclamationCircleOutlined,
-  FileProtectOutlined,
   FileTextOutlined,
   HomeOutlined,
   KeyOutlined,
@@ -36,7 +35,6 @@ const navItemsLocador: AppShellNavItem[] = [
   { key: 'panel', label: 'Mi panel', href: '/panel', icon: <HomeOutlined /> },
   { key: 'propiedades', label: 'Propiedades', href: '/panel/propiedades', icon: <ShopOutlined /> },
   { key: 'solicitudes', label: 'Solicitudes', href: '/panel/solicitudes', icon: <FileTextOutlined /> },
-  { key: 'contratos', label: 'Contratos', href: '/panel/contratos', icon: <FileProtectOutlined /> },
   { key: 'cobros', label: 'Cobros', href: '/panel/cobros', icon: <DollarOutlined /> },
   { key: 'reclamos', label: 'Reclamos', href: '/panel/reclamos', icon: <ExclamationCircleOutlined /> },
   { key: 'mensajes', label: 'Mensajes', href: '/panel/mensajes', icon: <MessageOutlined /> },
@@ -47,6 +45,7 @@ const navItemsLocador: AppShellNavItem[] = [
 const navItemsLocatario: AppShellNavItem[] = [
   { key: 'panel', label: 'Mi panel', href: '/panel', icon: <HomeOutlined /> },
   { key: 'alquiler', label: 'Mi alquiler', href: '/panel/alquiler', icon: <KeyOutlined /> },
+  { key: 'pagos', label: 'Mis pagos', href: '/panel/pagos', icon: <DollarOutlined /> },
   { key: 'mis-solicitudes', label: 'Mis solicitudes', href: '/panel/mis-solicitudes', icon: <FileTextOutlined /> },
 ]
 
@@ -62,6 +61,8 @@ export const ITEM_MIS_ALQUILERES = { label: 'Mis alquileres', href: '/panel/alqu
  * alquileres queda activo en la ficha y en el listado).
  */
 export const RUTAS_DEL_ITEM: Record<string, readonly string[]> = {
+  // Sin ítem propio desde el Sprint 4 (US-43): los contratos se abren desde la propiedad.
+  propiedades: ['/panel/contratos'],
   alquiler: ['/panel/alquiler', '/panel/alquileres'],
 }
 

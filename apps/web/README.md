@@ -94,7 +94,7 @@ ningún botón del Sprint 1 quede roto. Se reemplazan ruta por ruta cuando llega
 | Ruta | Llega desde | US |
 |---|---|---|
 | `/recuperar` | "¿Olvidaste tu contraseña?" del login | US-40 |
-| `/panel/contratos`, `/cobros`, `/reclamos`, `/mensajes`, `/reportes`, `/suscripcion` | Menú del locador | US-05, US-08/09, US-14 a 18, US-24 a 26, US-28, US-30 a 33 |
+| `/cobros`, `/reclamos`, `/mensajes`, `/reportes`, `/suscripcion` | Menú del locador | US-08/09, US-14 a 18, US-24 a 26, US-28, US-30 a 33 |
 | `/panel/perfil`, `/panel/notificaciones` | UserMenu | US-20/21, US-22/23 |
 
 `proxy.ts` protege `/panel/*`: sin sesión manda a `/login?next=…` y, después del login, vuelve ahí

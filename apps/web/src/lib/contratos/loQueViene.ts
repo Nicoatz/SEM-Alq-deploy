@@ -32,8 +32,8 @@ export interface DatosLoQueViene {
   /** Inicio y fin del contrato, ISO; `null` si faltan. */
   inicio: string | null
   fin: string | null
-  /** Día de vencimiento del pago (1 a 28 en RentAR); `null` si no se sabe. */
-  diaPago: number | null
+  /** Plazo de vencimiento del pago, en días (1 a 28 en RentAR); `null` si no se sabe. */
+  plazoDias: number | null
   indice: IndiceContrato
   /** Cada cuántos meses se ajusta; `null` sin ajuste. */
   cadaMeses: number | null
@@ -44,31 +44,32 @@ function diasEntre(hoyIso: string, fecha: string): number {
   return dayjs(fecha).diff(dayjs(hoyIso), 'day')
 }
 
-/** El día `dia` del mes de `base` (si el mes es más corto, su último día). */
-function enDia(base: dayjs.Dayjs, dia: number): dayjs.Dayjs {
-  return base.date(Math.min(dia, base.daysInMonth()))
-}
-
 /**
- * Próximo vencimiento de pago: el primer día de pago desde hoy (o desde el
- * inicio, si el contrato todavía no empezó) y hasta el fin.
+ * Próximo vencimiento de pago: el plazo se cuenta desde que el monto está
+ * disponible en cada período (el primero del mes o, en el primer período, el
+ * inicio del contrato). Es la misma regla que el back
+ * (`calcularFechaProximoVencimiento`), así mock y real dicen lo mismo.
+ * Si el de este mes ya pasó, va el del período siguiente.
  *
- * Casos verificados (con `tsx`, tanda 4 del Sprint 3):
- * - Hoy 23/09/2026, día 10 (ya pasó este mes) → 10/10/2026, faltan 17.
- * - Hoy 23/09/2026, día 28 → 28/09/2026, faltan 5.
- * - Hoy 10/09/2026, día 10 → 10/09/2026, faltan 0 (vence hoy).
- * - Hoy 15/02/2027, día 28 → 28/02/2027, faltan 13 (febrero tiene día 28).
- * - Hoy 23/09/2026, inicio 01/10/2026, día 10 → 10/10/2026 (el primero del contrato).
- * - Hoy 23/09/2026, fin 30/09/2026, día 10 → `null` (no quedan pagos).
- * @returns `null` si falta el día de pago o no quedan vencimientos.
+ * Casos verificados:
+ * - Hoy 23/09/2026, plazo 10 (el 11/09 ya pasó) → 11/10/2026, faltan 18.
+ * - Hoy 23/09/2026, plazo 28 → 29/09/2026, faltan 6.
+ * - Hoy 11/09/2026, plazo 10 → 11/09/2026, faltan 0 (vence hoy).
+ * - Hoy 23/09/2026, inicio 01/10/2026, plazo 10 → 11/10/2026 (el primero del contrato).
+ * - Hoy 23/09/2026, inicio 15/10/2026, plazo 10 → 25/10/2026.
+ * - Hoy 23/09/2026, fin 30/09/2026, plazo 10 → `null` (no quedan pagos).
+ * @returns `null` si falta el plazo o no quedan vencimientos.
  */
-export function proximoPago(datos: Pick<DatosLoQueViene, 'hoyIso' | 'inicio' | 'fin' | 'diaPago'>): FechaQueViene | null {
-  const { hoyIso, inicio, fin, diaPago } = datos
-  if (!diaPago) return null
-  const desde = inicio && inicio > hoyIso ? dayjs(inicio) : dayjs(hoyIso)
-  let candidato = enDia(desde, diaPago)
-  if (candidato.isBefore(desde, 'day')) candidato = enDia(desde.add(1, 'month').date(1), diaPago)
-  const fecha = candidato.format(ISO)
+export function proximoPago(datos: Pick<DatosLoQueViene, 'hoyIso' | 'inicio' | 'fin' | 'plazoDias'>): FechaQueViene | null {
+  const { hoyIso, inicio, fin, plazoDias } = datos
+  if (!plazoDias) return null
+  const desde = dayjs(inicio && inicio > hoyIso ? inicio : hoyIso).date(1)
+  const vencimientoDe = (primeroDelMes: dayjs.Dayjs) => {
+    const disponible = inicio && dayjs(inicio).isAfter(primeroDelMes) ? dayjs(inicio) : primeroDelMes
+    return disponible.add(plazoDias, 'day')
+  }
+  const esteMes = vencimientoDe(desde)
+  const fecha = (esteMes.isBefore(dayjs(hoyIso), 'day') ? vencimientoDe(desde.add(1, 'month')) : esteMes).format(ISO)
   if (fin && fecha > fin) return null
   return { fecha, dias: diasEntre(hoyIso, fecha) }
 }

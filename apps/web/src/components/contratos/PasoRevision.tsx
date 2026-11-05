@@ -5,10 +5,10 @@
  *
  * Cubre: US-05 Registrar contrato de alquiler, "Paso 4 · Revisión y envío":
  * - resumen de todo lo cargado (propiedad, partes, garantes, vigencia,
- *   monto inicial, ajuste, depósito, vencimiento del pago y cláusulas), con
+ *   monto inicial, ajuste, depósito, vencimiento del pago y miniatura del PDF), con
  *   "Editar" en cada bloque;
- * - la casilla obligatoria "Revisé las condiciones y las cláusulas, y
- *   entiendo que después de enviarlo no puedo editarlo".
+ * - la casilla obligatoria "Revisé la correcta redacción del contrato y
+ *   entiendo que después de enviarlo no puedo editarlo";
  * La confirmación (quiénes firman) y el envío los maneja `AltaContrato`.
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 04, paso 4): "Cómo
@@ -18,15 +18,17 @@
  *
  * Quién lo usa: `AltaContrato.tsx`.
  */
-import type { ReactNode } from 'react'
+import { useCallback, type ReactNode } from 'react'
 import { Button, Checkbox } from 'antd'
 import { EditOutlined } from '@ant-design/icons'
 import type { ContratoBorrador } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount } from '@rentar/ui'
-import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
-import { contarClausulas, PLANTILLA_NOMBRE } from '@/lib/contratos/plantilla'
+import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO, textoPlazo } from '@/lib/contratos/fechas'
+import { tamanoLegible } from '@/lib/contratos/pdfCarga'
 import { MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { dniParaMostrar } from '@/lib/perfil/formato'
+import { urlPdfDeContrato } from '@/services/contratos.service'
+import { MiniaturaPdf } from './MiniaturaPdf'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link PasoRevision}. */
@@ -38,6 +40,8 @@ interface PasoRevisionProps {
   onAceptoChange: (acepto: boolean) => void
   /** `true` si se tocó "Enviar a firmar" sin marcar la casilla. */
   mostrarErrorCasilla: boolean
+  /** `false` en real: sin `POST /contratos/:id/enviar`, el botón se muestra deshabilitado. */
+  envioDisponible: boolean
 }
 
 /** "Nombre Apellido". */
@@ -61,11 +65,12 @@ function Bloque({ titulo, paso, onEditar, testId, children }: { titulo: string; 
 }
 
 /** Paso 4 del alta: el resumen y la casilla de revisión. */
-export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla }: PasoRevisionProps) {
+export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible }: PasoRevisionProps) {
   const { condiciones, propiedad, locador, locatario, garantes } = borrador
+  const contratoId = borrador.id ?? ''
+  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
   const fin = fechaFin(condiciones.startDate, condiciones.durationMonths)
   const ajustes = cantidadAjustes(condiciones.durationMonths, condiciones.adjustmentIndex, condiciones.adjustmentPeriod)
-  const conteo = contarClausulas(borrador.clausulas)
   const falta = 'Sin cargar'
 
   return (
@@ -116,17 +121,23 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
                 ),
             },
             { label: 'Depósito', value: condiciones.deposit === null ? 'Sin depósito' : <MoneyAmount amount={condiciones.deposit} /> },
-            { label: 'Vencimiento del pago', value: condiciones.paymentDueDay === null ? falta : `Día ${condiciones.paymentDueDay} de cada mes` },
+            { label: 'Vencimiento del pago', value: condiciones.paymentTermDays === null ? falta : textoPlazo(condiciones.paymentTermDays) },
           ]}
           column={1}
         />
       </Bloque>
 
-      <Bloque titulo="Cláusulas" paso={2} onEditar={onEditar} testId="contrato-revision-clausulas">
-        <p className={styles.referencia}>
-          {PLANTILLA_NOMBRE} · {conteo.total} cláusulas, {conteo.editadas} {conteo.editadas === 1 ? 'editada' : 'editadas'}
-          {conteo.propias > 0 ? ` y ${conteo.propias} ${conteo.propias === 1 ? 'agregada por vos' : 'agregadas por vos'}` : ''}.
-        </p>
+      <Bloque titulo="Contrato" paso={2} onEditar={onEditar} testId="contrato-revision-pdf">
+        {borrador.pdf ? (
+          <div className={styles.revisionPdf}>
+            <MiniaturaPdf obtenerUrl={obtenerPdf} data-testid="contrato-revision-miniatura" />
+            <span className={styles.referencia}>
+              {borrador.pdf.nombre} · {tamanoLegible(borrador.pdf.tamanoBytes)}
+            </span>
+          </div>
+        ) : (
+          <p className={styles.referencia}>Todavía no cargaste el PDF del contrato.</p>
+        )}
       </Bloque>
 
       <section className={styles.alEnviar} data-testid="contrato-al-enviar">
@@ -146,14 +157,24 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
       {/* US-05: "Para enviar a firmar, se debe marcar la casilla …". */}
       <div>
         <Checkbox checked={acepto} onChange={(evento) => onAceptoChange(evento.target.checked)} data-testid="contrato-revision-acepto">
-          Revisé las condiciones y las cláusulas, y entiendo que después de enviarlo no puedo editarlo.
+          Revisé la correcta redacción del contrato y entiendo que después de enviarlo no puedo editarlo
         </Checkbox>
         {mostrarErrorCasilla && !acepto && (
-          <p className={styles.clausulaError} role="alert" data-testid="contrato-revision-acepto-error">
+          <p className={styles.errorCasilla} role="alert" data-testid="contrato-revision-acepto-error">
             {MENSAJES_CONTRATO.revisionSinMarcar}
           </p>
         )}
       </div>
+
+      {/* Decisión del PO: en real el flujo termina en borrador. */}
+      {!envioDisponible && (
+        <div className={styles.envioNoDisponible} data-testid="contrato-envio-no-disponible">
+          <Button type="primary" disabled data-testid="contrato-enviar-deshabilitado">
+            Enviar a firmar
+          </Button>
+          <span className={styles.referencia}>Disponible cuando esté habilitada la firma. Mientras tanto, tu contrato queda guardado como borrador.</span>
+        </div>
+      )}
     </div>
   )
 }

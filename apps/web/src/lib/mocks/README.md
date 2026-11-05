@@ -55,6 +55,8 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 | CT-2026-0148 | Obispo Trejo 1250, 7° B | Sofía Ledesma | vigente | 01/04/2026 → 31/03/2029 | $470.000 | ver "Los alquileres" | `rental` |
 | CT-2026-0133 | Mariano Moreno 285 (de **Sofía**) | Camila Ríos | vigente | 01/12/2025 → 30/11/2028 | $510.000 | ver "Los alquileres" | `rental` |
 | **CT-2026-0207** | Rondeau 480, PB | Julieta Peralta | **pendiente de firma** | 01/10/2026 → 30/09/2029 | $385.000 | ICL semestral (5 ajustes, el primero el 01/04/2027) | `contratos.mock.ts`, desde SOL-2026-0031 |
+| **BOR-2026-0001** | Chacabuco 690 | Matías Quiroga | **borrador**, sin código | 01/10/2026, 24 meses | $445.000 | Sin ajuste | `contratos.mock.ts` |
+| **CT-2024-0031** | Chacabuco 690 | Valentina Ríos | **finalizado** | 01/03/2024 → 29/02/2026 (24 meses) | $415.000 | Sin ajuste | `contratos.mock.ts` |
 | **CT-2023-0041** | Rondeau 480, PB | Camila Ríos | **finalizado** | 01/12/2023 → 30/11/2025 (24 meses) | $240.000 | IPC semestral | `contratos.mock.ts` |
 
 - **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
@@ -69,20 +71,50 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
   `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
   "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
-- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas ni historial
+- Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas registradas
   (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más
   contratos" de US-27. Desde la tanda 4 tiene cuenta (`usr-camila`), así que Mis alquileres
   (`/panel/alquileres`) se prueba entrando como ella.
   Termina el 30/11/2025, el día antes de que empiece 0133: un inquilino pertenece a una sola
   propiedad a la vez (mapa; PO, tanda 3 del Sprint 3).
-- **Listado de Nicolás** (`/panel/contratos`): 1 pendiente de firma, 4 vigentes y 1 finalizado. El de
-  Sofía: 1 vigente (0133).
+- **CT-2026-0161, la excepción de esa regla (PO, 05/11):** Camila tiene un segundo vigente en Ituzaingó 870,
+  4° C, de Sofía Ledesma: $420.000, "Sin ajuste", del 01/05/2026 al 30/04/2028, vence a los 27 días. Es el caso
+  de dos contratos de US-12 y el "Sin ajuste" de US-11. Solo Camila tiene dos vigentes.
+- **PDF del elenco:** todos usan `apps/web/public/mocks/contrato-ficticio.pdf`: 6 páginas, 7 KB, sin datos
+  reales. Lo que se sube en el alta se ve hasta recargar: el archivo no entra en `localStorage`, y después
+  se muestra el ficticio con el nombre y el tamaño guardados. BOR-2026-0001 no tiene PDF: está en el paso 2.
+- **Vencimiento:** es un **plazo en días** desde el inicio del período, no el día del mes (US-05). Vale
+  igual para Mi alquiler y para cobros (`PLAZO_POR_CONTRATO` en `periodos.mock.ts`): Laprida 3, Belgrano 15,
+  Av. Colón 27, Mariano Moreno 4, Obispo Trejo 10 e Ituzaingó 27. Con Obispo Trejo, el 23/09 el próximo vencimiento es el
+  **11/10**. En real se muestra lo que manda el back: la diferencia es S4-2 de HANDOFF §7.
+- **Cobros (US-08, US-09 y US-10):** `periodos.mock.ts` tiene agosto (cobrado), septiembre y octubre (futuro:
+  no se muestra) de los 6 vigentes, con 0,5 % diario y 5 días de gracia. Los ids son `PER-0102-2026-09`; los
+  comprobantes, `RC-AAAA-NNNN`. Al 23/09, Nicolás tiene dos vencidos, uno pendiente y uno pagado en septiembre.
+  "Vencido" da $1.021.000 en `/panel` y en `/panel/cobros`: los dos leen estos períodos y suman la mora (el
+  alquiler solo serían $980.000). "Total del mes" sigue en $1.890.000: es lo pactado, sin mora. Lo que se
+  registra va a `rentar:mock:cobros` y también cambia el panel y Mis propiedades (US-02): los tres leen estos
+  períodos. Un contrato que queda vigente en la sesión genera sus períodos, como el trigger del back: uno por mes
+  hasta el fin, y el primero arranca el día de inicio (`periodosDeContrato`). CT-2026-0133 tiene además diciembre de 2025, para el filtro por año de Mis pagos.
+  Camila, al 23/09: Mariano Moreno vencido ($543.150, 13 días de mora) e Ituzaingó pendiente ($420.000).
+- **Fecha simulada:** con `rentar:mock:hoy` = `AAAA-MM-DD` en `localStorage`, `ahora()` usa esa fecha. Sirve
+  para probar las variantes de la tarjeta de US-12. "Reiniciar datos de prueba" la borra.
+- **Pestaña Contratos (US-43):** no hay listado global: cada propiedad muestra los suyos en
+  `/panel/propiedades/[id]?tab=contratos`. Rondeau 480: pendiente + un anterior. Fructuoso Rivera:
+  sin contrato, con la aceptada 0034. Chacabuco 690: borrador + un anterior.
+- **CT-2024-0031 (Valentina Ríos):** contrato **histórico sin cuenta** (`tenantUserId: null`), nombre
+  tomado del diseño. Es el detalle "Sin ajuste", sin calendario (US-42). No aparece en ningún Mis alquileres.
+- **"Sin contrato y sin aceptada" no está sembrado:** ninguna propiedad del elenco lo cubre. Se arma en la
+  prueba: Nicolás cancela la aceptada 0034 de Fructuoso Rivera (US-38) y queda solo la pendiente 0039.
 - **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y
-  sin contrato. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
-- **Borradores sembrados: ninguno.** Se crean en la prueba. El borrador se guarda en
-  `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en memoria hasta recargar (mismo
-  criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.
+  sin contrato. Crea el borrador al entrar, como el back: si salís sin guardar, queda en la pestaña. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
+- **Borrador sembrado: BOR-2026-0001** (Chacabuco 690, desde SOL-2026-0041 de Matías). Chacabuco sigue
+  **pausada**: el locador la pausó mientras arma el contrato, y no aparece en `/buscar`. Eliminarlo lo
+  marca `descartado` en el navegador y la solicitud **sigue aceptada** (US-06), así que vuelve "Iniciar
+  contrato"; "Reiniciar datos de prueba" lo trae de nuevo. Matías tiene además la 0032 pendiente en
+  Rondeau: la regla de una sola activa es por propiedad (US-35).
+- Los borradores se guardan en `rentar:mock:contratos` **sin el DNI de los garantes**, que vive en
+  memoria hasta recargar (mismo criterio que la tanda 1); al recargar, el borrador pide el DNI de nuevo.
 - **Pendiente (issue #15, regla de la tanda 5 del Sprint 2):** "mientras el inmueble tenga una
   solicitud aceptada, sigue publicado pero no recibe solicitudes nuevas". **El mock todavía no la
   aplica:** con SOL-2026-0031 aceptada, Rondeau 480 sigue recibiendo solicitudes nuevas
@@ -109,6 +141,14 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
    mira el campo `type`, nunca el título.
 
 Todas están en Córdoba Capital (provincia "Córdoba", ciudad "Córdoba Capital").
+
+## Excepciones del elenco final
+
+- **Camila Ríos tiene dos contratos vigentes** (Mariano Moreno 285 e Ituzaingó 870, 4° C): es la única excepción a
+  "un inquilino pertenece a una sola propiedad a la vez" (PO, 05/11).
+- **Valentina Ríos** es un contrato histórico sin cuenta (CT-2024-0031).
+- **Chacabuco 690** está pausada, con el borrador BOR-2026-0001 y un contrato anterior.
+- **Sofía Ledesma paga $470.000**, sin extraordinarias. El panel de Nicolás da $470.000 de $1.890.000.
 
 ## Reglas que no hay que volver a romper
 
@@ -137,15 +177,15 @@ entera en `rentar:mock:propiedades` y tapa a la del elenco; una eliminada se gua
 solicitudes siguen mostrando la dirección) y sus solicitudes `pendiente` y `aceptada` pasan a
 `cancelada`. "Reiniciar datos de prueba" deja todo como en el elenco.
 
-## Los alquileres (`rental` en `propiedades.mock.ts` + `panel.mock.ts`)
+## Los alquileres (`rental` en `propiedades.mock.ts` + `periodos.mock.ts`)
 
 Datos del export del listado del locador, confirmados por producto. El estado del pago y los
-reclamos no se escriben en la propiedad: se calculan a partir de los cobros y reclamos de
-`panel.mock.ts`, así el listado (US-02) y el panel nunca se contradicen.
+reclamos no se escriben en la propiedad: se calculan a partir de los períodos de `periodos.mock.ts`
+y los reclamos de `panel.mock.ts`, así el listado (US-02), el panel y cobros nunca se contradicen.
 
 | Propiedad | Locatario | Contrato | Septiembre | Reclamos abiertos | Próximo ajuste |
 |---|---|---|---|---|---|
-| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $435.800, pagado el 03/09 (al día) | 0 | ICL anual, 01/04/2027 |
+| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $470.000, pagado el 03/09 (al día) | 0 | ICL anual, 01/04/2027 |
 | Laprida 340 | Tomás Bianchi | CT-2026-0102 | $520.000, vencido el 04/09 (retrasada) | 2 | ICL anual, 01/03/2027 |
 | Belgrano 1120 | Julián Ferreyra | CT-2026-0115 | $460.000, vencido el 16/09 (retrasada) | 0 | IPC cada 4 meses, 01/11/2026 |
 | Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 1 | ICL anual, 01/10/2026 |
@@ -156,7 +196,7 @@ CT-2026-0133, para la ficha del locatario. Un mes de depósito (`depositMonths` 
 publicación: $470.000 y $510.000) y un garante cada uno, con nombres que no son del elenco: **Raúl
 Benítez** (de Sofía) e **Inés Moyano** (de Camila). Los otros tres vigentes (0102, 0115 y 0121) no los
 tienen y su detalle muestra "Sin dato": no rompe nada (ninguno tiene locatario con cuenta). El día de
-pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
+pago de los vigentes sale de `PLAZO_POR_CONTRATO` (`periodos.mock.ts`).
 
 ## Las solicitudes (`solicitudes.mock.ts`)
 
@@ -210,8 +250,8 @@ pago de los vigentes sale del vencimiento de su cobro (`panel.mock.ts`).
 
 Los "vence en N días" y "N días de atraso" se calculan contra "hoy" (`lib/utils/fechas.ts`), que
 en modo mock está FIJO en el **23/09/2026**: Laprida lleva 19 días de atraso y Belgrano 7, siempre.
-Con el backend real, "hoy" es la fecha del sistema. Cómo se calcula cada cifra del panel está
-documentado en el encabezado de `panel.mock.ts`.
+Con el backend real, "hoy" es la fecha del sistema. Las cifras de cobros del panel salen de
+`lib/cobros/resumenPanel.ts`.
 
 Lo que el export mostraba y **no** se usa porque contradice el elenco: Cerro de las Rosas, Villa
 Belgrano, Bv. San Juan, Duarte Quirós, el tipo "Local", Familia Suárez, Tomás Bustos y Rocío
@@ -228,8 +268,8 @@ otros valores, ganan ellos.
 |---|---|---|
 | Ids de contrato | CT-2026-0102 (Laprida 340), CT-2026-0115 (Belgrano 1120), CT-2026-0121 (Av. Colón 2450), CT-2026-0133 (Mariano Moreno 285). CT-2026-0148 (Obispo Trejo) sí es del mapa. | `rental.contractId` en `propiedades.mock.ts` |
 | Fechas de contrato | Laprida 01/03/2025–29/02/2028, Belgrano 01/07/2025–30/06/2028, Av. Colón 01/10/2025–30/09/2028, Mariano Moreno 01/12/2025–30/11/2028 (36 meses, a partir de su `publishedAt`) | `rental.startDate` / `endDate` |
-| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 10/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
-| Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobros` en `panel.mock.ts` |
+| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 11/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
+| Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobrosDePeriodos` en `periodos.mock.ts` |
 | Próximos ajustes | Belgrano 01/11/2026 (IPC cada 4 meses), Av. Colón 01/10/2026 (ICL anual), Mariano Moreno 01/12/2026 (IPC cada 4 meses). Laprida (01/03/2027) y Obispo Trejo (01/04/2027) sí vinieron de producto y del mapa. | `rental.nextAdjustmentDate` |
 | Reclamos | "Pérdida de agua en el baño" (abierto, sin responder) y "El termotanque no calienta" (en proceso) → Laprida 340; "Ruido de la bomba de agua" (en proceso) → Av. Colón 2450. Títulos del export del panel; ids RCL-2026-0036/0039/0041 y fechas elegidos acá. | `reclamos` en `panel.mock.ts` |
 | Solicitud de Julieta | SOL-2026-0031, del 20/09/2026 | `solicitudes.mock.ts` |

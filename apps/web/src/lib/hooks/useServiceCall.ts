@@ -20,11 +20,11 @@ import { ServiceError } from '@/services/shared/errors'
 /** Estado de un pedido a un service. */
 export type EstadoServicio<T> =
   | { status: 'cargando' }
-  | { status: 'error'; message: string; code: ServiceError['code'] | 'unknown' }
+  | { status: 'error'; message: string; code: ServiceError['code'] | 'unknown'; apiCode?: string }
   | { status: 'listo'; data: T }
 
 /** Resultado guardado de un intento. */
-type Resultado<T> = { intento: number } & ({ ok: true; data: T } | { ok: false; message: string; code: ServiceError['code'] | 'unknown' })
+type Resultado<T> = { intento: number } & ({ ok: true; data: T } | { ok: false; message: string; code: ServiceError['code'] | 'unknown'; apiCode?: string })
 
 /**
  * Llama a `fn` al montar y cada vez que se pide `reintentar()`.
@@ -49,6 +49,7 @@ export function useServiceCall<T>(fn: () => Promise<T>): EstadoServicio<T> & { r
           ok: false,
           message: esServicio ? error.message : 'Ocurrió un error inesperado.',
           code: esServicio ? error.code : 'unknown',
+          apiCode: esServicio ? error.apiCode : undefined,
         })
       })
     return () => {
@@ -59,6 +60,6 @@ export function useServiceCall<T>(fn: () => Promise<T>): EstadoServicio<T> & { r
   const reintentar = useCallback(() => setIntento((actual) => actual + 1), [])
 
   if (!resultado || resultado.intento !== intento) return { status: 'cargando', reintentar }
-  if (!resultado.ok) return { status: 'error', message: resultado.message, code: resultado.code, reintentar }
+  if (!resultado.ok) return { status: 'error', message: resultado.message, code: resultado.code, apiCode: resultado.apiCode, reintentar }
   return { status: 'listo', data: resultado.data, reintentar }
 }

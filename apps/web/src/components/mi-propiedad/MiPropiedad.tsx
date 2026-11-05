@@ -5,9 +5,9 @@
  * del locador en sesión.
  *
  * Cubre (numeración de Jira): US-03 Modificar mis propiedades (entrada a la
- * edición) y US-04 Eliminar mis propiedades. US-03 y US-04 no tienen
- * criterios escritos todavía: se usó el diseño como criterio (decisión del
- * PO, como con US-41).
+ * edición), US-04 Eliminar mis propiedades y US-43 Consultar contratos
+ * locador (la pestaña Contratos). US-03 y US-04 no tienen criterios escritos
+ * todavía: se usó el diseño como criterio (decisión del PO, como con US-41).
  *
  * Qué muestra (Claude Design, "Detalle de propiedad del locador" · 01, 05,
  * 07 y 08):
@@ -18,7 +18,10 @@
  *   "Eliminar propiedad".
  * - Con contrato vigente no hay "Editar publicación" (ni "Editar fotos"): el
  *   back no deja editar una alquilada (409, `puedeEditar`).
- * - El Resumen (`ResumenPropiedad`).
+ * - Dos pestañas (decisión del PO, Sprint 4): Resumen (`ResumenPropiedad`) y
+ *   Contratos. La elegida queda en la URL (`?tab=contratos`), para poder
+ *   linkearla desde cobros (US-09) y desde el detalle del contrato. El diseño
+ *   dibuja también Cobros, Reclamos e Historial: no entran.
  * - Eliminar (`ModalEliminar`): con contrato vigente, el botón NO se
  *   deshabilita: abre el aviso de bloqueo (decisión del PO, ver NOTES.md).
  * - Móvil: las acciones van en una barra fija abajo y una hoja inferior; en
@@ -31,8 +34,8 @@
  */
 import { useCallback, useState } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { Button, Drawer, Dropdown, Modal, Skeleton } from 'antd'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Button, Drawer, Dropdown, Modal, Skeleton, Tabs } from 'antd'
 import { DeleteOutlined, EditOutlined, EllipsisOutlined, EyeOutlined, PictureOutlined } from '@ant-design/icons'
 import type { PropiedadLocadorDetalle, PropertyStatus } from '@rentar/shared-types'
 import { EmptyState, MoneyAmount, PageHeader, PhotoGallery, StatusTag, formatARS } from '@rentar/ui'
@@ -43,6 +46,7 @@ import { hrefTrasEliminar } from '@/lib/mis-propiedades/eliminada'
 import { puedeEditar, puedeEliminar } from '@/lib/validation/propiedad.rules'
 import { getMiPropiedad } from '@/services/propiedades.service'
 import { ModalEliminar } from './ModalEliminar'
+import { PestanaContratos } from './PestanaContratos'
 import { ResumenPropiedad } from './ResumenPropiedad'
 import { fecha } from './textosPropiedad'
 import styles from './MiPropiedad.module.css'
@@ -51,6 +55,9 @@ import styles from './MiPropiedad.module.css'
 interface MiPropiedadProps {
   id: string
 }
+
+/** Las pestañas del detalle (decisión del PO, Sprint 4). */
+type PestaniaPropiedad = 'resumen' | 'contratos'
 
 /** Las que aparecen en `/buscar` (y tienen detalle público). */
 function seVePublicada(status: PropertyStatus): boolean {
@@ -109,6 +116,7 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
   const router = useRouter()
   const pedir = useCallback(() => getMiPropiedad(id), [id])
   const carga = useServiceCall(pedir)
+  const pestania: PestaniaPropiedad = useSearchParams().get('tab') === 'contratos' ? 'contratos' : 'resumen'
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [fotosAbiertas, setFotosAbiertas] = useState(false)
@@ -157,6 +165,12 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
   const alquiler = activeContract?.currentAmount ?? values.priceMonthly
 
   // ─── Handlers ───────────────────────────────────────────────────────
+  /** La pestaña vive en la URL: `replace`, para que "atrás" salga de la propiedad. */
+  function cambiarPestania(nueva: string): void {
+    const base = `/panel/propiedades/${encodeURIComponent(id)}`
+    router.replace(nueva === 'contratos' ? `${base}?tab=contratos` : base, { scroll: false })
+  }
+
   function irAEditar(): void {
     router.push(hrefEditar)
   }
@@ -230,7 +244,19 @@ export function MiPropiedad({ id }: MiPropiedadProps) {
         </div>
       </section>
 
-      <ResumenPropiedad detalle={detalle} hrefPublica={hrefPublica} hrefEditar={editable ? hrefEditar : null} onEliminar={() => setEliminarAbierto(true)} />
+      <Tabs
+        activeKey={pestania}
+        onChange={cambiarPestania}
+        data-testid="mi-propiedad-pestanias"
+        items={[
+          {
+            key: 'resumen',
+            label: <span data-testid="mi-propiedad-tab-resumen">Resumen</span>,
+            children: <ResumenPropiedad detalle={detalle} hrefPublica={hrefPublica} hrefEditar={editable ? hrefEditar : null} onEliminar={() => setEliminarAbierto(true)} />,
+          },
+          { key: 'contratos', label: <span data-testid="mi-propiedad-tab-contratos">Contratos</span>, children: <PestanaContratos propiedadId={detalle.id} /> },
+        ]}
+      />
 
       {/* Móvil (· 07): barra fija con la primaria y "Acciones". */}
       <div className={styles.mobileBar}>

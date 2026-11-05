@@ -500,13 +500,16 @@ export type ActualizarLegajoRequest = LegajoDto
  */
 export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
 
-// ─── Contratos (US-05) · PROPUESTO ──────────────────────────────────────
-// NOTA: ninguna de estas rutas existe todavía (Sprint 3, tanda 2). Contrato
+// ─── Contratos (US-05) · PROPUESTA DEL SPRINT 3 ─────────────────────────
+// NOTA: el back ya implementó sus rutas con otra forma (05/11): estos DTO son
+// la propuesta del Sprint 3 y se reemplazan al conectar (Tandas 1 y 2 del
+// Sprint 4). Estado real y nombres front → back en `docs/api-endpoints.md`
+// ("Estado real de los endpoints"). Contrato
 // completo en `docs/api-endpoints.md` ("Contratos") y `HANDOFF-BACKEND.md`
 // §7 (US-05). Códigos de garantía igual que las solicitudes; medios de pago
 // con los ids de `medio_pago`, igual que `/mis-alquileres`.
 
-/** Estado del contrato (propuesto: hoy `estado_contrato` solo tiene disponible, vigente y finalizado). */
+/** Estado del contrato. `estado_contrato` ya tiene borrador y pendiente de firma; `rescindido` no existe en la base. */
 export type EstadoContratoDto = 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado' | 'rescindido'
 
 /** Índice del contrato (propuesto). `sin_ajuste` en lugar de `indice_aumento` en `NULL`. */
@@ -516,107 +519,181 @@ export type IndiceContratoDto = 'sin_ajuste' | 'ICL' | 'IPC' | 'CAC'
 export type PeriodicidadDto = 'trimestral' | 'semestral' | 'anual'
 
 /** La dirección del inmueble, como la manda `/solicitudes`. */
-export interface InmuebleContratoDto {
-  id: number
-  direccion: string
-  numero: number
-  piso: string | null
-  barrio: string | null
+/** El contrato en PDF. `url` es firmada y vence a los 5 minutos. Copia de `ContratoPdfResponse` del back. */
+export interface ContratoPdfDto {
+  nombre: string
+  tamano_bytes: number
+  subido_en: string
+  url: string
 }
 
-/** Una fila de `GET /contratos` (no existe — propuesto). Sin DNI ni contacto. */
-export interface ContratoResumenResponse {
+/** Un firmante, como lo manda el back (US-42, US-43). Copia de `FirmanteDetalleResponse`. */
+export interface FirmanteApiDto {
+  /** TODO(backend): el back cuenta al garante como firmante; el adaptador lo saca (issue #27, punto 2). */
+  rol: 'locador' | 'locatario' | 'garante'
+  nombre: string
+  apellido: string
+  /** `sin_registro`: contrato anterior a RentAR, no se inventa si firmó. */
+  estado: 'pendiente' | 'firmado' | 'rechazado' | 'sin_registro'
+  fecha_firma: string | null
+  fecha_rechazo: string | null
+  motivo_rechazo: string | null
+}
+
+/** Las firmas de un contrato (US-42, US-43). Copia de `ContratoDetalleResponse['firmas']` del back. */
+export interface FirmasApiDto {
+  registradas: boolean
+  faltan: number | null
+  firmado_por_todos_el: string | null
+  firmantes: FirmanteApiDto[]
+}
+
+/** Una fila de `GET /inmuebles/:id/contratos` (existe, US-43). Copia de `ContratoResumenResponse` del back. */
+export interface ContratoPropiedadResponse {
   id: number
-  /** `null` en los borradores. */
   codigo: string | null
-  estado: EstadoContratoDto
-  inmueble: InmuebleContratoDto
-  locatario: { nombre: string; apellido: string | null }
+  estado: 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado'
+  locatario: { nombre: string; apellido: string } | null
   monto_actual: number | null
-  fecha_inicio: string | null
-  fecha_fin: string | null
-  indice: IndiceContratoDto | null
+  fecha_inicio_contrato: string | null
+  fecha_fin_contrato: string | null
+  indice: IndiceContratoDto
   proximo_ajuste: string | null
   id_solicitud: number | null
+  /** `null` en un borrador y en un finalizado. */
+  firmas: FirmasApiDto | null
+  /** Solo en pendiente de firma y vigente con archivo. */
+  pdf: ContratoPdfDto | null
 }
 
-/** Locador o locatario del contrato (salen de `usuario`; el front no los manda). */
-export interface ParteContratoDto {
+/** Respuesta de `GET /inmuebles/:id/contratos` (existe, US-43). Copia de `ContratosInmuebleResponse` del back. */
+export interface ContratosInmuebleResponse {
+  contratos: ContratoPropiedadResponse[]
+  solicitud_para_contrato: number | null
+}
+
+/** Una parte del contrato, como la manda el back. Copia de `ParteContratoResponse`. */
+export interface ParteApiDto {
   id: number
   nombre: string
-  apellido: string | null
-  numero_documento: string | null
+  apellido: string
+  numero_documento: string
   email: string
-  /** Solo dígitos, con código de país. */
   telefono: string | null
 }
 
-/** Un garante: dato del contrato, sin cuenta (decisión del PO: no firma en el Sprint 3). */
-export interface GaranteDto {
-  nombre_apellido: string
-  numero_documento: string
+/** Un garante, como lo manda el back. Copia de `GaranteResponse`. */
+export interface GaranteApiDto {
+  id: number
+  nombre: string
+  apellido: string
+  dni: string
   email: string
 }
 
-/** Las condiciones del contrato. En un borrador, cualquier campo puede venir en `null`. */
-export interface CondicionesContratoDto {
-  fecha_inicio: string | null
-  duracion_meses: number | null
-  monto_inicial: number | null
-  deposito: number | null
-  dia_vencimiento: number | null
-  indice: IndiceContratoDto
-  periodicidad: PeriodicidadDto | null
-}
-
-/** Una cláusula. `clave` es la de la plantilla del front (`objeto`, `precio`…) o `propia-<n>`. */
-export interface ClausulaDto {
-  clave: string
-  tipo: 'fija' | 'editable' | 'propia'
-  titulo: string
-  texto: string
-  editada: boolean
-}
-
 /**
- * `GET /contratos/:id` y `GET /contratos/preparar?id_solicitud=` (no existen
- * — propuestos). `/preparar` devuelve el contrato todavía sin guardar:
- * `id`, `codigo`, `condiciones` y `clausulas` vacíos (el front los completa
- * con sus valores por defecto y su plantilla).
+ * `GET /contratos/:id` y respuesta de `PATCH /contratos/:id`, `PUT /contratos/:id/pdf` y
+ * `POST /contratos/:id/reabrir` (existen, US-05, US-06). Copia de `ContratoBorradorResponse`.
  */
-export interface ContratoResponse {
-  id: number | null
+export interface ContratoBorradorApiResponse {
+  id: number
   codigo: string | null
-  estado: EstadoContratoDto
-  id_solicitud: number
-  /** Cuándo se aceptó la solicitud (`solicitud.fecha_respuesta`). */
-  fecha_aceptacion_solicitud: string | null
-  inmueble: InmuebleContratoDto & {
-    /** URL de la foto principal (US-27, ficha del locatario; propuesto). `null` si no tiene. */
-    foto_principal: string | null
-    precio_publicado: number | null
-    /** Índice de la publicación (`tipo_indice`): ICL o IPC; `null` si no tiene. */
-    indice_publicacion: 'ICL' | 'IPC' | null
+  estado: 'borrador' | 'pendiente_firma' | 'vigente' | 'finalizado'
+  id_solicitud: number | null
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string; precio_publicado: number }
+  locador: ParteApiDto | null
+  locatario: ParteApiDto | null
+  /** Nombres de `tipo_garantia` ("garantía propietaria"), no códigos. */
+  garantias_ofrecidas: string[]
+  garantes: GaranteApiDto[]
+  condiciones: {
+    fecha_inicio_contrato: string | null
+    fecha_fin_contrato: string | null
+    duracion_meses: number | null
+    monto_alquiler: number | null
+    deposito: number | null
+    /** Plazo en días (1 a 28), no el día del mes. */
+    dias_para_vencimiento: number | null
+    /** Id de `tipo_indice`; `null` = "Sin ajuste". */
+    indice_aumento: number | null
+    frecuencia_ajuste: string | null
     medios_pago: number[]
     dias_gracia: number | null
     interes_por_dia: number | null
   }
-  locador: ParteContratoDto
-  locatario: ParteContratoDto
-  garantias_ofrecidas: GarantiaDto[]
-  garantes: GaranteDto[]
-  condiciones: CondicionesContratoDto | null
-  clausulas: ClausulaDto[]
-  ultimo_paso: number
+  pdf: ContratoPdfDto | null
+  /** De 1 a 4. */
+  ultimo_paso: number | null
+  fecha_inicio_vencida: boolean
 }
 
-/** Cuerpo de `POST /contratos` y `PUT /contratos/:id` (no existen — propuestos). */
-export interface ContratoRequest {
-  id_solicitud: number
-  garantes: GaranteDto[]
-  condiciones: CondicionesContratoDto
-  clausulas: ClausulaDto[]
-  ultimo_paso: number
+/** Respuesta de `POST /contratos` (existe): la fila creada. Solo se usa `id`. */
+export interface ContratoCreadoResponse {
+  id: number
+}
+
+/** Cuerpo de `PATCH /contratos/:id` (existe). Solo viaja lo que cambió. Copia de `GuardarBorradorRequest`. */
+export interface GuardarBorradorRequest {
+  /** De 1 a 4. */
+  paso?: number
+  condiciones?: {
+    fecha_inicio_contrato?: string | null
+    duracion_meses?: number | null
+    monto_alquiler?: number | null
+    deposito?: number | null
+    dias_para_vencimiento?: number | null
+    /** `null` = "Sin ajuste". */
+    indice_aumento?: number | null
+    frecuencia_ajuste?: PeriodicidadDto | null
+  }
+  garantes?: { nombre: string; apellido: string; dni: string; email: string }[]
+}
+
+/** Respuesta de `POST /contratos/:id/pdf/url-subida` (existe). Copia de `UrlSubidaPdfResponse`. */
+export interface UrlSubidaPdfResponse {
+  path: string
+  token: string
+  url_firmada: string
+  tamano_maximo_bytes: number
+}
+
+/** Cuerpo de `PUT /contratos/:id/pdf` (existe). Copia de `RegistrarPdfRequest`. */
+export interface RegistrarPdfRequest {
+  path: string
+  nombre: string
+}
+
+/** Respuesta de `GET /contratos/:id/detalle` (existe, US-42). Copia de `ContratoDetalleResponse` del back. */
+export interface ContratoDetalleApiResponse {
+  id: number
+  codigo: string | null
+  estado: 'pendiente_firma' | 'vigente' | 'finalizado'
+  id_solicitud: number | null
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string; ciudad: string | null }
+  locador: ParteApiDto | null
+  locatario: ParteApiDto | null
+  garantes: { id: number; nombre: string; apellido: string; dni: string; email: string }[]
+  condiciones: {
+    fecha_inicio_contrato: string | null
+    fecha_fin_contrato: string | null
+    duracion_meses: number | null
+    monto_inicial: number | null
+    monto_actual: number | null
+    deposito: number | null
+    /** Plazo en días, no el día del mes. TODO(backend): US-08 lo usa como día del mes (issue #27, punto 4). */
+    dias_para_vencimiento: number | null
+    /** `null` = "Sin ajuste". */
+    indice: { id: number; descripcion: string } | null
+    frecuencia_ajuste: string | null
+    medios_pago: { id: number; nombre: string }[]
+    dias_gracia: number | null
+    interes_por_dia: number | null
+  }
+  /** NOTA: el front no lo usa: las fechas salen de `calendarioAjustes` y el monto es siempre "a definir" (decisión del PO). */
+  calendario_ajustes: { fecha: string; tipo: 'inicio' | 'ajuste'; monto: number | null }[] | null
+  firmas: FirmasApiDto
+  pdf: ContratoPdfDto | null
+  acciones: { modificar: boolean; firmar: boolean; descargar_pdf: boolean }
 }
 
 /** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
@@ -628,76 +705,34 @@ export interface ContratoEnviadoResponse {
 
 /**
  * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
- * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar,
- * cancelar o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
- * `FIRMA_RECHAZADA` (firmar después de rechazar), `OTRA_PARTE_FIRMO` (cancelar
- * el envío) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
+ * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar
+ * o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
+ * `FIRMA_RECHAZADA` (firmar después de rechazar) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
  */
 export type CodigoErrorContrato =
   | 'SOLICITUD_NO_ACEPTADA'
   | 'SOLICITUD_CON_CONTRATO'
   | 'PROPIEDAD_CON_CONTRATO'
+  | 'PROPIEDAD_CON_BORRADOR'
+  | 'PROPIEDAD_SIN_OFERTA'
+  | 'CONTRATO_DUPLICADO'
+  | 'CONTRATO_BORRADOR'
+  | 'CONTRATO_VIGENTE'
+  | 'CONTRATO_FINALIZADO'
+  | 'CONTRATO_FIRMADO_POR_LOCATARIO'
+  | 'CONTRATO_YA_EN_BORRADOR'
   | 'CONTRATO_NO_EDITABLE'
   | 'CONTRATO_NO_PENDIENTE'
   | 'YA_FIRMO'
   | 'FIRMA_RECHAZADA'
-  | 'OTRA_PARTE_FIRMO'
   | 'FIRMANTE_NO_PENDIENTE'
 
 // ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────
-// NOTA: no existen (Sprint 3, tanda 3). Contrato en `docs/api-endpoints.md`
+// NOTA: firmar, rechazar y reenviar siguen sin existir (05/11). Contrato en `docs/api-endpoints.md`
 // ("Contratos", US-07). Firman el locador y el locatario (decisión del PO).
 
 /** Rol de quien firma. */
 export type RolFirmanteDto = 'locador' | 'locatario'
-
-/** Una parte que firma, con el estado de su firma. La IP la guarda el back y NO viaja al front. */
-export interface FirmanteDto {
-  rol: RolFirmanteDto
-  id_usuario: number
-  nombre: string
-  apellido: string | null
-  estado: 'pendiente' | 'firmado' | 'rechazado'
-  /** Fecha y hora ISO de la firma (la registra el back, con la IP). */
-  fecha_firma: string | null
-  fecha_rechazo: string | null
-  motivo_rechazo: string | null
-  /** Fecha y hora ISO de la última invitación (el envío o un reenvío): el front calcula desde cuándo se puede reenviar. */
-  fecha_ultima_invitacion: string | null
-}
-
-/** Un evento del historial del contrato. */
-export interface EventoContratoDto {
-  id: number
-  tipo: 'creado' | 'enviado' | 'firmado' | 'rechazado' | 'reenviado' | 'envio_cancelado' | 'vigente'
-  /** Fecha y hora ISO. */
-  fecha: string
-  rol: RolFirmanteDto | null
-  /** Nombre y apellido de quien firmó o rechazó, o a quien se le reenvió. */
-  nombre: string | null
-  motivo: string | null
-}
-
-/**
- * `GET /contratos/:id` con lo de US-07 (propuesto): el mismo `ContratoResponse`
- * más los firmantes y el historial, en una sola respuesta (el historial no
- * tiene otro uso que este detalle). También es la respuesta de firmar,
- * rechazar, cancelar el envío y reenviar.
- * Lo pueden pedir el locador y el locatario del contrato; un borrador, solo el locador.
- */
-export interface ContratoDetalleResponse extends ContratoResponse {
-  fecha_envio: string | null
-  /** Fecha y hora de la última firma, cuando firmaron todas las partes. */
-  fecha_firma_completa: string | null
-  /** `false` en los contratos cargados antes de RentAR: sin firmas ni historial. */
-  firmas_registradas: boolean
-  fecha_fin: string | null
-  firmantes: FirmanteDto[]
-  /** Del más reciente al más viejo. */
-  historial: EventoContratoDto[]
-  /** Monto mensual actual, con los ajustes aplicados (US-27; propuesto). */
-  monto_actual: number | null
-}
 
 /** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
 export interface RechazarFirmaRequest {
@@ -792,4 +827,206 @@ export interface AlquilerLocatarioDetalleResponse extends AlquilerLocatarioItemR
   /** Si el locatario podría firmar ya (las dos conformidades sobre el mismo PDF). La firma (US-07) no existe en la API. */
   puede_firmar: boolean
   monto_proximo_ajuste: 'a definir' | null
+}
+
+// ─── Cobros (US-08, US-09 y US-10) ────────────────────────────────────
+
+/** Estado de un período. */
+export type EstadoPeriodoDto = 'pendiente' | 'vencido' | 'pagado'
+
+/** Medio de un cobro manual. */
+export type MedioCobroDto = 'transferencia' | 'efectivo' | 'cheque' | 'mercadopago_externo' | 'otro'
+
+/** Propiedad en las consultas de cobros. */
+export interface PropiedadCobroResponse {
+  id: number
+  direccion: string
+  numero: number
+  piso: string | null
+  barrio: string
+  ciudad: string
+}
+
+/** Persona en las consultas de cobros. */
+export interface PersonaCobroResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  email?: string
+  telefono?: string | null
+}
+
+/** Línea de cargos. NOTA: `dias_mora`, `dias_interes` y `diasMora` son lo mismo según el endpoint. */
+export interface CargoCobroResponse {
+  concepto: 'alquiler' | 'intereses_mora'
+  monto: number
+  dias_mora?: number
+  dias_interes?: number
+  diasMora?: number
+}
+
+/** Fila de `GET /cobros-locador`: períodos que se pueden cobrar. */
+export interface PeriodoCobroItemResponse {
+  id_periodo: number
+  id_contrato: number
+  periodo: string
+  inmueble: { id: number; direccion: string; numero: number; piso: string | null; barrio: string }
+  locatario: { id: number; nombre: string; apellido: string | null } | null
+  estado: EstadoPeriodoDto
+  fecha_inicio: string
+  fecha_fin: string
+  fecha_vencimiento: string
+  monto_base_alquiler: number
+  intereses_mora: number
+  monto_exigible: number
+  expensas_snapshot: number
+  saldo: number
+}
+
+/** `GET /cobros-locador`. */
+export interface PeriodosCobroResponse {
+  items: PeriodoCobroItemResponse[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** Fila de `GET /cobros-locador/historial`. */
+export interface PeriodoCobroResumenResponse {
+  id_periodo: number
+  id_contrato: number
+  codigo_contrato: string | null
+  periodo: string
+  estado: EstadoPeriodoDto
+  fecha_inicio: string
+  fecha_fin: string
+  fecha_vencimiento: string
+  propiedad: PropiedadCobroResponse
+  locatario: PersonaCobroResponse | null
+  monto_base_alquiler: number
+  intereses_mora: number
+  dias_atraso: number
+  dias_interes: number
+  monto_exigible: number
+  total_cobrado: number
+  saldo: number
+  cantidad_cobros: number
+  tiene_adjunto: boolean
+  comprobante_url: string | null
+}
+
+/** `GET /cobros-locador/historial`. */
+export interface HistorialCobrosResponse {
+  items: PeriodoCobroResumenResponse[]
+  total: number
+  page: number
+  limit: number
+}
+
+/** Cobro dentro de `GET /cobros/:id`. */
+export interface CobroRegistradoResponse {
+  id_cobro: number
+  numero_comprobante: string
+  fecha_cobro: string
+  monto: number
+  medio: MedioCobroDto
+  nota: string | null
+  created_at: string
+  usuario_registro: { nombre: string; apellido: string | null }
+  tiene_adjunto: boolean
+  /** URL firmada del adjunto: vence a los 60 segundos. */
+  adjunto_url: string | null
+  comprobante_url: string
+}
+
+/** Evento del historial del período. */
+export interface EventoPeriodoResponse {
+  tipo: 'periodo_generado' | 'cobro_registrado' | 'periodo_pagado'
+  fecha_hora: string
+  usuario: { nombre: string; apellido: string | null } | null
+}
+
+/** `GET /cobros/:id`. */
+export interface DetalleCobroResponse {
+  id_periodo: number
+  id_contrato: number
+  propiedad: PropiedadCobroResponse
+  locador: PersonaCobroResponse
+  locatario: PersonaCobroResponse
+  contrato: { codigo: string | null; fecha_inicio: string | null; fecha_fin: string | null }
+  periodo: {
+    periodo: string
+    estado: EstadoPeriodoDto
+    fecha_inicio: string
+    fecha_fin: string
+    fecha_vencimiento: string
+  }
+  cargos: CargoCobroResponse[]
+  total_exigible: number
+  total_cobrado: number
+  saldo: number
+  cobros: CobroRegistradoResponse[]
+  historial: EventoPeriodoResponse[]
+}
+
+/** `POST /cobros-locador` (multipart). */
+export interface RegistrarCobroResponse {
+  cobro_id: number
+  periodo_id: number
+  monto: number
+  intereses: number
+  dias_interes: number
+  numero_comprobante: string
+  estado_periodo: 'pagado'
+}
+
+/** Persona del comprobante. */
+export interface PersonaComprobanteResponse {
+  id: number
+  nombre: string
+  apellido: string | null
+  numero_documento: string | null
+  email: string
+  telefono: string | null
+}
+
+/** `GET /cobros/:id/comprobante`, con el id del cobro. */
+export interface ComprobantePagoResponse {
+  id_cobro: number
+  numero_comprobante: string
+  fecha_emision: string
+  estado: 'pagado'
+  locatario: PersonaComprobanteResponse
+  locador: PersonaComprobanteResponse
+  propiedad: PropiedadCobroResponse
+  contrato: { id: number; codigo: string | null; fecha_inicio: string | null; fecha_fin: string | null }
+  periodo: { id: number; periodo: string; fecha_inicio: string; fecha_fin: string; fecha_vencimiento: string }
+  cargos: CargoCobroResponse[]
+  total_pagado: number
+  total_en_letras: string
+  medio: MedioCobroDto
+  fecha_cobro: string
+  nota: string | null
+}
+
+/** Fila de `GET /cobros-locatario`: un pago, con los datos de su período. */
+export interface PagoLocatarioResponse extends PeriodoCobroResumenResponse {
+  fecha_pago: string
+  monto_pagado: number
+  medio: MedioCobroDto
+  recargo_pagado: number
+  pagos_a_termino: boolean
+}
+
+/**
+ * `GET /cobros-locatario`.
+ * NOTA: `proximo_periodo` es uno solo, aunque haya varios contratos, y `anio`
+ * también lo filtra: se pide sin `anio` (issue #27, punto 17).
+ */
+export interface PagosLocatarioResponse {
+  proximo_periodo: PeriodoCobroResumenResponse | null
+  items: PagoLocatarioResponse[]
+  total: number
+  page: number
+  limit: number
 }

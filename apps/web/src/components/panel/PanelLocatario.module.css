@@ -24,3 +24,101 @@
   border-radius: var(--rentar-radius-pill);
   font-weight: 700;
 }
+
+/* Panel con contrato (US-12). */
+.tarjetas {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.tarjetasVarias {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17.5rem, 1fr));
+  gap: 1rem;
+}
+
+.totalMes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.125rem;
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-status-money-bg);
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.bloque {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.125rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.bloqueEncabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bloqueTitulo {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.bloqueError {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--rentar-status-error-border);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-status-error-bg);
+  color: var(--rentar-color-text-primary);
+}
+
+.secundario {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.pagos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.pago {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pagoDatos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pagoMonto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+}

@@ -18,6 +18,7 @@ import { formatARS } from '@rentar/ui/src/utils/formatARS'
 import { formatDate } from '@rentar/ui/src/utils/formatDate'
 import { INDICE_INFO, periodicidad } from '@/lib/catalogs/propiedad'
 import { diasDesde, diasHasta, textoDias, textoEnDias, textoHaceDias } from '@/lib/utils/fechas'
+import { contratoHref } from '@/lib/contratos/rutas'
 import { USE_MOCKS } from '@/services/shared/config'
 import styles from './Panel.module.css'
 
@@ -28,7 +29,7 @@ const DIA_MES = 'DD/MM'
 
 interface BloqueProps {
   title: string
-  /** Link "Ver todos" / "Ir a Contratos" de la cabecera. */
+  /** Link "Ver todos" / "Ir a mis propiedades" de la cabecera. */
   link?: { href: string; label: string; testId: string }
   children: ReactNode
   'data-testid'?: string
@@ -91,6 +92,7 @@ export function BloqueError({ title, onReintentar, ...rest }: BloqueErrorProps) 
 
 /** Segunda línea de un cobro: quién, cuándo y cuánto falta (o cuánto se atrasó). */
 function detalleCobro(cobro: CobroPanel): string {
+  if (cobro.status === 'pagado' && !cobro.paidAt) return `${cobro.tenantName} · pagado`
   if (cobro.status === 'pagado' && cobro.paidAt) return `${cobro.tenantName} · acreditado el ${formatDate(cobro.paidAt, DIA_MES)}`
   if (cobro.status === 'vencido') {
     return `${cobro.tenantName} · venció el ${formatDate(cobro.dueDate, DIA_MES)} · ${textoDias(diasDesde(cobro.dueDate))} de atraso`
@@ -202,7 +204,7 @@ export function ContratosProximos({ eventos }: { eventos: EventoContratoPanel[] 
             </span>
             <span className={styles.rowTitle}>{evento.propertyAddress}</span>
             <span className={styles.contractText}>{textoEvento(evento)}</span>
-            <Link href="/panel/contratos" className={styles.rowLink}>
+            <Link href={contratoHref(evento.contractId)} className={styles.rowLink}>
               {esAjuste ? 'Revisar el ajuste' : 'Proponer renovación'}
             </Link>
           </article>

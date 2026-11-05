@@ -1,4 +1,4 @@
-/* Contratos (Claude Design, "Flujo de contratos" · 01 listado y 02-04 alta). */
+/* Mis alquileres (US-27) y selector de solicitudes del alta (US-05). */
 
 .page {
   display: flex;
@@ -14,23 +14,6 @@
 
 /* ─── Listado ─────────────────────────────────────────────────────────── */
 
-.filtros {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.875rem 1rem;
-  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
-  border-radius: var(--rentar-radius-lg);
-  background: var(--rentar-color-bg-surface);
-}
-
-.buscar {
-  width: 18rem;
-  max-width: 100%;
-}
-
 .propiedad {
   display: flex;
   flex-direction: column;
@@ -45,17 +28,6 @@
 .codigo {
   font-size: 0.8125rem;
   color: var(--rentar-color-text-secondary);
-}
-
-.codigoLink {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--rentar-color-blue);
-}
-
-.codigoLink:hover,
-.codigoLink:focus-visible {
-  text-decoration: underline;
 }
 
 .ajuste {

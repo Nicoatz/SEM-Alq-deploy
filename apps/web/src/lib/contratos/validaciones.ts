@@ -6,13 +6,13 @@
  * (para ayudar mientras se carga) y la rama mock de
  * `services/contratos.service.ts` (para responder como el back).
  * TODO(backend): repetir estas reglas; el front valida para ayudar, no para proteger.
- * Cubre: US-05 Registrar contrato de alquiler (pasos 1, 2 y 3).
+ * Cubre: US-05 Registrar contrato de alquiler (pasos 1, 2 y 4).
  * Reusa: DNI y nombre de `usuario.rules.ts` (US-19/US-21) y el correo de
  * `solicitud.rules.ts` (US-35), como pide la US.
  * Quién lo usa: `components/contratos/*` y `services/contratos.service.ts`.
  */
 import type { FormRule } from 'antd'
-import type { ClausulaContrato, CondicionesNuevoContrato, ContratoBorrador, GaranteContrato, ParteContrato } from '@rentar/shared-types'
+import type { CondicionesNuevoContrato, ContratoBorrador, GaranteContrato, ParteContrato } from '@rentar/shared-types'
 import { emailValido, MENSAJES_SOLICITUD } from '@/lib/validation/solicitud.rules'
 import { DNI_REGEX, NOMBRE_REGEX, soloDigitos } from '@/lib/validation/usuario.rules'
 import { fechaCorta, inicioValido } from './fechas'
@@ -21,19 +21,18 @@ import { fechaCorta, inicioValido } from './fechas'
 
 /** US-05: "se pueden agregar hasta 3 garantes". */
 export const GARANTES_MAX = 3
-/** US-05: "máximo de 1.000 caracteres por cláusula". */
-export const CLAUSULA_MAX = 1000
 /** US-05: "por defecto es 24 meses". */
 export const DURACION_POR_DEFECTO = 24
-/** US-05: "entre 1 y 28. Por defecto es el día 10". */
-export const DIA_VENCIMIENTO_MIN = 1
-export const DIA_VENCIMIENTO_MAX = 28
-export const DIA_VENCIMIENTO_POR_DEFECTO = 10
+/** US-05: "plazo de vencimiento del pago, en días, entre 1 y 28. Por defecto es de 10 días". */
+export const PLAZO_VENCIMIENTO_MIN = 1
+export const PLAZO_VENCIMIENTO_MAX = 28
+export const PLAZO_VENCIMIENTO_POR_DEFECTO = 10
 
 // ─── Mensajes ───────────────────────────────────────────────────────────
 
 export const MENSAJES_CONTRATO = {
   garanteNombreVacio: 'Escribí el nombre y apellido del garante.',
+  garanteSinApellido: 'Escribí el nombre y el apellido del garante.',
   garanteNombreInvalido: 'Usá solo letras, espacios, apóstrofos y guiones.',
   garanteDniInvalido: 'El DNI tiene 7 u 8 números, sin puntos.',
   garanteEmailInvalido: MENSAJES_SOLICITUD.emailInvalido,
@@ -46,12 +45,10 @@ export const MENSAJES_CONTRATO = {
   duracionInvalida: 'La duración es un número entero de meses, mayor a 0.',
   montoInvalido: 'El monto es un número entero mayor a 0, sin decimales.',
   depositoInvalido: 'El depósito es un número entero, 0 o más, sin decimales.',
-  diaInvalido: `El día de vencimiento va de ${DIA_VENCIMIENTO_MIN} a ${DIA_VENCIMIENTO_MAX}.`,
+  plazoInvalido: `El plazo de vencimiento va de ${PLAZO_VENCIMIENTO_MIN} a ${PLAZO_VENCIMIENTO_MAX} días.`,
   periodicidadVacia: 'Elegí cada cuánto se ajusta.',
-  clausulaVacia: 'La cláusula no puede quedar vacía.',
-  clausulaTituloVacio: 'Poné un título a la cláusula.',
-  clausulaLarga: `La cláusula puede tener hasta ${CLAUSULA_MAX.toLocaleString('es-AR')} caracteres.`,
-  revisionSinMarcar: 'Para enviar a firmar, marcá que revisaste las condiciones y las cláusulas.',
+  revisionSinMarcar: 'Para enviar a firmar, marcá que revisaste la redacción del contrato.',
+  pdfFaltante: 'Cargá el PDF del contrato antes de enviarlo a firmar.',
 } as const
 
 // ─── Paso 1 · Garantes ──────────────────────────────────────────────────
@@ -82,6 +79,8 @@ export function erroresGarante(garante: GaranteContrato, otros: readonly Garante
   const nombre = garante.fullName.trim()
   if (!nombre) errores.fullName = MENSAJES_CONTRATO.garanteNombreVacio
   else if (!NOMBRE_REGEX.test(nombre)) errores.fullName = MENSAJES_CONTRATO.garanteNombreInvalido
+  // El back los guarda por separado y exige los dos (US-05: "nombre y apellido").
+  else if (nombre.split(/\s+/).length < 2) errores.fullName = MENSAJES_CONTRATO.garanteSinApellido
 
   const dni = claveDni(garante.dni)
   if (!DNI_REGEX.test(garante.dni.trim())) errores.dni = MENSAJES_CONTRATO.garanteDniInvalido
@@ -124,7 +123,7 @@ function esEntero(valor: number | null | undefined): valor is number {
  * - Duración: entero mayor a 0.
  * - Monto inicial: entero mayor a 0.
  * - Depósito: entero mayor o igual a 0 (puede quedar vacío: "se puede indicar").
- * - Día de vencimiento: de 1 a 28.
+ * - Plazo de vencimiento: de 1 a 28 días.
  * - Periodicidad obligatoria si el índice no es "Sin ajuste".
  */
 export function erroresCondiciones(condiciones: CondicionesNuevoContrato, hoyIso: string): ErroresCondiciones {
@@ -134,44 +133,27 @@ export function erroresCondiciones(condiciones: CondicionesNuevoContrato, hoyIso
   if (!esEntero(condiciones.durationMonths) || condiciones.durationMonths <= 0) errores.durationMonths = MENSAJES_CONTRATO.duracionInvalida
   if (!esEntero(condiciones.initialAmount) || condiciones.initialAmount <= 0) errores.initialAmount = MENSAJES_CONTRATO.montoInvalido
   if (condiciones.deposit !== null && (!esEntero(condiciones.deposit) || condiciones.deposit < 0)) errores.deposit = MENSAJES_CONTRATO.depositoInvalido
-  const dia = condiciones.paymentDueDay
-  if (!esEntero(dia) || dia < DIA_VENCIMIENTO_MIN || dia > DIA_VENCIMIENTO_MAX) errores.paymentDueDay = MENSAJES_CONTRATO.diaInvalido
+  const plazo = condiciones.paymentTermDays
+  if (!esEntero(plazo) || plazo < PLAZO_VENCIMIENTO_MIN || plazo > PLAZO_VENCIMIENTO_MAX) errores.paymentTermDays = MENSAJES_CONTRATO.plazoInvalido
   if (condiciones.adjustmentIndex !== 'sin_ajuste' && !condiciones.adjustmentPeriod) errores.adjustmentPeriod = MENSAJES_CONTRATO.periodicidadVacia
   return errores
-}
-
-// ─── Paso 3 · Cláusulas ─────────────────────────────────────────────────
-
-/**
- * Error de una cláusula (US-05, paso 3): las editables y las propias no
- * pueden quedar vacías ni pasar de {@link CLAUSULA_MAX}. Las fijas no se
- * validan (no se pueden editar).
- */
-export function errorDeClausula(clausula: Pick<ClausulaContrato, 'tipo' | 'titulo' | 'texto'>): string | null {
-  if (clausula.tipo === 'fija') return null
-  if (clausula.tipo === 'propia' && !clausula.titulo.trim()) return MENSAJES_CONTRATO.clausulaTituloVacio
-  if (!clausula.texto.trim()) return MENSAJES_CONTRATO.clausulaVacia
-  if (clausula.texto.length > CLAUSULA_MAX) return MENSAJES_CONTRATO.clausulaLarga
-  return null
 }
 
 // ─── El contrato entero (enviar a firmar) ───────────────────────────────
 
 /**
  * Primer error que impide enviar a firmar, o `null` (US-05, paso 4). Repite
- * las validaciones de los pasos 1 a 3: un borrador puede tener datos
+ * las validaciones de los pasos 1 y 2 y exige el PDF: un borrador puede tener datos
  * incompletos, pero para enviarlo tienen que estar todos.
  */
-export function errorParaEnviar(contrato: Pick<ContratoBorrador, 'garantes' | 'condiciones' | 'clausulas' | 'locador' | 'locatario'>, hoyIso: string): string | null {
+export function errorParaEnviar(contrato: Pick<ContratoBorrador, 'garantes' | 'condiciones' | 'pdf' | 'locador' | 'locatario'>, hoyIso: string): string | null {
   const garantes = errorDeGarantes(contrato.garantes, [contrato.locador, contrato.locatario])
   if (garantes) return garantes
   const condiciones = erroresCondiciones(contrato.condiciones, hoyIso)
   const primera = Object.values(condiciones)[0]
   if (primera) return primera
-  for (const [indice, clausula] of contrato.clausulas.entries()) {
-    const error = errorDeClausula(clausula)
-    if (error) return `Cláusula ${indice + 1}: ${error}`
-  }
+  // US-05: "Para enviar a firmar, se debe haber cargado el PDF del contrato."
+  if (!contrato.pdf) return MENSAJES_CONTRATO.pdfFaltante
   return null
 }
 

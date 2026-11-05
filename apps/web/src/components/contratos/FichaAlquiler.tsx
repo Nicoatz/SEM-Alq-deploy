@@ -8,7 +8,7 @@
  *   el estado y el código del contrato ({@link EncabezadoAlquiler});
  * - el locador con su nombre y contacto ({@link LocadorAlquiler});
  * - las condiciones: vigencia, monto actual, depósito, índice y
- *   periodicidad, día de pago, medios de pago y garantes
+ *   periodicidad, plazo de vencimiento, medios de pago y garantes
  *   ({@link CondicionesAlquiler});
  * - "Lo que viene": próximo pago, próximo ajuste con su índice (monto "a
  *   definir", decisión del PO) y fin del contrato, con los días que faltan
@@ -21,14 +21,14 @@
  * de pago, las expensas y la frecuencia son los textos del back.
  *
  * Lo arma `VistaContrato` (`DetalleContrato.tsx`) con `vista="locatario"`;
- * la firma, el documento, el PDF y el historial son los mismos que ve el locador.
+ * la firma, el documento y el PDF son los mismos que ve el locador.
  */
 import Image from 'next/image'
 import { HomeOutlined } from '@ant-design/icons'
 import type { ContratoDetalle } from '@rentar/shared-types'
-import { DetailList, IndexBadge, MoneyAmount, StatusTag } from '@rentar/ui'
+import { DetailList, IndexBadge, MoneyAmount, StatusTag, formatARS } from '@rentar/ui'
 import { MEDIO_PAGO_CORTO } from '@/lib/catalogs/propiedad'
-import { fechaCorta } from '@/lib/contratos/fechas'
+import { fechaCorta, textoPlazo } from '@/lib/contratos/fechas'
 import { fechaDesdeHoy, loQueViene, textoFaltan } from '@/lib/contratos/loQueViene'
 import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
@@ -86,7 +86,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
     hoyIso,
     inicio: condiciones.startDate,
     fin: contrato.endDate,
-    diaPago: condiciones.paymentDueDay,
+    plazoDias: condiciones.paymentTermDays,
     indice: condiciones.adjustmentIndex,
     cadaMeses: contrato.ajusteCadaMeses,
   })
@@ -94,7 +94,7 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
   const pago = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoVencimientoPago) : calculado.pago
   const ajuste = datosApi ? fechaDesdeHoy(hoyIso, datosApi.proximoAjuste) : calculado.ajuste
   const { fin } = calculado
-  const tienePlazoDePago = datosApi ? datosApi.diasParaVencimiento !== null : condiciones.paymentDueDay !== null
+  const tienePlazoDePago = condiciones.paymentTermDays !== null
   return (
     <section className={styles.tarjeta} aria-labelledby="mi-alquiler-viene-titulo" data-testid="mi-alquiler-lo-que-viene">
       <h2 id="mi-alquiler-viene-titulo" className={styles.tarjetaTitulo}>
@@ -111,6 +111,13 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
             <span className={styles.valorSecundario}>{tienePlazoDePago ? 'No quedan pagos en este contrato.' : 'Sin dato del vencimiento del pago.'}</span>
           )}
         </li>
+        {/* US-11: "Si el contrato es Sin ajuste, se debe mostrar que el monto se mantiene hasta la fecha de fin". */}
+        {condiciones.adjustmentIndex === 'sin_ajuste' && (
+          <li className={styles.vieneItem} data-testid="mi-alquiler-sin-ajuste">
+            <span className={styles.vieneTitulo}>Sin ajuste</span>
+            <span>El monto se mantiene hasta la fecha de fin del contrato.</span>
+          </li>
+        )}
         {/* US-27: "contrato sin ajuste → no se muestra la fecha de próximo ajuste". */}
         {condiciones.adjustmentIndex !== 'sin_ajuste' && (
           <li className={styles.vieneItem} data-testid="mi-alquiler-proximo-ajuste">
@@ -118,7 +125,11 @@ export function LoQueVieneAlquiler({ contrato }: FichaProps) {
             {ajuste ? (
               <span className={styles.ajuste}>
                 <strong>{fechaCorta(ajuste.fecha)}</strong> · {textoFaltan(ajuste.dias)} · <IndexBadge index={condiciones.adjustmentIndex} />
-                <span className={styles.valorSecundario}>Monto: a definir</span>
+                {contrato.ajusteCadaMeses !== null && <span className={styles.valorSecundario}>cada {contrato.ajusteCadaMeses} meses</span>}
+                {/* US-11: sin valores del índice por fecha, el monto va "a definir" (issue #27, punto 15). */}
+                <span className={styles.valorSecundario} data-testid="mi-alquiler-ajuste">
+                  Monto actual {contrato.montoActual === null ? 'sin dato' : formatARS(contrato.montoActual)}. Después del ajuste: a definir. Se confirma con el valor del índice a la fecha del ajuste.
+                </span>
               </span>
             ) : (
               <span className={styles.valorSecundario}>No quedan ajustes antes del fin del contrato.</span>
@@ -153,12 +164,7 @@ export function CondicionesAlquiler({ contrato }: FichaProps) {
    * días desde que el monto está disponible: se dice eso, sin convertirlo en
    * un día del mes. Tema a decidir con el equipo (HANDOFF §7, US-05).
    */
-  const vencimiento = datosApi
-    ? {
-        label: 'Vencimiento del pago',
-        value: datosApi.diasParaVencimiento === null ? 'Sin dato' : `Vence a los ${datosApi.diasParaVencimiento} ${datosApi.diasParaVencimiento === 1 ? 'día' : 'días'} de cada período`,
-      }
-    : { label: 'Día de pago', value: condiciones.paymentDueDay === null ? 'Sin dato' : `Día ${condiciones.paymentDueDay} de cada mes` }
+  const vencimiento = { label: 'Vencimiento del pago', value: condiciones.paymentTermDays === null ? 'Sin dato' : textoPlazo(condiciones.paymentTermDays) }
   // "cada N meses" si se reconoce la frecuencia; si no, el texto del back tal cual ("cada 6 meses" / "Semestral").
   const frecuencia = contrato.ajusteCadaMeses ? cadaTexto(contrato.ajusteCadaMeses) : (datosApi?.frecuenciaAjuste ?? '')
   const sinRegistro = !contrato.firmasRegistradas && contrato.garantes.length === 0
