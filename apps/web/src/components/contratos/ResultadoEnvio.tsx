@@ -6,7 +6,7 @@
  * Cubre: US-05 Registrar contrato de alquiler ("Al enviarlo, el contrato
  * pasa al estado 'pendiente de firma', recibe un código con formato
  * CT-AAAA-NNNN y no se puede editar"). Decisión del PO: el resultado va
- * dentro del alta (código, quiénes firman e "Ir a Contratos"); el detalle
+ * dentro del alta (código, quiénes firman e "Ir a los contratos de la propiedad"); el detalle
  * del contrato llega con US-07.
  * Quién lo usa: `AltaContrato.tsx`.
  */
@@ -15,6 +15,7 @@ import { Button } from 'antd'
 import { useRouter } from 'next/navigation'
 import type { ContratoEnviado } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
+import { contratosDePropiedadHref } from '@/lib/contratos/rutas'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link ResultadoEnvio}. */
@@ -22,10 +23,12 @@ interface ResultadoEnvioProps {
   enviado: ContratoEnviado
   /** Dirección de la propiedad, para el texto. */
   direccion: string
+  /** Para volver a la pestaña Contratos de la propiedad (US-43). */
+  propiedadId: string
 }
 
 /** "Enviaste el contrato a firmar", con el código y los firmantes. */
-export function ResultadoEnvio({ enviado, direccion }: ResultadoEnvioProps) {
+export function ResultadoEnvio({ enviado, direccion, propiedadId }: ResultadoEnvioProps) {
   const router = useRouter()
   const firmantes = enviado.firmantes.map((firmante) => `${firmante.nombre} (${firmante.rol})`).join(' y ')
   return (
@@ -43,8 +46,8 @@ export function ResultadoEnvio({ enviado, direccion }: ResultadoEnvioProps) {
         <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(enviado.id)}`)} data-testid="contrato-enviado-ver">
           Ver contrato y firmar
         </Button>
-        <Button onClick={() => router.push('/panel/contratos')} data-testid="contrato-enviado-ir-contratos">
-          Ir a Contratos
+        <Button onClick={() => router.push(contratosDePropiedadHref(propiedadId))} data-testid="contrato-enviado-ir-contratos">
+          Ir a los contratos de la propiedad
         </Button>
       </span>
     </div>

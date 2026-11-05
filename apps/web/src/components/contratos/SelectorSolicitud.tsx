@@ -6,8 +6,8 @@
  *
  * Qué es: la lista de solicitudes aceptadas que todavía no originaron un
  * contrato (propiedad y postulante), para elegir de cuál nace. Decisión del
- * PO: nada de carga manual de partes; si no hay ninguna, el mismo vacío del
- * listado, con acceso a las solicitudes.
+ * PO: nada de carga manual de partes; si no hay ninguna, un vacío con acceso
+ * a las solicitudes.
  * Cubre: US-05 Registrar contrato de alquiler ("Se debe poder iniciar el
  * contrato desde una solicitud aceptada").
  * NOTA (diseño vs. PO): el diseño dice que sin solicitud "el paso 1 arranca
@@ -27,12 +27,12 @@ import { EmptyState, PageHeader } from '@rentar/ui'
 import { fechaCorta } from '@/lib/contratos/fechas'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { listarSolicitudesRecibidas } from '@/services/solicitudes.service'
-import { SOLICITUDES_ACEPTADAS_HREF } from './ListadoContratos'
+import { iniciarContratoHref, MIS_PROPIEDADES_HREF, SOLICITUDES_ACEPTADAS_HREF } from '@/lib/contratos/rutas'
 import styles from './Contratos.module.css'
 
 const MIGA = [
   { label: 'Mi panel', href: '/panel' },
-  { label: 'Contratos', href: '/panel/contratos' },
+  { label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF },
   { label: 'Nuevo contrato' },
 ]
 
@@ -58,8 +58,8 @@ export function SelectorSolicitud() {
             <Button type="primary" onClick={() => router.push(SOLICITUDES_ACEPTADAS_HREF)} data-testid="contrato-selector-solicitudes">
               Ver solicitudes aceptadas
             </Button>
-            <Button onClick={() => router.push('/panel/contratos')} data-testid="contrato-selector-volver">
-              Volver a Contratos
+            <Button onClick={() => router.push(MIS_PROPIEDADES_HREF)} data-testid="contrato-selector-volver">
+              Volver a mis propiedades
             </Button>
           </span>
         }
@@ -98,7 +98,7 @@ export function SelectorSolicitud() {
               </span>
               <Button
                 type="primary"
-                onClick={() => router.push(`/panel/contratos/nuevo?solicitud=${encodeURIComponent(solicitud.id)}`)}
+                onClick={() => router.push(iniciarContratoHref(solicitud.id))}
                 data-testid="contrato-selector-iniciar"
               >
                 Iniciar contrato

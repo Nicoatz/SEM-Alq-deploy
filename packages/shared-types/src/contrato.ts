@@ -1,6 +1,6 @@
 /**
- * contrato.ts — el contrato de alquiler, tal como lo ven el listado
- * `/panel/contratos` y el alta en 4 pasos.
+ * contrato.ts — el contrato de alquiler, tal como lo ven la pestaña Contratos
+ * de la propiedad, el detalle y el alta en 4 pasos.
  *
  * Qué es: TIPOS DE VISTA DEL FRONT. Cubren US-05 Registrar contrato de
  * alquiler (listado, inicio desde una solicitud aceptada, alta y borrador) y
@@ -153,7 +153,7 @@ export interface ContratoBorrador {
 /** Lo que se guarda de un borrador (`POST` / `PUT /contratos`). Las partes y la propiedad las pone el back. */
 export type DatosContrato = Pick<ContratoBorrador, 'solicitudId' | 'garantes' | 'condiciones' | 'clausulas' | 'ultimoPaso'>
 
-/** Una fila del listado `/panel/contratos` (US-05). Sin DNI ni datos de contacto. */
+/** Base de una fila de Mis alquileres (US-27) y de la rama mock de US-43. Sin DNI ni datos de contacto. */
 export interface ContratoResumen {
   id: string
   /** `null` en los borradores. */

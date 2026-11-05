@@ -3,7 +3,7 @@
  * y los errores a mensajes en español.
  *
  * Qué es: la frontera entre los DTO PROPUESTOS de `/contratos` (ver
- * `shared/backend-dtos.ts`, "Contratos") y `ContratoResumen` /
+ * `shared/backend-dtos.ts`, "Contratos") y `ContratoDePropiedad` /
  * `ContratoBorrador` / `ContratoEnviado`. Cuando el back haga las rutas, lo
  * que cambie de forma se ajusta acá, nunca en las pantallas.
  * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
@@ -20,7 +20,6 @@ import type {
   ContratoDePropiedad,
   ContratoDetalle,
   ContratoEnviado,
-  ContratoResumen,
   ContratosDePropiedad,
   DatosContrato,
   EventoContrato,
@@ -47,7 +46,6 @@ import type {
   ContratoPropiedadResponse,
   ContratoRequest,
   ContratoResponse,
-  ContratoResumenResponse,
   ContratosInmuebleResponse,
   EventoContratoDto,
   FirmaAlquilerDto,
@@ -112,25 +110,6 @@ function garanteDeDto(dto: GaranteDto, indice: number): GaranteContrato {
 /** Cláusula del back → vista. */
 function clausulaDeDto(dto: ClausulaDto): ClausulaContrato {
   return { key: dto.clave, tipo: dto.tipo, titulo: dto.titulo, texto: dto.texto, editada: dto.tipo === 'editable' && dto.editada }
-}
-
-/** Fila de `GET /contratos` → `ContratoResumen`. La dirección es la exacta (el listado es del locador). */
-export function contratoResumenDeDto(dto: ContratoResumenResponse): ContratoResumen {
-  return {
-    id: String(dto.id),
-    code: dto.codigo,
-    status: dto.estado,
-    propertyId: String(dto.inmueble.id),
-    propertyAddress: formatExactAddress(dto.inmueble.direccion, dto.inmueble.numero, dto.inmueble.piso),
-    neighborhoodName: barrioDe(dto.inmueble.barrio).name,
-    tenantName: [dto.locatario.nombre, dto.locatario.apellido].filter(Boolean).join(' '),
-    currentAmount: dto.monto_actual,
-    startDate: dto.fecha_inicio,
-    endDate: dto.fecha_fin,
-    adjustmentIndex: dto.indice,
-    nextAdjustmentDate: dto.proximo_ajuste,
-    solicitudId: dto.id_solicitud === null ? null : String(dto.id_solicitud),
-  }
 }
 
 /**

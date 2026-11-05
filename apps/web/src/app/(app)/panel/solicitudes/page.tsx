@@ -21,7 +21,7 @@ export const metadata: Metadata = { title: 'Solicitudes' }
 export default function SolicitudesPage() {
   return (
     <RequireRole role="locador">
-      {/* Suspense: lee `?pestania=` (desde Contratos, US-05) con useSearchParams. */}
+      {/* Suspense: lee `?pestania=` y `?propiedad=` con useSearchParams. */}
       <Suspense>
         <SolicitudesRecibidas />
       </Suspense>

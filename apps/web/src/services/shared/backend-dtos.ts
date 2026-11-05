@@ -527,22 +527,6 @@ export interface InmuebleContratoDto {
   barrio: string | null
 }
 
-/** Propuesta anterior a `GET /inmuebles/:id/contratos` (existe, con otra forma; `GET /contratos` no existe). Sin DNI ni contacto. */
-export interface ContratoResumenResponse {
-  id: number
-  /** `null` en los borradores. */
-  codigo: string | null
-  estado: EstadoContratoDto
-  inmueble: InmuebleContratoDto
-  locatario: { nombre: string; apellido: string | null }
-  monto_actual: number | null
-  fecha_inicio: string | null
-  fecha_fin: string | null
-  indice: IndiceContratoDto | null
-  proximo_ajuste: string | null
-  id_solicitud: number | null
-}
-
 /** El contrato en PDF. `url` es firmada y vence a los 5 minutos. Copia de `ContratoPdfResponse` del back. */
 export interface ContratoPdfDto {
   nombre: string

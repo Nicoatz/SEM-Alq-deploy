@@ -1,7 +1,7 @@
 /**
  * contratos.service.ts — frontera con el backend para los contratos del locador.
  *
- * Qué es: el listado de `/panel/contratos`, el inicio desde una solicitud
+ * Qué es: los contratos de una propiedad (US-43), el inicio desde una solicitud
  * aceptada, el borrador (guardar, retomar y eliminar) y el envío a firmar.
  * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
  * alquiler (detalle, firmar, rechazar, cancelar el envío y reenviar la
@@ -81,7 +81,6 @@ import {
   DETALLE_CONTRATO_ERROR_MESSAGE,
   CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
   contratosDePropiedadDeDto,
-  contratoResumenDeDto,
   datosToContratoRequest,
   errorDeMiAlquiler,
   errorDeContrato,
@@ -110,7 +109,6 @@ import type {
   ContratoDetalleResponse,
   ContratoEnviadoResponse,
   ContratoResponse,
-  ContratoResumenResponse,
   ContratosInmuebleResponse,
   RechazarFirmaRequest,
   ReenviarInvitacionRequest,
@@ -207,30 +205,6 @@ function contratoPropioMock(id: string, ownerId: string): ContratoMock {
   const contrato = buscarContratoMock(id)
   if (!contrato || contrato.ownerId !== ownerId) throw new ServiceError('not_found', CONTRATO_NO_ENCONTRADO_MESSAGE)
   return contrato
-}
-
-// ─── Listado ────────────────────────────────────────────────────────────
-
-/**
- * US-05 — "Listado de contratos (/panel/contratos)": los contratos del
- * locador en sesión (borradores, pendientes de firma, vigentes y
- * finalizados), sin ordenar (ver `lib/contratos/listado.ts`).
- * @backend GET /api/v1/contratos   (no existe: no hay listado general; lo reemplaza GET /api/v1/inmuebles/:id/contratos, que existe) → ContratoResumenResponse[]
- * @returns ContratoResumen[] — sin DNI ni contacto (solo el nombre del locatario).
- * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
- * NOTA: en real esta llamada falla. Se reemplaza en la Tanda 1 del Sprint 4 (US-43).
- */
-export async function listarContratos(): Promise<ContratoResumen[]> {
-  if (USE_MOCKS) {
-    await delay()
-    return contratosDeLocadorMock(requireSessionUserId(), nombreDeCuenta, hoyIso())
-  }
-  try {
-    const dtos = await apiRequest<ContratoResumenResponse[]>('/contratos')
-    return dtos.map(contratoResumenDeDto)
-  } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE' })
-  }
 }
 
 // ─── Inicio ─────────────────────────────────────────────────────────────

@@ -246,7 +246,7 @@ export function SolicitudesRecibidas() {
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [cambios, setCambios] = useState<CambiosSolicitudes>({})
-  // `?pestania=aceptadas` (desde "Ver solicitudes aceptadas" de Contratos, US-05) abre esa pestaña.
+  // `?pestania=aceptadas` (desde "Ver solicitudes aceptadas" del alta, US-05) abre esa pestaña.
   // `?propiedad=<id>` (desde la pestaña Contratos de la propiedad, US-43) la deja filtrada.
   const parametros = useSearchParams()
   const pestaniaInicial = parametros.get('pestania')

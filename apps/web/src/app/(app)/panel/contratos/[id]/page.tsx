@@ -7,7 +7,7 @@
  * por acá va a `/[id]/editar` (US-05).
  * El guard de locador está en `../layout.tsx`. El locatario firma desde Mi
  * alquiler (`/panel/alquiler`), con el mismo `FirmaContrato`.
- * Entra desde: el listado `/panel/contratos` (código y "Ver contrato") y el
+ * Entra desde: la pestaña Contratos de la propiedad ("Ver contrato completo") y el
  * resultado del envío a firmar.
  */
 import type { Metadata } from 'next'

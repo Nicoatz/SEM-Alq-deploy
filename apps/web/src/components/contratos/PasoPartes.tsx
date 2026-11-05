@@ -29,10 +29,10 @@ import type { ContratoBorrador, GaranteContrato, ParteContrato } from '@rentar/s
 import { FormSection } from '@rentar/ui'
 import { erroresGarante, GARANTES_MAX, MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { fechaCorta } from '@/lib/contratos/fechas'
+import { SOLICITUDES_ACEPTADAS_HREF } from '@/lib/contratos/rutas'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { iniciales } from '@/lib/utils/iniciales'
 import { GARANTIA_LABEL } from '@/lib/validation/solicitud.rules'
-import { SOLICITUDES_ACEPTADAS_HREF } from './ListadoContratos'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link PasoPartes}. */

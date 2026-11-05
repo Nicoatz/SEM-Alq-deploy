@@ -8,8 +8,8 @@
  *   (`SelectorSolicitud`, decisión del PO).
  * Al guardar el primer borrador, la URL pasa a `/panel/contratos/[id]/editar`
  * (`router.replace`). El guard de locador está en `../layout.tsx`.
- * Entra desde: "Iniciar contrato" de una solicitud aceptada y "Nuevo
- * contrato" del listado (mapa: `/panel/contratos/nuevo`).
+ * Entra desde: "Iniciar contrato" de una solicitud aceptada o de la pestaña
+ * Contratos de la propiedad (mapa: `/panel/contratos/nuevo`).
  */
 import type { Metadata } from 'next'
 import { AltaContrato } from '@/components/contratos/AltaContrato'

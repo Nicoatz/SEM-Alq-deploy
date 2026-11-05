@@ -43,13 +43,13 @@ import { PasoCondiciones } from './PasoCondiciones'
 import { PasoPartes } from './PasoPartes'
 import { PasoRevision } from './PasoRevision'
 import { ResultadoEnvio } from './ResultadoEnvio'
+import { contratosDePropiedadHref, MIS_PROPIEDADES_HREF } from '@/lib/contratos/rutas'
 import styles from './AltaContrato.module.css'
 
-const MIGA = [
-  { label: 'Mi panel', href: '/panel' },
-  { label: 'Contratos', href: '/panel/contratos' },
-  { label: 'Nuevo contrato' },
-]
+/** Aviso al guardar: los contratos se retoman desde la propiedad (US-43). */
+const BORRADOR_GUARDADO = 'Guardamos el borrador. Lo retomás desde la pestaña Contratos de la propiedad.'
+
+const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
 
 /** Los 4 pasos de la US, en orden. */
 export const PASOS_CONTRATO = [
@@ -131,7 +131,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const [aviso, setAviso] = useState<string | null>(() => {
     // US-07: "el contrato vuelve a 'borrador' y se borran las firmas registradas".
     if (envioCancelado) return 'Cancelaste el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.'
-    return recienGuardado ? 'Guardamos el borrador. Lo retomás desde Contratos cuando quieras.' : null
+    return recienGuardado ? BORRADOR_GUARDADO : null
   })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
   const [acepto, setAcepto] = useState(false)
@@ -192,7 +192,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
         return
       }
       setBorrador(nuevo)
-      setAviso('Guardamos el borrador. Lo retomás desde Contratos cuando quieras.')
+      setAviso(BORRADOR_GUARDADO)
     } catch (error) {
       setErrorAccion(mensajeDe(error, 'No pudimos guardar el borrador. Probá de nuevo.'))
     } finally {
@@ -208,7 +208,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
     try {
       await eliminarBorrador(borrador.id)
       setGuardado(huella(borrador))
-      router.push('/panel/contratos')
+      router.push(contratosDePropiedadHref(borrador.propiedad.id))
     } catch (error) {
       setErrorAccion(mensajeDe(error, 'No pudimos eliminar el borrador. Probá de nuevo.'))
       setConfirmarEliminar(false)
@@ -253,14 +253,14 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const nombreLocador = `${borrador.locador.nombre} ${borrador.locador.apellido}`.trim()
   const nombreLocatario = `${borrador.locatario.nombre} ${borrador.locatario.apellido}`.trim()
   const titulo = borrador.id ? 'Continuar contrato' : 'Nuevo contrato'
-  const miga = [...MIGA.slice(0, 2), { label: titulo }]
+  const miga = [...MIGA_BASE, { label: borrador.propiedad.address, href: contratosDePropiedadHref(borrador.propiedad.id) }, { label: titulo }]
   const subtitulo = `${borrador.propiedad.address} · ${nombreLocatario}`
 
   if (enviado) {
     return (
       <div className={styles.page}>
         <PageHeader title="Contrato enviado" subtitle={subtitulo} breadcrumb={miga} />
-        <ResultadoEnvio enviado={enviado} direccion={borrador.propiedad.address} />
+        <ResultadoEnvio enviado={enviado} direccion={borrador.propiedad.address} propiedadId={borrador.propiedad.id} />
       </div>
     )
   }
@@ -357,7 +357,7 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
   const cargar = useCallback(() => (contratoId ? getContrato(contratoId) : prepararContrato(solicitudId ?? '')), [contratoId, solicitudId])
   const carga = useServiceCall(cargar)
   const titulo = contratoId ? 'Continuar contrato' : 'Nuevo contrato'
-  const miga = useMemo(() => [...MIGA.slice(0, 2), { label: titulo }], [titulo])
+  const miga = useMemo(() => [...MIGA_BASE, { label: titulo }], [titulo])
 
   if (carga.status === 'cargando') {
     return (
@@ -380,8 +380,8 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
             description={carga.message}
             action={
               <span className={styles.acciones}>
-                <Button type="primary" onClick={() => router.push('/panel/contratos')} data-testid="contrato-ir-contratos">
-                  Ir a Contratos
+                <Button type="primary" onClick={() => router.push(MIS_PROPIEDADES_HREF)} data-testid="contrato-ir-propiedades">
+                  Ir a mis propiedades
                 </Button>
                 {carga.code !== 'conflict' && carga.code !== 'not_found' && (
                   <Button onClick={carga.reintentar} data-testid="contrato-reintentar">
@@ -415,8 +415,8 @@ export function AltaContrato({ solicitudId, contratoId, recienGuardado = false, 
                 <Button type="primary" onClick={() => router.push(`/panel/contratos/${encodeURIComponent(contrato.id ?? '')}`)} data-testid="contrato-ver-detalle">
                   Ver contrato
                 </Button>
-                <Button onClick={() => router.push('/panel/contratos')} data-testid="contrato-ir-contratos">
-                  Ir a Contratos
+                <Button onClick={() => router.push(contratosDePropiedadHref(contrato.propiedad.id))} data-testid="contrato-ir-propiedad">
+                  Ir a los contratos de la propiedad
                 </Button>
               </span>
             }
