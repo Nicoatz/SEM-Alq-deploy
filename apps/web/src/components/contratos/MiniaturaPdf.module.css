@@ -1,0 +1,29 @@
+/* Miniatura de la primera página del PDF (US-05; "Flujo de contratos" · 03). */
+
+.miniatura {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.canvas {
+  display: block;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-sm);
+  background: var(--rentar-color-bg-surface);
+}
+
+.paginas {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.cargando {
+  width: 7rem !important;
+  height: 9.875rem !important;
+}
+
+.error {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}

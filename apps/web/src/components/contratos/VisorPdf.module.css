@@ -1,0 +1,65 @@
+/* Visor de PDF (Claude Design, "Flujo de contratos" · 04 y 07). */
+
+.visor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.nombre {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--rentar-color-text-primary);
+}
+
+.pagina {
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.hoja {
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+}
+
+.canvas {
+  display: block;
+  max-width: 100%;
+}
+
+.paginador {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cargando {
+  width: 100%;
+}
+
+/* La proporción de una hoja A4. */
+.cargandoHoja {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1.414;
+}
+
+.errorVisor {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+}
