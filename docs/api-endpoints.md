@@ -33,11 +33,12 @@ conectados (Tandas 1 y 2); enviar a firmar y la firma, todavía no.
 | `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente y US-06 pide que siga aceptada (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
 | `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
-| `GET /cobros-locador` | locador | Parcial | Incluye períodos futuros, que el `POST` rechaza |
-| `POST /cobros-locador` | locador | Parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500 |
-| `GET /cobros-locador/historial` | locador | Parcial | `cantidades` depende del filtro de estado; `resumen` sin pendiente |
+| `GET /cobros-locador` | locador | **Conectado** (Tanda 4), sin datos para probar; parcial | Incluye períodos futuros, que el `POST` rechaza: el front los filtra. Sin tasa ni gracia |
+| `POST /cobros-locador` | locador | **Conectado** (Tanda 4), sin probar en real; parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500: el adaptador lo traduce |
+| `GET /cobros-locador/historial` | locador | **Conectado** (Tanda 4), solo con 0 períodos; parcial | `cantidades` depende del filtro de estado y `resumen` no trae pendiente: el front pide todo sin filtros y lo calcula |
 | `GET /cobros-locatario` | sesión (`tipo_firmante = 2`) | Parcial | Un solo `proximo_periodo`; `anio` también lo filtra |
-| `GET /cobros/:id` (**id de período**) | sesión | Parcial, en riesgo | Filtro `.or()` sin probar. **Falta aplicar `us09_consultar_cobro`** |
+| `GET /cobros/:id` (**id de período**) | sesión | **Conectado** (Tanda 4), **roto** | Da **500 siempre** por el filtro `.or()` (probado en real el 05/11). Después va a hacer falta aplicar `us09_consultar_cobro`. El front muestra lo que trae el historial del locador |
+| `GET /cobros/:id/comprobante` y `/comprobante/pdf` (**id de cobro**) | sesión | **Conectado** (Tanda 4), **roto** | Dan **500 siempre** por el mismo `.or()` (probado en real el 05/11). El front saca el id del cobro del detalle del período. No usa `total_en_letras`: lo arma `montoEnLetras.ts` |
 | `GET /cobros/:id/comprobante[/pdf]` (**id de cobro**) | sesión | Parcial, en riesgo | Mismo `.or()`, sin segundo control de dueño. Total en letras con errores |
 | Anular cobro, variación del monto (US-11) | — | **No existe** | Sin valores de índice por fecha |
 | `GET /alquileres-locatario[/:idContrato]` | sesión | Parcial | Garantes llegan `[]`, ajustes ignorados, `puede_firmar` siempre `false` |
@@ -615,8 +616,8 @@ de contratos todavía no crea; usuario de prueba con contratos en Supabase Auth 
 ## Consulta de cobros (US-09)
 
 US-09 se implementa en el backend como consulta de períodos, pagos y detalle. No reemplaza ni modifica
-el `GET/POST /cobros-locador` de registro de US-08, ni genera el PDF de US-10. Las pantallas de
-`/panel/cobros` y `/panel/pagos` siguen pendientes de integración.
+el `GET/POST /cobros-locador` de registro de US-08, ni genera el PDF de US-10. `/panel/cobros` está
+conectada desde la Tanda 4 del Sprint 4; `/panel/pagos` sigue pendiente (Tanda 5).
 
 | Método y ruta | Auth / alcance | Respuesta (`data`) | Errores |
 |---|---|---|---|
