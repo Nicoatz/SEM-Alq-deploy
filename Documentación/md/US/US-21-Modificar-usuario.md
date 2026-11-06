@@ -4,7 +4,7 @@
 | **Criterios de aceptación:** |
 | *General* |
 | - Se debe haber iniciado sesión. Solo se pueden modificar los datos propios. |
-| - Cada bloque (Datos personales, Legajo y Contraseña) se modifica y se guarda por separado, con sus propios botones de guardar y cancelar. |
+| - Cada bloque (Datos personales y Contraseña) se modifica y se guarda por separado, con sus propios botones de guardar y cancelar. |
 | - Cancelar restaura los valores guardados del bloque. |
 | - Se debe avisar si el usuario intenta salir de la pantalla con cambios sin guardar. |
 | - Al guardar, se debe mostrar un mensaje de éxito o el error correspondiente, en español. |
@@ -15,12 +15,7 @@
 | - El nombre, el apellido y el DNI no se pueden modificar si el usuario es parte de un contrato vigente o pendiente de firma. En ese caso se debe explicar el motivo. |
 | - Se puede modificar el teléfono, con las mismas reglas que en US-35: UIT-T E.164 de 10 a 15 dígitos, solo caracteres numéricos, prefijo "+" visible y no editable, y formato visual E.123. |
 | - Se puede modificar la fecha de nacimiento: el usuario debe ser mayor de 18 años. |
-| - Se puede modificar el correo electrónico con el mismo formato que en US-35 y debe ser único en la plataforma. El cambio solo se aplica cuando el usuario confirma el nuevo correo desde el enlace que se le envía; hasta entonces sigue vigente el anterior. |
-| *Legajo* |
-| - Se puede modificar la situación ocupacional, con las mismas opciones que en US-35 ("-", relación de dependencia, monotributista, autónoma, estudiante y jubilada). |
-| - Se puede modificar el ingreso mensual declarado: un número entero mayor a 0, o vacío. |
-| - Se pueden indicar múltiples garantías que el usuario puede ofrecer (garantía propietaria, seguro de caución u otra). |
-| - Los datos del legajo se precargan en las solicitudes nuevas (US-35). Los cambios que se hagan dentro de una solicitud no modifican el perfil. |
+| - Se puede modificar el correo electrónico con el mismo formato que en US-35 y debe ser único en la plataforma. |
 | *Contraseña* |
 | - Para cambiar la contraseña se deben ingresar la contraseña actual, la nueva y su confirmación. |
 | - La contraseña nueva debe cumplir las mismas reglas que en el registro (US-19) y ser distinta de la actual. |
@@ -35,11 +30,8 @@
 | - Probar modificar el teléfono con un número válido de entre 10 y 15 dígitos (pasa). |
 | - Probar modificar el teléfono con letras, o con menos de 10 o más de 15 dígitos (falla). |
 | - Probar modificar la fecha de nacimiento de forma que el usuario quede menor de 18 años (falla). |
-| - Probar modificar el correo y verificar que no cambie hasta confirmarlo desde el enlace (pasa). |
+| - Probar modificar el correo por uno válido y no registrado y verificar que se refleje en el perfil (pasa). |
 | - Probar modificar el correo por uno ya registrado o con un formato inválido (falla). |
-| - Probar modificar la situación ocupacional, los ingresos y las garantías del legajo y verificar que se precarguen en una solicitud nueva (pasa). |
-| - Probar ingresar un ingreso mensual igual a 0, negativo o con decimales (falla). |
-| - Probar modificar el legajo dentro de una solicitud y verificar que el perfil no cambie (pasa). |
 | - Probar cambiar la contraseña ingresando mal la contraseña actual (falla). |
 | - Probar cambiar la contraseña con una nueva que no cumple las reglas de US-19, o cuya confirmación no coincide (falla). |
 | - Probar cambiar la contraseña con datos válidos e iniciar sesión con la nueva (pasa). |

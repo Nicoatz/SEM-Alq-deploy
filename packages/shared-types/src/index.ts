@@ -31,6 +31,8 @@ export interface CreateUsuarioPayload {
 
 export interface UpdateUsuarioPayload {
   nombre?: string;
+  /** US-21: se aplica de inmediato (sin enlace de confirmación). */
+  email?: string;
   apellido?: string;
   numero_documento?: string;
   telefono?: string;

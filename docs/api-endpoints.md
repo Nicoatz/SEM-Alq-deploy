@@ -44,8 +44,7 @@ conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
 | Anular cobro, variación del monto (US-11) | — | **No existe** | Sin valores de índice por fecha |
 | `GET /alquileres-locatario[/:idContrato]` | sesión | Parcial | Garantes llegan `[]`, ajustes ignorados, `puede_firmar` siempre `false` |
 | `GET /mis-alquileres` | locador | **Conectado**; parcial | Puede devolver el id de la oferta. Tarda más de 30 segundos (S4-21) |
-| `GET` y `PATCH /usuarios/me` | sesión | Parcial | Sin legajo ni `bloqueo_identidad`; 409 sin `codigo` |
-| `PATCH /usuarios/me/legajo` | — | **No existe** | |
+| `GET` y `PATCH /usuarios/me` | sesión | Conectado | El GET y el PATCH traen `bloqueo_identidad` y los 409 llevan `codigo` (06/11). El legajo salió de US-20 y US-21 |
 
 **Nombres (front → back):**
 
@@ -212,10 +211,11 @@ Notas:
   alcanza con que el postulante ofrezca **al menos una**. **El back no tiene el dato** (ni el alta ni
   la edición lo cargan; `garantias_exigidas` llega vacío): queda para el Sprint 3 (HANDOFF §7).
 
-## Perfil y legajo (Sprint 3, US-20 y US-21)
+## Perfil (Sprint 3, US-20 y US-21)
 
 `GET` y `PATCH /usuarios/me` **existen** (develop, 917e8ff) y la rama real de `/panel/perfil` ya
-los usa. El legajo y el bloqueo de identidad en el GET siguen **propuestos**. Código del front:
+los usa. **El legajo (situación ocupacional,
+ingreso y garantías) se sacó de US-20 y US-21: no hay endpoint ni columnas.** Código del front:
 `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts` y los DTO en
 `services/shared/backend-dtos.ts` ("Perfil y legajo"). Todas las rutas van con **Bearer**: el
 usuario sale del token y no hay forma de pedir ni cambiar el perfil de otro (US-20). Las brechas
@@ -224,11 +224,9 @@ están en [`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-20 y US-21".
 | Método y ruta | Auth | Estado | US | Service | Body | Respuesta (`data`) | Errores |
 |---|---|---|---|---|---|---|---|
 | `GET /usuarios/me` | Bearer | **conectado** | US-20 | `perfil.service#getMiPerfil` | — | `PerfilResponse` (abajo) | 401, 404 |
-| `PATCH /usuarios/me` | Bearer | **conectado** | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, 404, **409 DNI duplicado**, **409 bloqueado por contrato** (los dos sin `codigo`) |
-| `PATCH /usuarios/me/legajo` | Bearer | pendiente (propuesto); en real el bloque es de solo lectura | US-21 | `perfil.service#actualizarLegajo` | `LegajoDto` (el legajo entero) | `LegajoDto` guardado | 400, 401 |
-| Supabase Auth `updateUser({ email }, { emailRedirectTo })` | sesión | listo en el front (sin probar en real) | US-21 | `perfil.service#solicitarCambioDeCorreo` | `{ email }` | `user.new_email` (pendiente) | 422 `email_exists`, 400 `email_address_invalid`, 429 `over_email_send_rate_limit` |
-| Supabase Auth `updateUser({ password, current_password })` | sesión | listo en el front; **bloqueante** (ver HANDOFF §7) | US-21 | `perfil.service#cambiarContrasena` | `{ password, current_password }` | — | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
-| `GET /solicitudes/preparar?id_inmueble=` | Bearer | conectado; **falta el legajo** | US-35 + US-21 | `solicitudes.service#prepararSolicitud` | — | Lo de hoy + `legajo: LegajoDto \| null` (propuesto) | (sin cambios) |
+| `PATCH /usuarios/me` | Bearer | **conectado** | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, 404, **409 `DNI_DUPLICADO`**, **409 `EMAIL_DUPLICADO`**, **409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO`** (los tres con `codigo`, 06/11) |
+| `PATCH /usuarios/me` con `{ email }` | Bearer | **probado en real** (06/11) | US-21 | — | `{ email }` | `PerfilResponse` con el correo nuevo | 400 formato, 401, **409 `EMAIL_DUPLICADO`** |
+| `PUT {SUPABASE_URL}/auth/v1/user` (Supabase Auth, **no es una ruta de `apps/api`**; headers `apikey` y `Authorization: Bearer`) | sesión | **probado en real** (06/11) | US-21 | — | `{ password, current_password }` | el usuario de Auth (sin `data` propio) | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
 
 **`PerfilResponse`** (`GET /usuarios/me`, y también la respuesta de `PATCH /usuarios/me`): el
 mismo `data` que usa la sesión (`usuarioController.obtenerMiPerfil`):
@@ -242,6 +240,7 @@ mismo `data` que usa la sesión (`usuarioController.obtenerMiPerfil`):
   "numero_documento": "35123456",
   "telefono": "3511112233",
   "fecha_nacimiento": "1991-02-03",
+  "bloqueo_identidad": null,
   "roles": ["locatario", "locador"]
 }
 ```
@@ -251,20 +250,15 @@ mismo `data` que usa la sesión (`usuarioController.obtenerMiPerfil`):
   el 54 (`telefonoDelBack` en `lib/perfil/formato.ts`). Con 11 dígitos o más asume que el código de
   país ya está y lo muestra en E.123.
 - `roles`: descripciones de la tabla `rol`, las mismas de la sesión.
-- **No trae** el contrato que bloquea la identidad ni el legajo (propuesto, ver abajo). El correo
-  pendiente tampoco: sale de Supabase Auth (`user.new_email`).
+- `bloqueo_identidad`: `null` o `{ "codigo": "CT-2026-0148", "estado": "vigente" }` (`estado`: `vigente` o
+  `pendiente_firma`): el contrato del que el usuario es parte y que bloquea nombre, apellido y DNI.
 - NOTA: el front había propuesto una ruta aparte (`/usuarios/me/perfil`) para que el DNI no viajara
   en el `/me` que el `AuthProvider` pide en cada cambio de ruta. El back eligió ampliar `/me`, y la
   sesión ignora esos campos.
 
-**Propuesto para el GET** (TODO(backend)): `bloqueo_identidad`, con el contrato **vigente o
-pendiente de firma** del que el usuario es parte (locador o locatario), por ejemplo
-`{ "codigo": "CT-2026-0148", "estado": "vigente" }`, o `null`. Así el bloqueo se muestra antes de
-editar, como pide US-21. Y también `legajo` (`LegajoDto | null`, abajo).
-
 **`ActualizarPerfilRequest`** (`PATCH /usuarios/me`): `{ nombre?, apellido?, numero_documento?,
-telefono?, fecha_nacimiento? }`. El front manda **solo lo que cambió** respecto de lo guardado. El
-correo **no** va acá (lo cambia Supabase Auth). Lo que valida el back
+telefono?, fecha_nacimiento?, email? }`. El front manda **solo lo que cambió** respecto de lo guardado;
+el correo viaja solo, desde su propio bloque. Lo que valida el back
 (`usuarioService#actualizarMiPerfil`):
 
 | Regla | Error |
@@ -272,22 +266,23 @@ correo **no** va acá (lo cambia Supabase Auth). Lo que valida el back
 | Body vacío, un campo fuera de la lista o un valor vacío (`""` o `null`) | **400**: no se puede borrar un dato |
 | `nombre`, `apellido`: 2 a 100 caracteres, solo letras (`\p{L}`), espacios, apóstrofos y guiones | 400 |
 | `numero_documento`: 7 u 8 dígitos | 400 |
-| `telefono`: `^[1-9]\d{9,14}$`, o sea **sin "+"** (el ejemplo de Swagger lo muestra con "+": está mal) | 400 |
+| `email`: formato `nombre@dominio.extension` (hasta 255 caracteres); se guarda en minúsculas | 400 |
+| `email` de otra cuenta | **409** `EMAIL_DUPLICADO`, "Ya existe una cuenta con ese correo." |
+| `telefono`: `^[1-9]\d{9,14}$`, o sea **sin "+"** (el ejemplo de Swagger ya está corregido) | 400 |
 | `fecha_nacimiento`: `AAAA-MM-DD`, una fecha real y mayor de 18 años | 400 |
-| `numero_documento` repetido | **409** con el mensaje crudo de Postgres (`23505`, "duplicate key value…") |
-| `nombre`, `apellido` o `numero_documento` con un contrato en estado 2 (vigente) o 4 (pendiente de firma, migración `20261021120000`) | **409** "No se puede modificar el nombre, apellido o DNI porque el usuario participa en un contrato vigente o pendiente de firma." |
+| `numero_documento` repetido | **409** `DNI_DUPLICADO`, "El DNI ya está registrado por otro usuario." |
+| `nombre`, `apellido` o `numero_documento` con un contrato en estado 2 (vigente) o 4 (pendiente de firma, migración `20261021120000`) | **409** `IDENTIDAD_BLOQUEADA_POR_CONTRATO`, "No se puede modificar el nombre, apellido o DNI porque el usuario participa en un contrato vigente o pendiente de firma." |
 | Otro error de Supabase al guardar | 400 con el mensaje crudo |
 | Usuario sin fila en `usuario` | 404 |
 
 Cómo lo maneja el front (`errorDeActualizarDatos` en `perfil.adapter.ts`). Nunca muestra el texto
 crudo:
 
-- **Los dos 409 llegan sin `codigo`.** Mientras tanto, el front los distingue por el texto: si menciona
-  "contrato", es el bloqueo (aviso y nombre, apellido y DNI deshabilitados hasta salir de la
-  pantalla); si dice `23505` o "duplicate key", es "Ese DNI ya está registrado en otra cuenta". Si es
-  otro 409, muestra "Revisá los datos e intentá de nuevo". TODO(backend): sumar `codigo` al sobre de
-  error, `{ "success": false, "error": "…", "codigo": "DNI_DUPLICADO" }` o
-  `"IDENTIDAD_BLOQUEADA_POR_CONTRATO"`. `apiClient` ya lo lee y lo guarda en `ServiceError.apiCode`.
+- **Los dos 409 llevan `codigo`** (06/11): `{ "success": false, "error": "…", "codigo": "DNI_DUPLICADO" }` o
+  `"IDENTIDAD_BLOQUEADA_POR_CONTRATO"`. `apiClient` lo guarda en `ServiceError.apiCode` y el adaptador
+  lo usa primero: con `IDENTIDAD_BLOQUEADA_POR_CONTRATO` muestra el aviso y deshabilita nombre,
+  apellido y DNI hasta salir de la pantalla; con `DNI_DUPLICADO`, "Ese DNI ya está registrado en otra
+  cuenta". Si el `codigo` falta, cae al texto ("contrato", `23505`, "duplicate key").
 - **400:** si el texto empieza como una validación conocida del back, muestra el mensaje del front
   para ese campo; si no, "Revisá los datos e intentá de nuevo".
 - **Borrar el teléfono o la fecha:** como el back no lo permite, el front frena antes de llamarlo
@@ -295,10 +290,10 @@ crudo:
 - **Observación:** el back consulta los contratos aunque el valor enviado sea igual al actual. No
   afecta al front, porque solo manda lo que cambió.
 
-**`LegajoDto`** (`PATCH /usuarios/me/legajo`, propuesto): `{ ocupacion, ingresos, garantias }`, el
-legajo entero (reemplaza al anterior). Responde el legajo guardado. 400 si `ingresos` no es un entero
-mayor a 0 (o `null`), o si un código no existe. `ocupacion` y `garantias` usan los mismos códigos que
-las solicitudes (`sin_informar`, `relacion_dependencia`…; `propietaria`, `caucion`, `otra`).
+**Correo:** se cambia con `PATCH /usuarios/me` y se aplica de inmediato, sin enlace de confirmación
+(US-21 ya no lo pide). El back lo cambia en `usuario` y en Supabase Auth con la clave de servicio
+(`email_confirm: true`). El trigger `trg_sincronizar_email_usuario` (migración `20261106000000`) es solo
+un respaldo. **Contraseña:** no pasa por la API; la cambia el front con Supabase Auth (`updateUser`).
 
 ## Contratos (Sprint 3, US-05)
 

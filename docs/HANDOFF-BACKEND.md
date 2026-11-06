@@ -182,8 +182,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
 | `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
-| `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Sin bloqueo en el GET ni `codigo` en los 409 (§7, "US-20 y US-21") |
-| `PATCH /usuarios/me/legajo` | `/panel/perfil` (US-21) | **Pendiente** (propuesto): en real el legajo se ve "Sin cargar" |
+| `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Desde el 06/11 el back trae `bloqueo_identidad` en el GET, manda `codigo` en los 409 y acepta `email` en el PATCH; el front todavía no lo usa (§7, "US-20 y US-21"). El legajo se sacó de US-20 y US-21 |
 | `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | Alta (US-05) | **Conectado** (Sprint 4, Tanda 2; probado en real con el contrato 31): `PATCH` solo con lo que cambió; el PDF sube directo a Storage |
 | `GET /inmuebles/:id/contratos` | Pestaña Contratos de `/panel/propiedades/[id]` (US-43) | **Conectado** (Sprint 4, Tanda 1; probado en real): Bearer + rol locador; sin la oferta ni bajas lógicas; sin DNI ni contacto. El adaptador saca a los garantes de las firmas (§7, S4-3) |
 | `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | Detalle, pestaña Contratos y alta (US-06) | **Conectado** (Tanda 2). `DELETE` probado en real; `reabrir` sin probar en real: no se reabrió el contrato 2 |
@@ -191,7 +190,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /contratos/:id/detalle` | `/panel/contratos/[id]` (US-42) | **Conectado** (Sprint 4, Tanda 1; probado en real): Bearer + rol locador; 404 uniforme; 409 `CONTRATO_BORRADOR` redirige al alta. El calendario sale de `lib/contratos/ajustes.ts` y el monto es siempre "a definir" |
 | `POST /contratos/:id/firmar`, `/rechazar`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). El bloqueante del esquema ya está resuelto (§7, "US-05") |
 | `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Conectado** (27/10, `feature/vistas`; API del 26/10, 066c032: Bearer, pertenencia por `contrato_x_usuario`, filtro por estado y detalle con 404 indistinguible): listado, cuenta del menú y ficha. Sin firma en línea (US-07), sin cláusulas ni historial; la prueba con login quedó pendiente de un usuario con contratos (§7 "US-27" y §9). Las columnas de la migración `20261026000000_us27_alquileres_locatario.sql` ya se ven en la base (27/10); falta que backend confirme que la aplicó entera |
-| Supabase Auth `updateUser` (correo y contraseña) | `/panel/perfil` (US-21) | **Listo en el front, sin probar en real**: falta configurar el dashboard (§7, "US-20 y US-21"; la contraseña es **bloqueante**) |
+| Supabase Auth `updateUser` (contraseña) | `/panel/perfil` (US-21) | **Probado en real** (06/11): la protección "Require current password" está activa (§7, "US-20 y US-21") |
 
 ## 6. Status HTTP y errores
 
@@ -204,7 +203,7 @@ de error:
 | 401 | `unauthorized` | "Tu sesión venció…". En el login, las credenciales inválidas de Supabase (400) dan el mensaje genérico de US-39, que no revela si el mail existe. |
 | 403 | `forbidden` | Sin permiso para esa acción (el guard de rol del front evita llegar a pedirlo). |
 | 404 | `not_found` | Error del servidor con "Reintentar". **Nunca** se interpreta como credenciales incorrectas. |
-| 409 | `conflict` | Registro: mail o DNI ya registrado (el front distingue cuál por el texto del error; ver sección 7). Perfil (`PATCH /usuarios/me`, propuesto): DNI duplicado o identidad bloqueada por un contrato, distinguidos por el `codigo` del sobre (§7, "US-20 y US-21"). |
+| 409 | `conflict` | Registro: mail o DNI ya registrado (el front distingue cuál por el texto del error; ver sección 7). Perfil (`PATCH /usuarios/me`): DNI duplicado o identidad bloqueada por un contrato, distinguidos por el `codigo` del sobre (§7, "US-20 y US-21"). |
 | 5xx / sin respuesta | `server` / `network` | "No pudimos conectarnos con RentAR" + "Reintentar". Si el dispositivo está sin red: "Parece que te quedaste sin internet". |
 
 ## 7. Brechas por US
@@ -504,7 +503,7 @@ memoria hasta recargar; ver §10).
 ### US-20 y US-21 Mi perfil (Sprint 3, tanda 1, `/panel/perfil`; conectado en `feature/conexion-perfil`)
 
 Los datos personales están **conectados**: `GET /usuarios/me` y `PATCH /usuarios/me` (develop,
-917e8ff). El legajo y el bloqueo en el GET siguen **propuestos**. Contrato, validaciones del back y
+917e8ff). El 06/11 el back sumó `bloqueo_identidad` al GET, el `codigo` en los 409 y el correo en el PATCH. El legajo se sacó de US-20 y US-21: no se implementa. Contrato, validaciones del back y
 cómo traduce el front cada error en [`api-endpoints.md`](api-endpoints.md), "Perfil y legajo".
 Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `components/perfil/*`,
 `app/auth/confirmar/route.ts`.
@@ -513,20 +512,23 @@ Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `com
 
 | # | Qué | Para qué | Mientras tanto, en el front | Dueño |
 |---|---|---|---|---|
-| 1 | **Legajo:** `PATCH /usuarios/me/legajo`, `legajo` en `GET /usuarios/me` y en `GET /solicitudes/preparar`. Para guardarlo, sugerencia: columnas `id_situacion_ocupacional` e `ingreso_mensual` en `usuario` y una tabla `usuario_x_garantia`, reusando los catálogos de las solicitudes | US-20 / US-21: ver y editar el legajo y precargarlo en las solicitudes nuevas | En real el bloque se ve en solo lectura, "Sin cargar", con el aviso "El legajo todavía no se puede guardar": sin Editar, sin "Completar" y sin el estado completo/incompleto (decisión del PO, `LEGAJO_SE_PUEDE_GUARDAR`). La solicitud usa los valores por defecto de US-35 | backend / db |
-| 2 | **Bloqueo en el GET:** que `GET /usuarios/me` traiga `bloqueo_identidad` (el contrato vigente o pendiente de firma que bloquea, o `null`) | US-21 pide mostrar el bloqueo y el motivo **antes** de editar | Los campos se ven editables. Si el PATCH responde el 409 de contrato, aparece el aviso y nombre, apellido y DNI se deshabilitan hasta salir de la pantalla | backend |
-| 3 | **`codigo` en los 409** (`DNI_DUPLICADO`, `IDENTIDAD_BLOQUEADA_POR_CONTRATO`) en el sobre de error | Distinguir los dos 409 sin leer el texto. Hoy el del DNI es el mensaje crudo de Postgres (23505) | El adaptador mira el texto: "contrato" → bloqueo; "23505" o "duplicate key" → DNI repetido. Nunca se muestra el texto crudo. El manejador de errores ya incluye `codigo` (03/11, `error.middleware.ts`, en cualquier error que lo traiga); falta que `PATCH /usuarios/me` lo asigne a sus dos 409 | backend |
-| 4 | **Borrar el teléfono o la fecha de nacimiento** (hoy `""` o `null` dan 400) | US-20 muestra "Sin cargar" para un dato que no está; hoy no hay forma de volver a ese estado | El front frena antes del back: "Por ahora no se puede borrar el teléfono, solo cambiarlo" (y lo mismo con la fecha) | backend |
-| 5 | **Teléfonos del seed sin código de país** ("3511112233", 10 dígitos) | US-20 pide mostrar el teléfono en E.123 (`+54 351 …`), y eso necesita el código de país | Se muestran tal cual, sin "+" y sin inventar el 54. Si el usuario no toca el campo, el número no viaja; si lo cambia, se guarda con el código que escriba. Corregir el seed (anteponer `54`) lo resuelve | db |
-| 6 | **Sincronizar `usuario.email` con `auth.users.email`** cuando se confirma un cambio de correo (trigger `AFTER UPDATE OF email ON auth.users`, o que `/usuarios/me` lea el correo del token). Issue #24, punto 3 | Supabase cambia solo `auth.users`; sin esto, el perfil y las solicitudes muestran el correo viejo | — | backend / db |
-| 7 | **Swagger de `PATCH /usuarios/me`:** el ejemplo muestra el teléfono con "+" (`"+5493511234567"`), pero el back lo rechaza | Que el que lea Swagger no mande un 400 | El front lo manda sin "+" | backend |
+| 1 | **Borrar el teléfono o la fecha de nacimiento** (hoy `""` o `null` dan 400) | US-20 muestra "Sin cargar" para un dato que no está; hoy no hay forma de volver a ese estado | El front frena antes del back: "Por ahora no se puede borrar el teléfono, solo cambiarlo" (y lo mismo con la fecha) | backend |
+| 2 | **Teléfonos del seed sin código de país** ("3511112233", 10 dígitos) | US-20 pide mostrar el teléfono en E.123 (`+54 351 …`), y eso necesita el código de país | Se muestran tal cual, sin "+" y sin inventar el 54. Si el usuario no toca el campo, el número no viaja; si lo cambia, se guarda con el código que escriba. Corregir el seed (anteponer `54`) lo resuelve | db |
 
-Resuelto en esta tanda: el `GET` y el `PATCH` existen, los dos devuelven la misma forma (el usuario
+**Resuelto en el back el 06/11** (`feature/modificar_usuario_contraseña`):
+- `GET` y `PATCH /usuarios/me` traen `bloqueo_identidad` (`{ codigo, estado: "vigente" | "pendiente_firma" }` o `null`).
+- Los 409 del `PATCH` llevan `codigo`: `DNI_DUPLICADO` (con mensaje propio, no el de Postgres), `EMAIL_DUPLICADO` e `IDENTIDAD_BLOQUEADA_POR_CONTRATO`.
+- El Swagger muestra el teléfono sin "+".
+- El `PATCH` acepta `email` (ver "Correo" abajo).
+- La migración `20261106000000` agrega el trigger `trg_sincronizar_email_usuario`, que copia `auth.users.email` a `usuario.email`.
+- **El legajo se sacó de US-20 y US-21**: no se implementa. El bloque del front funciona solo en mock.
+
+Resuelto en la tanda anterior: el `GET` y el `PATCH` existen, los dos devuelven la misma forma (el usuario
 más `roles`), el back repite las validaciones de US-21 y el bloqueo por contrato contempla el estado
 4 "pendiente de firma" (migración `20261021120000`). La ruta aparte `/usuarios/me/perfil` que había
 propuesto el front ya no hace falta: el back amplió `/me`.
 
-**Contraseña: BLOQUEANTE para pasar a real.** El front cambia la contraseña con
+**Contraseña (verificado en real el 06/11: la opción está activa).** El front cambia la contraseña con
 `supabase.auth.updateUser({ password, current_password })`. Supabase **solo verifica la contraseña
 actual si está activa la opción "Require current password when changing password"** (en las
 opciones de contraseña de Authentication del dashboard; guía "Password security" de Supabase. En un
@@ -538,28 +540,29 @@ a ser un agujero. Con la opción activa, la actual incorrecta responde **400 `cu
 son 422. No activar "Secure password change" (pide un código por mail si la sesión tiene más de 24 h:
 el front lo traduce, pero no tiene la pantalla para el código).
 
-**Correo: pasos del dashboard (los hace quien tenga acceso; el front no los toca).** "Secure email
-change" queda **activo** (decisión del PO): Supabase manda un enlace al correo actual y otro al
-nuevo, y el cambio se aplica cuando se confirman los dos. El perfil lo dice así: "Te mandamos un
-enlace a tu correo actual y otro a <nuevo>. El cambio se aplica cuando confirmes los dos."
+**Correo (cambio del 06/11, decisión del equipo).** El equipo no trabaja con correos reales y el
+servicio de correo por defecto de Supabase rechaza las direcciones inventadas (`@rentar.com`) cuando
+tiene que mandar un enlace (error `email_address_invalid`). Por eso **US-21 ya no pide confirmar el
+correo desde un enlace**: el cambio se aplica de inmediato.
 
-1. **Authentication → URL Configuration → Redirect URLs:** sumar
-   `http://localhost:3001/auth/confirmar` y la URL de producción `https://<dominio>/auth/confirmar`
-   (si no, Supabase ignora `emailRedirectTo` y manda a la Site URL).
-2. **Authentication → Emails → "Change email address":** cambiar el enlace por
-   `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email_change` (el `RedirectTo` ya trae
-   `?next=/panel/perfil`). Con eso `/auth/confirmar` verifica con `verifyOtp` y el enlace funciona
-   aunque se abra en otro dispositivo. Con la plantilla por defecto (`{{ .ConfirmationURL }}`) también
-   anda, pero solo en el navegador donde se pidió el cambio (flujo PKCE: `?code=`).
-3. Dejar **"Secure email change" activo** (Authentication → Sign In / Providers → Email).
-4. Probar: pedir el cambio desde `/panel/perfil`, confirmar los dos enlaces y verificar que el perfil
-   muestre el correo nuevo (necesita el punto 6 de la tabla para que lo muestre `usuario.email`).
+**Back (hecho y probado en real el 06/11).** `PATCH /usuarios/me` acepta `email`:
+- Valida el formato (el de US-35) y lo guarda en minúsculas.
+- Cambia `usuario.email` y el correo de login en Supabase Auth con
+  `auth.admin.updateUserById(..., { email, email_confirm: true })`, sin mandar mails.
+- Si Auth lo rechaza, se revierten los campos ya guardados.
+- Si el correo es de otra cuenta, responde **409** con `codigo` `EMAIL_DUPLICADO`.
+- El dashboard de Supabase no necesita nada del correo (ni Redirect URLs, ni la plantilla, ni "Secure email change").
 
-`/auth/confirmar` vuelve a `/panel/perfil?correo=confirmado|parcial|error`: el perfil muestra un aviso
-según el resultado (el primer enlace de "Secure email change" vuelve como `parcial`).
+**Por qué dos caminos (decisión del 06/11).** La contraseña se sigue cambiando directo con Supabase Auth
+(`/auth/v1/user`): vive solo en Auth, no hay nada que sincronizar y Supabase ya verifica la actual. El
+correo va por `PATCH /usuarios/me` porque vive en dos tablas y porque Supabase rechaza las direcciones
+inventadas: se probó `PUT /auth/v1/user` con `{ email }` incluso con "Confirm email" apagado y sigue
+respondiendo `400 email_address_invalid` para `@rentar.com`. Sin enlace de confirmación, quien tenga una
+sesión abierta puede cambiar el correo de login; el equipo lo aceptó para las cuentas de prueba.
 
 **Decisiones del PO de esta tanda**
 
+- **(Histórico: el legajo salió de US-20 y US-21 el 06/11; las decisiones de legajo e ingresos de abajo ya no aplican al perfil.)**
 - **Ingresos:** en el perfil, 0 falla y vacío pasa (US-21). En la solicitud, un ingreso vacío en el
   perfil se precarga **vacío**, no 0: el 0 de US-35 es "prefiero no informarlo" y lo decide el usuario
   en cada solicitud. El ingreso de la solicitud es **vacío por defecto** también en real, mientras
@@ -1006,7 +1009,8 @@ contrato vigente coherente con períodos pendiente, vencido y pagado; y un contr
 **Prueba en real de US-20 y US-21 (05/11, Tanda 0, usuario 1).** Pasan la consulta del perfil, las
 validaciones de nombre, DNI, teléfono y fecha, cancelar, el aviso de cambios sin guardar y el
 `PATCH /usuarios/me` del teléfono (se cambió y se dejó como estaba). No se probaron el cambio de correo y
-de contraseña, el DNI duplicado ni el bloqueo por contrato. El formato E.123 no se pudo verificar: el
+de contraseña, el DNI duplicado ni el bloqueo por contrato (el 06/11 se probaron con Thunder Client: la
+contraseña directo en Supabase y el correo con `PATCH /usuarios/me`). El formato E.123 no se pudo verificar: el
 teléfono del usuario 1 no tiene código de país y se muestra tal cual. De US-27, solo el estado vacío.
 
 **Prueba en real de US-42 y US-43 (05/11, Tanda 1, usuario 1, solo lectura).** Pasan: inmueble 2 / contrato 2 (pestaña y detalle), inmueble 3 / contrato 3 ("Sin dato"), inmueble 17 / contrato 31 (el 409 redirige al alta), propiedad ajena e inexistente, contrato ajeno, inexistente y con id inválido, y el 500 dentro de la pestaña con "Reintentar". Los contratos 2 y 3 no tienen registro de firmas ni PDF, así que en real no se vieron firmas con fecha ni la descarga: falta el dato de prueba.

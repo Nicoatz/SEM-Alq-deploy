@@ -1,4 +1,5 @@
 import { CreateUsuarioDTO, UsuarioDTO, UpdateUsuarioDTO} from '../dtos';
+import type { PerfilUsuarioDTO } from '../dtos/usuario.dto';
 import { IUsuarioRepository, usuarioRepository } from '../repositories/usuario.repository';
 import {IContratoRepository,contratoRepository} from '../repositories/contrato.repository';
 
@@ -61,7 +62,16 @@ export class UsuarioService {
     });
   }
 
-  async obtenerMiPerfil(authUserId: string): Promise<UsuarioDTO> {
+  /**
+   * US-21: suma al usuario el contrato que bloquea nombre, apellido y DNI (o `null`), para
+   * que el front lo avise antes de editar.
+   */
+  private async conBloqueoIdentidad(usuario: UsuarioDTO): Promise<PerfilUsuarioDTO> {
+    const bloqueo = await this.contratos.findContratoQueBloqueaEdicion(usuario.id);
+    return { ...usuario, bloqueo_identidad: bloqueo };
+  }
+
+  async obtenerMiPerfil(authUserId: string): Promise<PerfilUsuarioDTO> {
     const usuario = await this.repository.findByAuthUserId(authUserId);
   
     if (!usuario) {
@@ -70,7 +80,7 @@ export class UsuarioService {
       throw error;
     }
   
-    return usuario;
+    return this.conBloqueoIdentidad(usuario);
   }
 
   
@@ -79,13 +89,14 @@ export class UsuarioService {
   async actualizarMiPerfil(
     authUserId: string,
     data: UpdateUsuarioDTO
-  ): Promise<UsuarioDTO> {
+  ): Promise<PerfilUsuarioDTO> {
     const camposPermitidos = [
       'nombre',
       'apellido',
       'numero_documento',
       'telefono',
-      'fecha_nacimiento'
+      'fecha_nacimiento',
+      'email'
     ];
   
     const camposEnviados = Object.keys(data);
@@ -161,6 +172,19 @@ export class UsuarioService {
       }
     }
   
+    // Validar correo: mismo formato que el registro y US-35 (nombre@dominio.extension).
+    // US-21: el cambio se aplica de inmediato, sin enlace de confirmación. La unicidad
+    // la resuelve el repositorio (409 EMAIL_DUPLICADO).
+    if (data.email !== undefined) {
+      const email = data.email.trim();
+
+      if (email.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        const error = new Error('El correo electrónico no tiene un formato válido.');
+        (error as any).statusCode = 400;
+        throw error;
+      }
+    }
+  
     // Validar DNI: únicamente 7 u 8 dígitos.
     if (
       data.numero_documento !== undefined &&
@@ -199,10 +223,13 @@ export class UsuarioService {
           'No se puede modificar el nombre, apellido o DNI porque el usuario participa en un contrato vigente o pendiente de firma.'
         );
         (error as any).statusCode = 409;
+        // `codigo` viaja en el sobre de error (error.middleware.ts): el front distingue
+        // este 409 del de DNI repetido sin leer el texto.
+        (error as any).codigo = 'IDENTIDAD_BLOQUEADA_POR_CONTRATO';
         throw error;
       }
     }
-  
+
     // Validar teléfono: entre 10 y 15 dígitos, sin símbolos.
     if (
       data.telefono !== undefined &&
@@ -266,11 +293,17 @@ export class UsuarioService {
       (datosActualizados as Record<string, unknown>)[campo] =
         typeof valor === 'string' ? valor.trim() : valor;
     }
+
+    // El correo se guarda siempre en minúsculas, igual que en el registro.
+    if (datosActualizados.email !== undefined) {
+      datosActualizados.email = datosActualizados.email.toLowerCase();
+    }
   
-    return this.repository.updateByAuthUserId(
+    const actualizado = await this.repository.updateByAuthUserId(
       authUserId,
       datosActualizados
     );
+    return this.conBloqueoIdentidad(actualizado);
   }
   
 

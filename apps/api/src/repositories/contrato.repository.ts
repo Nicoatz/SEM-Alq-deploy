@@ -238,6 +238,13 @@ export interface IContratoRepository {
   getLocatarioByContratoId(contratoId: number): Promise<UsuarioDTO | null>;
   delete(id: number): Promise<boolean>;
   tieneContratoQueBloqueaEdicion(usuarioId: number): Promise<boolean>;
+  findContratoQueBloqueaEdicion(usuarioId: number): Promise<ContratoBloqueanteDTO | null>;
+}
+
+/** Contrato que impide cambiar nombre, apellido y DNI de un usuario (US-21). */
+export interface ContratoBloqueanteDTO {
+  codigo: string | null;
+  estado: 'vigente' | 'pendiente_firma';
 }
 
 export class ContratoRepository implements IContratoRepository {
@@ -800,21 +807,40 @@ export class ContratoRepository implements IContratoRepository {
     return (count ?? 0) > 0;
   }
 
-  async tieneContratoQueBloqueaEdicion(
-    usuarioId: number
-  ): Promise<boolean> {
+  async tieneContratoQueBloqueaEdicion(usuarioId: number): Promise<boolean> {
+    return (await this.findContratoQueBloqueaEdicion(usuarioId)) !== null;
+  }
+
+  /**
+   * US-21: el contrato vigente (2) o pendiente de firma (4) del que el usuario es parte, como
+   * locador o locatario. Si hay más de uno se informa el más reciente. `null` = puede editar
+   * su identidad.
+   */
+  async findContratoQueBloqueaEdicion(usuarioId: number): Promise<ContratoBloqueanteDTO | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('contrato_x_usuario')
-      .select('id, contrato!inner(estado)')
+      .select('id, contrato!inner(id, codigo, estado)')
       .eq('id_usuario', usuarioId)
-      .in('contrato.estado', [2, 4])
+      .in('contrato.estado', [ESTADO_CONTRATO.VIGENTE, ESTADO_CONTRATO.PENDIENTE_FIRMA])
+      .order('id', { ascending: false })
       .limit(1);
-  
+
     if (error) throw error;
-  
-    return (data ?? []).length > 0;
+
+    const fila = (data ?? [])[0] as unknown as
+      | { contrato: { codigo: string | null; estado: number } | { codigo: string | null; estado: number }[] }
+      | undefined;
+    if (!fila) return null;
+
+    // PostgREST puede devolver el contrato embebido como objeto o como arreglo de uno.
+    const contrato = Array.isArray(fila.contrato) ? fila.contrato[0] : fila.contrato;
+    if (!contrato) return null;
+
+    return {
+      codigo: contrato.codigo,
+      estado: contrato.estado === ESTADO_CONTRATO.VIGENTE ? 'vigente' : 'pendiente_firma',
+    };
   }
-  
 }
 
 export const contratoRepository = new ContratoRepository();
