@@ -126,21 +126,16 @@ function sinTextoTecnico(error: ServiceError): ServiceError {
   return error
 }
 
+/** Los `codigo` de 409 que manda `PATCH /usuarios/me` (Swagger, sección Usuarios). */
+const CODIGOS_CONFLICTO: readonly CodigoErrorPerfil[] = ['DNI_DUPLICADO', 'EMAIL_DUPLICADO', 'IDENTIDAD_BLOQUEADA_POR_CONTRATO']
+
 /**
- * Qué 409 de `PATCH /usuarios/me` es. Si el back manda `codigo`, ese manda;
- * si no, se mira el texto.
- * TODO(backend): mandar `codigo` en el sobre (`DNI_DUPLICADO` /
- * `IDENTIDAD_BLOQUEADA_POR_CONTRATO`, HANDOFF §7): hoy los dos 409 llegan sin
- * código y el texto puede cambiar. El del DNI es el mensaje crudo de Postgres
- * (23505, "duplicate key value violates unique constraint …"); el del bloqueo
- * dice "…participa en un contrato vigente o pendiente de firma".
+ * Qué 409 de `PATCH /usuarios/me` es, SOLO por el `codigo` del sobre: el
+ * texto del back puede cambiar y nunca se muestra. Sin `codigo` conocido,
+ * `null` (mensaje general).
  */
 function codigoDelConflicto(error: ServiceError): CodigoErrorPerfil | null {
-  if (error.apiCode === 'DNI_DUPLICADO' || error.apiCode === 'EMAIL_DUPLICADO' || error.apiCode === 'IDENTIDAD_BLOQUEADA_POR_CONTRATO') return error.apiCode
-  const texto = error.message.toLowerCase()
-  if (texto.includes('contrato')) return 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
-  if (texto.includes('23505') || texto.includes('duplicate key')) return 'DNI_DUPLICADO'
-  return null
+  return CODIGOS_CONFLICTO.find((codigo) => codigo === error.apiCode) ?? null
 }
 
 /**

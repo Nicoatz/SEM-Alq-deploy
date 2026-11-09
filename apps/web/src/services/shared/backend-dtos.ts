@@ -509,12 +509,10 @@ export interface ActualizarPerfilRequest {
 export type ActualizarLegajoRequest = LegajoDto
 
 /**
- * Código de error de negocio que el front propone que el back mande en el
- * sobre. TODO(backend): hoy los dos 409 de `PATCH /usuarios/me` llegan sin
- * código y el adaptador los distingue por el texto (`perfil.adapter.ts`). El
- * front pide mandarlo en el sobre (`{ success: false, error, codigo }`),
- * para distinguir los dos 409 sin leer el texto. Lo lee `apiClient` y lo
- * guarda en `ServiceError.apiCode`.
+ * Código de los 409 de `PATCH /usuarios/me`, en el sobre
+ * (`{ success: false, error, codigo }`, desde el 06/11, 8d2a46c). Lo lee
+ * `apiClient` y lo guarda en `ServiceError.apiCode`; el adaptador decide
+ * solo por él (`perfil.adapter.ts`).
  */
 export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'EMAIL_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
 
