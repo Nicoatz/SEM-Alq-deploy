@@ -449,8 +449,9 @@ export interface UpdateInmueblePayload {
 
 // ─── Perfil y legajo (US-20, US-21) ─────────────────────────────────────
 // NOTA: `GET` y `PATCH /usuarios/me` existen desde el Sprint 3 (develop,
-// 917e8ff). El legajo y el bloqueo de identidad NO: siguen propuestos
-// (`docs/api-endpoints.md`, "Perfil", y `docs/HANDOFF-BACKEND.md` §7). Mismos
+// 917e8ff); el bloqueo de identidad y el correo, desde el 06/11 (8d2a46c).
+// El legajo NO: sigue propuesto (`docs/api-endpoints.md`, "Perfil", y
+// `docs/HANDOFF-BACKEND.md` §7). Mismos
 // códigos de ocupación y garantía que las solicitudes, así el legajo pasa del
 // perfil a la solicitud sin traducir.
 
@@ -463,13 +464,24 @@ export interface LegajoDto {
 }
 
 /**
+ * Contrato vigente o pendiente de firma que bloquea nombre, apellido y DNI
+ * (US-21). Lo manda el back desde el 06/11 (8d2a46c), en `GET` y `PATCH
+ * /usuarios/me`. `codigo` puede venir `null` (contrato sin código asignado).
+ */
+export interface BloqueoIdentidadDto {
+  codigo: string | null
+  estado: 'vigente' | 'pendiente_firma'
+}
+
+/**
  * Respuesta de `GET /api/v1/usuarios/me` y de `PATCH /api/v1/usuarios/me`
  * (existen) tal como la usa el perfil. Solo el usuario del token: no hay
  * forma de pedir el perfil de otro (US-20).
- * TODO(backend): sumar `bloqueo_identidad` (el contrato vigente o pendiente
- * de firma que bloquea nombre, apellido y DNI, US-21) y el legajo.
  */
-export type PerfilResponse = UsuarioMeResponse
+export interface PerfilResponse extends UsuarioMeResponse {
+  /** `null` = puede cambiar nombre, apellido y DNI. */
+  bloqueo_identidad: BloqueoIdentidadDto | null
+}
 
 /**
  * Cuerpo de `PATCH /api/v1/usuarios/me` (existe). Solo los campos que

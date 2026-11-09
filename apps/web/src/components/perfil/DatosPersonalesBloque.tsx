@@ -16,11 +16,11 @@
  *   error en español. Al cambiar nombre, apellido o correo, la sesión se
  *   actualiza (`refrescarUsuario`: el UserMenu y `useAuth().user`).
  *
- * NOTA (bloqueo en modo real): `GET /usuarios/me` todavía no dice si hay un
- * contrato que bloquea (TODO(backend) en `perfil.adapter.ts`). Los campos se
- * muestran editables y, si el PATCH responde el 409 de contrato, el bloque
- * muestra el aviso y deshabilita nombre, apellido y DNI hasta salir de la
- * pantalla (`bloqueoDescubierto`).
+ * NOTA (bloqueo): el perfil trae el contrato que bloquea (`identityLock`, de
+ * `bloqueo_identidad` en modo real), así que el aviso y los campos
+ * deshabilitados se ven antes de editar. El 409 del PATCH queda de respaldo
+ * (por ejemplo, si el contrato se creó con la pantalla abierta): el bloque
+ * pasa a bloqueado hasta salir de la pantalla (`bloqueoDescubierto`).
  * De dónde saca los datos: `PerfilUsuario` (lo pasa `PerfilScreen`); guarda
  * con `perfil.service#actualizarDatosPersonales`.
  * Quién lo usa: `PerfilScreen.tsx`.
@@ -135,16 +135,19 @@ const reglasFechaPerfil = [
   },
 ]
 
+/** Lo que sigue al motivo del bloqueo (igual en los tres casos). */
+const CONSECUENCIA_BLOQUEO = 'Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.'
+
 /**
- * Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). Sin
- * el contrato (modo real: el bloqueo se supo por el 409), un texto general.
+ * Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). Si el
+ * contrato no tiene código, no se nombra. Sin el contrato (el bloqueo se supo
+ * por el 409), un texto general.
  */
 function textoBloqueo(lock: PerfilUsuario['identityLock']): string {
-  if (!lock) {
-    return 'Sos parte de un contrato vigente o pendiente de firma. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.'
-  }
+  if (!lock) return `Formás parte de un contrato vigente o pendiente de firma. ${CONSECUENCIA_BLOQUEO}`
   const estado = lock.contractStatus === 'vigente' ? 'vigente' : 'pendiente de firma'
-  return `Sos parte del contrato ${lock.contractCode}, ${estado}. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.`
+  const contrato = lock.contractCode ? `del contrato ${lock.contractCode}` : 'de un contrato'
+  return `Formás parte ${contrato}, que está ${estado}. ${CONSECUENCIA_BLOQUEO}`
 }
 
 /** Props de {@link FormularioDatos}. */
@@ -268,7 +271,7 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
   // ─── Estado local ───────────────────────────────────────────────────
   const [editando, setEditando] = useState(false)
   const [exito, setExito] = useState<string | null>(null)
-  /** Modo real: el PATCH respondió el 409 de contrato en esta visita (ver la NOTA del encabezado). */
+  /** El PATCH respondió el 409 de contrato en esta visita (respaldo, ver la NOTA del encabezado). */
   const [bloqueoDescubierto, setBloqueoDescubierto] = useState(false)
   const bloqueado = perfil.identityLock !== null || bloqueoDescubierto
 

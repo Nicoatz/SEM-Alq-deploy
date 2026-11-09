@@ -48,8 +48,8 @@ export interface LegajoUsuario {
  * firma; en ese caso se debe explicar el motivo").
  */
 export interface BloqueoIdentidad {
-  /** Código del contrato, ej. `CT-2026-0148`. */
-  contractCode: string
+  /** Código del contrato, ej. `CT-2026-0148`; `null` si el contrato no tiene código (no se muestra). */
+  contractCode: string | null
   /** Estado del contrato que bloquea. */
   contractStatus: 'vigente' | 'pendiente_firma'
 }

@@ -67,10 +67,9 @@ export function legajoDtoToLegajo(dto: LegajoDto | null): LegajoUsuario {
  *   (`telefonoDelBack`; brecha de datos en HANDOFF §7).
  * - `roles`: los del back, traducidos con `rolDtoToUserRole`. US-20: "todo
  *   usuario es locatario", así que se agrega si el back no lo manda.
- * - `identityLock`: siempre `null`. TODO(backend): el GET no dice si hay un
- *   contrato que bloquea nombre, apellido y DNI (US-21 pide mostrarlo antes
- *   de editar). Mientras tanto, el bloqueo se descubre con el 409 del PATCH
- *   (ver `DatosPersonalesBloque`).
+ * - `identityLock`: de `bloqueo_identidad` (`codigo` → `contractCode`,
+ *   `estado` → `contractStatus`); `null` si no hay contrato que bloquee. Así
+ *   la pantalla avisa ANTES de editar (US-21: "se debe explicar el motivo").
  * - `legajo`: vacío ("Sin cargar"). TODO(backend): el back no tiene legajo.
  */
 export function perfilResponseToPerfil(dto: PerfilResponse): PerfilUsuario {
@@ -85,7 +84,9 @@ export function perfilResponseToPerfil(dto: PerfilResponse): PerfilUsuario {
     telefono: telefonoDelBack(dto.telefono),
     fechaNacimiento: dto.fecha_nacimiento || null,
     roles,
-    identityLock: null,
+    identityLock: dto.bloqueo_identidad
+      ? { contractCode: dto.bloqueo_identidad.codigo, contractStatus: dto.bloqueo_identidad.estado }
+      : null,
     legajo: legajoDtoToLegajo(null),
   }
 }
