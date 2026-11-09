@@ -11,7 +11,9 @@ import {
 } from '../dtos';
 import { getSupabaseAdmin } from '../config/supabase';
 import { hoyEnArgentina } from '../services/contrato-borrador.validacion';
-import { BUCKET_CONTRATOS_PDF, MAX_PDF_BYTES } from '../services/contrato-pdf.validacion';
+import { createHash, randomUUID } from 'crypto';
+
+import { BUCKET_CONTRATOS_PDF, MAX_PDF_BYTES, nuevaRutaPdfFirmado } from '../services/contrato-pdf.validacion';
 
 /** Cuánto dura la URL firmada para ver el PDF en la vista previa del paso 4. */
 const SEGUNDOS_URL_PDF = 300;
@@ -74,6 +76,110 @@ export interface ModificarContratoResultado {
   pdf_anterior?: string | null;
 }
 
+/** Respuesta de la función SQL `enviar_contrato` (US-05, enviar a firmar). */
+export interface EnviarContratoResultado {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  /** Motivo de un error (409 y 400), para que el cliente no lea el texto. */
+  codigo?: string;
+  /** CT-AAAA-NNNN asignado (o conservado, si el contrato se reabrió antes). */
+  contrato_codigo?: string;
+  /** `true` si el código se asignó en este envío: solo entonces se borra al revertir. */
+  codigo_nuevo?: boolean;
+}
+
+/** Destinatario de DocuSign de un firmante, para guardar junto con el sobre. */
+export interface DestinatarioSobre {
+  tipo: 'usuario' | 'garante';
+  /** `usuario.id` o `garante.id`. */
+  id: number;
+  /** 1 = locador, 2 = locatario. Solo para `tipo: 'usuario'`. */
+  tipo_firmante?: number;
+  recipient_id: string;
+  client_user_id: string;
+}
+
+/** Respuesta de las funciones SQL `registrar_sobre_contrato` y `revertir_envio_contrato`. */
+export interface SobreContratoResultado {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  codigo?: string;
+}
+
+/** Lo que hace falta para darle la firma a un usuario (locador o locatario) de un contrato. */
+export interface ContratoParaFirma {
+  id: number;
+  estado: number;
+  envelope_id: string | null;
+  /** La fila del usuario en `contrato_x_usuario`. */
+  parte: {
+    /** 1 = locador, 2 = locatario. */
+    tipo_firmante: number;
+    estado_firma: string;
+    recipient_id: string | null;
+  };
+}
+
+/** Lo que hace falta para darle la firma a un garante que abrió su enlace. */
+export interface GaranteParaFirma {
+  id: number;
+  id_contrato: number;
+  nombre: string;
+  apellido: string;
+  estado_firma: string;
+  recipient_id: string | null;
+  token_vence_en: string | null;
+  contrato: {
+    estado: number;
+    codigo: string | null;
+    envelope_id: string | null;
+    direccion: string;
+    numero: number;
+    piso: string | null;
+    barrio: string;
+  };
+}
+
+/** Respuesta de las funciones SQL del webhook de DocuSign (firma, rechazo y cierre del contrato). */
+export interface FirmaResultado {
+  success: boolean;
+  statusCode: number;
+  message: string;
+  codigo?: string;
+  id_contrato?: number;
+  /** `registrar_firma_contrato`: el aviso estaba repetido y la firma ya constaba. */
+  ya_registrada?: boolean;
+  /** `completar_contrato`: el contrato ya estaba vigente. */
+  ya_completado?: boolean;
+}
+
+/** El contrato dueño de un sobre de DocuSign, con lo que necesita el webhook. */
+export interface ContratoPorSobre {
+  id: number;
+  estado: number;
+  /** Hash del PDF cargado: es el documento cuyo contenido aceptó cada firmante. */
+  pdf_sha256: string | null;
+  /** El PDF firmado, una vez que el contrato quedó vigente y se descargó de DocuSign. */
+  pdf_firmado_storage_path: string | null;
+}
+
+
+/** Un firmante del contrato, identificado por su destinatario de DocuSign. */
+export interface FirmanteRegistrado {
+  recipient_id: string;
+  estado_firma: string;
+}
+
+/** Un aviso de DocuSign registrado para auditoría e idempotencia. */
+export interface EventoDocusign {
+  event_key: string;
+  envelope_id: string;
+  tipo: string;
+  payload: unknown;
+}
+
 /** Datos del PDF que valida la API antes de registrarlo en el contrato. */
 export interface DatosPdf {
   path: string;
@@ -86,6 +192,8 @@ export interface DatosPdf {
 export interface ContratoParaPdf {
   estado: number | null;
   pdf_storage_path: string | null;
+  /** Sobre de DocuSign del contrato (pendiente de firma), para anularlo al modificarlo. */
+  envelope_id: string | null;
 }
 
 /** Resultado de descargar el PDF subido para validarlo. */
@@ -106,6 +214,18 @@ const ESTADO_POR_ID: Record<number, EstadoContratoResponse> = {
   [ESTADO_CONTRATO.PENDIENTE_FIRMA]: 'pendiente_firma',
   [ESTADO_CONTRATO.VIGENTE]: 'vigente',
   [ESTADO_CONTRATO.FINALIZADO]: 'finalizado',
+};
+
+/**
+ * Lo que hace falta de una fila de `contrato` para armar su PDF: el original y, si el contrato ya
+ * es vigente, el firmado. Los campos del firmado vienen de la migración 20261107 (US-07).
+ */
+type FilaConPdf = Pick<ContratoDTO, 'pdf_storage_path' | 'pdf_nombre_original' | 'pdf_tamano_bytes' | 'pdf_subido_en'> & {
+  estado?: number | null;
+  codigo?: string | null;
+  pdf_firmado_storage_path?: string | null;
+  pdf_firmado_tamano_bytes?: number | null;
+  pdf_firmado_en?: string | null;
 };
 
 /** Fila de `contrato` con su inmueble, tal como la devuelve PostgREST. */
@@ -226,6 +346,36 @@ export interface IContratoRepository {
   findBorradorCompleto(idContrato: number, idLocador: number): Promise<ContratoBorradorResponse | null>;
   reabrirContrato(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
   descartarBorrador(idContrato: number, idLocador: number): Promise<ModificarContratoResultado>;
+  enviarContrato(idContrato: number, idLocador: number): Promise<EnviarContratoResultado>;
+  registrarSobre(
+    idContrato: number,
+    envelopeId: string,
+    destinatarios: DestinatarioSobre[]
+  ): Promise<SobreContratoResultado>;
+  revertirEnvio(idContrato: number, idLocador: number, quitarCodigo: boolean): Promise<SobreContratoResultado>;
+  findContratoPorSobre(envelopeId: string): Promise<ContratoPorSobre | null>;
+  guardarPdfFirmado(idContrato: number, archivo: Buffer): Promise<string | null>;
+  listarFirmantes(idContrato: number): Promise<FirmanteRegistrado[]>;
+  registrarFirma(
+    envelopeId: string,
+    recipientId: string,
+    fechaFirma: string,
+    ip: string,
+    hash: string
+  ): Promise<FirmaResultado>;
+  registrarRechazo(envelopeId: string): Promise<FirmaResultado>;
+  completarContrato(envelopeId: string): Promise<FirmaResultado>;
+  registrarEvento(evento: EventoDocusign): Promise<{ id: number; yaProcesado: boolean }>;
+  marcarEventoProcesado(id: number): Promise<void>;
+  findParaFirma(idContrato: number, idUsuario: number): Promise<ContratoParaFirma | null>;
+  findGarantePorTokenHash(tokenHash: string): Promise<GaranteParaFirma | null>;
+  generarEnlaceGarante(
+    idContrato: number,
+    idGarante: number,
+    idLocador: number,
+    tokenHash: string,
+    venceEn: string
+  ): Promise<SobreContratoResultado>;
   findListadoByInmuebleId(idInmueble: number, idLocador: number): Promise<ListadoContratosInmueble | null>;
   findDetalle(idContrato: number, idLocador: number): Promise<FilaDetalleContrato | null>;
   findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null>;
@@ -445,6 +595,325 @@ export class ContratoRepository implements IContratoRepository {
   }
 
   /**
+   * US-05, paso 4: pasa un borrador a pendiente de firma y le asigna el código CT-AAAA-NNNN. Dueño,
+   * estado y datos obligatorios los valida la función SQL `enviar_contrato`, en una transacción.
+   * El sobre de DocuSign se crea después (`registrarSobre`).
+   */
+  async enviarContrato(idContrato: number, idLocador: number): Promise<EnviarContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('enviar_contrato', {
+      p_id_contrato: idContrato,
+      p_id_locador: idLocador,
+    });
+    if (error) throw error;
+    return data as EnviarContratoResultado;
+  }
+
+  /** US-07: guarda el id del sobre de DocuSign y el destinatario de cada firmante (una transacción). */
+  async registrarSobre(
+    idContrato: number,
+    envelopeId: string,
+    destinatarios: DestinatarioSobre[]
+  ): Promise<SobreContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('registrar_sobre_contrato', {
+      p_id_contrato: idContrato,
+      p_envelope_id: envelopeId,
+      p_destinatarios: destinatarios,
+    });
+    if (error) throw error;
+    return data as SobreContratoResultado;
+  }
+
+  /**
+   * Deshace `enviarContrato` cuando DocuSign falla: vuelve a borrador y limpia el sobre. Con
+   * `quitarCodigo`, borra el código asignado en ese envío para no dejar huecos en la numeración.
+   */
+  async revertirEnvio(idContrato: number, idLocador: number, quitarCodigo: boolean): Promise<SobreContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('revertir_envio_contrato', {
+      p_id_contrato: idContrato,
+      p_id_locador: idLocador,
+      p_quitar_codigo: quitarCodigo,
+    });
+    if (error) throw error;
+    return data as SobreContratoResultado;
+  }
+
+  /** US-07: el contrato dueño de un sobre de DocuSign, o `null` si ninguno lo tiene registrado. */
+  async findContratoPorSobre(envelopeId: string): Promise<ContratoPorSobre | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('contrato')
+      .select('id, estado, pdf_sha256, pdf_firmado_storage_path')
+      .eq('docusign_envelope_id', envelopeId)
+      .maybeSingle();
+    if (error) throw error;
+    return data
+      ? {
+          id: data.id,
+          estado: data.estado,
+          pdf_sha256: data.pdf_sha256 ?? null,
+          pdf_firmado_storage_path: data.pdf_firmado_storage_path ?? null,
+        }
+      : null;
+  }
+
+  /**
+   * US-07: guarda en Storage el PDF firmado que devolvió DocuSign (con su certificado de
+   * finalización) y lo registra en el contrato con su hash, tamaño y fecha. Devuelve la ruta.
+   * Si ya había uno registrado no lo pisa (la firma es definitiva). Si falla el registro, borra
+   * el archivo recién subido para no dejar un PDF suelto.
+   */
+  async guardarPdfFirmado(idContrato: number, archivo: Buffer): Promise<string | null> {
+    const supabase = getSupabaseAdmin();
+    const ruta = nuevaRutaPdfFirmado(idContrato, randomUUID());
+
+    const { error: errorSubida } = await supabase.storage
+      .from(BUCKET_CONTRATOS_PDF)
+      .upload(ruta, archivo, { contentType: 'application/pdf', upsert: false });
+    if (errorSubida) throw errorSubida;
+
+    const { data, error } = await supabase
+      .from('contrato')
+      .update({
+        pdf_firmado_storage_path: ruta,
+        pdf_firmado_sha256: createHash('sha256').update(archivo).digest('hex'),
+        pdf_firmado_tamano_bytes: archivo.length,
+        pdf_firmado_en: new Date().toISOString(),
+      })
+      .eq('id', idContrato)
+      .is('pdf_firmado_storage_path', null)
+      .select('id');
+
+    if (error || !data?.length) {
+      await this.eliminarPdf(ruta);
+      if (error) throw error;
+      // Otro aviso ganó la carrera y ya guardó el PDF firmado: este archivo sobra.
+      return null;
+    }
+
+    return ruta;
+  }
+
+  /** US-07: locador, locatario y garantes del contrato con su destinatario y estado de firma. */
+  async listarFirmantes(idContrato: number): Promise<FirmanteRegistrado[]> {
+    const supabase = getSupabaseAdmin();
+
+    const [partes, garantes] = await Promise.all([
+      supabase
+        .from('contrato_x_usuario')
+        .select('docusign_recipient_id, estado_firma')
+        .eq('id_contrato', idContrato)
+        .in('tipo_firmante', [1, 2]),
+      supabase.from('garante').select('docusign_recipient_id, estado_firma').eq('id_contrato', idContrato),
+    ]);
+    if (partes.error) throw partes.error;
+    if (garantes.error) throw garantes.error;
+
+    return [...(partes.data ?? []), ...(garantes.data ?? [])]
+      .filter(fila => fila.docusign_recipient_id)
+      .map(fila => ({ recipient_id: fila.docusign_recipient_id as string, estado_firma: fila.estado_firma as string }));
+  }
+
+  /**
+   * US-07: registra la firma de un destinatario (fecha, IP y hash del documento). Idempotente: la
+   * función SQL `registrar_firma_contrato` ignora un aviso repetido.
+   */
+  async registrarFirma(
+    envelopeId: string,
+    recipientId: string,
+    fechaFirma: string,
+    ip: string,
+    hash: string
+  ): Promise<FirmaResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('registrar_firma_contrato', {
+      p_envelope_id: envelopeId,
+      p_recipient_id: recipientId,
+      p_fecha_firma: fechaFirma,
+      p_ip: ip,
+      p_hash: hash,
+    });
+    if (error) throw error;
+    return data as FirmaResultado;
+  }
+
+  /** US-07: el contrato vuelve a borrador y se borran las firmas (`registrar_rechazo_contrato`). */
+  async registrarRechazo(envelopeId: string): Promise<FirmaResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('registrar_rechazo_contrato', {
+      p_envelope_id: envelopeId,
+    });
+    if (error) throw error;
+    return data as FirmaResultado;
+  }
+
+  /**
+   * US-07: pasa el contrato a vigente, deja la propiedad alquilada y rechaza las solicitudes
+   * pendientes, todo en una transacción (`completar_contrato`).
+   */
+  async completarContrato(envelopeId: string): Promise<FirmaResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('completar_contrato', {
+      p_envelope_id: envelopeId,
+    });
+    if (error) throw error;
+    return data as FirmaResultado;
+  }
+
+  /**
+   * Guarda un aviso de DocuSign (auditoría e idempotencia). Si ya estaba, devuelve el existente y
+   * si ya se había procesado: DocuSign reintenta y un aviso repetido no se vuelve a procesar.
+   */
+  async registrarEvento(evento: EventoDocusign): Promise<{ id: number; yaProcesado: boolean }> {
+    const supabase = getSupabaseAdmin();
+
+    const buscar = async () => {
+      const { data, error } = await supabase
+        .from('docusign_evento')
+        .select('id, procesado_en')
+        .eq('event_key', evento.event_key)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? { id: data.id as number, yaProcesado: data.procesado_en !== null } : null;
+    };
+
+    const existente = await buscar();
+    if (existente) return existente;
+
+    const { data, error } = await supabase.from('docusign_evento').insert(evento).select('id').single();
+
+    // Dos avisos iguales a la vez: el segundo choca con el índice único y lee el que ganó.
+    if (error?.code === '23505') {
+      const ganador = await buscar();
+      if (ganador) return ganador;
+    }
+    if (error) throw error;
+
+    return { id: data.id as number, yaProcesado: false };
+  }
+
+  /** Marca un aviso como procesado: DocuSign puede repetirlo y no se vuelve a procesar. */
+  async marcarEventoProcesado(id: number): Promise<void> {
+    const { error } = await getSupabaseAdmin()
+      .from('docusign_evento')
+      .update({ procesado_en: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+  }
+
+  /**
+   * US-07: el contrato y la fila del usuario como firmante (locador o locatario). `null` si el
+   * contrato no existe, es la oferta, está dado de baja o el usuario no es parte de él: no se
+   * distingue, para no revelar que existe.
+   */
+  async findParaFirma(idContrato: number, idUsuario: number): Promise<ContratoParaFirma | null> {
+    const supabase = getSupabaseAdmin();
+
+    const { data: contrato, error: errorContrato } = await supabase
+      .from('contrato')
+      .select('id, estado, docusign_envelope_id')
+      .eq('id', idContrato)
+      .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
+      .eq('activo', true)
+      .maybeSingle();
+    if (errorContrato) throw errorContrato;
+    if (!contrato) return null;
+
+    const { data: parte, error: errorParte } = await supabase
+      .from('contrato_x_usuario')
+      .select('tipo_firmante, estado_firma, docusign_recipient_id')
+      .eq('id_contrato', idContrato)
+      .eq('id_usuario', idUsuario)
+      // NOTA: solo locador (1) y locatario (2). Los garantes viven en `garante` y no tienen sesión.
+      .in('tipo_firmante', [1, 2])
+      .maybeSingle();
+    if (errorParte) throw errorParte;
+    if (!parte) return null;
+
+    return {
+      id: contrato.id,
+      estado: contrato.estado,
+      envelope_id: contrato.docusign_envelope_id ?? null,
+      parte: {
+        tipo_firmante: parte.tipo_firmante,
+        estado_firma: parte.estado_firma,
+        recipient_id: parte.docusign_recipient_id ?? null,
+      },
+    };
+  }
+
+  /**
+   * US-07: el garante dueño de un enlace de firma, buscado por el hash de su token (nunca se
+   * guarda el token). Devuelve el vencimiento para que el servicio decida; `null` si no existe.
+   */
+  async findGarantePorTokenHash(tokenHash: string): Promise<GaranteParaFirma | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('garante')
+      .select(
+        'id, id_contrato, nombre, apellido, estado_firma, docusign_recipient_id, token_vence_en, ' +
+          'contrato:contrato!garante_id_contrato_fkey(estado, activo, codigo, docusign_envelope_id, ' +
+          'inmueble:inmueble!contrato_id_inmueble_fkey(direccion, numero, piso, barrio))'
+      )
+      .eq('token_firma_hash', tokenHash)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+
+    const fila = data as unknown as {
+      id: number;
+      id_contrato: number;
+      nombre: string;
+      apellido: string;
+      estado_firma: string;
+      docusign_recipient_id: string | null;
+      token_vence_en: string | null;
+      contrato: {
+        estado: number;
+        activo: boolean;
+        codigo: string | null;
+        docusign_envelope_id: string | null;
+        inmueble: { direccion: string; numero: number; piso: string | null; barrio: string } | null;
+      } | null;
+    };
+
+    // Un contrato dado de baja o sin propiedad no tiene nada que firmar.
+    if (!fila.contrato?.activo || !fila.contrato.inmueble) return null;
+
+    return {
+      id: fila.id,
+      id_contrato: fila.id_contrato,
+      nombre: fila.nombre,
+      apellido: fila.apellido,
+      estado_firma: fila.estado_firma,
+      recipient_id: fila.docusign_recipient_id ?? null,
+      token_vence_en: fila.token_vence_en ?? null,
+      contrato: {
+        estado: fila.contrato.estado,
+        codigo: fila.contrato.codigo ?? null,
+        envelope_id: fila.contrato.docusign_envelope_id ?? null,
+        ...fila.contrato.inmueble,
+      },
+    };
+  }
+
+  /**
+   * US-07: guarda el hash del enlace de firma de un garante, con su vencimiento. Dueño, estado y
+   * garante los valida la función SQL `generar_enlace_garante`; un enlace nuevo pisa el anterior.
+   */
+  async generarEnlaceGarante(
+    idContrato: number,
+    idGarante: number,
+    idLocador: number,
+    tokenHash: string,
+    venceEn: string
+  ): Promise<SobreContratoResultado> {
+    const { data, error } = await getSupabaseAdmin().rpc('generar_enlace_garante', {
+      p_id_contrato: idContrato,
+      p_id_garante: idGarante,
+      p_id_locador: idLocador,
+      p_token_hash: tokenHash,
+      p_vence_en: venceEn,
+    });
+    if (error) throw error;
+    return data as SobreContratoResultado;
+  }
+
+  /**
    * Los contratos de una propiedad del locador (US-43): borrador, pendiente de firma, vigente y
    * finalizado. La oferta (estado 1) es la publicación, no un contrato, y no se devuelve. Solo se
    * piden nombre y apellido del locatario: el DNI y el contacto no salen de acá.
@@ -473,6 +942,7 @@ export class ContratoRepository implements IContratoRepository {
       .select(
         `id, codigo, estado, id_solicitud, monto_alquiler, fecha_inicio_contrato, fecha_fin_contrato,
          frecuencia_ajuste, pdf_storage_path, pdf_nombre_original, pdf_tamano_bytes, pdf_subido_en,
+         pdf_firmado_storage_path, pdf_firmado_tamano_bytes, pdf_firmado_en,
          indice:tipo_indice(descripcion),
          partes:contrato_x_usuario(tipo_firmante, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo, usuario(nombre, apellido))`
       )
@@ -485,7 +955,7 @@ export class ContratoRepository implements IContratoRepository {
       FilaListadoContrato,
       'indice' | 'locatario' | 'ultimo_ajuste' | 'partes' | 'garantes' | 'pdf'
     > &
-      Pick<ContratoDTO, 'pdf_storage_path' | 'pdf_nombre_original' | 'pdf_tamano_bytes' | 'pdf_subido_en'> & {
+      FilaConPdf & {
         indice: { descripcion: string } | { descripcion: string }[] | null;
         partes: FilaListadoContrato['partes'] | null;
       })[];
@@ -670,15 +1140,30 @@ export class ContratoRepository implements IContratoRepository {
   }
 
   /** El PDF cargado en el contrato, con una URL firmada para la vista previa (`null` si no hay). */
-  private async armarPdf(
-    fila: Pick<ContratoDTO, 'pdf_storage_path' | 'pdf_nombre_original' | 'pdf_tamano_bytes' | 'pdf_subido_en'>
-  ): Promise<ContratoPdfResponse | null> {
-    if (!fila.pdf_storage_path) return null;
+  private async armarPdf(fila: FilaConPdf): Promise<ContratoPdfResponse | null> {
+    // US-07: con el contrato vigente (o finalizado) el documento que se descarga es el FIRMADO, con
+    // el certificado de finalización de DocuSign. Si todavía no se guardó (falló la descarga y
+    // DocuSign reintenta), mientras tanto se ofrece el original.
+    const esFirmado =
+      (fila.estado === ESTADO_CONTRATO.VIGENTE || fila.estado === ESTADO_CONTRATO.FINALIZADO) &&
+      Boolean(fila.pdf_firmado_storage_path);
+    const ruta = esFirmado ? fila.pdf_firmado_storage_path : fila.pdf_storage_path;
+
+    if (!ruta) return null;
 
     const { data, error } = await getSupabaseAdmin()
       .storage.from(BUCKET_CONTRATOS_PDF)
-      .createSignedUrl(fila.pdf_storage_path, SEGUNDOS_URL_PDF);
+      .createSignedUrl(ruta, SEGUNDOS_URL_PDF);
     if (error || !data) throw error ?? new Error('No se pudo firmar la URL del PDF.');
+
+    if (esFirmado) {
+      return {
+        nombre: `${fila.codigo ?? 'contrato'}-firmado.pdf`,
+        tamano_bytes: Number(fila.pdf_firmado_tamano_bytes ?? 0),
+        subido_en: fila.pdf_firmado_en ?? '',
+        url: data.signedUrl,
+      };
+    }
 
     return {
       nombre: fila.pdf_nombre_original ?? 'contrato.pdf',
@@ -695,16 +1180,27 @@ export class ContratoRepository implements IContratoRepository {
   async findParaPdf(idContrato: number, idLocador: number): Promise<ContratoParaPdf | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('contrato')
-      .select('estado, pdf_storage_path, inmueble:inmueble!contrato_id_inmueble_fkey(id_locador)')
+      .select(
+        'estado, pdf_storage_path, docusign_envelope_id, inmueble:inmueble!contrato_id_inmueble_fkey(id_locador)'
+      )
       .eq('id', idContrato)
       .neq('estado', ESTADO_CONTRATO.DISPONIBLE)
       .eq('activo', true)
       .maybeSingle();
     if (error) throw error;
 
-    const fila = data as unknown as (ContratoParaPdf & { inmueble: { id_locador: number } | null }) | null;
+    const fila = data as unknown as {
+      estado: number | null;
+      pdf_storage_path: string | null;
+      docusign_envelope_id: string | null;
+      inmueble: { id_locador: number } | null;
+    } | null;
     if (!fila?.inmueble || fila.inmueble.id_locador !== idLocador) return null;
-    return { estado: fila.estado, pdf_storage_path: fila.pdf_storage_path };
+    return {
+      estado: fila.estado,
+      pdf_storage_path: fila.pdf_storage_path,
+      envelope_id: fila.docusign_envelope_id ?? null,
+    };
   }
 
   /** URL firmada para que el navegador suba el PDF directo al bucket (no pasa por la API). */

@@ -33,7 +33,7 @@ conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
 | `POST /contratos/:id/reabrir` | locador | **Conectado** (Tanda 2), sin probar en real | Conserva el código y resetea las firmas. Hace falta enviar a firmar para probarlo sin gastar el contrato 2 |
 | `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente: decisión del PO (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
-| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `/reenviar` | — | **No existe** (#27, punto 1) | Sin ellas ningún contrato llega a pendiente ni a vigente, y no se generan períodos |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma` | locador (enviar y enlace); locador o locatario (firmar y rechazar) | **Implementado** con DocuSign (US-07, ver "Firma de contratos"); probado contra el sandbox, falta la prueba completa y el webhook en Vercel | `/reenviar` se **eliminó** de US-07 |
 | `GET /cobros-locador` | locador | **Conectado** (Tanda 4), sin datos para probar; parcial | Incluye períodos futuros, que el `POST` rechaza: el front los filtra. Sin tasa ni gracia |
 | `POST /cobros-locador` | locador | **Conectado** (Tanda 4), sin probar en real; parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500: el adaptador lo traduce |
 | `GET /cobros-locador/historial` | locador | **Conectado** (Tanda 4), solo con 0 períodos; parcial | `cantidades` depende del filtro de estado y `resumen` no trae pendiente: el front pide todo sin filtros y lo calcula |
@@ -505,68 +505,74 @@ locador. Es una ruta aparte de `GET /contratos/:id` (que sigue sirviendo el alta
 (correlativo por año) y lo deja inmutable. **No toca el inmueble** (sigue publicado, decisión del PO).
 Responde `{ id, codigo, estado: "pendiente_firma" }`.
 
-## Firma de contratos (Sprint 3, US-07) · PROPUESTO
+## Firma de contratos (Sprint 4, US-07) · IMPLEMENTADO con DocuSign
 
-Las acciones de firma siguen propuestas. El detalle del locador ya existe (`GET /contratos/:id/detalle`,
-US-42) y el listado del locatario usa `GET /alquileres-locatario` (US-27). El detalle y la firma funcionan
-en modo mock y la rama real todavía llama a las rutas propuestas. Front: `contratos.service.ts`
-(`getDetalleContrato`, `firmarContrato`, `rechazarFirma`, `reabrirContrato`, `reenviarInvitacion`),
-`contrato.adapter.ts#detalleDeLocadorDeDto` y los DTO de `backend-dtos.ts`.
-Todas con **Bearer**; el usuario sale del token. **Firman el locador y el locatario.** Los endpoints de
-firma siguen propuestos y no forman parte de la implementación actual de US-27.
+La firma es **embebida** en DocuSign (sandbox por ahora): el back crea el sobre, y para firmar le
+devuelve al cliente una **URL de DocuSign** a la que se redirige. No se manda ningún mail. Plan y
+decisiones: [`paso_paso_docusing.md`](../paso_paso_docusing.md). El detalle del locador es
+`GET /contratos/:id/detalle` (US-42) y el del locatario, `GET /alquileres-locatario` (US-27).
+Todas con **Bearer** (el usuario sale del token), salvo las del garante y el webhook.
 
-> NOTA (PO, 05/11): **los garantes no firman**; son un dato del contrato. Que el back los cuente como
-> firmantes es una brecha (HANDOFF §7): el front los excluye y recalcula `faltan`. **US-07 no lleva
-> historial del contrato ni registro de IP.** El criterio del rechazo se está confirmando con el equipo:
-> la tabla de abajo sigue la versión con la que se armó el mock.
+> NOTA (cambios respecto de lo que decía este documento hasta el 06/11, a confirmar con el PO):
+> - **Los garantes sí firman** (revierte la decisión del 05/11). No son usuarios de la plataforma:
+>   firman con un **enlace temporal de RentAR** que genera el locador.
+> - **Se registra la IP** de cada firma (la informa DocuSign). Revierte "US-07 no lleva registro de IP".
+> - **Solo el locador y el locatario pueden rechazar.** El garante no.
+> - **Rechazar devuelve el contrato a borrador** (borra las firmas, anula el sobre y conserva el `codigo`).
+>   Antes "no cambiaba el estado".
+> - **Se eliminó `/reenviar`** y `fecha_ultima_invitacion`: no hay invitaciones por mail.
 
-| Método y ruta | Estado | Service | Quién | Body | Respuesta (`data`) | Errores |
-|---|---|---|---|---|---|---|
-| `GET /alquileres-locatario[?estado=]` | implementado para US-27 | `AlquilerLocatarioService#listar` | el usuario autenticado como locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
-| `POST /contratos/:id/firmar` | pendiente (propuesto) | `#firmarContrato` | locador o locatario | — | 200 `ContratoDetalleResponse` | 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
-| `POST /contratos/:id/rechazar` | pendiente (propuesto) | `#rechazarFirma` | **solo el locatario** | `{ "motivo": string \| null }` | 200 `ContratoDetalleResponse` | 400 (motivo de más de 300), 403 (es el locador), 404, **409** `CONTRATO_NO_PENDIENTE`, `YA_FIRMO`, `FIRMA_RECHAZADA` |
-| `POST /contratos/:id/reabrir` | **implementado** | `#reabrirContrato` (es la acción "Modificar": no hay otra ruta para cancelar el envío) | **solo el locador** | — | 200 `ContratoBorradorResponse` | 409 con `codigo` |
-| `POST /contratos/:id/reenviar` | pendiente (propuesto) | `#reenviarInvitacion` | **solo el locador** | `{ "rol": "locatario" }` | 200 `ContratoDetalleResponse` | 403, 404, **409** `FIRMANTE_NO_PENDIENTE`, `CONTRATO_NO_PENDIENTE`, **429** (menos de una hora desde la última invitación) |
+| Método y ruta | Quién | Body | Respuesta (`data`) | Errores |
+|---|---|---|---|---|
+| `GET /alquileres-locatario[?estado=]` | locatario | `estado` opcional | `AlquilerLocatarioItemDTO[]` | 400, 401 |
+| `POST /contratos/:id/enviar` | **solo el locador** | `{ "confirma_revision": true }` | 200 `{ id, codigo, estado: "pendiente_firma" }`. Asigna `CT-AAAA-NNNN`, arma la hoja de firmas y crea el sobre | 400, 403, 404, **409** (el contrato no está completo o no es borrador), 502 (DocuSign) |
+| `POST /contratos/:id/firmar` | locador o locatario | `{ "acepta_condiciones": true }` | 200 `{ url }`: la URL de firma de DocuSign (dura pocos minutos, un solo uso) | 400, 403, 404, **409** (no está pendiente, ya firmó, rechazó), 502 |
+| `POST /contratos/:id/rechazar` | locador o locatario | `{ "motivo"?: string \| null }` (hasta 300) | 200 `{ id, estado: "borrador" }` | 400, 403, 404, **409** (no está pendiente, ya firmó) |
+| `POST /contratos/:id/reabrir` | solo el locador | — | 200 `ContratoBorradorResponse`. Además **anula el sobre** en DocuSign | 409 con `codigo` |
+| `POST /contratos/:id/garantes/:idGarante/enlace-firma` | solo el locador | — | 200 `{ url, vence_en }`. El enlace se muestra una sola vez (la base guarda su hash) y vence a las **48 h**; uno nuevo invalida el anterior | 403, 404, **409** |
+| `GET /firma-garante/:token` | **público** (sin Bearer) | — | 200 `{ garante, contrato, vence_en }` | **404 uniforme** si el enlace es inválido, venció o ya se usó; 429 |
+| `POST /firma-garante/:token/firmar` | **público** | `{ "acepta_condiciones": true }` | 200 `{ url }` | 404 uniforme, 409, 429, 502 |
+| `POST /webhooks/docusign` | **DocuSign** (HMAC, sin Bearer) | notificación de Connect | 200 | 401 firma inválida; 500 para que DocuSign reintente |
 
-Las acciones responden el detalle actualizado, así el front no vuelve a pedirlo.
+Los 409 llevan un `codigo` en el cuerpo (ver Swagger: `http://localhost:3000/api/v1/docs`).
 
-**Propuesta del Sprint 3.** El detalle real es el de "Contratos" (`GET /contratos/:id/detalle`). De acá le siguen
-faltando `fecha_envio`, `firmantes[].id_usuario` y `fecha_ultima_invitacion`:
+**Cómo funciona**
 
-```json
-{
-  "fecha_envio": "2026-09-22T11:40:00",
-  "fecha_firma_completa": null,
-  "firmas_registradas": true,
-  "fecha_fin": "2029-09-30",
-  "firmantes": [
-    { "rol": "locador", "id_usuario": 1, "nombre": "Nicolás", "apellido": "Arrieta", "estado": "firmado",
-      "fecha_firma": "2026-09-23T15:47:00", "fecha_rechazo": null, "motivo_rechazo": null,
-      "fecha_ultima_invitacion": "2026-09-22T11:40:00" },
-    { "rol": "locatario", "id_usuario": 3, "nombre": "Julieta", "apellido": "Peralta", "estado": "pendiente",
-      "fecha_firma": null, "fecha_rechazo": null, "motivo_rechazo": null,
-      "fecha_ultima_invitacion": "2026-09-23T15:47:00" }
-  ]
-}
-```
-
-- `firmantes[].estado`: `pendiente`, `firmado` o `rechazado`. US-07 pide registrar la fecha y la hora de
-  cada firma, sin IP.
-- `fecha_ultima_invitacion`: el envío o el último reenvío. Con eso el front explica hasta cuándo no
-  se puede reenviar (una hora después).
-- `fecha_firma_completa`: la de la última firma, cuando firmaron las dos partes ("Firmado por todas
-  las partes el dd/mm/aaaa").
-- `firmas_registradas`: `false` en los contratos cargados antes de RentAR (sin firmas).
-
-**Reglas que tiene que aplicar el back**
-
-| Acción | Regla (US-07) |
+| Paso | Qué pasa |
 |---|---|
-| Firmar | Solo `pendiente_firma`. Una parte no firma dos veces (409 `YA_FIRMO`). Registra fecha y hora. Quien rechazó no puede firmar después (409 `FIRMA_RECHAZADA`, decisión del PO): el locador toca Modificar y lo vuelve a enviar. |
-| Última firma | En **una transacción**: el contrato pasa a `vigente` (con `fecha_firma_completa`); el inmueble, a **alquilado** (deja de salir en `/inmuebles/disponibles`); y sus solicitudes `pendiente` pasan a `rechazada` con `mensaje_rechazo` = "La propiedad ya fue alquilada." |
-| Rechazar | Solo el locatario y solo `pendiente_firma`. Motivo opcional, hasta 300 caracteres (`null` si viene vacío). **No cambia el estado del contrato.** |
-| Modificar (`/reabrir`) | Solo el locador, mientras el **locatario** no haya firmado (la firma del propio locador no cuenta y se borra). Vuelve a `borrador`, borra las firmas y queda editable. **Conserva el `codigo`** (si se vuelve a enviar, sale con el mismo). |
-| Reenviar | Solo el locador, a un firmante `pendiente` (hoy, el locatario). Una vez por hora por firmante: 429 si pasó menos. Actualiza `fecha_ultima_invitacion`. Hoy no se manda ningún mail (el front lo aclara). |
+| Enviar | El locador confirma. El back asigna el código, agrega una página de firmas al PDF (el original no se toca) y crea el sobre en DocuSign con un firmante por parte. El contrato pasa a `pendiente_firma`. |
+| Firmar | Las partes firman **en paralelo**. El back devuelve la URL de DocuSign; el cliente redirige. Al terminar, DocuSign vuelve a `/panel/contratos/{id}` (locador), `/panel/alquiler?contrato={id}` (locatario) o `/firma-garante/{token}` (garante). |
+| Fuente de verdad | El **webhook** de DocuSign solo avisa. El back consulta a DocuSign el estado real del sobre y concilia la base (funciones SQL idempotentes). Cada aviso se guarda en `docusign_evento`. |
+| IP | Se toma de los eventos de auditoría de DocuSign al registrar cada firma. |
+| Última firma | Cuando firman todos, en una transacción: el contrato pasa a `vigente`; el inmueble, a **alquilado**; las solicitudes `pendiente` pasan a `rechazada` ("La propiedad ya fue alquilada."); se anulan los enlaces de garante. Después se descarga y guarda el **PDF firmado** (con certificado), con reintento si falla. |
+| Rechazar | Cambia la base (borrador, firmas borradas) y después anula el sobre. Quien ya firmó no puede rechazar. El motivo queda solo en `docusign_evento.payload`. |
+| Modificar (`/reabrir`) | Mientras el locatario no haya firmado. Vuelve a borrador, borra firmas, anula el sobre y **conserva el `codigo`**. |
+
+Los criterios que son solo de interfaz (leer hasta la última página, la casilla, la confirmación, el
+aviso de firma simulada) los resuelve el front; el back solo exige `acepta_condiciones: true`.
+
+**Variables de entorno nuevas** (`apps/api/.env.example`): `DOCUSIGN_INTEGRATION_KEY`,
+`DOCUSIGN_USER_ID`, `DOCUSIGN_ACCOUNT_ID`, `DOCUSIGN_PRIVATE_KEY`, `DOCUSIGN_OAUTH_HOST`,
+`DOCUSIGN_BASE_URL`, `DOCUSIGN_CONNECT_HMAC_KEY`, `DOCUSIGN_WEBHOOK_URL`, `WEB_URL`.
+
+**Migraciones** (en este orden): `20261107000000_us07_docusign`, `…01_us07_enlace_garante`,
+`…02_us07_webhook`, `…03_us07_reabrir_limpia_sobre`, `…04_us07_pdf_firmado_datos`.
+
+**Verificado en el sandbox (09/11):** enviar un contrato real (5 firmantes), firma embebida del locador y
+de un garante (enlace temporal), posición de los cuadros de firma en la hoja, la IP de la firma (la informa
+DocuSign en `audit_events`) y que el garante **no ve** la opción "Rechazar".
+
+**Sin verificar en real todavía:** el cierre completo (todas las firmas, contrato vigente), el webhook con un
+aviso real de DocuSign y su HMAC, y `certificate=true` al descargar el PDF firmado.
+
+**Qué cambia en el front** (no se tocó; ver HANDOFF §7, US-07):
+
+- "Enviar a firmar" ya puede conectarse a `POST /contratos/:id/enviar`.
+- Firmar: llamar a `/firmar` y hacer `window.location` a la `url`. No hay más "firma simulada".
+- Pantalla pública `/firma-garante/[token]` (nueva) y botón "Generar enlace" por garante en el detalle.
+- Sacar "Reenviar invitación" y su aviso de mail.
+- Los garantes vuelven a mostrarse como firmantes con estado (deja de aplicar el filtro de S4-3).
+- `puede_firmar` de `/alquileres-locatario` ahora es real: ya se puede usar.
 
 ## Alquileres del locatario (Sprint 3, US-27)
 
@@ -596,8 +602,10 @@ y `GET /contratos/:id` ya no se usan para US-27 (siguen propuestas para US-05 y 
 - `firmas[]`: se muestran el locador y el locatario. Los garantes se descartan de las firmas (se ven
   como datos). Un estado `desconocido` en cualquiera de los dos → "Todavía no hay registro del estado
   de cada firma".
-- `puede_firmar`: **no se usa**. Como no existen las acciones de US-07, en real no hay "Firmar
-  contrato" ni "Rechazar": un aviso "La firma todavía no está disponible en línea."
+- `puede_firmar`: desde US-07 con DocuSign es real: `true` si el contrato está pendiente de firma, ya
+  tiene sobre y el locatario no firmó. El front puede mostrar "Firmar contrato" y "Rechazar".
+- `garantes[]` y `firmas[]` (tipo `garante`) ahora vienen de la tabla `garante`, con su estado de firma y
+  sin DNI (cierra S4-4).
 - `pdf_url`: "Descargar PDF" abre ese archivo; en `null`, el botón queda deshabilitado con "El PDF
   todavía no está disponible".
 
@@ -606,7 +614,7 @@ de contratos todavía no crea; usuario de prueba con contratos en Supabase Auth 
 
 - El acceso se limita por `contrato_x_usuario` con `tipo_firmante = 2`; no se acepta un ID de usuario enviado por el cliente.
 - La API devuelve fechas ISO, no días restantes; el frontend calcula los días. El vencimiento usa `dias_para_vencimiento` desde la fecha de disponibilidad del monto. La mora queda fuera de esta iteración.
-- La firma del locatario solo se habilita si locador y locatario conformaron el mismo hash del PDF vigente y el locatario sigue pendiente de firma. La acción de firmar pertenece a US-07.
+- La firma del locatario se habilita si el contrato está pendiente de firma, tiene sobre en DocuSign y el locatario sigue pendiente (US-07; ya no se exige la "conformidad" de las dos partes). Con el contrato vigente o finalizado, `pdf_url` es el documento **firmado** (mientras no se guarde, el original).
 - Requiere aplicar la migración `20261026000000_us27_alquileres_locatario.sql`. El alta actual de propiedades crea contratos de oferta, pero no asigna locatario; las relaciones deben generarse al formalizar el contrato en los flujos de US-05/US-07.
 
 ## Consulta de cobros (US-09)

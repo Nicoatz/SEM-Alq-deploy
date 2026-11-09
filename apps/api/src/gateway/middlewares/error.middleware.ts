@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiResponse } from '../../dtos';
+import { redactarUrl } from '../redactar-url';
 
 export const errorHandler = (
   err: any,
@@ -37,7 +38,7 @@ export const errorHandler = (
   }
 
   console.error(
-    `[API Gateway Error] ${req.method} ${req.originalUrl} - Status: ${statusCode} - Mensaje: ${message}`
+    `[API Gateway Error] ${req.method} ${redactarUrl(req.originalUrl)} - Status: ${statusCode} - Mensaje: ${message}`
   );
 
   res.status(statusCode).json({

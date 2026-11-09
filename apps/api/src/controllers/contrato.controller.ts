@@ -6,6 +6,7 @@ import {
   ContratoDetalleResponse,
   ContratoDTO,
   ContratosInmuebleResponse,
+  EnviarContratoResponse,
   UrlSubidaPdfResponse,
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
@@ -197,6 +198,36 @@ export class ContratoController {
         success: true,
         message: 'El contrato volvió a borrador.',
         data: contrato
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /contratos/:id/enviar · US-05, paso 4: envía el borrador a firmar. Pasa a "pendiente de
+   * firma", recibe el código CT-AAAA-NNNN y se crea el sobre de DocuSign.
+   */
+  async enviar(
+    req: Request,
+    res: Response<ApiResponse<EnviarContratoResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idContrato = this.parseContratoId(req);
+
+      if (idContrato === null) {
+        res.status(400).json({ success: false, error: 'El identificador del contrato no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const resultado = await contratoService.enviar(user, idContrato, req.body);
+
+      res.status(200).json({
+        success: true,
+        message: 'El contrato quedó pendiente de firma.',
+        data: resultado
       });
     } catch (error) {
       next(error);

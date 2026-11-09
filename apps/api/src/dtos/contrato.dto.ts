@@ -52,6 +52,66 @@ export interface UrlSubidaPdfResponse {
   tamano_maximo_bytes: number;
 }
 
+/**
+ * Cuerpo de `POST /contratos/:id/enviar` (US-05, paso 4): la casilla "Revisé la correcta
+ * redacción del contrato y entiendo que después de enviarlo no puedo editarlo".
+ */
+export interface EnviarContratoRequest {
+  confirma_revision: boolean;
+}
+
+/** Respuesta de `POST /contratos/:id/enviar`: el contrato ya está pendiente de firma. */
+export interface EnviarContratoResponse {
+  id: number;
+  /** CT-AAAA-NNNN, asignado al enviar. */
+  codigo: string;
+  estado: 'pendiente_firma';
+}
+
+// ─── US-07: firma con DocuSign ───
+
+/** Cuerpo de `POST /contratos/:id/firmar` y de `POST /firma-garante/:token/firmar`. */
+export interface FirmarContratoRequest {
+  /** La casilla "Leí el contrato completo y acepto sus condiciones y cláusulas". Tiene que ser `true`. */
+  acepta_condiciones: boolean;
+}
+
+/** Cuerpo de `POST /contratos/:id/rechazar`. */
+export interface RechazarContratoRequest {
+  /** Hasta 300 caracteres. Opcional. */
+  motivo?: string | null;
+}
+
+/** Respuesta de `POST /contratos/:id/rechazar`: el contrato volvió a borrador. */
+export interface RechazarContratoResponse {
+  id: number;
+  estado: 'borrador';
+}
+
+/** Respuesta de las rutas de firma: la URL de DocuSign donde la persona firma. */
+export interface IniciarFirmaResponse {
+  /** URL de firma: dura pocos minutos y se usa una sola vez. El cliente redirige ahí. */
+  url: string;
+}
+
+/** Respuesta de `POST /contratos/:id/garantes/:idGarante/enlace-firma`. */
+export interface EnlaceFirmaGaranteResponse {
+  /** Enlace para entregarle al garante. Se muestra una sola vez: la base guarda solo su hash. */
+  url: string;
+  /** Cuándo vence el enlace (ISO 8601). */
+  vence_en: string;
+}
+
+/**
+ * Respuesta de `GET /firma-garante/:token` (público). Lo mínimo para que el garante sepa qué firma:
+ * nunca DNI, montos ni datos del locador o del locatario.
+ */
+export interface ConsultaEnlaceGaranteResponse {
+  garante: { nombre: string; apellido: string };
+  contrato: { codigo: string | null; propiedad: string };
+  vence_en: string | null;
+}
+
 /** Cuerpo de `PUT /contratos/:id/pdf`: avisa que el archivo ya se subió a la ruta indicada. */
 export interface RegistrarPdfRequest {
   path: string;

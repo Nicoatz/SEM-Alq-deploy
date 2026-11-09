@@ -51,6 +51,10 @@ interface ContratoRelacionado {
   dias_para_vencimiento: number | null;
   pdf_storage_path: string | null;
   pdf_sha256: string | null;
+  /** US-07: el PDF firmado (con el certificado de DocuSign), una vez que el contrato es vigente. */
+  pdf_firmado_storage_path: string | null;
+  /** US-07: sobre de firma de DocuSign. Sin él, todavía no se puede firmar. */
+  docusign_envelope_id: string | null;
   inmueble: Relation<InmuebleRelacionado>;
   indice: Relation<{ descripcion: string }>;
   medio_pago_x_contrato: MedioPagoRelacionado[] | null;
@@ -95,6 +99,7 @@ const CONTRATO_SELECT = `
   id, estado, monto_alquiler, expensas, deposito, indice_aumento,
   frecuencia_ajuste, fecha_inicio_contrato, fecha_fin_contrato,
   dias_para_vencimiento, pdf_storage_path, pdf_sha256,
+  pdf_firmado_storage_path, docusign_envelope_id,
   inmueble:inmueble!contrato_id_inmueble_fkey(
     id, direccion, numero, piso, barrio, ciudad,
     locador:usuario!inmueble_id_locador_fkey(id, nombre, apellido, email, telefono),
@@ -185,7 +190,11 @@ export class AlquilerLocatarioRepository implements IAlquilerLocatarioRepository
   ): Promise<AlquilerLocatarioRecord[]> {
     const idsEncontrados = contratos.map(contrato => contrato.id);
 
-    const [{ data: participantesData, error: errorParticipantes }, { data: ajustesData, error: errorAjustes }] = await Promise.all([
+    const [
+      { data: participantesData, error: errorParticipantes },
+      { data: ajustesData, error: errorAjustes },
+      { data: garantesData, error: errorGarantes }
+    ] = await Promise.all([
       getSupabaseAdmin()
         .from('contrato_x_usuario')
         .select('id_contrato, tipo_firmante, estado_firma, fecha_conformidad, hash_documento_conforme, fecha_firma, fecha_rechazo, hash_documento_firmado, motivo_rechazo, usuario(id, nombre, apellido, email, telefono)')
@@ -195,11 +204,19 @@ export class AlquilerLocatarioRepository implements IAlquilerLocatarioRepository
         .select('id_contrato, fecha_efectiva')
         .in('id_contrato', idsEncontrados)
         .order('fecha_efectiva', { ascending: false })
-        .order('id', { ascending: false })
+        .order('id', { ascending: false }),
+      // US-07: los garantes viven en su propia tabla y también firman. Sin DNI: el locatario ve
+      // quiénes son y si firmaron, no sus datos personales.
+      getSupabaseAdmin()
+        .from('garante')
+        .select('id, id_contrato, nombre, apellido, email, estado_firma, fecha_firma, fecha_rechazo, motivo_rechazo')
+        .in('id_contrato', idsEncontrados)
+        .order('id')
     ]);
 
     if (errorParticipantes) throw errorParticipantes;
     if (errorAjustes) throw errorAjustes;
+    if (errorGarantes) throw errorGarantes;
 
     const participantes = (participantesData ?? []) as unknown as Array<{
       id_contrato: number;
@@ -232,9 +249,40 @@ export class AlquilerLocatarioRepository implements IAlquilerLocatarioRepository
       }];
     });
 
+    // Los garantes se suman como participantes de tipo 3, que es como el servicio ya los espera.
+    const garantes = (garantesData ?? []) as unknown as Array<{
+      id: number;
+      id_contrato: number;
+      nombre: string;
+      apellido: string;
+      email: string;
+      estado_firma: ParticipanteRelacionado['estado_firma'];
+      fecha_firma: string | null;
+      fecha_rechazo: string | null;
+      motivo_rechazo: string | null;
+    }>;
+    const garantesMapeados: ParticipanteRelacionado[] = garantes.map(garante => ({
+      id: garante.id,
+      nombre: garante.nombre,
+      apellido: garante.apellido,
+      email: garante.email,
+      telefono: null,
+      id_contrato: garante.id_contrato,
+      tipo_firmante: 3,
+      estado_firma: garante.estado_firma,
+      fecha_conformidad: null,
+      hash_documento_conforme: null,
+      fecha_firma: garante.fecha_firma,
+      fecha_rechazo: garante.fecha_rechazo,
+      hash_documento_firmado: null,
+      motivo_rechazo: garante.motivo_rechazo
+    }));
+
     return contratos.map(contrato => ({
       contrato,
-      participantes: participantesMapeados.filter(participante => participante.id_contrato === contrato.id),
+      participantes: [...participantesMapeados, ...garantesMapeados].filter(
+        participante => participante.id_contrato === contrato.id
+      ),
       fecha_ultimo_ajuste: ajustes.find(ajuste => ajuste.id_contrato === contrato.id)?.fecha_efectiva ?? null
     }));
   }

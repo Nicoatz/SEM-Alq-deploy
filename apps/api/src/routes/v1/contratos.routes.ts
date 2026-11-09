@@ -1,6 +1,7 @@
 import { Router } from 'express';
 
 import { contratoController } from '../../controllers/contrato.controller';
+import { firmaController } from '../../controllers/firma.controller';
 import { authenticateGateway, requireRole } from '../../gateway/middlewares/auth.middleware';
 
 const router = Router();
@@ -459,6 +460,265 @@ router.post(
   authenticateGateway,
   requireRole('locador'),
   contratoController.reabrir.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/enviar:
+ *   post:
+ *     summary: Enviar un contrato a firmar (US-05, paso 4)
+ *     description: >
+ *       Pasa el borrador a **pendiente de firma**, le asigna el código `CT-AAAA-NNNN` y crea el
+ *       sobre de firma electrónica (DocuSign) con un destinatario por firmante: locador, locatario
+ *       y garantes. No cambia el estado de la propiedad: sigue publicada mientras se firma. El
+ *       contrato no se puede editar después de enviarlo, salvo con `POST /contratos/{id}/reabrir`.
+ *       **El cliente debe pedir confirmación antes de llamar**, indicando quiénes deben firmar.
+ *       Al PDF cargado se le agrega una "Hoja de firmas" al final; el archivo original no cambia.
+ *     tags:
+ *       - Contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [confirma_revision]
+ *             properties:
+ *               confirma_revision:
+ *                 type: boolean
+ *                 enum: [true]
+ *                 description: >
+ *                   La casilla "Revisé la correcta redacción del contrato y entiendo que después
+ *                   de enviarlo no puedo editarlo". Tiene que ser `true`.
+ *     responses:
+ *       200:
+ *         description: Contrato enviado a firmar.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     codigo: { type: string, example: CT-2026-0001 }
+ *                     estado: { type: string, enum: [pendiente_firma] }
+ *       400:
+ *         description: >
+ *           Falta la confirmación de revisión (`FALTA_CONFIRMAR_REVISION`) o el contrato está
+ *           incompleto: `FALTA_PDF`, `FALTAN_CONDICIONES`, `FALTAN_PARTES` o `FECHA_INICIO_VENCIDA`.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: No existe o no es del locador ("No encontramos este contrato.").
+ *       409:
+ *         description: El contrato no está en borrador (`codigo` CONTRATO_NO_BORRADOR).
+ *       502:
+ *         description: No se pudo crear el sobre de firma. El contrato vuelve a borrador; se puede reintentar.
+ */
+router.post(
+  '/:id/enviar',
+  authenticateGateway,
+  requireRole('locador'),
+  contratoController.enviar.bind(contratoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/firmar:
+ *   post:
+ *     summary: Firmar un contrato como locador o locatario (US-07)
+ *     description: >
+ *       Devuelve la URL de DocuSign donde la persona firma; el cliente la redirige ahí. La firma
+ *       se registra cuando DocuSign avisa que se completó, no cuando el navegador vuelve. Sirve
+ *       para el locador (desde el detalle del contrato) y para el locatario (desde Mi alquiler): el
+ *       usuario sale del token y debe ser parte del contrato. Solo con el contrato pendiente de
+ *       firma y si la persona todavía no firmó. La lectura del documento y la confirmación previa
+ *       son responsabilidad del cliente: la API solo exige `acepta_condiciones: true`.
+ *     tags:
+ *       - Firma de contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [acepta_condiciones]
+ *             properties:
+ *               acepta_condiciones:
+ *                 type: boolean
+ *                 enum: [true]
+ *                 description: La casilla "Leí el contrato completo y acepto sus condiciones y cláusulas".
+ *     responses:
+ *       200:
+ *         description: URL de firma.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     url: { type: string }
+ *       400:
+ *         description: Identificador inválido o falta aceptar las condiciones (`FALTA_ACEPTAR_CONDICIONES`).
+ *       401:
+ *         description: No autorizado.
+ *       404:
+ *         description: No existe o no es del usuario ("No encontramos este contrato.").
+ *       409:
+ *         description: >
+ *           `codigo`: CONTRATO_NO_PENDIENTE (no está pendiente de firma), YA_FIRMO o
+ *           SOBRE_NO_DISPONIBLE.
+ *       502:
+ *         description: DocuSign no respondió; se puede reintentar.
+ */
+router.post('/:id/firmar', authenticateGateway, firmaController.firmar.bind(firmaController));
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/rechazar:
+ *   post:
+ *     summary: Rechazar la firma de un contrato (US-07)
+ *     description: >
+ *       El locador o el locatario rechazan la firma. El contrato vuelve a **borrador**, se borran
+ *       las firmas registradas (de las partes y de los garantes) y se anula el sobre de firma;
+ *       conserva su código. Para volver a enviarlo, el locador lo modifica si hace falta y lo envía
+ *       de nuevo (`POST /contratos/{id}/enviar`): firman todos otra vez. **Quien ya firmó no puede
+ *       rechazar.** Los garantes no rechazan. El cliente debe pedir confirmación antes de llamar.
+ *     tags:
+ *       - Firma de contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               motivo:
+ *                 type: string
+ *                 nullable: true
+ *                 maxLength: 300
+ *                 description: Opcional. Hasta 300 caracteres.
+ *     responses:
+ *       200:
+ *         description: La firma fue rechazada y el contrato volvió a borrador.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     estado: { type: string, enum: [borrador] }
+ *       400:
+ *         description: Identificador inválido o motivo de más de 300 caracteres (`MOTIVO_MUY_LARGO`).
+ *       401:
+ *         description: No autorizado.
+ *       404:
+ *         description: No existe o no es del usuario ("No encontramos este contrato.").
+ *       409:
+ *         description: >
+ *           `codigo`: CONTRATO_NO_PENDIENTE, YA_FIRMO (ya firmó: no puede rechazar) o
+ *           SOBRE_NO_DISPONIBLE.
+ */
+router.post('/:id/rechazar', authenticateGateway, firmaController.rechazar.bind(firmaController));
+
+/**
+ * @openapi
+ * /api/v1/contratos/{id}/garantes/{idGarante}/enlace-firma:
+ *   post:
+ *     summary: Generar el enlace de firma de un garante (US-07)
+ *     description: >
+ *       El locador genera el enlace temporal con el que un garante firma, sin iniciar sesión. Se
+ *       devuelve **una sola vez** (la base guarda solo su hash) y vence a los 2 días. El locador
+ *       se lo entrega al garante por su cuenta: no se manda ningún mail. Pedir otro enlace deja
+ *       sin efecto el anterior. Solo con el contrato pendiente de firma y el garante sin firmar.
+ *     tags:
+ *       - Firma de contratos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - in: path
+ *         name: idGarante
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Enlace generado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     url: { type: string }
+ *                     vence_en: { type: string, format: date-time }
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: El usuario no tiene rol locador.
+ *       404:
+ *         description: El contrato no existe o no es del locador, o el garante no pertenece al contrato.
+ *       409:
+ *         description: >
+ *           `codigo`: CONTRATO_NO_PENDIENTE, YA_FIRMO (el garante ya firmó) o SOBRE_NO_DISPONIBLE.
+ */
+router.post(
+  '/:id/garantes/:idGarante/enlace-firma',
+  authenticateGateway,
+  requireRole('locador'),
+  firmaController.generarEnlaceGarante.bind(firmaController)
 );
 
 /**

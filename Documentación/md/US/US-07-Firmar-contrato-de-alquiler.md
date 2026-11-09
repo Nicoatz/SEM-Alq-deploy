@@ -1,6 +1,6 @@
 | **Firmar contrato de alquiler** |
 | - |
-| Como locador o locatario, quiero firmar electrónicamente el contrato de alquiler para formalizar el acuerdo entre las partes. |
+| Como locador, locatario o garante, quiero firmar electrónicamente el contrato de alquiler para formalizar el acuerdo entre las partes. |
 | **Criterios de aceptación:** |
 | *Acceso* |
 | - Se debe haber iniciado sesión con un usuario que sea locador o locatario del contrato. |
@@ -17,18 +17,23 @@
 | - Mientras el botón no esté habilitado, se debe indicar cuántas páginas faltan leer. |
 | - Volver a páginas anteriores no reduce el progreso de lectura. |
 | - Se debe solicitar confirmación antes de firmar, avisando que la firma no se puede deshacer. |
-| - Se deben registrar la fecha, la hora de cada firma. |
+| - Se deben registrar la fecha, la hora y la dirección IP de cada firma. |
 | - Una parte no puede firmar más de una vez el mismo contrato. |
+| *Garantes* |
+| - Los garantes firman el contrato desde un enlace temporal que les entrega el locador, sin necesidad de iniciar sesión. |
+| - El enlace vence a los 2 días y deja de funcionar cuando el garante firma o cuando el contrato vuelve a borrador. Si el locador genera un enlace nuevo, el anterior deja de funcionar. |
+| - Si el enlace no existe, venció o ya se usó, se debe mostrar el mismo mensaje en los tres casos. |
+| - Los garantes solo pueden firmar: no pueden rechazar la firma. |
+| - En el detalle del contrato se debe mostrar el estado de la firma de cada garante, igual que el de las partes. |
 | *Rechazo y cancelación* |
 | - Tanto el locatario como el locador pueden rechazar la firma |
-| - Quien rechazó la firma no puede firmar después. Para volver a enviarlo a firmar, el locador debe rechazar la firma y reenviar el contrato. |
+| - Quien rechazó la firma no puede firmar después. Para volver a enviarlo a firmar, el locador debe modificar el contrato si lo necesita y enviarlo de nuevo. |
 | - Al rechazar la firma el contrato vuelve a "borrador" y se borran las firmas registradas. |
-| - El locador puede reenviar la invitación a un firmante pendiente, como máximo una vez por hora. Mientras no pueda reenviar, el botón debe explicar por qué. |
 | *Contrato vigente* |
-| - Cuando firman todas las partes, el contrato pasa a "vigente". |
+| - Cuando firman el locador, el locatario y todos los garantes, el contrato pasa a "vigente". |
 | - Cuando el contrato pasa a vigente, la propiedad pasa a "alquilada" y deja de aparecer en la búsqueda de propiedades. |
 | - Cuando el contrato pasa a vigente, las solicitudes pendientes de esa propiedad pasan a "rechazadas", con un mensaje automático de que la propiedad ya fue alquilada. |
-| - Con el contrato vigente, el detalle muestra "Firmado por todas las partes el dd/mm/aaaa" y desaparecen las acciones de firma, reenvío y cancelación. |
+| - Con el contrato vigente, el detalle muestra "Firmado por todas las partes el dd/mm/aaaa" y desaparecen las acciones de firma y cancelación. |
 | **Pruebas de usuario:** |
 | - Probar firmar un contrato sin haber iniciado sesión (falla). |
 | - Probar acceder por URL al contrato de otro usuario (falla). |
@@ -47,7 +52,12 @@
 | - Probar cancelar el envío como locador cuando nadie más firmó y verificar que el contrato vuelva a borrador (pasa). |
 | - Probar cancelar el envío como locador cuando el locatario ya firmó (falla). |
 | - Probar cancelar el envío habiendo iniciado sesión como locatario (falla). |
-| - Probar reenviar una invitación dos veces dentro de la misma hora (falla). |
+| - Probar verificar que en el detalle se muestre la dirección IP de cada firma registrada (pasa). |
+| - Probar firmar como garante con un enlace válido, sin iniciar sesión (pasa). |
+| - Probar abrir el enlace de un garante vencido, ya usado o inexistente y verificar que el mensaje sea el mismo (pasa). |
+| - Probar firmar como garante con un enlace que quedó sin efecto porque el locador generó uno nuevo (falla). |
+| - Probar rechazar la firma como garante (falla). |
+| - Probar que con el locador y el locatario firmados y un garante pendiente el contrato siga pendiente de firma (pasa). |
 | - Probar completar todas las firmas y verificar que el contrato quede vigente y la propiedad, alquilada (pasa). |
 | - Probar completar todas las firmas y verificar que la propiedad no aparezca en la búsqueda (pasa). |
 | - Probar completar todas las firmas y verificar que las solicitudes pendientes de la propiedad pasen a rechazadas con el mensaje automático (pasa). |
