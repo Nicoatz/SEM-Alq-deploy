@@ -1,4 +1,4 @@
-/* Lo de adentro de los bloques de "Mi perfil" (Claude Design, "Mi perfil y legajo" · 01 y 03). */
+/* Lo de adentro de los bloques de "Mi perfil" (Claude Design, "Mi perfil y legajo" · 01 y 03; sin el legajo desde el 06/11). */
 
 .stack {
   display: flex;
@@ -8,20 +8,12 @@
 
 /* ─── Lectura ─────────────────────────────────────────────────────────── */
 
-.value {
-  color: var(--rentar-color-text-primary);
-}
-
 .sinCargar {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   color: var(--rentar-color-text-tertiary);
-}
-
-.inlineTag {
-  margin-inline-start: 0.5rem;
 }
 
 /* ─── Acciones del bloque ─────────────────────────────────────────────── */
@@ -44,7 +36,7 @@
   width: 100%;
 }
 
-/* ─── Avisos (legajo, bloqueo, correo pendiente) ──────────────────────── */
+/* ─── Avisos (bloqueo por contrato) ───────────────────────────────────── */
 
 .notice {
   display: flex;
@@ -59,49 +51,13 @@
   color: var(--rentar-color-text-primary);
 }
 
-.noticeSuccess {
-  border-color: var(--rentar-status-success-border);
-  background: var(--rentar-status-success-bg);
-}
-
 .noticeWarning {
   border-color: var(--rentar-status-warning-border);
   background: var(--rentar-status-warning-bg);
 }
 
-.noticeHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
 .noticeTitle {
   font-weight: 700;
-}
-
-/* ─── Chip de progreso del legajo ("2 de 3") ──────────────────────────── */
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  height: 1.375rem;
-  padding: 0 0.5625rem;
-  border-radius: var(--rentar-radius-pill);
-  font-size: 0.71875rem;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.chipComplete {
-  background: var(--rentar-status-success-bg);
-  color: var(--rentar-status-success-ink);
-}
-
-.chipIncomplete {
-  background: var(--rentar-status-warning-bg);
-  color: var(--rentar-status-warning-ink);
 }
 
 /* ─── Mis roles ───────────────────────────────────────────────────────── */

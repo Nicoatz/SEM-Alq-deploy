@@ -1,12 +1,12 @@
 /**
- * /panel/perfil — Mi perfil y legajo (US-20 Consultar usuario y US-21
+ * /panel/perfil — Mi perfil (US-20 Consultar usuario y US-21
  * Modificar usuario).
  *
  * Qué es: la pantalla vive en `components/perfil/PerfilScreen.tsx`; acá
  * solo se monta. Para cualquier usuario con sesión (la pide `proxy.ts`), sin
  * `RequireRole`: es la misma pantalla para locadores y locatarios. Solo
  * muestra el perfil propio (no hay id en la ruta).
- * Entra desde: "Mi perfil y legajo" del UserMenu.
+ * Entra desde: "Mi perfil" del UserMenu.
  */
 import type { Metadata } from 'next'
 import { PerfilScreen } from '@/components/perfil/PerfilScreen'

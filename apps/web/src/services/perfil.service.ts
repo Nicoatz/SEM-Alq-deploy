@@ -1,42 +1,41 @@
 /**
  * perfil.service.ts — frontera con el backend para "Mi perfil" (`/panel/perfil`).
  *
- * Qué es: consultar y modificar los datos personales, el legajo, el correo y
- * la contraseña del usuario en sesión. Siempre el propio: ninguna función
+ * Qué es: consultar y modificar los datos personales (con el correo) y la
+ * contraseña del usuario en sesión. Siempre el propio: ninguna función
  * recibe un id de usuario (US-20: "no existe forma de ver el perfil de otro
  * usuario"; el back lo saca del token).
  * Cubre: US-20 Consultar usuario y US-21 Modificar usuario.
  * De dónde saca los datos:
- * - Modo mock: el elenco (`lib/mocks/usuarios.mock.ts` y `perfiles.mock.ts`)
- *   más lo que se modificó en este navegador (ver "Datos sensibles" abajo).
+ * - Modo mock: el elenco (`lib/mocks/usuarios.mock.ts`) más lo que se
+ *   modificó en este navegador (ver "Datos sensibles" abajo).
  * - Modo real: `apps/api` para los datos personales y el correo (`GET` y
- *   `PATCH /usuarios/me`, existen); Supabase Auth para la contraseña. El
- *   legajo no tiene back todavía (propuesto, ver `actualizarLegajo`).
- * Quién lo usa: `components/perfil/*` y la rama mock de
- * `services/solicitudes.service.ts` (precarga del legajo, US-21 + US-35).
+ *   `PATCH /usuarios/me`, existen); Supabase Auth para la contraseña.
+ * NOTA: el legajo (situación, ingresos y garantías) salió de US-20 y US-21
+ * el 06/11 (8d2a46c): se carga en cada solicitud (US-35).
+ * Quién lo usa: `components/perfil/*` y las ramas mock de
+ * `services/solicitudes.service.ts` y `contratos.service.ts` (`perfilMockDe`).
  *
- * NOTA (datos sensibles, US-20: "el DNI y los ingresos solo se muestran en
- * esta pantalla"): en modo mock, el DNI y el ingreso que se editan acá viven
- * SOLO en memoria (`sensiblesEnMemoria`): sobreviven a la navegación dentro
- * del panel, no a una recarga. Nunca se escriben en `localStorage` ni en
- * `sessionStorage`, ni se loguean. El resto del perfil sí se guarda
- * (`rentar:mock:usuarios` y `rentar:mock:perfiles`). En modo real no se
- * guarda nada en el navegador: el perfil vive en el estado de la pantalla.
+ * NOTA (datos sensibles, US-20: "el DNI solo se muestra en esta pantalla"):
+ * en modo mock, el DNI que se edita acá vive SOLO en memoria
+ * (`sensiblesEnMemoria`): sobrevive a la navegación dentro del panel, no a
+ * una recarga. Nunca se escribe en `localStorage` ni en `sessionStorage`, ni
+ * se loguea. El resto del perfil sí se guarda (`rentar:mock:usuarios`). En
+ * modo real no se guarda nada en el navegador: el perfil vive en el estado
+ * de la pantalla.
  */
 import dayjs from 'dayjs'
-import type { DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
+import type { DatosPersonalesCambios, PerfilUsuario } from '@rentar/shared-types'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
-import { LEGAJO_VACIO, perfiles as perfilesElenco, usuarios as usuariosElenco, type UsuarioMock } from '@/lib/mocks'
+import { usuarios as usuariosElenco, type UsuarioMock } from '@/lib/mocks'
 import { telefonoAE164 } from '@/lib/perfil/formato'
 import { emailValido, MENSAJES_SOLICITUD, TELEFONO_E164_REGEX } from '@/lib/validation/solicitud.rules'
-import { DNI_REGEX, esMayorDeEdad, ingresoLegajoValido, MENSAJES, MENSAJES_PERFIL, nombrePerfilValido, PASSWORD_REGEX } from '@/lib/validation/usuario.rules'
+import { DNI_REGEX, esMayorDeEdad, MENSAJES, MENSAJES_PERFIL, nombrePerfilValido, PASSWORD_REGEX } from '@/lib/validation/usuario.rules'
 import {
   cambiosToActualizarRequest,
   errorDeActualizarDatos,
   errorDeCambioDeContrasena,
   errorDePerfil,
-  legajoDtoToLegajo,
-  legajoToActualizarRequest,
   perfilResponseToPerfil,
   PERFIL_CORREO_EN_USO_MESSAGE,
   PERFIL_DNI_EN_USO_MESSAGE,
@@ -48,11 +47,11 @@ import {
 } from './adapters/perfil.adapter'
 import { contratoActivoDeUsuarioMock } from './adapters/contrato-mock.adapter'
 import { apiRequest } from './shared/apiClient'
-import type { LegajoDto, PerfilResponse } from './shared/backend-dtos'
+import type { PerfilResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
-import { readMockCollection, saveMockRecord } from './shared/mockStore'
+import { saveMockRecord } from './shared/mockStore'
 import { requireSessionUserId, SESSION_EXPIRED_MESSAGE } from './shared/session'
 import { readUsuariosMock } from './usuarios.service'
 
@@ -62,27 +61,10 @@ import { readUsuariosMock } from './usuarios.service'
 const MOCK_STORAGE_FULL_MESSAGE = 'No pudimos guardar los cambios en este navegador. Tocá "Reiniciar datos de prueba" y probá de nuevo.'
 
 /**
- * Lo que se guarda del perfil en `rentar:mock:perfiles`: el legajo SIN el
- * ingreso. El ingreso va a {@link sensiblesEnMemoria}.
+ * DNI editado en esta pestaña (ver la NOTA del encabezado). Una clave
+ * ausente = "no se editó": vale el del elenco (o el del registro).
  */
-interface PerfilGuardadoMock {
-  id: string
-  occupation: LegajoUsuario['occupation']
-  guarantees: LegajoUsuario['guarantees']
-}
-
-/** El elenco de perfiles, en la forma que se guarda (sin el ingreso). */
-const perfilesGuardadosElenco: PerfilGuardadoMock[] = perfilesElenco.map((perfil) => ({
-  id: perfil.id,
-  occupation: perfil.legajo.occupation,
-  guarantees: perfil.legajo.guarantees,
-}))
-
-/**
- * DNI e ingreso editados en esta pestaña (ver la NOTA del encabezado). Una
- * clave ausente = "no se editó": vale el del elenco (o el del registro).
- */
-const sensiblesEnMemoria = new Map<string, { dni?: string; monthlyIncome?: number | null }>()
+const sensiblesEnMemoria = new Map<string, { dni?: string }>()
 
 /** El usuario en sesión (modo mock), con la contraseña: nunca sale de este archivo. */
 function usuarioMockEnSesion(): UsuarioMock {
@@ -109,28 +91,15 @@ function bloqueoMock(userId: string): PerfilUsuario['identityLock'] {
   return contrato ? { contractCode: contrato.code, contractStatus: contrato.status } : null
 }
 
-/** El legajo guardado de una cuenta (sin el ingreso) y su ingreso vigente. */
-function legajoMock(userId: string): { guardado: PerfilGuardadoMock; legajo: LegajoUsuario } {
-  const guardado = readMockCollection('perfiles', perfilesGuardadosElenco).find((item) => item.id === userId) ?? {
-    id: userId,
-    occupation: LEGAJO_VACIO.occupation,
-    guarantees: LEGAJO_VACIO.guarantees,
-  }
-  const enMemoria = sensiblesEnMemoria.get(userId)
-  const ingresoElenco = perfilesElenco.find((item) => item.id === userId)?.legajo.monthlyIncome ?? null
-  const monthlyIncome = enMemoria && 'monthlyIncome' in enMemoria ? (enMemoria.monthlyIncome ?? null) : ingresoElenco
-  return { guardado, legajo: { occupation: guardado.occupation, monthlyIncome, guarantees: guardado.guarantees } }
-}
-
 /**
- * Arma el `PerfilUsuario` de una cuenta mock. La exporta para la rama mock
- * de `solicitudes.service.ts` (precarga del legajo y del DNI, US-21 + US-35).
+ * Arma el `PerfilUsuario` de una cuenta mock. La exporta para las ramas mock
+ * de `solicitudes.service.ts` (precarga del DNI y del contacto, US-35) y de
+ * `contratos.service.ts` (las partes del contrato).
  * @returns `null` si la cuenta no existe.
  */
 export function perfilMockDe(userId: string): PerfilUsuario | null {
   const usuario = readUsuariosMock().find((item) => item.id === userId)
   if (!usuario) return null
-  const { legajo } = legajoMock(userId)
   const roles = usuario.roles.includes('locatario') ? usuario.roles : [...usuario.roles, 'locatario' as const]
   return {
     id: usuario.id,
@@ -142,7 +111,6 @@ export function perfilMockDe(userId: string): PerfilUsuario | null {
     fechaNacimiento: usuario.fechaNacimiento ?? null,
     roles,
     identityLock: bloqueoMock(userId),
-    legajo,
   }
 }
 
@@ -156,16 +124,11 @@ function guardarUsuarioMock(usuario: UsuarioMock): void {
   if (!saveMockRecord('usuarios', { ...usuario, dni: original?.dni })) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
 }
 
-/** Guarda la parte no sensible del perfil en `rentar:mock:perfiles`. */
-function guardarPerfilMock(perfil: PerfilGuardadoMock): void {
-  if (!saveMockRecord('perfiles', perfil)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-}
-
 // ─── Consulta (US-20) ───────────────────────────────────────────────────
 
 /**
  * US-20 Consultar usuario — el perfil completo del usuario en sesión: datos
- * personales, roles, contrato que bloquea la identidad y legajo.
+ * personales, roles y contrato que bloquea la identidad.
  * @backend GET /api/v1/usuarios/me   (existe) → PerfilResponse
  * @returns PerfilUsuario
  * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
@@ -173,8 +136,6 @@ function guardarPerfilMock(perfil: PerfilGuardadoMock): void {
  * NOTA: el front había propuesto una ruta aparte (`/usuarios/me/perfil`)
  * para que el DNI no viajara en el `/me` que pide el `AuthProvider` (US-20);
  * el back eligió ampliar `/me`. La sesión ignora esos campos.
- * TODO(backend): el GET no trae el contrato que bloquea la identidad ni el
- * legajo (ver `perfilResponseToPerfil`).
  */
 export async function getMiPerfil(): Promise<PerfilUsuario> {
   if (USE_MOCKS) {
@@ -302,46 +263,6 @@ async function renovarSesion(): Promise<void> {
     await getSupabaseBrowserClient().auth.refreshSession()
   } catch {
     // Ver el JSDoc: no es un error del guardado.
-  }
-}
-
-// ─── Legajo (US-21) ─────────────────────────────────────────────────────
-
-/**
- * `true` si el legajo se puede editar y guardar: solo en modo mock. En real
- * el back todavía no tiene legajo (TODO(backend), HANDOFF §7) y el bloque se
- * ve en solo lectura con el aviso "El legajo todavía no se puede guardar"
- * (decisión del PO: no se guarda en memoria para no hacer creer que quedó
- * guardado).
- */
-export const LEGAJO_SE_PUEDE_GUARDAR = USE_MOCKS
-
-/**
- * US-21 Modificar usuario — guarda el bloque "Legajo" entero: situación
- * ocupacional, ingreso mensual (entero mayor a 0, o vacío) y garantías.
- * @backend PATCH /api/v1/usuarios/me/legajo   (no existe — propuesto) body ActualizarLegajoRequest → 200 LegajoDto
- * @returns el legajo guardado.
- * @throws {ServiceError} `validation` si el ingreso no es un entero mayor a 0;
- *   `unauthorized` sin sesión.
- * NOTA (US-21): el legajo se precarga en las solicitudes nuevas; lo que se
- * cambie dentro de una solicitud no vuelve acá.
- * TODO(backend): crear la ruta y la tabla del legajo (`TODO(db)` en HANDOFF §7).
- */
-export async function actualizarLegajo(legajo: LegajoUsuario): Promise<LegajoUsuario> {
-  if (USE_MOCKS) {
-    await delay()
-    const usuario = usuarioMockEnSesion()
-    if (!ingresoLegajoValido(legajo.monthlyIncome)) throw new ServiceError('validation', MENSAJES_PERFIL.ingresoInvalido)
-    const { guardado } = legajoMock(usuario.id)
-    guardarPerfilMock({ ...guardado, occupation: legajo.occupation, guarantees: [...legajo.guarantees] })
-    sensiblesEnMemoria.set(usuario.id, { ...sensiblesEnMemoria.get(usuario.id), monthlyIncome: legajo.monthlyIncome })
-    return legajoMock(usuario.id).legajo
-  }
-  try {
-    const dto = await apiRequest<LegajoDto>('/usuarios/me/legajo', { method: 'PATCH', body: legajoToActualizarRequest(legajo) })
-    return legajoDtoToLegajo(dto)
-  } catch (error) {
-    throw errorDePerfil(error)
   }
 }
 

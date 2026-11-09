@@ -1,22 +1,21 @@
 /**
- * perfil.adapter.ts — traduce el perfil y el legajo del back al tipo de
- * vista, y los errores del back y de Supabase Auth a mensajes en español.
+ * perfil.adapter.ts — traduce el perfil del back al tipo de vista, y los
+ * errores del back y de Supabase Auth a mensajes en español.
  *
  * Qué es: la frontera entre los DTO de `GET /usuarios/me` y
- * `PATCH /usuarios/me` (existen desde el Sprint 3) y de
- * `PATCH /usuarios/me/legajo` (propuesto), ver `shared/backend-dtos.ts`, y
- * `PerfilUsuario` / `LegajoUsuario`. Si el back cambia la forma, se ajusta
+ * `PATCH /usuarios/me` (existen desde el Sprint 3; correo y bloqueo de
+ * identidad desde el 06/11), ver `shared/backend-dtos.ts`, y `PerfilUsuario`. Si el back cambia la forma, se ajusta
  * acá, nunca en la pantalla.
  * Cubre: US-20 Consultar usuario y US-21 Modificar usuario.
  * Quién lo usa: `services/perfil.service.ts` (las dos ramas: los mensajes
  * también los usa la rama mock, así responde igual que el back).
  */
 import { isAuthApiError, isAuthRetryableFetchError } from '@supabase/supabase-js'
-import type { DatosPersonalesCambios, LegajoUsuario, PerfilUsuario, UserRole } from '@rentar/shared-types'
+import type { DatosPersonalesCambios, PerfilUsuario, UserRole } from '@rentar/shared-types'
 import { telefonoDelBack } from '@/lib/perfil/formato'
 import { MENSAJES_SOLICITUD } from '@/lib/validation/solicitud.rules'
 import { MENSAJES, MENSAJES_PERFIL } from '@/lib/validation/usuario.rules'
-import type { ActualizarLegajoRequest, ActualizarPerfilRequest, CodigoErrorPerfil, LegajoDto, PerfilResponse } from '../shared/backend-dtos'
+import type { ActualizarPerfilRequest, CodigoErrorPerfil, PerfilResponse } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
 import { SESSION_EXPIRED_MESSAGE } from '../shared/session'
 import { rolDtoToUserRole } from './usuario.adapter'
@@ -46,17 +45,6 @@ const PERFIL_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revisá 
 
 // ─── DTO → vista ────────────────────────────────────────────────────────
 
-/** El legajo del back → `LegajoUsuario`. Sin legajo, el vacío (US-20: "Sin cargar"). */
-export function legajoDtoToLegajo(dto: LegajoDto | null): LegajoUsuario {
-  if (!dto) return { occupation: 'sin_informar', monthlyIncome: null, guarantees: [] }
-  return {
-    occupation: dto.ocupacion,
-    // Un 0 no debería llegar (US-21: mayor a 0 o vacío); si llega, es "no cargado".
-    monthlyIncome: dto.ingresos && dto.ingresos > 0 ? dto.ingresos : null,
-    guarantees: dto.garantias,
-  }
-}
-
 /**
  * Respuesta de `GET /usuarios/me` o de `PATCH /usuarios/me` → `PerfilUsuario`.
  *
@@ -70,7 +58,6 @@ export function legajoDtoToLegajo(dto: LegajoDto | null): LegajoUsuario {
  * - `identityLock`: de `bloqueo_identidad` (`codigo` → `contractCode`,
  *   `estado` → `contractStatus`); `null` si no hay contrato que bloquee. Así
  *   la pantalla avisa ANTES de editar (US-21: "se debe explicar el motivo").
- * - `legajo`: vacío ("Sin cargar"). TODO(backend): el back no tiene legajo.
  */
 export function perfilResponseToPerfil(dto: PerfilResponse): PerfilUsuario {
   const roles = dto.roles.map(rolDtoToUserRole).filter((role): role is UserRole => role !== null)
@@ -87,7 +74,6 @@ export function perfilResponseToPerfil(dto: PerfilResponse): PerfilUsuario {
     identityLock: dto.bloqueo_identidad
       ? { contractCode: dto.bloqueo_identidad.codigo, contractStatus: dto.bloqueo_identidad.estado }
       : null,
-    legajo: legajoDtoToLegajo(null),
   }
 }
 
@@ -105,16 +91,11 @@ export function cambiosToActualizarRequest(cambios: DatosPersonalesCambios): Act
   if (cambios.dni) request.numero_documento = cambios.dni
   // El back lo pasa a minúsculas igual; se manda ya normalizado.
   if (cambios.email) request.email = cambios.email.trim().toLowerCase()
-  // NOTA: el back valida `^[1-9]\d{9,14}$`, o sea SIN el "+", aunque el
-  // ejemplo de Swagger lo muestre con "+".
+  // El back valida `^[1-9]\d{9,14}$`: solo dígitos, con el código de país y
+  // SIN el "+" (Swagger, desde el 06/11).
   if (cambios.telefono) request.telefono = cambios.telefono.replace(/^\+/, '')
   if (cambios.fechaNacimiento) request.fecha_nacimiento = cambios.fechaNacimiento
   return request
-}
-
-/** Legajo → cuerpo de `PATCH /usuarios/me/legajo`. */
-export function legajoToActualizarRequest(legajo: LegajoUsuario): ActualizarLegajoRequest {
-  return { ocupacion: legajo.occupation, ingresos: legajo.monthlyIncome, garantias: legajo.guarantees }
 }
 
 // ─── Errores del back (apps/api) ────────────────────────────────────────
@@ -180,7 +161,7 @@ export function errorDeActualizarDatos(error: unknown): unknown {
   return sinTextoTecnico(error)
 }
 
-/** Error de `GET /usuarios/me` (y del futuro `PATCH /usuarios/me/legajo`) → mensaje de la pantalla. */
+/** Error de `GET /usuarios/me` → mensaje de la pantalla. */
 export function errorDePerfil(error: unknown): unknown {
   return error instanceof ServiceError ? sinTextoTecnico(error) : error
 }

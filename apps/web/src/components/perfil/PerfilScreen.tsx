@@ -1,12 +1,15 @@
 'use client'
 
 /**
- * PerfilScreen.tsx — `/panel/perfil`, "Mi perfil y legajo".
+ * PerfilScreen.tsx — `/panel/perfil`, "Mi perfil".
  *
  * Cubre: US-20 Consultar usuario y US-21 Modificar usuario.
  * Qué muestra (Claude Design, "Mi perfil y legajo" · 01 y 03): los bloques
- * Datos personales, Mi legajo y Acceso y seguridad, y al costado Mis roles.
- * En móvil cada bloque se pliega y el legajo incompleto va primero.
+ * Datos personales y Acceso y seguridad, y al costado Mis roles. En móvil
+ * cada bloque se pliega.
+ * NOTA: el bloque "Mi legajo" del diseño salió de US-20 y US-21 el 06/11
+ * (8d2a46c). La situación, los ingresos y las garantías se cargan en cada
+ * solicitud (US-35).
  * Solo el perfil propio: no hay un id en la ruta (US-20).
  *
  * NOTA (diseño vs. US): el diseño suma "Cómo te avisamos", "Resumen de la
@@ -19,24 +22,22 @@
  */
 import { useCallback, useMemo, useState } from 'react'
 import { Button, Skeleton } from 'antd'
-import type { LegajoUsuario, PerfilUsuario } from '@rentar/shared-types'
+import type { PerfilUsuario } from '@rentar/shared-types'
 import { PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
-import { estadoLegajo } from '@/lib/perfil/legajo'
-import { getMiPerfil, LEGAJO_SE_PUEDE_GUARDAR } from '@/services/perfil.service'
+import { getMiPerfil } from '@/services/perfil.service'
 import { AccesoSeguridadBloque } from './AccesoSeguridadBloque'
 import { DatosPersonalesBloque } from './DatosPersonalesBloque'
-import { LegajoBloque } from './LegajoBloque'
 import { MisRolesBloque } from './MisRolesBloque'
 import styles from './PerfilScreen.module.css'
 
 const MIGA = [{ label: 'Mi panel', href: '/panel' }, { label: 'Mi perfil' }]
 
 /** Los bloques que se editan por separado (US-21). */
-type BloqueEditable = 'datos' | 'legajo' | 'contrasena'
+type BloqueEditable = 'datos' | 'contrasena'
 
-/** Pantalla "Mi perfil y legajo". */
+/** Pantalla "Mi perfil". */
 export function PerfilScreen() {
   const carga = useServiceCall(getMiPerfil)
 
@@ -44,7 +45,7 @@ export function PerfilScreen() {
   /** Lo guardado en esta visita (después de cada "Guardar"); `null` = lo que trajo la carga. */
   const [guardado, setGuardado] = useState<PerfilUsuario | null>(null)
   /** Qué bloques tienen cambios sin guardar (US-21: aviso al salir). */
-  const [conCambios, setConCambios] = useState<Record<BloqueEditable, boolean>>({ datos: false, legajo: false, contrasena: false })
+  const [conCambios, setConCambios] = useState<Record<BloqueEditable, boolean>>({ datos: false, contrasena: false })
   const hayCambiosSinGuardar = useMemo(() => Object.values(conCambios).some(Boolean), [conCambios])
   // US-21: "se debe avisar si el usuario intenta salir de la pantalla con
   // cambios sin guardar". El modal lo muestra `AvisoCambiosProvider` (panel).
@@ -54,7 +55,6 @@ export function PerfilScreen() {
   // Callbacks estables por bloque: los bloques los usan en un `useEffect`.
   const marcarDatos = useCallback((hay: boolean) => setConCambios((actual) => (actual.datos === hay ? actual : { ...actual, datos: hay })), [])
   const marcarContrasena = useCallback((hay: boolean) => setConCambios((actual) => (actual.contrasena === hay ? actual : { ...actual, contrasena: hay })), [])
-  const marcarLegajo = useCallback((hay: boolean) => setConCambios((actual) => (actual.legajo === hay ? actual : { ...actual, legajo: hay })), [])
 
   // ─── Error ──────────────────────────────────────────────────────────
   if (carga.status === 'error') {
@@ -92,9 +92,6 @@ export function PerfilScreen() {
 
   // ─── Render ─────────────────────────────────────────────────────────
   const perfil = guardado ?? carga.data
-  const legajoActualizado = (legajo: LegajoUsuario) => setGuardado({ ...perfil, legajo })
-  // En real el legajo no se puede completar (`LEGAJO_SE_PUEDE_GUARDAR`): no se adelanta en móvil.
-  const legajoIncompleto = LEGAJO_SE_PUEDE_GUARDAR && !estadoLegajo(perfil.legajo).completo
 
   return (
     <div className={styles.page} data-testid="perfil" data-cambios-sin-guardar={hayCambiosSinGuardar}>
@@ -102,10 +99,6 @@ export function PerfilScreen() {
       <div className={styles.layout}>
         <div className={styles.main}>
           <DatosPersonalesBloque perfil={perfil} onActualizado={setGuardado} onCambiosSinGuardar={marcarDatos} />
-          {/* En móvil, el legajo incompleto va primero y abierto (diseño · 03). */}
-          <div className={legajoIncompleto ? styles.primeroEnMovil : undefined}>
-            <LegajoBloque legajo={perfil.legajo} defaultOpen={legajoIncompleto} onActualizado={legajoActualizado} onCambiosSinGuardar={marcarLegajo} />
-          </div>
           <AccesoSeguridadBloque email={perfil.email} onCambiosSinGuardar={marcarContrasena} />
         </div>
         <aside className={styles.aside}>

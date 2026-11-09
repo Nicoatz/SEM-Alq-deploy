@@ -24,7 +24,7 @@
 export const MOCK_KEY_PREFIX = 'rentar:mock:'
 
 /** Colecciones que se pueden persistir. Cada una se guarda en `rentar:mock:<nombre>`. */
-export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes' | 'perfiles' | 'contratos' | 'cobros'
+export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes' | 'contratos' | 'cobros'
 
 /**
  * `true` solo en el navegador.
@@ -100,7 +100,7 @@ export function deleteMockRecord(collection: MockCollection, id: string): boolea
 
 /**
  * Borra todo lo guardado con el prefijo `rentar:mock:` (las colecciones de
- * cuentas, propiedades, solicitudes, perfiles y contratos) y deja solo el elenco
+ * cuentas, propiedades, solicitudes, contratos y cobros) y deja solo el elenco
  * original. Lo usa el botón "Reiniciar datos de prueba" de las herramientas
  * de desarrollo (`components/dev/DevTools.tsx`).
  */

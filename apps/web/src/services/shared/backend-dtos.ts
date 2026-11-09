@@ -315,13 +315,6 @@ export interface SolicitudPreparacionResponse {
    * TODO(db): el esquema no guarda las garantías exigidas: hoy llega siempre vacío.
    */
   garantias_exigidas: number[]
-  /**
-   * El legajo del usuario, para precargar la solicitud (US-21). NO EXISTE
-   * todavía: propuesto en el Sprint 3, misma forma que `LegajoDto` del
-   * perfil. `null` o ausente = sin legajo.
-   * TODO(backend): sumarlo a `GET /solicitudes/preparar` (HANDOFF §7).
-   */
-  legajo?: LegajoDto | null
   /** NOTA: el front no los usa: arma los suyos con `valoresIniciales` (mismos valores por defecto). */
   valores_iniciales: {
     telefono: string
@@ -447,21 +440,10 @@ export interface UpdateInmueblePayload {
   tags?: number[]
 }
 
-// ─── Perfil y legajo (US-20, US-21) ─────────────────────────────────────
+// ─── Perfil (US-20, US-21) ──────────────────────────────────────────────
 // NOTA: `GET` y `PATCH /usuarios/me` existen desde el Sprint 3 (develop,
 // 917e8ff); el bloqueo de identidad y el correo, desde el 06/11 (8d2a46c).
-// El legajo NO: sigue propuesto (`docs/api-endpoints.md`, "Perfil", y
-// `docs/HANDOFF-BACKEND.md` §7). Mismos
-// códigos de ocupación y garantía que las solicitudes, así el legajo pasa del
-// perfil a la solicitud sin traducir.
-
-/** El legajo como lo guardaría el back (propuesto; hoy lo usan las solicitudes). */
-export interface LegajoDto {
-  ocupacion: OcupacionDto
-  /** Entero mayor que 0, o `null` si no lo cargó (US-21). */
-  ingresos: number | null
-  garantias: GarantiaDto[]
-}
+// El legajo salió de US-20 y US-21 ese mismo día: no hay legajo del perfil.
 
 /**
  * Contrato vigente o pendiente de firma que bloquea nombre, apellido y DNI
@@ -504,9 +486,6 @@ export interface ActualizarPerfilRequest {
   /** `YYYY-MM-DD`, mayor de 18 años. */
   fecha_nacimiento?: string
 }
-
-/** Cuerpo de `PATCH /api/v1/usuarios/me/legajo` (no existe — propuesto). Reemplaza el legajo entero. */
-export type ActualizarLegajoRequest = LegajoDto
 
 /**
  * Código de los 409 de `PATCH /usuarios/me`, en el sobre

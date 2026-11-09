@@ -7,7 +7,7 @@
  * usuario no cargó se deben mostrar como 'Sin cargar', con acceso a
  * completarlos"). "Completar" abre la edición del bloque.
  * Cubre: US-20 Consultar usuario.
- * Quién lo usa: `DatosPersonalesBloque.tsx` y `LegajoBloque.tsx`.
+ * Quién lo usa: `DatosPersonalesBloque.tsx`.
  */
 import { Button } from 'antd'
 import styles from './BloquesPerfil.module.css'
