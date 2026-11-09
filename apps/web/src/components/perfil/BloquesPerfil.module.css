@@ -81,12 +81,6 @@
   font-weight: 700;
 }
 
-.noticeActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
 /* ─── Chip de progreso del legajo ("2 de 3") ──────────────────────────── */
 
 .chip {

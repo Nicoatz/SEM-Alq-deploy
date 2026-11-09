@@ -68,12 +68,6 @@ export interface PerfilUsuario {
   /** Correo vigente (el que se usa para entrar). */
   email: string
   /**
-   * Correo nuevo que todavía no se confirmó (US-21: "el cambio solo se aplica
-   * cuando el usuario confirma el nuevo correo desde el enlace"). `null` si
-   * no hay un cambio en curso.
-   */
-  pendingEmail: string | null
-  /**
    * Teléfono canónico E.164 (`+543515550101`); `null` = no cargado.
    * NOTA: en modo real, si el back lo guardó sin código de país (los 10
    * dígitos del seed), llegan los dígitos tal cual, SIN "+"
@@ -94,6 +88,7 @@ export interface PerfilUsuario {
 
 /**
  * Cambios de "Datos personales" (US-21). Solo viajan los campos que se
- * modificaron. El correo no va acá: tiene su propio flujo de confirmación.
+ * modificaron. El correo va con los demás: el back lo aplica en el momento,
+ * sin enlace de confirmación (US-21 actualizada el 06/11).
  */
-export type DatosPersonalesCambios = Partial<Pick<PerfilUsuario, 'nombre' | 'apellido' | 'dni' | 'telefono' | 'fechaNacimiento'>>
+export type DatosPersonalesCambios = Partial<Pick<PerfilUsuario, 'nombre' | 'apellido' | 'dni' | 'email' | 'telefono' | 'fechaNacimiento'>>

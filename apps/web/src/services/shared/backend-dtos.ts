@@ -474,13 +474,19 @@ export type PerfilResponse = UsuarioMeResponse
 /**
  * Cuerpo de `PATCH /api/v1/usuarios/me` (existe). Solo los campos que
  * cambian: un campo de más, un body vacío o un valor vacío es un 400 (no se
- * puede borrar un dato mandando `""` ni `null`). El correo NO va acá: lo
- * cambia Supabase Auth.
+ * puede borrar un dato mandando `""` ni `null`).
  */
 export interface ActualizarPerfilRequest {
   nombre?: string
   apellido?: string
   numero_documento?: string
+  /**
+   * Correo nuevo (desde el 06/11, 8d2a46c). El back lo aplica en el momento,
+   * en `usuario.email` y en el login de Supabase Auth, sin enlace de
+   * confirmación. Lo guarda en minúsculas; tiene que ser único (409
+   * `EMAIL_DUPLICADO`).
+   */
+  email?: string
   /** Sin el "+" ni separadores, 10 a 15 dígitos (`^[1-9]\d{9,14}$`). */
   telefono?: string
   /** `YYYY-MM-DD`, mayor de 18 años. */
@@ -498,7 +504,7 @@ export type ActualizarLegajoRequest = LegajoDto
  * para distinguir los dos 409 sin leer el texto. Lo lee `apiClient` y lo
  * guarda en `ServiceError.apiCode`.
  */
-export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
+export type CodigoErrorPerfil = 'DNI_DUPLICADO' | 'EMAIL_DUPLICADO' | 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
 
 // ─── Contratos (US-05) · PROPUESTA DEL SPRINT 3 ─────────────────────────
 // NOTA: el back ya implementó sus rutas con otra forma (05/11): estos DTO son

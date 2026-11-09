@@ -9,10 +9,9 @@
  * De dónde saca los datos:
  * - Modo mock: el elenco (`lib/mocks/usuarios.mock.ts` y `perfiles.mock.ts`)
  *   más lo que se modificó en este navegador (ver "Datos sensibles" abajo).
- * - Modo real: `apps/api` para los datos personales (`GET` y
- *   `PATCH /usuarios/me`, existen); Supabase Auth para el correo pendiente,
- *   el cambio de correo y la contraseña. El legajo no tiene back todavía
- *   (propuesto, ver `actualizarLegajo`).
+ * - Modo real: `apps/api` para los datos personales y el correo (`GET` y
+ *   `PATCH /usuarios/me`, existen); Supabase Auth para la contraseña. El
+ *   legajo no tiene back todavía (propuesto, ver `actualizarLegajo`).
  * Quién lo usa: `components/perfil/*` y la rama mock de
  * `services/solicitudes.service.ts` (precarga del legajo, US-21 + US-35).
  *
@@ -35,13 +34,11 @@ import {
   cambiosToActualizarRequest,
   errorDeActualizarDatos,
   errorDeCambioDeContrasena,
-  errorDeCambioDeCorreo,
   errorDePerfil,
   legajoDtoToLegajo,
   legajoToActualizarRequest,
   perfilResponseToPerfil,
   PERFIL_CORREO_EN_USO_MESSAGE,
-  PERFIL_CORREO_IGUAL_MESSAGE,
   PERFIL_DNI_EN_USO_MESSAGE,
   PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE,
   PERFIL_NO_SE_BORRA_FECHA_MESSAGE,
@@ -66,13 +63,12 @@ const MOCK_STORAGE_FULL_MESSAGE = 'No pudimos guardar los cambios en este navega
 
 /**
  * Lo que se guarda del perfil en `rentar:mock:perfiles`: el legajo SIN el
- * ingreso y el correo pendiente. El ingreso va a {@link sensiblesEnMemoria}.
+ * ingreso. El ingreso va a {@link sensiblesEnMemoria}.
  */
 interface PerfilGuardadoMock {
   id: string
   occupation: LegajoUsuario['occupation']
   guarantees: LegajoUsuario['guarantees']
-  pendingEmail: string | null
 }
 
 /** El elenco de perfiles, en la forma que se guarda (sin el ingreso). */
@@ -80,7 +76,6 @@ const perfilesGuardadosElenco: PerfilGuardadoMock[] = perfilesElenco.map((perfil
   id: perfil.id,
   occupation: perfil.legajo.occupation,
   guarantees: perfil.legajo.guarantees,
-  pendingEmail: perfil.pendingEmail,
 }))
 
 /**
@@ -120,7 +115,6 @@ function legajoMock(userId: string): { guardado: PerfilGuardadoMock; legajo: Leg
     id: userId,
     occupation: LEGAJO_VACIO.occupation,
     guarantees: LEGAJO_VACIO.guarantees,
-    pendingEmail: null,
   }
   const enMemoria = sensiblesEnMemoria.get(userId)
   const ingresoElenco = perfilesElenco.find((item) => item.id === userId)?.legajo.monthlyIncome ?? null
@@ -136,7 +130,7 @@ function legajoMock(userId: string): { guardado: PerfilGuardadoMock; legajo: Leg
 export function perfilMockDe(userId: string): PerfilUsuario | null {
   const usuario = readUsuariosMock().find((item) => item.id === userId)
   if (!usuario) return null
-  const { guardado, legajo } = legajoMock(userId)
+  const { legajo } = legajoMock(userId)
   const roles = usuario.roles.includes('locatario') ? usuario.roles : [...usuario.roles, 'locatario' as const]
   return {
     id: usuario.id,
@@ -144,7 +138,6 @@ export function perfilMockDe(userId: string): PerfilUsuario | null {
     apellido: usuario.apellido,
     dni: dniMock(usuario),
     email: usuario.email,
-    pendingEmail: guardado.pendingEmail,
     telefono: telefonoAE164(usuario.telefono),
     fechaNacimiento: usuario.fechaNacimiento ?? null,
     roles,
@@ -168,31 +161,12 @@ function guardarPerfilMock(perfil: PerfilGuardadoMock): void {
   if (!saveMockRecord('perfiles', perfil)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
 }
 
-// ─── Rama real: correo pendiente ────────────────────────────────────────
-
-/**
- * El correo nuevo sin confirmar, de Supabase Auth (`user.new_email`, US-21).
- * `getUser()` va al servidor de Auth (no a la sesión guardada), así refleja
- * un cambio pedido desde otro dispositivo. Si falla, `null`: el perfil se
- * muestra igual, sin el aviso.
- */
-async function correoPendienteReal(): Promise<string | null> {
-  try {
-    const { data } = await getSupabaseBrowserClient().auth.getUser()
-    return data.user?.new_email ?? null
-  } catch {
-    return null
-  }
-}
-
 // ─── Consulta (US-20) ───────────────────────────────────────────────────
 
 /**
  * US-20 Consultar usuario — el perfil completo del usuario en sesión: datos
- * personales, correo pendiente, roles, contrato que bloquea la identidad y
- * legajo.
+ * personales, roles, contrato que bloquea la identidad y legajo.
  * @backend GET /api/v1/usuarios/me   (existe) → PerfilResponse
- *          + Supabase Auth `getUser()` para el correo pendiente (`new_email`).
  * @returns PerfilUsuario
  * @throws {ServiceError} `unauthorized` sin sesión; `network` / `server`.
  *
@@ -210,8 +184,7 @@ export async function getMiPerfil(): Promise<PerfilUsuario> {
     return perfil
   }
   try {
-    const [dto, pendiente] = await Promise.all([apiRequest<PerfilResponse>('/usuarios/me'), correoPendienteReal()])
-    return perfilResponseToPerfil(dto, pendiente)
+    return perfilResponseToPerfil(await apiRequest<PerfilResponse>('/usuarios/me'))
   } catch (error) {
     throw errorDePerfil(error)
   }
@@ -227,14 +200,20 @@ export const CAMPO_NO_BORRABLE = { telefono: 'TELEFONO_NO_BORRABLE', fechaNacimi
 
 /**
  * US-21 Modificar usuario — guarda el bloque "Datos personales": nombre,
- * apellido, DNI, teléfono y fecha de nacimiento. `cambios` trae solo lo que
- * cambió respecto de lo guardado (lo compara `DatosPersonalesBloque`), y solo
- * eso viaja.
+ * apellido, DNI, correo, teléfono y fecha de nacimiento. `cambios` trae solo
+ * lo que cambió respecto de lo guardado (lo compara `DatosPersonalesBloque`),
+ * y solo eso viaja.
+ *
+ * El correo se aplica en el momento, igual que el resto (US-21 actualizada el
+ * 06/11: sin enlace de confirmación). El back cambia `usuario.email` y el
+ * correo de login de Supabase Auth; desde ahí se entra con el nuevo.
  * @backend PATCH /api/v1/usuarios/me   (existe) body ActualizarPerfilRequest → 200 PerfilResponse
  * @returns el perfil actualizado.
  * @throws {ServiceError}
  *   - `conflict` con {@link PERFIL_DNI_EN_USO_MESSAGE}: el DNI ya es de otra
  *     cuenta (US-21: "único en la plataforma").
+ *   - `conflict` con {@link PERFIL_CORREO_EN_USO_MESSAGE}: el correo ya es de
+ *     otra cuenta (US-21: "debe ser único en la plataforma").
  *   - `conflict` con {@link PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE}: cambia nombre,
  *     apellido o DNI siendo parte de un contrato vigente o pendiente de firma.
  *   - `validation`: un dato no cumple las reglas de US-21; en modo real,
@@ -245,6 +224,11 @@ export const CAMPO_NO_BORRABLE = { telefono: 'TELEFONO_NO_BORRABLE', fechaNacimi
  * NOTA (modo real): el back no deja borrar un dato (un valor vacío o `null`
  * es un 400). Si el usuario vacía el teléfono o la fecha que ya tenía, se
  * frena acá con un mensaje claro y no se llama al back.
+ * NOTA (sesión, modo real): el token que ya tiene el navegador sigue sirviendo
+ * después de cambiar el correo (la API identifica al usuario por el `sub`, no
+ * por el correo), pero guarda el correo viejo hasta renovarse (1 hora). Por
+ * eso, si cambió el correo, se renueva la sesión enseguida
+ * (`refreshSession`); el `AuthProvider` lo relee con `refrescarUsuario`.
  * TODO(backend): permitir borrar el teléfono y la fecha (US-20 los muestra
  * como "Sin cargar"), por ejemplo aceptando `null`.
  */
@@ -270,6 +254,13 @@ export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios)
         throw new ServiceError('conflict', PERFIL_DNI_EN_USO_MESSAGE, 'DNI_DUPLICADO')
       }
     }
+    const email = cambios.email?.trim().toLowerCase()
+    if (email !== undefined) {
+      if (!emailValido(email)) throw new ServiceError('validation', MENSAJES_SOLICITUD.emailInvalido)
+      if (readUsuariosMock().some((otro) => otro.id !== usuario.id && otro.email.toLowerCase() === email)) {
+        throw new ServiceError('conflict', PERFIL_CORREO_EN_USO_MESSAGE, 'EMAIL_DUPLICADO')
+      }
+    }
     if (cambios.telefono && !TELEFONO_E164_REGEX.test(cambios.telefono)) throw new ServiceError('validation', MENSAJES_SOLICITUD.telefonoLargo)
     if (cambios.fechaNacimiento && !esMayorDeEdad(dayjs(cambios.fechaNacimiento))) throw new ServiceError('validation', MENSAJES.menorDeEdad)
 
@@ -277,6 +268,8 @@ export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios)
       ...usuario,
       nombre: cambios.nombre?.trim() ?? usuario.nombre,
       apellido: cambios.apellido?.trim() ?? usuario.apellido,
+      // Igual que el back: el correo nuevo vale desde ya, también para entrar.
+      email: email ?? usuario.email,
       telefono: cambios.telefono !== undefined ? (cambios.telefono ?? undefined) : usuario.telefono,
       fechaNacimiento: cambios.fechaNacimiento !== undefined ? (cambios.fechaNacimiento ?? undefined) : usuario.fechaNacimiento,
     })
@@ -292,9 +285,23 @@ export async function actualizarDatosPersonales(cambios: DatosPersonalesCambios)
   if (cambios.fechaNacimiento === null) throw new ServiceError('validation', PERFIL_NO_SE_BORRA_FECHA_MESSAGE, CAMPO_NO_BORRABLE.fechaNacimiento)
   try {
     const dto = await apiRequest<PerfilResponse>('/usuarios/me', { method: 'PATCH', body: cambiosToActualizarRequest(cambios) })
-    return perfilResponseToPerfil(dto, await correoPendienteReal())
+    if (cambios.email) await renovarSesion()
+    return perfilResponseToPerfil(dto)
   } catch (error) {
     throw errorDeActualizarDatos(error)
+  }
+}
+
+/**
+ * Renueva la sesión de Supabase para que el token tenga el correo nuevo (ver
+ * la NOTA de {@link actualizarDatosPersonales}). Si falla, no pasa nada: el
+ * correo ya cambió y el token se renueva solo antes de la hora.
+ */
+async function renovarSesion(): Promise<void> {
+  try {
+    await getSupabaseBrowserClient().auth.refreshSession()
+  } catch {
+    // Ver el JSDoc: no es un error del guardado.
   }
 }
 
@@ -336,73 +343,6 @@ export async function actualizarLegajo(legajo: LegajoUsuario): Promise<LegajoUsu
   } catch (error) {
     throw errorDePerfil(error)
   }
-}
-
-// ─── Correo (US-21) ─────────────────────────────────────────────────────
-
-/** Ruta a la que vuelve el enlace de confirmación del correo (ver `app/auth/confirmar/route.ts`). */
-const RUTA_CONFIRMAR = '/auth/confirmar'
-
-/**
- * US-21 Modificar usuario — pide el cambio de correo. NO lo aplica: el
- * correo nuevo queda pendiente hasta que el usuario lo confirma desde el
- * enlace (US-21: "hasta entonces sigue vigente el anterior").
- * @backend Supabase Auth `updateUser({ email }, { emailRedirectTo })` (no pasa por `apps/api`).
- *   Con "Secure email change" activo (decisión del PO) llegan DOS enlaces, al
- *   correo actual y al nuevo, y el cambio se aplica cuando se confirman los dos.
- * @returns el correo pendiente.
- * @throws {ServiceError} `conflict` con {@link PERFIL_CORREO_EN_USO_MESSAGE}
- *   si ya es de otra cuenta; `validation` si el formato no es el de US-35 o si
- *   es el mismo correo.
- * TODO(backend): al confirmarse, Supabase cambia `auth.users.email` pero no
- * `usuario.email`: hay que sincronizarlos (HANDOFF §7).
- */
-export async function solicitarCambioDeCorreo(correoNuevo: string): Promise<string> {
-  const email = correoNuevo.trim().toLowerCase()
-  if (!emailValido(email)) throw new ServiceError('validation', MENSAJES_SOLICITUD.emailInvalido)
-  if (USE_MOCKS) {
-    await delay()
-    const usuario = usuarioMockEnSesion()
-    if (email === usuario.email.toLowerCase()) throw new ServiceError('validation', PERFIL_CORREO_IGUAL_MESSAGE)
-    if (readUsuariosMock().some((otro) => otro.id !== usuario.id && otro.email.toLowerCase() === email)) {
-      throw new ServiceError('conflict', PERFIL_CORREO_EN_USO_MESSAGE)
-    }
-    guardarPerfilMock({ ...legajoMock(usuario.id).guardado, pendingEmail: email })
-    return email
-  }
-  let respuesta: Awaited<ReturnType<ReturnType<typeof getSupabaseBrowserClient>['auth']['updateUser']>>
-  try {
-    respuesta = await getSupabaseBrowserClient().auth.updateUser(
-      { email },
-      { emailRedirectTo: `${window.location.origin}${RUTA_CONFIRMAR}?next=/panel/perfil` },
-    )
-  } catch (error) {
-    throw errorDeCambioDeCorreo(error)
-  }
-  if (respuesta.error) throw errorDeCambioDeCorreo(respuesta.error)
-  return respuesta.data.user?.new_email ?? email
-}
-
-/** `true` si se puede simular la confirmación del correo (solo modo mock, US-21). */
-export const PUEDE_SIMULAR_CONFIRMACION_DE_CORREO = USE_MOCKS
-
-/**
- * Solo modo mock — simula que el usuario confirmó los dos enlaces: el correo
- * pendiente pasa a ser el vigente (y el de login).
- * @backend ninguno: en real lo hace el enlace del correo (`/auth/confirmar`).
- * @throws {ServiceError} `validation` si no hay un cambio pendiente o si se llama en modo real.
- */
-export async function simularConfirmacionDeCorreo(): Promise<PerfilUsuario> {
-  if (!USE_MOCKS) throw new ServiceError('validation', 'La confirmación se hace desde el enlace del correo.')
-  await delay(300)
-  const usuario = usuarioMockEnSesion()
-  const { guardado } = legajoMock(usuario.id)
-  if (!guardado.pendingEmail) throw new ServiceError('validation', 'No hay un cambio de correo pendiente.')
-  guardarUsuarioMock({ ...usuario, email: guardado.pendingEmail })
-  guardarPerfilMock({ ...guardado, pendingEmail: null })
-  const perfil = perfilMockDe(usuario.id)
-  if (!perfil) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-  return perfil
 }
 
 // ─── Contraseña (US-21) ─────────────────────────────────────────────────

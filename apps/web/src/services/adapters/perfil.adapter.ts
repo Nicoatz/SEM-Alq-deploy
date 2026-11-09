@@ -26,8 +26,9 @@ import { rolDtoToUserRole } from './usuario.adapter'
 export const PERFIL_DNI_EN_USO_MESSAGE = 'Ese DNI ya está registrado en otra cuenta. Revisá el número.'
 export const PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE =
   'No podés cambiar tu nombre, apellido ni DNI mientras seas parte de un contrato vigente o pendiente de firma: son los datos que figuran en el contrato.'
-export const PERFIL_CORREO_EN_USO_MESSAGE = 'Ya existe una cuenta con ese correo.'
-export const PERFIL_CORREO_IGUAL_MESSAGE = 'Ese ya es tu correo actual.'
+export const PERFIL_CORREO_EN_USO_MESSAGE = 'Ese correo ya está registrado en otra cuenta.'
+/** El back guardó el resto pero Supabase Auth no aceptó el correo (400 sin código): deshizo todo. */
+export const PERFIL_CORREO_NO_SE_PUDO_MESSAGE = 'No pudimos cambiar tu correo. Probá de nuevo en unos minutos.'
 export const PERFIL_PASSWORD_ACTUAL_INCORRECTA_MESSAGE = 'La contraseña actual no es correcta.'
 export const PERFIL_PASSWORD_IGUAL_MESSAGE = 'La contraseña nueva tiene que ser distinta de la actual.'
 export const PERFIL_PASSWORD_DEBIL_MESSAGE = 'La contraseña nueva no cumple los requisitos. Revisá la lista de abajo.'
@@ -66,15 +67,13 @@ export function legajoDtoToLegajo(dto: LegajoDto | null): LegajoUsuario {
  *   (`telefonoDelBack`; brecha de datos en HANDOFF §7).
  * - `roles`: los del back, traducidos con `rolDtoToUserRole`. US-20: "todo
  *   usuario es locatario", así que se agrega si el back no lo manda.
- * - `pendingEmail`: NO sale del back sino de Supabase Auth (`user.new_email`,
- *   US-21); lo pasa el service.
  * - `identityLock`: siempre `null`. TODO(backend): el GET no dice si hay un
  *   contrato que bloquea nombre, apellido y DNI (US-21 pide mostrarlo antes
  *   de editar). Mientras tanto, el bloqueo se descubre con el 409 del PATCH
  *   (ver `DatosPersonalesBloque`).
  * - `legajo`: vacío ("Sin cargar"). TODO(backend): el back no tiene legajo.
  */
-export function perfilResponseToPerfil(dto: PerfilResponse, pendingEmail: string | null): PerfilUsuario {
+export function perfilResponseToPerfil(dto: PerfilResponse): PerfilUsuario {
   const roles = dto.roles.map(rolDtoToUserRole).filter((role): role is UserRole => role !== null)
   if (!roles.includes('locatario')) roles.push('locatario')
   return {
@@ -83,7 +82,6 @@ export function perfilResponseToPerfil(dto: PerfilResponse, pendingEmail: string
     apellido: dto.apellido ?? '',
     dni: dto.numero_documento || null,
     email: dto.email,
-    pendingEmail: pendingEmail && pendingEmail !== dto.email ? pendingEmail : null,
     telefono: telefonoDelBack(dto.telefono),
     fechaNacimiento: dto.fecha_nacimiento || null,
     roles,
@@ -104,6 +102,8 @@ export function cambiosToActualizarRequest(cambios: DatosPersonalesCambios): Act
   if (cambios.nombre !== undefined) request.nombre = cambios.nombre.trim()
   if (cambios.apellido !== undefined) request.apellido = cambios.apellido.trim()
   if (cambios.dni) request.numero_documento = cambios.dni
+  // El back lo pasa a minúsculas igual; se manda ya normalizado.
+  if (cambios.email) request.email = cambios.email.trim().toLowerCase()
   // NOTA: el back valida `^[1-9]\d{9,14}$`, o sea SIN el "+", aunque el
   // ejemplo de Swagger lo muestre con "+".
   if (cambios.telefono) request.telefono = cambios.telefono.replace(/^\+/, '')
@@ -135,7 +135,7 @@ function sinTextoTecnico(error: ServiceError): ServiceError {
  * dice "…participa en un contrato vigente o pendiente de firma".
  */
 function codigoDelConflicto(error: ServiceError): CodigoErrorPerfil | null {
-  if (error.apiCode === 'DNI_DUPLICADO' || error.apiCode === 'IDENTIDAD_BLOQUEADA_POR_CONTRATO') return error.apiCode
+  if (error.apiCode === 'DNI_DUPLICADO' || error.apiCode === 'EMAIL_DUPLICADO' || error.apiCode === 'IDENTIDAD_BLOQUEADA_POR_CONTRATO') return error.apiCode
   const texto = error.message.toLowerCase()
   if (texto.includes('contrato')) return 'IDENTIDAD_BLOQUEADA_POR_CONTRATO'
   if (texto.includes('23505') || texto.includes('duplicate key')) return 'DNI_DUPLICADO'
@@ -153,6 +153,8 @@ function mensajeDeValidacion(textoDelBack: string): string {
   const texto = textoDelBack.trim()
   if (texto.startsWith('El nombre') || texto.startsWith('El apellido')) return MENSAJES_PERFIL.nombreInvalido
   if (texto.startsWith('El DNI')) return MENSAJES.dniInvalido
+  if (texto.startsWith('El correo')) return MENSAJES_SOLICITUD.emailInvalido
+  if (texto.startsWith('No se pudo actualizar el correo')) return PERFIL_CORREO_NO_SE_PUDO_MESSAGE
   if (texto.startsWith('El teléfono')) return MENSAJES_SOLICITUD.telefonoLargo
   if (texto.startsWith('Para actualizar la fecha')) return MENSAJES.menorDeEdad
   return PERFIL_REVISAR_DATOS_MESSAGE
@@ -162,6 +164,7 @@ function mensajeDeValidacion(textoDelBack: string): string {
  * Error de `PATCH /usuarios/me` → mensaje de la pantalla. Nunca se muestra el
  * texto crudo del back ni el de Postgres:
  * - 409 de DNI repetido → {@link PERFIL_DNI_EN_USO_MESSAGE} (US-21: "único en la plataforma").
+ * - 409 de correo repetido → {@link PERFIL_CORREO_EN_USO_MESSAGE} (US-21: el correo "debe ser único").
  * - 409 de contrato → {@link PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE}, con `apiCode`
  *   `IDENTIDAD_BLOQUEADA_POR_CONTRATO` (la pantalla bloquea los campos).
  * - Otro 409 → {@link PERFIL_REVISAR_DATOS_MESSAGE}.
@@ -174,6 +177,7 @@ export function errorDeActualizarDatos(error: unknown): unknown {
     const codigo = codigoDelConflicto(error)
     if (codigo === 'IDENTIDAD_BLOQUEADA_POR_CONTRATO') return new ServiceError('conflict', PERFIL_IDENTIDAD_BLOQUEADA_MESSAGE, codigo)
     if (codigo === 'DNI_DUPLICADO') return new ServiceError('conflict', PERFIL_DNI_EN_USO_MESSAGE, codigo)
+    if (codigo === 'EMAIL_DUPLICADO') return new ServiceError('conflict', PERFIL_CORREO_EN_USO_MESSAGE, codigo)
     return new ServiceError('conflict', PERFIL_REVISAR_DATOS_MESSAGE)
   }
   if (error.code === 'validation') return new ServiceError('validation', mensajeDeValidacion(error.message))
@@ -185,30 +189,11 @@ export function errorDePerfil(error: unknown): unknown {
   return error instanceof ServiceError ? sinTextoTecnico(error) : error
 }
 
-// ─── Errores de Supabase Auth (correo y contraseña) ─────────────────────
+// ─── Errores de Supabase Auth (contraseña) ─────────────────────────────
 
 /** El `code` de un error de Supabase Auth como texto, o `''`. */
 function codigoAuth(error: unknown): string {
   return isAuthApiError(error) && error.code ? String(error.code) : ''
-}
-
-/**
- * Error de `supabase.auth.updateUser({ email })` → mensaje (US-21):
- * - 422 `email_exists` → {@link PERFIL_CORREO_EN_USO_MESSAGE} ("debe ser único en la plataforma").
- * - 400 `email_address_invalid` / `validation_failed` → formato inválido.
- * - 429 `over_email_send_rate_limit` → demasiados intentos.
- * - Sin red → `network`.
- */
-export function errorDeCambioDeCorreo(error: unknown): ServiceError {
-  if (isAuthRetryableFetchError(error)) return new ServiceError('network', PERFIL_SIN_RED_MESSAGE)
-  const codigo = codigoAuth(error)
-  if (codigo === 'email_exists') return new ServiceError('conflict', PERFIL_CORREO_EN_USO_MESSAGE)
-  if (codigo === 'email_address_invalid' || codigo === 'validation_failed') {
-    return new ServiceError('validation', 'Revisá el correo: tiene que ser del tipo nombre@dominio.com.')
-  }
-  if (codigo === 'over_email_send_rate_limit' || codigo === 'over_request_rate_limit') return new ServiceError('validation', PERFIL_DEMASIADOS_INTENTOS_MESSAGE)
-  if (isAuthApiError(error) && error.status === 401) return new ServiceError('unauthorized', SESSION_EXPIRED_MESSAGE)
-  return new ServiceError('server', PERFIL_ERROR_GENERICO_MESSAGE)
 }
 
 /**
