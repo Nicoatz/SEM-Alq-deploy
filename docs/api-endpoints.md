@@ -571,10 +571,29 @@ aviso de firma simulada) los resuelve el front; el back solo exige `acepta_condi
 
 **Verificado en el sandbox (09/11):** enviar un contrato real (5 firmantes), firma embebida del locador y
 de un garante (enlace temporal), posición de los cuadros de firma en la hoja, la IP de la firma (la informa
-DocuSign en `audit_events`) y que el garante **no ve** la opción "Rechazar".
+DocuSign en `audit_events`). En Vercel (10/11): aviso real de DocuSign con HMAC, registro de las firmas de locador,
+locatario y un garante (con IP y hash), y la URL del webhook leída de `DOCUSIGN_WEBHOOK_URL`.
 
-**Sin verificar en real todavía:** el cierre completo (todas las firmas, contrato vigente), el webhook con un
-aviso real de DocuSign y su HMAC, y `certificate=true` al descargar el PDF firmado.
+**Limitación abierta:** la pantalla de firma de DocuSign **sí le permite declinar al garante** (se ve en la
+pantalla embebida, a veces dentro de un menú). El garante no tiene ruta de rechazo en RentAR, pero desde
+DocuSign puede rechazar igual: un solo "declinado" deja el sobre inutilizable y el webhook pasa el contrato
+a borrador (igual que `/rechazar`). **Decisión (10/11): el rechazo se hace solo desde la app** (`/rechazar`).
+DocuSign **no tiene un ajuste de cuenta** para quitar "declinar" (Signing Settings solo ofrece "Require a
+reason when a recipient declines to sign", que no la oculta). La única vía conocida es una propiedad de
+*branding* (`DocuSign_DeclineAllow=false` en el archivo de recursos de firma) que DocuSign tiene que habilitar
+en la cuenta y que, según foros, no siempre funciona: sin confirmar. Mientras tanto, el webhook trata un
+"declinado" como un rechazo (contrato a borrador).
+
+**Cierre verificado en Vercel (10/11, contrato 31):** con las 5 firmas, el contrato pasó a `vigente`, el inmueble a
+`alquilado`, se generaron 36 períodos de cobro y se borraron los tokens de los garantes. El PDF firmado se guardó con
+las páginas de DocuSign (`certificate=true` funciona: 11 páginas = contrato + hoja de firmas + 4 de certificado de
+finalización y divulgación legal). **Todo esto es el entorno demo de DocuSign: gratuito y sin validez legal**; pasar a
+producción requiere un plan pago y la revisión de la integración (ver `Seminario/INTEGRACION-DOCUSIGN.md`, §9).
+`GET /contratos/:id/detalle` lo expone en `pdf` (`{ nombre, tamano_bytes, subido_en, url }`, con `url` temporal) y
+`GET /alquileres-locatario/:id`, en `pdf_url`.
+
+**Sin verificar en real:** que las solicitudes pendientes del inmueble pasen a `rechazada` al cerrar (el inmueble de
+prueba no tenía otras; lo cubren los tests).
 
 **Qué cambia en el front** (no se tocó; ver HANDOFF §7, US-07):
 
@@ -584,6 +603,13 @@ aviso real de DocuSign y su HMAC, y `certificate=true` al descargar el PDF firma
 - Sacar "Reenviar invitación" y su aviso de mail.
 - Los garantes vuelven a mostrarse como firmantes con estado (deja de aplicar el filtro de S4-3).
 - `puede_firmar` de `/alquileres-locatario` ahora es real: ya se puede usar.
+- **El estado tarda en reflejarse:** DocuSign redirige al usuario de inmediato, pero el aviso al back llega
+  **20 a 30 segundos** después (medido el 10/11). Al volver con `?event=signing_complete`, el front muestra
+  "Estamos registrando tu firma" y vuelve a pedir el detalle cada 2 o 3 segundos durante unos 30 segundos.
+  No es un error si todavía figura pendiente. (Mejora posible del back: una ruta que sincronice al volver.)
+- El garante vuelve a `/firma-garante/<token>?event=...`: su enlace deja de servir cuando se registra la
+  firma, así que no hay que volver a consultarlo; mostrar "Tu firma quedó registrada" si el `event` es
+  `signing_complete`.
 
 ## Alquileres del locatario (Sprint 3, US-27)
 
