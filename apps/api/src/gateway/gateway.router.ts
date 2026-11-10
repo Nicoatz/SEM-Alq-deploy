@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import v1Router from '../routes/v1';
+import { redactarUrl } from './redactar-url';
 
 const gatewayRouter = Router();
 
@@ -7,7 +8,7 @@ const gatewayRouter = Router();
 gatewayRouter.use((req: Request, res: Response, next: NextFunction) => {
   res.setHeader('X-Gateway-Version', '1.0.0');
   res.setHeader('X-Service-Layer', 'RentAR-Core-Backend');
-  console.log(`[API Gateway] ${new Date().toISOString()} | ${req.method} ${req.originalUrl}`);
+  console.log(`[API Gateway] ${new Date().toISOString()} | ${req.method} ${redactarUrl(req.originalUrl)}`);
   next();
 });
 

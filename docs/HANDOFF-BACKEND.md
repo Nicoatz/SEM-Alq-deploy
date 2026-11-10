@@ -188,7 +188,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | Detalle, pestaña Contratos y alta (US-06) | **Conectado** (Tanda 2). `DELETE` probado en real; `reabrir` sin probar en real: no se reabrió el contrato 2 |
 | `POST /contratos/:id/enviar` | Alta del contrato (US-05) | **Pendiente** (propuesto): en mock funciona; la rama real ya llama a esta ruta (§7, "US-05") |
 | `GET /contratos/:id/detalle` | `/panel/contratos/[id]` (US-42) | **Conectado** (Sprint 4, Tanda 1; probado en real): Bearer + rol locador; 404 uniforme; 409 `CONTRATO_BORRADOR` redirige al alta. El calendario sale de `lib/contratos/ajustes.ts` y el monto es siempre "a definir" |
-| `POST /contratos/:id/firmar`, `/rechazar`, `/reenviar` | `/panel/contratos/[id]` (US-07, Sprint 3) | **Pendiente** (propuesto, tanda 3 del Sprint 3): en mock funciona; la rama real ya llama a estas rutas (§7, "US-07"). El bloqueante del esquema ya está resuelto (§7, "US-05") |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma`, `GET`/`POST /firma-garante/:token`, `POST /webhooks/docusign` | `/panel/contratos/[id]`, `/panel/alquiler` (US-07) | **Implementado en el back** con DocuSign (07/11): falta conectar el front y la prueba completa en Vercel (§7, "US-07"). `/reenviar` se eliminó |
 | `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Conectado** (27/10, `feature/vistas`; API del 26/10, 066c032: Bearer, pertenencia por `contrato_x_usuario`, filtro por estado y detalle con 404 indistinguible): listado, cuenta del menú y ficha. Sin firma en línea (US-07), sin cláusulas ni historial; la prueba con login quedó pendiente de un usuario con contratos (§7 "US-27" y §9). Las columnas de la migración `20261026000000_us27_alquileres_locatario.sql` ya se ven en la base (27/10); falta que backend confirme que la aplicó entera |
 | Supabase Auth `updateUser` (contraseña) | `/panel/perfil` (US-21) | **Probado en real** (06/11): la protección "Require current password" está activa (§7, "US-20 y US-21") |
 
@@ -216,10 +216,10 @@ endpoint y nombres front → back: [`api-endpoints.md`](api-endpoints.md), "Esta
 
 | # | Brecha | Efecto | Dueño |
 |---|---|---|---|
-| S4-1 | **No existen enviar a firmar ni firmar.** Nada escribe `codigo` ni pasa un contrato a estado 4 o 2 | En real el flujo termina en borrador. Los períodos se generan al pasar a 2, así que no hay períodos ni cobros (0 y 0 en la base) | backend |
+| ~~S4-1~~ | **Cerrada (07/11):** `POST /contratos/:id/enviar` escribe el `codigo` y pasa a estado 4; el webhook de DocuSign lo pasa a 2 y el trigger genera los períodos. Falta probarlo de punta a punta | Hasta la prueba completa no hay contratos vigentes reales | backend |
 | S4-2 | **`dias_para_vencimiento` tiene dos significados:** plazo en US-05 y US-27, **día del mes** en la generación de períodos (`us08_registrar_cobro.sql`) | Cobros muestra una fecha de vencimiento y la ficha del locatario otra | backend |
-| S4-3 | **Garantes contados como firmantes:** `armarFirmas` los suma a `firmantes` y `faltan`. Con garantes, `firmado_por_todos_el` queda `null`. **Decisión del PO: los garantes no firman.** El front los excluye y recalcula `faltan` | Detalle y pestaña Contratos | backend |
-| S4-4 | **Garantes vacíos en `/alquileres-locatario/:idContrato`:** se leen de `contrato_x_usuario` tipo 3, y viven en `garante` | US-27 muestra una lista vacía | backend |
+| ~~S4-3~~ | **Revertida (07/11, a confirmar con el PO):** los garantes **sí firman**, con un enlace temporal. Contarlos como firmantes ahora es correcto; el filtro del front deja de aplicar. Antes era: "los garantes no firman" (PO, 05/11) | Detalle y pestaña Contratos | front |
+| ~~S4-4~~ | **Cerrada (07/11):** `/alquileres-locatario/:idContrato` lee los garantes de la tabla `garante`, con su estado de firma y sin DNI | — | backend |
 | S4-5 | **Filtro `.or()`, probado en real el 05/11:** `GET /cobros/:id`, `/comprobante` y `/comprobante/pdf` dan **500 siempre**, también con un id inexistente ("failed to parse logic tree"). El detalle y el comprobante reales no funcionan para nadie. El 500 devuelve el filtro en el cuerpo, con el id del usuario. Sin períodos no se pudo probar uno ajeno, y el comprobante no tiene segundo control de dueño | US-09, US-10 | backend |
 | S4-6 | **Falta aplicar `20261104000000_us09_consultar_cobro.sql`:** no existe `periodo_cobro_evento` | Sin eventos de período | db |
 | S4-7 | **Versiones de migración repetidas** (`20261103000000`, `20261104000000`, `20261104000001`) | Riesgo con `supabase db push` | db |
@@ -312,6 +312,12 @@ por mora queda fuera de esta iteración.
 
 ### US-07 Firmar contrato de alquiler (Sprint 3, tanda 3, `/panel/contratos/[id]`)
 
+> **Actualización 07/11 (back):** el back implementó la firma con **DocuSign** (firma embebida, webhook,
+> enlace temporal para garantes). Lo de abajo describe el diseño anterior; donde choca, manda
+> [`api-endpoints.md`](api-endpoints.md), "Firma de contratos". Cambios: los **garantes firman**, se
+> **registra la IP**, **solo locador y locatario rechazan** y rechazar **vuelve a borrador**, y **no existe
+> `/reenviar`** (ni mails de invitación). Pendiente: conectar el front y la prueba completa en Vercel.
+
 La firma, el rechazo y el reenvío funcionan en **modo mock**, sobre el PDF del contrato; sus ramas
 reales llaman a rutas **propuestas** que todavía no existen. El detalle y "Modificar" (`/reabrir`) ya
 existen en el back. Contrato completo en
@@ -334,9 +340,9 @@ US-05 (el esquema de dos filas por inmueble, resuelto en la sección de US-05 de
 
 **Decisiones del PO de esta tanda**
 
-- Firman el locador y el locatario. **Los garantes no firman** (confirmado por el PO el 05/11): se
-  muestran como datos, sin estado de firma, también en la ficha real de Mi alquiler. Brecha S4-3.
-- US-07 no lleva historial del contrato ni registro de IP.
+- ~~Firman el locador y el locatario. Los garantes no firman (PO, 05/11).~~ **Revertido el 07/11 (a
+  confirmar con el PO):** firman el locador, el locatario **y los garantes** (con enlace temporal de 48 h).
+- US-07 no lleva historial del contrato. ~~Ni registro de IP~~: **ahora sí se registra la IP** de cada firma.
 - El locador firma desde el detalle (`/panel/contratos/[id]`); el locatario, desde **Mi alquiler**
   (`/panel/alquiler`, desde esta tanda) con el mismo componente (`FirmaContrato`). Mi alquiler es la
   base de la ficha de US-27 (tanda 4: condiciones, "Lo que viene" y el listado con varios). Sin
@@ -344,7 +350,8 @@ US-05 (el esquema de dos filas por inmueble, resuelto en la sección de US-05 de
   alquiler" en el menú del locatario.
 - **Rechazo (aprobado):** quien rechaza **no puede firmar después** (409 `FIRMA_RECHAZADA`). El locador
   ve el motivo y "Tocá Modificar para corregirlo y volver a enviarlo."; el locatario ve su rechazo y no el botón de firmar. No se le puede reenviar la
-  invitación a quien rechazó.
+  invitación a quien rechazó. **Cambió el 07/11:** rechazar (locador o locatario) devuelve el contrato a
+  borrador, borra las firmas y anula el sobre; el motivo queda solo en `docusign_evento.payload`.
 - **Reloj (un solo reloj, `lib/utils/fechas.ts#ahora`):** en real, el reloj del sistema. En mock, la
   **fecha del "hoy" del mock (23/09/2026) con la hora real**: los eventos de la sesión, la validación
   "inicio no anterior a hoy" del alta y los días que faltan. El límite de un reenvío por hora usa la

@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { Application, Request } from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import gatewayRouter from './gateway/gateway.router';
@@ -11,7 +11,17 @@ export const createApp = (): Application => {
 
   // Middlewares globales
   app.use(cors(corsOptions()));
-  app.use(express.json());
+  // NOTA: de los avisos de DocuSign se guardan los bytes crudos (`rawBody`): su firma HMAC se
+  // calcula sobre el cuerpo exacto, y volver a serializar el JSON la cambiaría.
+  app.use(
+    express.json({
+      verify: (req, _res, cuerpo) => {
+        if ((req as Request).originalUrl?.startsWith('/api/v1/webhooks/')) {
+          (req as Request & { rawBody?: Buffer }).rawBody = cuerpo;
+        }
+      }
+    })
+  );
   app.use(express.urlencoded({ extended: true }));
 
   // Documentación Swagger OpenAPI

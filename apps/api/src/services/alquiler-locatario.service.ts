@@ -197,20 +197,21 @@ export class AlquilerLocatarioService {
 
     const item = itemFromRecord(record);
     const tenant = record.participantes.find(participant => participant.tipo_firmante === 2);
-    const landlord = record.participantes.find(participant => participant.tipo_firmante === 1);
-    const bothAgreedToSameDocument = Boolean(
-      landlord?.fecha_conformidad
-      && tenant?.fecha_conformidad
-      && landlord.hash_documento_conforme
-      && landlord.hash_documento_conforme === tenant.hash_documento_conforme
-      && landlord.hash_documento_conforme === record.contrato.pdf_sha256
-    );
+    // US-07: el locatario puede firmar si el contrato está pendiente de firma, ya tiene su sobre en
+    // DocuSign y él todavía no firmó. (Antes se exigía la "conformidad" de ambas partes; con la
+    // firma en DocuSign no se usa: pedirla dejaba este valor siempre en `false`.)
+    // Las firmas son en paralelo: no depende de si el locador ya firmó.
     const canSign = item.estado === 'pendiente_firma'
-      && bothAgreedToSameDocument
+      && Boolean(record.contrato.docusign_envelope_id)
       && tenant?.estado_firma === 'pendiente';
     const contract = record.contrato;
-    const signedPdfUrl = contract.pdf_storage_path
-      ? await this.repository.createPdfSignedUrl(contract.pdf_storage_path)
+    // US-07: con el contrato vigente o finalizado se descarga el documento FIRMADO (con el
+    // certificado de DocuSign). Si todavía no se guardó, mientras tanto se ofrece el original.
+    const pdfPath = (item.estado === 'vigente' || item.estado === 'finalizado') && contract.pdf_firmado_storage_path
+      ? contract.pdf_firmado_storage_path
+      : contract.pdf_storage_path;
+    const signedPdfUrl = pdfPath
+      ? await this.repository.createPdfSignedUrl(pdfPath)
       : null;
     const nextPaymentDate = item.estado === 'finalizado' ? null : calcularFechaProximoVencimiento(
       this.now(),

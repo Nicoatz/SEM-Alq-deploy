@@ -7,6 +7,7 @@ import type {
   ContratoDTO,
   ContratoResumenResponse,
   ContratosInmuebleResponse,
+  EnviarContratoResponse,
   EstadoContratoResponse,
   EstadoFirmaDetalleResponse,
   FirmanteDetalleResponse,
@@ -22,8 +23,13 @@ import {
   IContratoRepository,
   contratoRepository,
 } from '../repositories/contrato.repository';
+import { DocusignError } from '../config/docusign';
 import { calcularFechaProximoAjuste } from './alquiler-locatario.service';
 import { hoyEnArgentina, validarGuardarBorrador } from './contrato-borrador.validacion';
+import { validarContratoCompleto, validarEnviar } from './contrato-envio.validacion';
+import { armarFirmantes, nombreFirmante } from './contrato-firmantes';
+import { agregarHojaDeFirmas } from './contrato-hoja-firmas';
+import { IDocusignClient, docusignClient } from './docusign.client';
 import {
   MAX_PDF_BYTES,
   nuevaRutaPdf,
@@ -201,7 +207,10 @@ function calendarioDeAjustes(fila: FilaDetalleContrato): AjusteCalendarioRespons
 }
 
 export class ContratoService {
-  constructor(private readonly contratoRepo: IContratoRepository = contratoRepository) {}
+  constructor(
+    private readonly contratoRepo: IContratoRepository = contratoRepository,
+    private readonly docusign: IDocusignClient = docusignClient
+  ) {}
 
   /**
    * Lanza un error con su status HTTP y, si lo tiene, el `codigo` que identifica el motivo (los
@@ -390,13 +399,151 @@ export class ContratoService {
   async reabrir(user: AuthenticatedUser, idContrato: number): Promise<ContratoBorradorResponse> {
     this.validarAcceso(user, idContrato);
 
+    // El sobre de DocuSign hay que leerlo antes: la función SQL lo desvincula del contrato.
+    const previo = await this.contratoRepo.findParaPdf(idContrato, user.id);
+
     const resultado = await this.contratoRepo.reabrirContrato(idContrato, user.id);
 
     if (!resultado.success) {
       this.throwError(resultado.message, resultado.statusCode, resultado.codigo);
     }
 
+    // US-07: el sobre anterior ya no vale. Se anula DESPUÉS de cambiar la base: si la anulación
+    // falla, el contrato igual está en borrador y el sobre desvinculado, que el webhook ignora.
+    // Hacerlo al revés dejaría un contrato pendiente de firma con un sobre que no se puede firmar.
+    if (previo?.envelope_id) {
+      try {
+        await this.docusign.anularSobre(previo.envelope_id, 'El locador modificó el contrato.');
+      } catch (error) {
+        console.error(`[contrato] No se pudo anular el sobre ${previo.envelope_id} de DocuSign:`, error);
+      }
+    }
+
     return this.obtener(user, idContrato);
+  }
+
+  /**
+   * US-05, paso 4 · Enviar a firmar. Pasa el borrador a "pendiente de firma", le asigna el código
+   * CT-AAAA-NNNN y crea el sobre de DocuSign con un destinatario por firmante: locador, locatario
+   * y garantes. No toca el inmueble: sigue publicado mientras se firma (decisión del PO).
+   *
+   * Orden y por qué:
+   *   1. Validaciones y preparación (PDF + hoja de firmas) ANTES de cambiar nada.
+   *   2. `enviar_contrato` (SQL): estado 4 y código, en una transacción.
+   *   3. Sobre en DocuSign y `registrar_sobre_contrato` (SQL).
+   *   Si el paso 3 falla, se anula el sobre (si llegó a crearse) y `revertir_envio_contrato`
+   *   devuelve el contrato a borrador, sin dejar un código gastado. El locador puede reintentar.
+   *
+   * - Ajeno o inexistente: 404 con el mismo mensaje.
+   * - No es un borrador: 409 `CONTRATO_NO_BORRADOR`.
+   * - Incompleto o sin la casilla de revisión: 400 con el motivo.
+   * - DocuSign caído o mal configurado: 502.
+   */
+  async enviar(user: AuthenticatedUser, idContrato: number, cuerpo: unknown): Promise<EnviarContratoResponse> {
+    this.validarAcceso(user, idContrato);
+    validarEnviar(cuerpo);
+
+    const contrato = await this.contratoRepo.findBorradorCompleto(idContrato, user.id);
+
+    if (!contrato) {
+      this.throwError('No encontramos este contrato.', 404);
+    }
+
+    if (contrato.estado !== 'borrador') {
+      this.throwError('Solo se puede enviar a firmar un contrato en borrador.', 409, 'CONTRATO_NO_BORRADOR');
+    }
+
+    validarContratoCompleto(contrato, hoyEnArgentina());
+
+    // El PDF cargado en el paso 3. `validarContratoCompleto` ya comprobó que existe.
+    const registro = await this.contratoRepo.findParaPdf(idContrato, user.id);
+    const descarga = registro?.pdf_storage_path
+      ? await this.contratoRepo.descargarPdf(registro.pdf_storage_path)
+      : ({ estado: 'no_encontrado' } as const);
+
+    if (descarga.estado !== 'ok') {
+      this.throwError('No encontramos el PDF del contrato. Volvé a cargarlo.', 400, 'FALTA_PDF');
+    }
+
+    const firmantes = armarFirmantes(contrato);
+    const hoja = await agregarHojaDeFirmas(descarga.archivo, firmantes);
+
+    const envio = await this.contratoRepo.enviarContrato(idContrato, user.id);
+
+    if (!envio.success || !envio.contrato_codigo) {
+      this.throwError(envio.message, envio.statusCode, envio.codigo);
+    }
+
+    let envelopeId: string | undefined;
+
+    try {
+      ({ envelopeId } = await this.docusign.crearSobre({
+        pdf: hoja.pdf,
+        nombreDocumento: `${envio.contrato_codigo}.pdf`,
+        asunto: `Contrato de alquiler ${envio.contrato_codigo}`,
+        firmantes: firmantes.map((firmante, indice) => ({
+          recipientId: firmante.recipientId,
+          clientUserId: firmante.clientUserId,
+          nombre: nombreFirmante(firmante),
+          email: firmante.email,
+          posicionFirma: hoja.posiciones[indice],
+        })),
+      }));
+
+      const registrado = await this.contratoRepo.registrarSobre(
+        idContrato,
+        envelopeId,
+        firmantes.map(firmante => ({
+          tipo: firmante.rol === 'garante' ? ('garante' as const) : ('usuario' as const),
+          id: firmante.id,
+          ...(firmante.rol === 'garante' ? {} : { tipo_firmante: firmante.rol === 'locador' ? 1 : 2 }),
+          recipient_id: firmante.recipientId,
+          client_user_id: firmante.clientUserId,
+        }))
+      );
+
+      if (!registrado.success) {
+        throw new Error(registrado.message);
+      }
+    } catch (error) {
+      await this.deshacerEnvio(idContrato, user.id, envio.codigo_nuevo ?? false, envelopeId);
+
+      if (error instanceof DocusignError) {
+        // El detalle técnico va al log; al usuario no se le muestra.
+        console.error('[contrato] DocuSign falló al enviar a firmar:', error.message, error.detalle);
+        this.throwError('No pudimos enviar el contrato a firmar. Probá de nuevo en unos minutos.', 502);
+      }
+
+      throw error;
+    }
+
+    return { id: idContrato, codigo: envio.contrato_codigo, estado: 'pendiente_firma' };
+  }
+
+  /**
+   * Limpieza cuando falla el envío a firmar: anula el sobre (si se creó) y devuelve el contrato a
+   * borrador. Nunca lanza: si la limpieza también falla, se deja en el log y se sigue con el error
+   * original, que es el que importa.
+   */
+  private async deshacerEnvio(
+    idContrato: number,
+    idLocador: number,
+    quitarCodigo: boolean,
+    envelopeId?: string
+  ): Promise<void> {
+    if (envelopeId) {
+      try {
+        await this.docusign.anularSobre(envelopeId, 'El envío a firmar no se pudo completar.');
+      } catch (error) {
+        console.error(`[contrato] No se pudo anular el sobre ${envelopeId} de DocuSign:`, error);
+      }
+    }
+
+    try {
+      await this.contratoRepo.revertirEnvio(idContrato, idLocador, quitarCodigo);
+    } catch (error) {
+      console.error(`[contrato] No se pudo revertir el envío del contrato ${idContrato}:`, error);
+    }
   }
 
   /**

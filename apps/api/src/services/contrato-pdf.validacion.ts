@@ -27,6 +27,11 @@ function fallar(message: string, statusCode = 400): never {
   throw error;
 }
 
+/** Ruta del PDF firmado de un contrato (el que devuelve DocuSign al completarse). */
+export function nuevaRutaPdfFirmado(idContrato: number, uuid: string): string {
+  return `contrato-${idContrato}/firmado-${uuid}.pdf`;
+}
+
 /** Ruta nueva para el PDF de un contrato. */
 export function nuevaRutaPdf(idContrato: number, uuid: string): string {
   return `contrato-${idContrato}/${uuid}.pdf`;
