@@ -215,6 +215,10 @@ export class DocusignClient implements IDocusignClient {
       requireAcknowledgment: 'true',
       useSoapInterface: 'false',
       includeTimeZone: 'true',
+      // Sin esto DocuSign NO firma el aviso del sobre (aunque haya una clave HMAC cargada en el panel)
+      // y `webhook.controller` lo rechaza con 401. Con la clave de Connect activa, agrega las cabeceras
+      // `X-DocuSign-Signature-N`.
+      includeHMAC: 'true',
       envelopeEvents: [
         { envelopeEventStatusCode: 'completed' },
         { envelopeEventStatusCode: 'declined' },
