@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 
 import { leerConfigDocusign } from '../config/docusign';
@@ -9,6 +10,8 @@ interface AvisoCrudo {
   event?: string;
   generatedDateTime?: string;
   envelopeId?: string;
+  /** El aviso por sobre (restv2.1) trae el estado del sobre en la raíz y no trae `event`. */
+  status?: string;
   data?: { envelopeId?: string; recipientId?: string };
 }
 
@@ -47,11 +50,18 @@ export class WebhookController {
         return;
       }
 
-      const tipo = aviso.event ?? 'desconocido';
+      const tipo = aviso.event ?? aviso.status ?? 'desconocido';
+
+      // NOTA: la clave de idempotencia es el hash del CUERPO crudo, no campos sueltos. El aviso real de
+      // DocuSign (por sobre) no trae `event`, `recipientId` ni `generatedDateTime`: con esos campos la clave
+      // quedaba igual para todos los avisos del sobre y la 2.ª firma se tomaba por un repetido y se
+      // ignoraba. Dos avisos distintos tienen cuerpos distintos (cambian las fechas de las firmas); un
+      // reintento de DocuSign manda el mismo cuerpo y sí se reconoce como repetido.
+      const huella = createHash('sha256').update(cuerpoCrudo).digest('hex');
       const resultado = await docusignWebhookService.procesar({
         envelopeId,
         tipo,
-        clave: [envelopeId, tipo, aviso.data?.recipientId ?? '', aviso.generatedDateTime ?? ''].join('|'),
+        clave: `${envelopeId}|${huella}`,
         payload: aviso,
       });
 

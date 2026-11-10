@@ -39,12 +39,6 @@ export interface CrearSobreInput {
   /** Asunto del sobre. Con firma embebida no se manda ningún mail, pero DocuSign lo exige. */
   asunto: string;
   firmantes: FirmanteSobre[];
-  /**
-   * TEMPORAL(webhook-url): URL del webhook para ESTE sobre. Si viene, manda sobre
-   * `DOCUSIGN_WEBHOOK_URL`. Existe solo para probar en `develop` sin tocar las variables de Vercel;
-   * se saca junto con `docusign-webhook-url.temporal.ts`.
-   */
-  webhookUrl?: string;
 }
 
 export interface VistaFirmaInput {
@@ -229,15 +223,8 @@ export class DocusignClient implements IDocusignClient {
     };
   }
 
-  async crearSobre({
-    pdf,
-    nombreDocumento,
-    asunto,
-    firmantes,
-    webhookUrl: webhookUrlDelEnvio,
-  }: CrearSobreInput): Promise<{ envelopeId: string }> {
-    // TEMPORAL(webhook-url): la del envío (si hay) gana sobre la variable de entorno.
-    const webhookUrl = webhookUrlDelEnvio ?? this.obtenerConfig().webhookUrl;
+  async crearSobre({ pdf, nombreDocumento, asunto, firmantes }: CrearSobreInput): Promise<{ envelopeId: string }> {
+    const { webhookUrl } = this.obtenerConfig();
 
     if (!webhookUrl) {
       console.warn('[docusign] Falta DOCUSIGN_WEBHOOK_URL: el sobre se crea pero DocuSign no avisará las firmas.');

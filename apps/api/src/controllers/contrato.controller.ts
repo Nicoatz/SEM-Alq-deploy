@@ -11,7 +11,6 @@ import {
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
 import { contratoService } from '../services/contrato.service';
-import { webhookUrlDesdePedido } from '../services/docusign-webhook-url.temporal'; // TEMPORAL(webhook-url)
 
 export class ContratoController {
   private parseContratoId(req: Request): number | null {
@@ -223,8 +222,7 @@ export class ContratoController {
       }
 
       const user = (req as any).user as AuthenticatedUser;
-      // TEMPORAL(webhook-url): el webhook del sobre va al mismo dominio al que llamó el cliente.
-      const resultado = await contratoService.enviar(user, idContrato, req.body, webhookUrlDesdePedido(req));
+      const resultado = await contratoService.enviar(user, idContrato, req.body);
 
       res.status(200).json({
         success: true,
