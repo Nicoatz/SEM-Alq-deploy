@@ -439,7 +439,13 @@ export class ContratoService {
    * - Incompleto o sin la casilla de revisión: 400 con el motivo.
    * - DocuSign caído o mal configurado: 502.
    */
-  async enviar(user: AuthenticatedUser, idContrato: number, cuerpo: unknown): Promise<EnviarContratoResponse> {
+  async enviar(
+    user: AuthenticatedUser,
+    idContrato: number,
+    cuerpo: unknown,
+    // TEMPORAL(webhook-url): ver `docusign-webhook-url.temporal.ts`.
+    webhookUrl?: string | null
+  ): Promise<EnviarContratoResponse> {
     this.validarAcceso(user, idContrato);
     validarEnviar(cuerpo);
 
@@ -481,6 +487,7 @@ export class ContratoService {
         pdf: hoja.pdf,
         nombreDocumento: `${envio.contrato_codigo}.pdf`,
         asunto: `Contrato de alquiler ${envio.contrato_codigo}`,
+        ...(webhookUrl ? { webhookUrl } : {}), // TEMPORAL(webhook-url)
         firmantes: firmantes.map((firmante, indice) => ({
           recipientId: firmante.recipientId,
           clientUserId: firmante.clientUserId,
