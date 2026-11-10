@@ -1,4 +1,4 @@
-/* "Mi perfil y legajo" (Claude Design, · 01 escritorio y · 03 móvil). */
+/* "Mi perfil" (Claude Design, "Mi perfil y legajo" · 01 escritorio y · 03 móvil; sin el legajo). */
 
 .page {
   display: flex;
@@ -53,7 +53,7 @@
   color: var(--rentar-color-text-secondary);
 }
 
-/* ─── Móvil (· 03): una columna, el legajo incompleto primero ─────────── */
+/* ─── Móvil (· 03): una columna ───────────────────────────────────────── */
 
 @media (max-width: 1023px) {
   .layout {
@@ -65,9 +65,5 @@
   .main,
   .aside {
     gap: 0.75rem;
-  }
-
-  .primeroEnMovil {
-    order: -1;
   }
 }

@@ -11,14 +11,16 @@
  * - US-21 Modificar usuario: el bloque se edita y se guarda solo, con
  *   Guardar y Cancelar (Cancelar restaura lo guardado); nombre, apellido y
  *   DNI bloqueados con un contrato vigente o pendiente de firma, explicando
- *   el motivo; mensaje de éxito o de error en español. Al cambiar nombre o
- *   apellido, el UserMenu se actualiza (`refrescarUsuario`).
+ *   el motivo; el correo se cambia acá mismo y se aplica al guardar (US-21
+ *   actualizada el 06/11: sin enlace de confirmación); mensaje de éxito o de
+ *   error en español. Al cambiar nombre, apellido o correo, la sesión se
+ *   actualiza (`refrescarUsuario`: el UserMenu y `useAuth().user`).
  *
- * NOTA (bloqueo en modo real): `GET /usuarios/me` todavía no dice si hay un
- * contrato que bloquea (TODO(backend) en `perfil.adapter.ts`). Los campos se
- * muestran editables y, si el PATCH responde el 409 de contrato, el bloque
- * muestra el aviso y deshabilita nombre, apellido y DNI hasta salir de la
- * pantalla (`bloqueoDescubierto`).
+ * NOTA (bloqueo): el perfil trae el contrato que bloquea (`identityLock`, de
+ * `bloqueo_identidad` en modo real), así que el aviso y los campos
+ * deshabilitados se ven antes de editar. El 409 del PATCH queda de respaldo
+ * (por ejemplo, si el contrato se creó con la pantalla abierta): el bloque
+ * pasa a bloqueado hasta salir de la pantalla (`bloqueoDescubierto`).
  * De dónde saca los datos: `PerfilUsuario` (lo pasa `PerfilScreen`); guarda
  * con `perfil.service#actualizarDatosPersonales`.
  * Quién lo usa: `PerfilScreen.tsx`.
@@ -32,7 +34,7 @@ import { DetailList } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { dniParaMostrar, fechaParaMostrar, telefonoParaMostrar, tieneCodigoPais } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
-import { aE164, formatoTelefonoEnCampo, MENSAJES_SOLICITUD, telefonoParaPrecargar, telefonoValido } from '@/lib/validation/solicitud.rules'
+import { aE164, formatoTelefonoEnCampo, MENSAJES_SOLICITUD, reglasEmailSolicitud, telefonoParaPrecargar, telefonoValido } from '@/lib/validation/solicitud.rules'
 import { esMayorDeEdad, MENSAJES, reglasDni, reglasNombrePerfil, soloDigitos } from '@/lib/validation/usuario.rules'
 import { actualizarDatosPersonales, CAMPO_NO_BORRABLE } from '@/services/perfil.service'
 import { ServiceError } from '@/services/shared/errors'
@@ -47,8 +49,6 @@ interface DatosPersonalesBloqueProps {
   onActualizado: (perfil: PerfilUsuario) => void
   /** Avisa si hay cambios sin guardar (para el aviso de salida, US-21). */
   onCambiosSinGuardar: (hayCambios: boolean) => void
-  /** Algo más al final del bloque (el cambio de correo). */
-  children?: ReactNode
 }
 
 /** Los campos del formulario, como los maneja antd `Form`. */
@@ -56,6 +56,7 @@ interface ValoresDatos {
   nombre: string
   apellido: string
   dni: string
+  email: string
   /** Lo que se ve en el campo, sin el "+" (que es fijo). */
   telefono: string
   fechaNacimiento: Dayjs | null
@@ -77,6 +78,7 @@ function valoresDe(perfil: PerfilUsuario): ValoresDatos {
     nombre: perfil.nombre,
     apellido: perfil.apellido,
     dni: perfil.dni ?? '',
+    email: perfil.email,
     telefono: telefonoInicial(perfil.telefono),
     fechaNacimiento: perfil.fechaNacimiento ? dayjs(perfil.fechaNacimiento) : null,
   }
@@ -98,6 +100,9 @@ function cambiosEntre(perfil: PerfilUsuario, valores: ValoresDatos): DatosPerson
   if (valores.apellido.trim() !== perfil.apellido) cambios.apellido = valores.apellido.trim()
   const dni = soloDigitos(valores.dni)
   if (dni && dni !== perfil.dni) cambios.dni = dni
+  // El correo se compara sin mayúsculas: el back lo guarda en minúsculas.
+  const email = valores.email.trim().toLowerCase()
+  if (email && email !== perfil.email.toLowerCase()) cambios.email = email
   // Se comparan los dígitos: el guardado puede no tener "+" (sin código de país).
   const telefono = telefonoDelCampo(valores.telefono)
   if (soloDigitos(telefono ?? '') !== soloDigitos(perfil.telefono ?? '')) cambios.telefono = telefono
@@ -130,16 +135,20 @@ const reglasFechaPerfil = [
   },
 ]
 
+/** Lo que sigue al motivo del bloqueo (igual en los tres casos). */
+const CONSECUENCIA_BLOQUEO = 'Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.'
+
 /**
- * Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). Sin
- * el contrato (modo real: el bloqueo se supo por el 409), un texto general.
+ * Texto del bloqueo por contrato (US-21: "se debe explicar el motivo"). Si el
+ * contrato no tiene código, no se nombra. Sin el contrato (el bloqueo se supo
+ * por el 409), un texto general.
  */
 function textoBloqueo(lock: PerfilUsuario['identityLock']): string {
-  if (!lock) {
-    return 'Sos parte de un contrato vigente o pendiente de firma. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.'
-  }
+  if (!lock) return `Formás parte de un contrato vigente o pendiente de firma. ${CONSECUENCIA_BLOQUEO}`
   const estado = lock.contractStatus === 'vigente' ? 'vigente' : 'pendiente de firma'
-  return `Sos parte del contrato ${lock.contractCode}, ${estado}. Mientras siga así, tu nombre, apellido y DNI no se pueden cambiar: son los que figuran en el contrato.`
+  // Con código, la aclaración va entre comas; sin código, "un contrato que está…" (sin coma).
+  const contrato = lock.contractCode ? `del contrato ${lock.contractCode}, que` : 'de un contrato que'
+  return `Formás parte ${contrato} está ${estado}. ${CONSECUENCIA_BLOQUEO}`
 }
 
 /** Props de {@link FormularioDatos}. */
@@ -150,7 +159,8 @@ interface FormularioDatosProps {
   avisoBloqueo: ReactNode
   /** El back respondió el 409 de contrato: el bloque pasa a bloqueado. */
   onBloqueoDescubierto: () => void
-  onGuardado: (perfil: PerfilUsuario, cambioElNombre: boolean) => void
+  /** `cambioLaSesion`: cambió el nombre, el apellido o el correo (lo que guarda la sesión). */
+  onGuardado: (perfil: PerfilUsuario, cambioLaSesion: boolean) => void
   onCancelar: () => void
   onCambiosSinGuardar: (hayCambios: boolean) => void
 }
@@ -186,7 +196,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
     setError(null)
     try {
       const actualizado = await actualizarDatosPersonales(cambios)
-      onGuardado(actualizado, cambios.nombre !== undefined || cambios.apellido !== undefined)
+      onGuardado(actualizado, cambios.nombre !== undefined || cambios.apellido !== undefined || cambios.email !== undefined)
     } catch (excepcion) {
       setGuardando(false)
       const codigo = excepcion instanceof ServiceError ? excepcion.apiCode : undefined
@@ -199,6 +209,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
       }
       const mensaje = excepcion instanceof ServiceError ? excepcion.message : 'No pudimos guardar los cambios. Probá de nuevo.'
       if (codigo === 'DNI_DUPLICADO') form.setFields([{ name: 'dni', errors: [mensaje] }])
+      if (codigo === 'EMAIL_DUPLICADO') form.setFields([{ name: 'email', errors: [mensaje] }])
       if (codigo === CAMPO_NO_BORRABLE.telefono) form.setFields([{ name: 'telefono', errors: [mensaje] }])
       if (codigo === CAMPO_NO_BORRABLE.fechaNacimiento) form.setFields([{ name: 'fechaNacimiento', errors: [mensaje] }])
       setError(mensaje)
@@ -219,6 +230,9 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
         </Form.Item>
         <Form.Item name="dni" label="DNI" rules={bloqueado ? [] : reglasDni} extra={bloqueado ? undefined : 'Sin puntos ni guiones.'}>
           <Input inputMode="numeric" maxLength={10} disabled={bloqueado} data-testid="perfil-dni-input" />
+        </Form.Item>
+        <Form.Item name="email" label="Correo electrónico" rules={reglasEmailSolicitud} extra="Es el que usás para entrar. El cambio vale apenas guardás.">
+          <Input inputMode="email" autoComplete="email" maxLength={255} data-testid="perfil-email-input" />
         </Form.Item>
         <Form.Item
           name="telefono"
@@ -252,13 +266,13 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
 }
 
 /** Datos personales del usuario en sesión, en lectura o en edición. */
-export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuardar, children }: DatosPersonalesBloqueProps) {
+export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuardar }: DatosPersonalesBloqueProps) {
   const { refrescarUsuario } = useAuth()
 
   // ─── Estado local ───────────────────────────────────────────────────
   const [editando, setEditando] = useState(false)
   const [exito, setExito] = useState<string | null>(null)
-  /** Modo real: el PATCH respondió el 409 de contrato en esta visita (ver la NOTA del encabezado). */
+  /** El PATCH respondió el 409 de contrato en esta visita (respaldo, ver la NOTA del encabezado). */
   const [bloqueoDescubierto, setBloqueoDescubierto] = useState(false)
   const bloqueado = perfil.identityLock !== null || bloqueoDescubierto
 
@@ -268,12 +282,13 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
     setEditando(true)
   }
 
-  function guardado(actualizado: PerfilUsuario, cambioElNombre: boolean): void {
+  function guardado(actualizado: PerfilUsuario, cambioLaSesion: boolean): void {
     onActualizado(actualizado)
     setEditando(false)
     setExito('Guardamos tus datos personales.')
-    // US-21: el nombre nuevo se ve en el menú de usuario sin volver a entrar.
-    if (cambioElNombre) void refrescarUsuario()
+    // US-21: el nombre y el correo nuevos se ven en la sesión (UserMenu,
+    // `useAuth().user`) sin volver a entrar.
+    if (cambioLaSesion) void refrescarUsuario()
   }
 
   // ─── Render: lectura ────────────────────────────────────────────────
@@ -340,8 +355,6 @@ export function DatosPersonalesBloque({ perfil, onActualizado, onCambiosSinGuard
             onCambiosSinGuardar={onCambiosSinGuardar}
           />
         )}
-
-        {children}
       </div>
     </BloquePerfil>
   )

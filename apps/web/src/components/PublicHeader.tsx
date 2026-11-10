@@ -7,7 +7,7 @@
  * `useAuth()`. Diseño: Claude Design, "Header público · con sesión iniciada".
  * - Sin sesión: el Header de siempre ("Iniciar sesión" y "Publicar propiedad").
  * - Con sesión: "Ir a mi panel" y el `UserMenu` (Mi panel, Publicar propiedad,
- *   Mi perfil y legajo y, al final, Cerrar sesión). El rol que muestra es el
+ *   Mi perfil y, al final, Cerrar sesión). El rol que muestra es el
  *   ACTIVO del `AuthProvider`, el mismo que el panel.
  * - Mientras el `AuthProvider` carga, si la cookie de sesión existe
  *   (`sesionProbable`), un placeholder con la forma de la variante con sesión:
@@ -41,7 +41,7 @@ const ALTA_PATH = '/panel/propiedades/nueva'
 const MENU_ITEMS: UserMenuItem[] = [
   { key: 'panel', label: 'Mi panel', href: PANEL_PATH, icon: <HomeOutlined /> },
   { key: 'publicar', label: 'Publicar propiedad', href: ALTA_PATH, icon: <PlusOutlined /> },
-  { key: 'perfil', label: 'Mi perfil y legajo', href: '/panel/perfil', icon: <UserOutlined /> },
+  { key: 'perfil', label: 'Mi perfil', href: '/panel/perfil', icon: <UserOutlined /> },
 ]
 
 interface PublicHeaderProps {

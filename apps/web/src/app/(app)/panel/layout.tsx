@@ -6,7 +6,7 @@
  * Qué es: una sola raíz autenticada para locador y locatario; el rol activo
  * de `useAuth()` decide el menú (`lib/navigation/navConfig.tsx`), no la ruta.
  * También arma los ítems del UserMenu (Claude Design, "Mi perfil y legajo" ·
- * 02): "Mi perfil y legajo" y "Mis notificaciones". El último ítem, "Cerrar
+ * 02): "Mi perfil" (sin "y legajo" desde el 06/11) y "Mis notificaciones". El último ítem, "Cerrar
  * sesión", lo agrega el propio UserMenu (US-39: desvincula la sesión y vuelve
  * a la landing). "Administración" no va: el panel de admin no es del Sprint 1.
  *
@@ -65,7 +65,7 @@ const PUBLICAR_ACTION: AppShellHeaderAction = { label: 'Publicar propiedad', hre
 
 /** Títulos de la barra móvil para las rutas que no están en el menú lateral. */
 const MOBILE_TITLE_BY_PATH: Record<string, string> = {
-  '/panel/perfil': 'Mi perfil y legajo',
+  '/panel/perfil': 'Mi perfil',
   '/panel/notificaciones': 'Mis notificaciones',
 }
 
@@ -142,7 +142,7 @@ function PanelShell({ children }: { children: ReactNode }) {
   const userMenuItems = useMemo<UserMenuItem[]>(() => {
     if (!user || !activeRole) return []
     return [
-      { key: 'perfil', label: 'Mi perfil y legajo', href: '/panel/perfil', icon: <UserOutlined /> },
+      { key: 'perfil', label: 'Mi perfil', href: '/panel/perfil', icon: <UserOutlined /> },
       // NOTA: sin contador de no leídas: las notificaciones no son del Sprint 1
       // (el UserMenu lo soporta con `badgeCount`).
       { key: 'notificaciones', label: 'Mis notificaciones', href: '/panel/notificaciones', icon: <BellOutlined /> },

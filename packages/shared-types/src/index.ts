@@ -329,7 +329,7 @@ export type {
   StatusDomainMap,
 } from './status';
 export type { UsuarioSesion } from './usuario-sesion';
-export type { BloqueoIdentidad, DatosPersonalesCambios, LegajoUsuario, PerfilUsuario } from './perfil';
+export type { BloqueoIdentidad, DatosPersonalesCambios, PerfilUsuario } from './perfil';
 export type {
   AlquilerResumen,
   CondicionesCobroPropiedad,

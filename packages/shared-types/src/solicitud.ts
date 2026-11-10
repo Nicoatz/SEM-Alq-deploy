@@ -13,7 +13,6 @@
  * `/panel/mis-solicitudes` y `/panel/solicitudes`.
  */
 import type { ContratoDeSolicitud } from './contrato'
-import type { LegajoUsuario } from './perfil'
 import type { SolicitudStatus } from './status'
 
 /**
@@ -218,11 +217,4 @@ export interface PreparacionSolicitud {
   }
   /** Las garantías que exige la propiedad (vacío si no exige ninguna). */
   garantiasExigidas: GarantiaOfrecida[]
-  /**
-   * El legajo del perfil, para precargar situación, ingreso y garantías
-   * (US-21: "los datos del legajo se precargan en las solicitudes nuevas").
-   * `null` si no se conoce (en real, mientras `/preparar` no lo mande): el
-   * formulario usa los valores por defecto de US-35.
-   */
-  legajo: LegajoUsuario | null
 }

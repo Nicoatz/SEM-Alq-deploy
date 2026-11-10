@@ -455,7 +455,7 @@ const demoNotifications: NotificationItem[] = [
 
 /** Mismos ítems que arma `(app)/panel/layout.tsx`. El cambio de rol va aparte, en "Viendo como". */
 const demoUserMenuItems: UserMenuItem[] = [
-  { key: 'perfil', label: 'Mi perfil y legajo', href: '/panel/perfil' },
+  { key: 'perfil', label: 'Mi perfil', href: '/panel/perfil' },
   { key: 'notificaciones', label: 'Mis notificaciones', href: '/panel/notificaciones' },
 ]
 

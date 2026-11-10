@@ -3,8 +3,8 @@
 /**
  * BloquePerfil.tsx — la tarjeta de cada bloque de "Mi perfil".
  *
- * Qué es: el contenedor común de Datos personales, Legajo, Acceso y
- * seguridad y Mis roles. Adentro usa `FormSection` de `@rentar/ui` (título y
+ * Qué es: el contenedor común de Datos personales, Acceso y seguridad y
+ * Mis roles. Adentro usa `FormSection` de `@rentar/ui` (título y
  * descripción). En escritorio el bloque está siempre abierto; en móvil el
  * encabezado es un botón que lo pliega y despliega (US-20: "en móvil, cada
  * bloque se puede desplegar y plegar"; el diseño los dibuja como filas).
@@ -23,15 +23,13 @@ interface BloquePerfilProps {
   testId: string
   title: string
   description?: string
-  /** Algo chico al lado del título en móvil (ej. "2 de 3" del legajo). */
-  badge?: ReactNode
   /** Si arranca abierto en móvil. En escritorio siempre está abierto. */
   defaultOpen?: boolean
   children: ReactNode
 }
 
 /** Tarjeta de un bloque del perfil, plegable en móvil. */
-export function BloquePerfil({ testId, title, description, badge, defaultOpen = false, children }: BloquePerfilProps) {
+export function BloquePerfil({ testId, title, description, defaultOpen = false, children }: BloquePerfilProps) {
   // `md` = 768 px o más. Mientras antd no midió la pantalla (primer render),
   // se trata como escritorio: el bloque se ve abierto.
   const pantalla = Grid.useBreakpoint()
@@ -53,7 +51,6 @@ export function BloquePerfil({ testId, title, description, badge, defaultOpen = 
         >
           <span className={styles.toggleTitle}>{title}</span>
           <span className={styles.toggleEnd}>
-            {badge}
             <DownOutlined className={abierto ? styles.chevronOpen : styles.chevron} aria-hidden />
           </span>
         </button>
