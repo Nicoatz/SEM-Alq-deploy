@@ -67,7 +67,7 @@ conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
 |---|---|---|---|---|---|---|
 | Supabase Auth `signInWithPassword` | — (SDK, clave publicable) | conectado | US-39 | `auth.service#login` | `{ email, password }` | Sesión en cookies `sb-*` (la maneja `@supabase/ssr`) |
 | Supabase Auth `signOut` | sesión | conectado | US-39 | `auth.service#logout` | — | — |
-| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` (y `useAuth().refrescarUsuario` después de publicar) | — | `{ id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento, roles: string[] }` (la sesión, `usuarioMeToSesion`, usa solo `id, nombre, apellido, email, roles`; el perfil usa todo, ver "Perfil y legajo"). Propuesto: una cuenta locadora devuelve `["locador", "locatario"]` |
+| `GET /usuarios/me` | Bearer | conectado | US-39 | `usuarios.service#getUsuarioActual` (y `useAuth().refrescarUsuario` después de publicar) | — | `{ id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento, roles: string[] }` (la sesión, `usuarioMeToSesion`, usa solo `id, nombre, apellido, email, roles`; el perfil usa todo, ver "Perfil"). Propuesto: una cuenta locadora devuelve `["locador", "locatario"]` |
 | `POST /registrar-usuario` | **sin token** | conectado | US-19 | `auth.service#registrarUsuario` | `{ nombre, apellido, email, contraseña, confirmar_contraseña, telefono, numero_documento, fecha_nacimiento, acepta_terminos }` (sin `rol`) | `Usuario` (`id, nombre, apellido, email, numero_documento, telefono, fecha_nacimiento`) → `registroResponseToSesion` |
 | `GET /usuarios/me/contextos` | Bearer | pendiente (propuesto) | US-39 (cambio de rol) | `panel.service#getResumenRoles` | — | `ResumenContextoRol[]` (hoy se arma en el front) |
 
@@ -215,9 +215,10 @@ Notas:
 
 `GET` y `PATCH /usuarios/me` **existen** (develop, 917e8ff) y la rama real de `/panel/perfil` ya
 los usa. **El legajo (situación ocupacional,
-ingreso y garantías) se sacó de US-20 y US-21: no hay endpoint ni columnas.** Código del front:
+ingreso y garantías) se sacó de US-20 y US-21: no hay endpoint ni columnas, y el front ya no lo
+muestra (09/11).** Código del front:
 `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts` y los DTO en
-`services/shared/backend-dtos.ts` ("Perfil y legajo"). Todas las rutas van con **Bearer**: el
+`services/shared/backend-dtos.ts` ("Perfil"). Todas las rutas van con **Bearer**: el
 usuario sale del token y no hay forma de pedir ni cambiar el perfil de otro (US-20). Las brechas
 están en [`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-20 y US-21".
 
@@ -225,8 +226,8 @@ están en [`HANDOFF-BACKEND.md`](HANDOFF-BACKEND.md) §7, "US-20 y US-21".
 |---|---|---|---|---|---|---|---|
 | `GET /usuarios/me` | Bearer | **conectado** | US-20 | `perfil.service#getMiPerfil` | — | `PerfilResponse` (abajo) | 401, 404 |
 | `PATCH /usuarios/me` | Bearer | **conectado** | US-21 | `perfil.service#actualizarDatosPersonales` | `ActualizarPerfilRequest`: solo los campos que cambian | `PerfilResponse` actualizado | 400, 401, 404, **409 `DNI_DUPLICADO`**, **409 `EMAIL_DUPLICADO`**, **409 `IDENTIDAD_BLOQUEADA_POR_CONTRATO`** (los tres con `codigo`, 06/11) |
-| `PATCH /usuarios/me` con `{ email }` | Bearer | **probado en real** (06/11) | US-21 | — | `{ email }` | `PerfilResponse` con el correo nuevo | 400 formato, 401, **409 `EMAIL_DUPLICADO`** |
-| `PUT {SUPABASE_URL}/auth/v1/user` (Supabase Auth, **no es una ruta de `apps/api`**; headers `apikey` y `Authorization: Bearer`) | sesión | **probado en real** (06/11) | US-21 | — | `{ password, current_password }` | el usuario de Auth (sin `data` propio) | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
+| `PATCH /usuarios/me` con `email` | Bearer | **conectado** (09/11; probado en real por el back el 06/11) | US-21 | `perfil.service#actualizarDatosPersonales` (el correo viaja con los demás campos de "Datos personales") | `{ email }` más lo que haya cambiado | `PerfilResponse` con el correo nuevo | 400 formato, 400 "No se pudo actualizar el correo electrónico.", 401, **409 `EMAIL_DUPLICADO`** |
+| `PUT {SUPABASE_URL}/auth/v1/user` (Supabase Auth, **no es una ruta de `apps/api`**; headers `apikey` y `Authorization: Bearer`) | sesión | **probado en real** (06/11) | US-21 | `perfil.service#cambiarContrasena` (`supabase.auth.updateUser`) | `{ password, current_password }` | el usuario de Auth (sin `data` propio) | 400 `current_password_invalid`, 422 `same_password`, 422 `weak_password` |
 
 **`PerfilResponse`** (`GET /usuarios/me`, y también la respuesta de `PATCH /usuarios/me`): el
 mismo `data` que usa la sesión (`usuarioController.obtenerMiPerfil`):
@@ -251,14 +252,16 @@ mismo `data` que usa la sesión (`usuarioController.obtenerMiPerfil`):
   país ya está y lo muestra en E.123.
 - `roles`: descripciones de la tabla `rol`, las mismas de la sesión.
 - `bloqueo_identidad`: `null` o `{ "codigo": "CT-2026-0148", "estado": "vigente" }` (`estado`: `vigente` o
-  `pendiente_firma`): el contrato del que el usuario es parte y que bloquea nombre, apellido y DNI.
+  `pendiente_firma`; `codigo` puede ser `null`): el contrato del que el usuario es parte y que
+  bloquea nombre, apellido y DNI. Si hay más de uno, el más reciente. El front lo pasa a
+  `identityLock` y muestra el aviso y los campos bloqueados **antes** de editar.
 - NOTA: el front había propuesto una ruta aparte (`/usuarios/me/perfil`) para que el DNI no viajara
   en el `/me` que el `AuthProvider` pide en cada cambio de ruta. El back eligió ampliar `/me`, y la
   sesión ignora esos campos.
 
 **`ActualizarPerfilRequest`** (`PATCH /usuarios/me`): `{ nombre?, apellido?, numero_documento?,
-telefono?, fecha_nacimiento?, email? }`. El front manda **solo lo que cambió** respecto de lo guardado;
-el correo viaja solo, desde su propio bloque. Lo que valida el back
+telefono?, fecha_nacimiento?, email? }`. El front manda **solo lo que cambió** respecto de lo guardado,
+con el correo incluido (en minúsculas) y el teléfono sin "+". Lo que valida el back
 (`usuarioService#actualizarMiPerfil`):
 
 | Regla | Error |
@@ -272,19 +275,22 @@ el correo viaja solo, desde su propio bloque. Lo que valida el back
 | `fecha_nacimiento`: `AAAA-MM-DD`, una fecha real y mayor de 18 años | 400 |
 | `numero_documento` repetido | **409** `DNI_DUPLICADO`, "El DNI ya está registrado por otro usuario." |
 | `nombre`, `apellido` o `numero_documento` con un contrato en estado 2 (vigente) o 4 (pendiente de firma, migración `20261021120000`) | **409** `IDENTIDAD_BLOQUEADA_POR_CONTRATO`, "No se puede modificar el nombre, apellido o DNI porque el usuario participa en un contrato vigente o pendiente de firma." |
+| Supabase Auth rechaza el correo por otra causa (el back revierte lo guardado) | 400 "No se pudo actualizar el correo electrónico." |
 | Otro error de Supabase al guardar | 400 con el mensaje crudo |
 | Usuario sin fila en `usuario` | 404 |
 
 Cómo lo maneja el front (`errorDeActualizarDatos` en `perfil.adapter.ts`). Nunca muestra el texto
 crudo:
 
-- **Los dos 409 llevan `codigo`** (06/11): `{ "success": false, "error": "…", "codigo": "DNI_DUPLICADO" }` o
-  `"IDENTIDAD_BLOQUEADA_POR_CONTRATO"`. `apiClient` lo guarda en `ServiceError.apiCode` y el adaptador
-  lo usa primero: con `IDENTIDAD_BLOQUEADA_POR_CONTRATO` muestra el aviso y deshabilita nombre,
-  apellido y DNI hasta salir de la pantalla; con `DNI_DUPLICADO`, "Ese DNI ya está registrado en otra
-  cuenta". Si el `codigo` falta, cae al texto ("contrato", `23505`, "duplicate key").
+- **Los 409 se deciden solo por `codigo`** (desde el 09/11; el texto no se mira):
+  `{ "success": false, "error": "…", "codigo": "…" }`. `apiClient` lo guarda en `ServiceError.apiCode`.
+  - `IDENTIDAD_BLOQUEADA_POR_CONTRATO`: aviso de bloqueo y nombre, apellido y DNI deshabilitados
+    hasta salir de la pantalla (respaldo: normalmente el bloqueo ya llegó en `bloqueo_identidad`).
+  - `DNI_DUPLICADO`: "Ese DNI ya está registrado en otra cuenta. Revisá el número."
+  - `EMAIL_DUPLICADO`: "Ese correo ya está registrado en otra cuenta."
+  - Sin `codigo` conocido: "Revisá los datos e intentá de nuevo".
 - **400:** si el texto empieza como una validación conocida del back, muestra el mensaje del front
-  para ese campo; si no, "Revisá los datos e intentá de nuevo".
+  para ese campo (incluido el del correo); si no, "Revisá los datos e intentá de nuevo".
 - **Borrar el teléfono o la fecha:** como el back no lo permite, el front frena antes de llamarlo
   ("Por ahora no se puede borrar el teléfono, solo cambiarlo"). TODO(backend): aceptar `null`.
 - **Observación:** el back consulta los contratos aunque el valor enviado sea igual al actual. No
@@ -293,7 +299,12 @@ crudo:
 **Correo:** se cambia con `PATCH /usuarios/me` y se aplica de inmediato, sin enlace de confirmación
 (US-21 ya no lo pide). El back lo cambia en `usuario` y en Supabase Auth con la clave de servicio
 (`email_confirm: true`). El trigger `trg_sincronizar_email_usuario` (migración `20261106000000`) es solo
-un respaldo. **Contraseña:** no pasa por la API; la cambia el front con Supabase Auth (`updateUser`).
+un respaldo. Después del 200, el front renueva la sesión (`supabase.auth.refreshSession()`, así el
+token tiene el correo nuevo) y relee `/usuarios/me` (`refrescarUsuario`); la sesión abierta no se
+corta, porque la API identifica al usuario por el `sub` del token. `/auth/confirmar` quedó como
+redirección simple a `/panel/perfil`, para enlaces viejos. **Contraseña:** no pasa por la API; la
+cambia el front con Supabase Auth (`updateUser`). Errores traducidos: `current_password_invalid`,
+`same_password` y `weak_password`.
 
 ## Contratos (Sprint 3, US-05)
 

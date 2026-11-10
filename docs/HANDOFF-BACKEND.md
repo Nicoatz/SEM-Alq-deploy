@@ -182,7 +182,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `DELETE /inmuebles/:id` (baja lógica, 09/10) | Detalle del locador (US-04) | **Conectado** (09/10, `develop` b7ebf48): baja lógica (`activo = false`) del inmueble y de sus contratos; valida el dueño; 409 si está alquilado. Errores traducidos en `propiedad.adapter.ts#errorDeEliminarPropiedad` (§7, US-04) |
 | `PUT /inmuebles/:id` | `/panel/propiedades/[id]/editar` (US-03) | **Conectado** (11/10, `develop` b5acfa7; probado en real y en mock, §7 US-03): cuerpo PARCIAL, solo con lo que cambió y solo datos del inmueble (más `fotos` y `tags`, que reemplazan la lista). Las condiciones del alquiler y el estado son de solo lectura en `/editar`. Errores traducidos en `propiedad.adapter.ts#errorDeActualizarPropiedad` |
 | `PATCH /inmuebles/:id/publicacion` | Detalle (sprint 2) | **Pendiente** (propuesto; la función del service está lista, sin usar) |
-| `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Desde el 06/11 el back trae `bloqueo_identidad` en el GET, manda `codigo` en los 409 y acepta `email` en el PATCH; el front todavía no lo usa (§7, "US-20 y US-21"). El legajo se sacó de US-20 y US-21 |
+| `GET /usuarios/me`, `PATCH /usuarios/me` (perfil) | `/panel/perfil` (US-20, US-21, Sprint 3) | **Conectado** (`feature/conexion-perfil`): datos personales. Desde el 06/11 el back trae `bloqueo_identidad` en el GET, manda `codigo` en los 409 y acepta `email` en el PATCH. **El front lo usa desde el 09/11** (§7, "US-20 y US-21"). El legajo se sacó de US-20 y US-21, y del front |
 | `POST /contratos`, `GET /contratos/:id`, `PATCH /contratos/:id`, `POST /contratos/:id/pdf/url-subida`, `PUT /contratos/:id/pdf` | Alta (US-05) | **Conectado** (Sprint 4, Tanda 2; probado en real con el contrato 31): `PATCH` solo con lo que cambió; el PDF sube directo a Storage |
 | `GET /inmuebles/:id/contratos` | Pestaña Contratos de `/panel/propiedades/[id]` (US-43) | **Conectado** (Sprint 4, Tanda 1; probado en real): Bearer + rol locador; sin la oferta ni bajas lógicas; sin DNI ni contacto. El adaptador saca a los garantes de las firmas (§7, S4-3) |
 | `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | Detalle, pestaña Contratos y alta (US-06) | **Conectado** (Tanda 2). `DELETE` probado en real; `reabrir` sin probar en real: no se reabrió el contrato 2 |
@@ -504,9 +504,45 @@ memoria hasta recargar; ver §10).
 
 Los datos personales están **conectados**: `GET /usuarios/me` y `PATCH /usuarios/me` (develop,
 917e8ff). El 06/11 el back sumó `bloqueo_identidad` al GET, el `codigo` en los 409 y el correo en el PATCH. El legajo se sacó de US-20 y US-21: no se implementa. Contrato, validaciones del back y
-cómo traduce el front cada error en [`api-endpoints.md`](api-endpoints.md), "Perfil y legajo".
-Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `components/perfil/*`,
-`app/auth/confirmar/route.ts`.
+cómo traduce el front cada error en [`api-endpoints.md`](api-endpoints.md), "Perfil".
+Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `components/perfil/*`.
+
+**Front alineado con el back del 06/11 (09/11, `feature/vistas`).**
+- **Correo:** es un campo más de "Datos personales" y viaja en el mismo `PATCH /usuarios/me`. Se
+  aplica al guardar, en mock y en real. Se sacó todo el flujo de confirmación por enlace
+  (`supabase.auth.updateUser({ email })`, el aviso "pendiente de confirmación", "Pedir el cambio a
+  otro correo" y los avisos `?correo=`). `EMAIL_DUPLICADO` → "Ese correo ya está registrado en otra
+  cuenta."; el 400 de formato → el mensaje de US-35.
+- **Sesión después de cambiar el correo:** la API identifica al usuario por el `sub` del token, no
+  por el correo, así que la sesión abierta sigue sirviendo. El token guarda el correo viejo hasta
+  renovarse (1 hora): después del 200 el front llama a `supabase.auth.refreshSession()` y a
+  `refrescarUsuario()` (relee `/usuarios/me`). El `UserMenu` muestra nombre y rol, no el correo.
+- **Bloqueo:** el adaptador lee `bloqueo_identidad`; nombre, apellido y DNI se ven bloqueados antes
+  de editar ("Formás parte del contrato CT-…, que está vigente/pendiente de firma"; sin `codigo`, no
+  se nombra el contrato). El 409 queda de respaldo.
+- **409:** el adaptador decide solo por `codigo`; ya no busca "contrato", "23505" ni "duplicate key".
+- **Legajo:** afuera del perfil (bloque, tipos, mocks y precarga en la solicitud). La solicitud
+  (US-35) sigue igual, con sus valores por defecto. El menú dice "Mi perfil".
+- **`/auth/confirmar`:** queda como redirección simple a `/panel/perfil`, sin lógica, para que un
+  enlace viejo de cambio de correo no termine en un 404 (decisión del PO, 09/11). Está en la lista
+  de Redirect URLs del proyecto de Supabase.
+- **Cambio de correo pendiente del flujo viejo (consulta de solo lectura, 09/11):** un solo usuario,
+  el **23**, pidió un cambio el 09/11 a las 18:02 (hora de Argentina) con el front viejo y no
+  confirmó ningún enlace. Los enlaces duran 1 hora (`mailer_otp_exp = 3600`, leído de la
+  configuración de Auth), así que ya vencieron. Quedan los campos `email_change*` en `auth.users`;
+  no se tocaron (lo decide el PO).
+
+**Swagger ↔ código (09/11, para Camila).** Gana el código. Diferencias:
+1. El 200 del `PATCH /usuarios/me` no tiene esquema; el código devuelve lo mismo que el GET (con
+   `bloqueo_identidad` y `roles`).
+2. El 400 no lista el correo con formato inválido ("El correo electrónico no tiene un formato
+   válido."), el 400 "No se pudo actualizar el correo electrónico." (Auth rechaza el cambio por otra
+   causa) ni las reglas de nombre, apellido y DNI.
+3. No dice que el correo se guarda sin espacios y en minúsculas.
+4. Mandar nombre, apellido o DNI **sin cambiarlos** igual da 409 si hay contrato bloqueante (el
+   front ya manda solo lo que cambió).
+5. El comentario de la migración `20261106000000` describe el flujo viejo (el front con
+   `updateUser`); el trigger sigue sirviendo, pero el texto confunde.
 
 **Brechas que siguen**
 
@@ -521,7 +557,7 @@ Front: `services/perfil.service.ts`, `services/adapters/perfil.adapter.ts`, `com
 - El Swagger muestra el teléfono sin "+".
 - El `PATCH` acepta `email` (ver "Correo" abajo).
 - La migración `20261106000000` agrega el trigger `trg_sincronizar_email_usuario`, que copia `auth.users.email` a `usuario.email`.
-- **El legajo se sacó de US-20 y US-21**: no se implementa. El bloque del front funciona solo en mock.
+- **El legajo se sacó de US-20 y US-21**: no se implementa. El front también lo sacó (09/11).
 
 Resuelto en la tanda anterior: el `GET` y el `PATCH` existen, los dos devuelven la misma forma (el usuario
 más `roles`), el back repite las validaciones de US-21 y el bloqueo por contrato contempla el estado
@@ -576,8 +612,8 @@ sesión abierta puede cambiar el correo de login; el equipo lo aceptó para las 
 - **Aviso al salir:** cubre recargar, cerrar, los links internos, "Cerrar sesión" (el modal
   aparece antes de `signOut`) y el selector "Viendo como"; **no** cubre el botón Atrás
   (`lib/navigation/AvisoCambiosProvider.tsx`).
-- **Datos sensibles en mock:** el DNI y el ingreso que se editan en el perfil viven solo en memoria
-  (no en `localStorage`). Ver §10, "Pendientes del front".
+- **Datos sensibles en mock:** el DNI que se edita en el perfil vive solo en memoria (no en
+  `localStorage`). Ver §10, "Pendientes del front".
 
 ### US-39 Iniciar y cerrar sesión
 
@@ -1013,6 +1049,22 @@ de contraseña, el DNI duplicado ni el bloqueo por contrato (el 06/11 se probaro
 contraseña directo en Supabase y el correo con `PATCH /usuarios/me`). El formato E.123 no se pudo verificar: el
 teléfono del usuario 1 no tiene código de país y se muestra tal cual. De US-27, solo el estado vacío.
 
+**Prueba en real de US-20 y US-21 (09/11, `feature/vistas`, usuario 1, solo lectura).** Con las US
+nuevas (sin legajo y con el correo inmediato). Toda escritura se bloqueó en la red y no salió
+ninguna: la única llamada a la API fue `GET /usuarios/me`. Pasan:
+- `bloqueo_identidad`: el contrato 2, pendiente de firma y **sin código**. El aviso se ve antes de
+  editar y nombre, apellido y DNI quedan deshabilitados.
+- La pantalla sin legajo y el menú "Mi perfil".
+- Los roles.
+- El correo con formato inválido (validación del front, sin `PATCH`), el teléfono con letras o corto
+  y la fecha de un menor de edad.
+- La contraseña nueva que no cumple las reglas o no coincide.
+- Cancelar y el aviso de cambios sin guardar.
+- `/panel/perfil/<id>`: 404.
+
+El cambio de correo **no se probó en real**: no hay cuenta de prueba (decisión del PO); se probó en
+mock, incluido entrar con el correo nuevo. No quedó nada para borrar.
+
 **Prueba en real de US-42 y US-43 (05/11, Tanda 1, usuario 1, solo lectura).** Pasan: inmueble 2 / contrato 2 (pestaña y detalle), inmueble 3 / contrato 3 ("Sin dato"), inmueble 17 / contrato 31 (el 409 redirige al alta), propiedad ajena e inexistente, contrato ajeno, inexistente y con id inválido, y el 500 dentro de la pestaña con "Reintentar". Los contratos 2 y 3 no tienen registro de firmas ni PDF, así que en real no se vieron firmas con fecha ni la descarga: falta el dato de prueba.
 
 **Para borrar al cerrar el Sprint 4:** el contrato **31** con sus cambios (tabla de abajo), el `garante` **5**, el PDF
@@ -1209,8 +1261,8 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
 4. **Datos sensibles en `localStorage` en modo mock (Sprint 3, anotado; no se arregla en esta
    tanda).** En mock, el registro (US-19) guarda la cuenta nueva con el **DNI y la contraseña** en
    `rentar:mock:usuarios`, y las solicitudes (US-35) guardan el legajo con los **ingresos** en
-   `rentar:mock:solicitudes`. El perfil (US-21) ya no suma datos sensibles: el DNI y el ingreso que
-   se editan ahí viven solo en memoria (`services/perfil.service.ts`). La contraseña que se cambia
+   `rentar:mock:solicitudes`. El perfil (US-21) ya no suma datos sensibles: el DNI que se edita ahí
+   vive solo en memoria (`services/perfil.service.ts`). La contraseña que se cambia
    en el perfil sí va a `rentar:mock:usuarios`, igual que la del registro (para poder entrar con la
    nueva). En modo real no se guarda nada de esto en el navegador.
    **Contratos (Sprint 3, tanda 2):** el borrador se guarda en `rentar:mock:contratos` **sin el DNI
@@ -1291,7 +1343,7 @@ sesión dura hasta cerrarla).
 | `/panel` (locador), tanda 2 | `panel-solicitudes-link` ("N solicitudes nuevas" dentro de `panel-pendientes`, lleva a `/panel/solicitudes`) |
 | `/panel/solicitudes` (US-36 a US-38, Sprint 2) | `solicitudes`, `solicitudes-tab-<pendientes\|aceptadas\|cerradas\|todas>`, `solicitudes-filtro-propiedad`, `solicitudes-orden`, `solicitudes-grupo`, `solicitudes-fila` (la elegida lleva `aria-current="true"` en el botón del nombre, solo en escritorio), `solicitudes-fila-tiempo` ("hace 3 h", "hace 2 días" o "aceptada el 14/09"), `solicitudes-fila-resumen` (convivientes, mascotas, garantías y si declaró ingresos), `solicitudes-fila-mensaje` (extracto de 2 líneas o "Sin mensaje."). **Acciones de la fila, solo en móvil (<768 px; en escritorio están en el detalle, tanda C):** `solicitudes-aceptar-button`, `solicitudes-aceptar-bloqueado` (envuelve al "Aceptar" deshabilitado cuando la propiedad ya tiene una aceptada; el motivo va en el tooltip), `solicitudes-rechazar-button`, `solicitudes-cancelar-button` (aceptada, US-38), `solicitudes-ver-detalle` (rechazada o cancelada). En todos los anchos: `solicitudes-motivo-rechazo` (rechazada con motivo, truncado a 80), `solicitudes-aviso-aceptar`, `solicitudes-cerradas-aviso` (en "Cerradas", modo real: las canceladas no llegan). Detalle del postulante (panel del costado en escritorio; en móvil, dentro de `solicitudes-detalle-drawer`): `solicitudes-detalle`, `solicitudes-detalle-legajo` (con `solicitudes-detalle-contacto` adentro) o `solicitudes-detalle-sin-legajo`; mientras se piden los datos del postulante, `solicitudes-detalle-cargando`; si fallan, `solicitudes-detalle-error` + `solicitudes-detalle-reintentar`; aceptada en modo real, `solicitudes-detalle-aviso-aceptada`; `solicitudes-detalle-mensaje`, `solicitudes-detalle-motivo-rechazo` (rechazada: el motivo completo o "No escribiste un motivo."), `solicitudes-detalle-aceptar-button`, `solicitudes-detalle-aceptar-bloqueado`, `solicitudes-detalle-rechazar-button`, `solicitudes-detalle-cancelar-button` (solo en mock: en real se oculta, §7 brecha 1). Modales: `solicitudes-aceptar-modal` (en real, con `solicitudes-aceptar-aviso`), `solicitudes-rechazar-modal` (con `solicitudes-rechazar-motivo`, el TextArea opcional de 200), `solicitudes-cancelar-modal`, con `confirm-action-ok` y `confirm-action-cancel` adentro; error de la acción: `solicitudes-accion-error` + `solicitudes-accion-reintentar`; 409: `solicitudes-conflicto`. Estados: `solicitudes-cargando`, `solicitudes-vacio` (con `data-caso` = `sin_propiedades`, `sin_publicadas` o `con_publicadas`; adentro, `solicitudes-vacio-publicar` y/o `solicitudes-vacio-propiedades`), `solicitudes-sin-resultados`, `solicitudes-error`, `solicitudes-reintentar` |
 | `/panel/mis-solicitudes` (US-36, Sprint 2) | `mis-solicitudes`, `mis-solicitudes-tab-<todas\|pendientes\|aceptadas\|cerradas>`, `mis-solicitudes-fila`, `mis-solicitudes-estado-texto`, `mis-solicitudes-motivo-rechazo` (rechazada con motivo; adentro, `mis-solicitudes-motivo-rechazo-texto` y, si pasa de 80, `mis-solicitudes-motivo-rechazo-toggle` con `aria-expanded`), `mis-solicitudes-cancelar-button` (pendiente), `mis-solicitudes-ver-button` (pendiente o aceptada), `mis-solicitudes-ver-similares-button` (rechazada o cancelada), `mis-solicitudes-cancelar-modal` (con `confirm-action-ok` y `confirm-action-cancel`), `mis-solicitudes-accion-error` + `mis-solicitudes-accion-reintentar`, `mis-solicitudes-conflicto`, `mis-solicitudes-cargando`, `mis-solicitudes-vacio`, `mis-solicitudes-vacio-buscar`, `mis-solicitudes-sin-resultados`, `mis-solicitudes-error`, `mis-solicitudes-reintentar`, `mis-solicitudes-cerradas-aviso` (en "Cerradas", modo real). Borrado: `placeholder-screen` en esta ruta |
-| `/panel/perfil` (US-20, US-21, Sprint 3) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-legajo`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Correo: `perfil-email-cambio`, `perfil-email-cambiar`, `perfil-email-form`, `perfil-email-input`, `perfil-email-enviar`, `perfil-email-cancelar`, `perfil-email-pendiente`, `perfil-email-simular-confirmacion` (solo mock), `perfil-email-exito`, `perfil-email-error`, `perfil-email-enlace` (aviso al volver de `/auth/confirmar`). Legajo: `perfil-legajo-chip` ("2 de 3"), `perfil-legajo-estado` (con `data-estado="completo\|incompleto"`), `perfil-legajo-faltantes`, `perfil-legajo-ocupacion`, `perfil-legajo-ingresos`, `perfil-legajo-garantias`, `perfil-sin-cargar-<ocupacion\|ingresos\|garantias>`, `perfil-legajo-editar`, `perfil-legajo-form`, `perfil-legajo-ocupacion-input`, `perfil-legajo-ingresos-input`, `perfil-legajo-garantia-<propietaria\|caucion\|otra>`, `perfil-legajo-guardar`, `perfil-legajo-cancelar`, `perfil-legajo-error`, `perfil-legajo-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Borrado: `placeholder-screen` en esta ruta |
+| `/panel/perfil` (US-20, US-21, Sprint 3; correo y sin legajo desde el 09/11) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|email\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Se sacaron el 09/11 los `perfil-email-*` del flujo con enlace (`-cambio`, `-cambiar`, `-form`, `-enviar`, `-cancelar`, `-pendiente`, `-simular-confirmacion`, `-exito`, `-error`, `-enlace`) y todos los `perfil-legajo-*`. Borrado: `placeholder-screen` en esta ruta |
 | `/panel/propiedades/[id]`, pestañas y Contratos (US-43, Sprint 4) | Pestañas: `mi-propiedad-pestanias`, `mi-propiedad-tab-resumen`, `mi-propiedad-tab-contratos`. Pestaña: `propiedad-contratos`, `propiedad-contratos-cargando`, `propiedad-contratos-error`, `propiedad-contratos-reintentar`, `propiedad-contratos-aviso`, `propiedad-contratos-error-accion`. Actual: `propiedad-contrato-actual` (con `data-estado`), `propiedad-contrato-firmas`, `propiedad-contrato-sin-firmas`, `propiedad-contrato-firmado`, `propiedad-contrato-ver`, `propiedad-contrato-pdf`, `propiedad-contrato-continuar`, `propiedad-contrato-eliminar`, `propiedad-contrato-eliminar-modal`. Sin contrato: `propiedad-sin-contrato`, `propiedad-contrato-iniciar`, `propiedad-ver-solicitudes`. Anteriores: `propiedad-contratos-anteriores`, `propiedad-contratos-anteriores-toggle`, `propiedad-contrato-anterior-ver` |
 | `/panel/contratos/nuevo` y `/[id]/editar` (US-05, Sprint 3) | Selector (sin `?solicitud=`): `contrato-selector`, `contrato-selector-cargando`, `contrato-selector-error`, `contrato-selector-reintentar`, `contrato-selector-solicitud`, `contrato-selector-iniciar`, `contrato-selector-vacio`, `contrato-selector-solicitudes`, `contrato-selector-volver`. Alta: `contrato-cargando`, `contrato-no-disponible` (409/404, con `contrato-ir-propiedades`, `contrato-ir-propiedad` y `contrato-reintentar`), `contrato-no-editable`, `contrato-alta`, `contrato-wizard` (con `wizard-prev-button`, `wizard-next-button`, `wizard-finish-button`), `contrato-guardar-borrador`, `contrato-eliminar-borrador`, `contrato-borrador-guardado`, `contrato-error`, `contrato-error-paso`. Paso 1: `contrato-paso-partes`, `contrato-contexto`, `contrato-ver-solicitud`, `contrato-parte-locador`, `contrato-parte-locatario`, `contrato-garantias-ofrecidas`, `contrato-garante` (uno por garante, con `contrato-garante-nombre`, `-dni`, `-email` y `-quitar`), `contrato-garante-agregar`, `contrato-garantes-maximo`. Paso 2: `contrato-paso-condiciones`, `contrato-inicio`, `contrato-duracion`, `contrato-fin`, `contrato-monto`, `contrato-deposito`, `contrato-plazo-vencimiento`, `contrato-indice-<sin_ajuste\|ICL\|IPC\|CAC>`, `contrato-periodicidad`, `contrato-ajustes`, `contrato-cobro`. Paso 3: `contrato-paso-clausulas`, `contrato-clausulas-contador`, `contrato-ver-completo` (abre `contrato-ver-completo-modal` con `contrato-documento` y `contrato-ver-completo-cerrar`), `contrato-clausula` (con `data-tipo="fija\|editable\|propia"`; adentro, `contrato-clausula-bloqueada`, `-editar`, `-eliminar`, `-titulo`, `-texto`, `-restaurar` y `-error`), `contrato-clausula-agregar`. Paso 4: `contrato-paso-revision`, `contrato-revision-<partes\|garantes\|condiciones\|clausulas>` (cada uno con su `-editar`), `contrato-al-enviar`, `contrato-revision-acepto`, `contrato-revision-acepto-error`, `contrato-enviar-modal` y `contrato-eliminar-modal` (con `confirm-action-ok` / `confirm-action-cancel`). Resultado: `contrato-enviado`, `contrato-enviado-codigo`, `contrato-enviado-firmantes`, `contrato-enviado-ir-contratos` | Desde la Tanda 2: `contrato-paso-carga`, `contrato-pdf-dropzone`, `contrato-pdf-cargado`, `contrato-pdf-nombre`, `contrato-pdf-tamano`, `contrato-pdf-abrir`, `contrato-pdf-error`, `contrato-pdf-miniatura`, `contrato-pdf-miniatura-paginas`, `contrato-revision-pdf`, `contrato-revision-miniatura`, `contrato-envio-no-disponible`, `contrato-enviar-deshabilitado`, `contrato-fecha-vencida`.
 | `/panel/solicitudes`, solicitud aceptada (US-05, Sprint 3) | `solicitudes-detalle-iniciar-contrato-button` / `solicitudes-iniciar-contrato-button` (fila, móvil), `…-continuar-contrato-button` (hay un borrador), `…-contrato-estado` (ya originó un contrato; adentro, `…-ver-contrato` lleva al detalle, US-07) y `…-contrato-bloqueado` (la propiedad tiene otro). `?pestania=aceptadas` abre esa pestaña |

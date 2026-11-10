@@ -20,26 +20,29 @@ documentada, también el catálogo `/design-system` (no es una pantalla del prod
 Contraseña de las seis en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no
 está: el panel de administración no es de este sprint.
 
-## El perfil y el legajo (`perfiles.mock.ts`, US-20 y US-21)
+## El perfil (US-20 y US-21)
 
-| Id | Legajo | Nombre, apellido y DNI |
-|---|---|---|
-| `usr-nicolas` | Vacío (incompleto: faltan los tres datos) | **Bloqueados**: es locador de contratos vigentes. |
-| `usr-sofia` | Completo (relación de dependencia, $1.450.000, propietaria) | **Bloqueados**: locataria de CT-2026-0148. |
-| `usr-julieta` | Completo (monotributista, $980.000, caución) | **Bloqueados** desde la tanda 2 del Sprint 3: locataria de CT-2026-0207, pendiente de firma. |
-| `usr-matias` | Incompleto: estudiante, sin ingreso ni garantías | Editables. **Ejemplo de edición** (con Diego). |
-| `usr-diego` | Completo (relación de dependencia, $1.200.000, propietaria y otra) | Editables. Sin teléfono. **Ejemplo de edición** (con Matías). |
-| `usr-camila` | Completo (relación de dependencia, $1.300.000, propietaria) | **Bloqueados**: locataria de CT-2026-0133, vigente. |
+Sale de `usuarios.mock.ts`. El legajo del perfil (`perfiles.mock.ts`) se sacó el 09/11: salió de
+US-20 y US-21 el 06/11. El legajo de cada **solicitud** (US-35) sigue en `solicitudes.mock.ts`.
+
+| Id | Nombre, apellido y DNI |
+|---|---|
+| `usr-nicolas` | **Bloqueados**: es locador de contratos vigentes (CT-2026-0102). |
+| `usr-sofia` | **Bloqueados**: locataria de CT-2026-0148. |
+| `usr-julieta` | **Bloqueados** desde la tanda 2 del Sprint 3: locataria de CT-2026-0207, pendiente de firma. |
+| `usr-matias` | Editables. **Ejemplo de edición** (con Diego). |
+| `usr-diego` | Editables. Sin teléfono. **Ejemplo de edición** (con Matías). |
+| `usr-camila` | **Bloqueados**: locataria de CT-2026-0133, vigente. |
 
 - El bloqueo no se guarda: sale de los contratos vigentes o pendientes de firma en los que la cuenta
   es dueña o locataria, mirando `propiedades.mock.ts` (`rental`) y `contratos.mock.ts` (más los del
   navegador). Lo resuelve `services/adapters/contrato-mock.adapter.ts#contratoActivoDeUsuarioMock`.
 - **Ejemplos de edición de la tanda 1 → Matías y Diego.** Julieta era el ejemplo de "editable", pero
   desde que su contrato está pendiente de firma su nombre, apellido y DNI están bloqueados (US-21).
-- Lo que se edita en "Mi perfil" se guarda en `rentar:mock:usuarios` (nombre, apellido, teléfono,
-  fecha, correo y contraseña) y `rentar:mock:perfiles` (situación, garantías y correo pendiente).
-  **El DNI y el ingreso editados no se guardan en el navegador**: viven en memoria hasta recargar
-  (ver `services/perfil.service.ts`).
+- Lo que se edita en "Mi perfil" se guarda en `rentar:mock:usuarios` (nombre, apellido, correo,
+  teléfono, fecha y contraseña). El correo nuevo vale en el momento, también para entrar (igual que
+  el back desde el 06/11). **El DNI editado no se guarda en el navegador**: vive en memoria hasta
+  recargar (ver `services/perfil.service.ts`).
 
 ## Los contratos (`contratos.mock.ts`, US-05, Sprint 3 tanda 2)
 
