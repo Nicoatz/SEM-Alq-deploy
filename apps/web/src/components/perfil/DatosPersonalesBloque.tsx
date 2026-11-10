@@ -146,8 +146,9 @@ const CONSECUENCIA_BLOQUEO = 'Mientras siga así, tu nombre, apellido y DNI no s
 function textoBloqueo(lock: PerfilUsuario['identityLock']): string {
   if (!lock) return `Formás parte de un contrato vigente o pendiente de firma. ${CONSECUENCIA_BLOQUEO}`
   const estado = lock.contractStatus === 'vigente' ? 'vigente' : 'pendiente de firma'
-  const contrato = lock.contractCode ? `del contrato ${lock.contractCode}` : 'de un contrato'
-  return `Formás parte ${contrato}, que está ${estado}. ${CONSECUENCIA_BLOQUEO}`
+  // Con código, la aclaración va entre comas; sin código, "un contrato que está…" (sin coma).
+  const contrato = lock.contractCode ? `del contrato ${lock.contractCode}, que` : 'de un contrato que'
+  return `Formás parte ${contrato} está ${estado}. ${CONSECUENCIA_BLOQUEO}`
 }
 
 /** Props de {@link FormularioDatos}. */
