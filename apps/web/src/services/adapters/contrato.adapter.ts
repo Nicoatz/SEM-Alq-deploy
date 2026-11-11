@@ -431,7 +431,11 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
  * - Propiedad: dirección exacta con el piso; foto principal directa del
  *   bucket. Sin precio publicado ni condiciones de cobro (los medios de pago
  *   del contrato van en `datosApi.mediosPago`).
- * - Garantes: nombre y correo; sin DNI (el back no lo manda en la ficha).
+ * - Garantes: solo el nombre. Sin DNI (el back no lo manda en la ficha) y sin
+ *   correo ni teléfono: el back los manda, pero ninguna pantalla del locatario
+ *   los usa (US-27 dice solo "garantes"), así que se descartan acá.
+ *   TODO(backend): que `GET /alquileres-locatario/:id` no mande `email` ni
+ *   `telefono` de los garantes (HANDOFF §7, US-27): hoy igual llegan al navegador.
  * - Condiciones: sin monto inicial ni duración (no vienen).
  * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
  */
@@ -467,7 +471,8 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     },
     locatario: sinDatos,
     garantiasOfrecidas: [],
-    garantes: dto.garantes.map((garante, posicion) => ({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante), dni: '', email: garante.email })),
+    // NOTA: `email` vacío a propósito (ver el encabezado): el tipo lo exige, la ficha no lo muestra.
+    garantes: dto.garantes.map((garante, posicion) => ({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante), dni: '', email: '' })),
     condiciones: {
       startDate: dto.fecha_inicio_contrato,
       durationMonths: null,
