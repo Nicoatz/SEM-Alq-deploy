@@ -1058,6 +1058,20 @@ Creados durante la conexión del front. Todos los mails de prueba llevan `+test`
 Falta que backend cargue: un locatario en Supabase Auth con un contrato vigente y otro pendiente; un
 contrato vigente coherente con períodos pendiente, vencido y pagado; y un contrato finalizado.
 
+**Prueba en real del PDF al guardar (11/11, US-05 y US-06, `feature/vistas`, usuario 1).** No se creó
+ningún contrato ni se aceptó ninguna solicitud: se usó el borrador **34** que ya existía. Quedó modificado:
+
+| Qué | Ids | Dónde |
+|---|---|---|
+| Contrato **34** (borrador, inmueble **13**, solicitud **23** aceptada). Antes de la prueba no tenía PDF. Quedó con `nuevo-contrato.pdf` (7602 bytes, el PDF ficticio del elenco, sin datos reales), depósito **654321** y fecha de inicio **01/12/2026** (la anterior, 10/11/2026, había vencido). No se envió a firmar | `contrato` **34**; `pdf_storage_path` `contrato-34/e6f37c85-0eb9-4da6-aed1-d43d06797a4f.pdf` | `contrato` y bucket `contratos-pdf` |
+| PDFs anteriores de la misma prueba (`contrato-34/e43ba7b5-….pdf` y el de `otro-contrato.pdf`) | — | El back los borró al reemplazarlos (`registrarPdf`); verificar que no queden en `contratos-pdf/contrato-34/` |
+
+Para borrar: descartar el borrador 34 (`DELETE /contratos/34`, borra también su PDF y devuelve la
+solicitud 23 a pendiente) o, si se quiere conservar, volver el depósito y la fecha a mano.
+**"Reabrir" (US-06, `POST /contratos/:id/reabrir`) quedó sin probar en real:** el único contrato
+pendiente de firma de la cuenta es el **2**, que se usa para US-42 y US-43, y el front todavía no puede
+volver a enviarlo a firmar. Probarlo cuando backend arme un contrato pendiente de firma descartable.
+
 **Prueba en real de US-20 y US-21 (05/11, Tanda 0, usuario 1).** Pasan la consulta del perfil, las
 validaciones de nombre, DNI, teléfono y fecha, cancelar, el aviso de cambios sin guardar y el
 `PATCH /usuarios/me` del teléfono (se cambió y se dejó como estaba). No se probaron el cambio de correo y
@@ -1325,6 +1339,11 @@ de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
 `contrato-*-modal`, `mi-propiedad-eliminar-*modal`, etc.) está en el panel visible del modal, con
 `confirm-action-ok` y `confirm-action-cancel` adentro. Antes estaba en la raíz de antd (0×0): esperarlo
 como visible fallaba. Ahora alcanza con esperar el testid visible y buscar los botones dentro.
+
+**Antes de correr Selenium o Playwright (11/11):** `npm run build` y `npm run dev:web` usan la misma
+carpeta `apps/web/.next`. Correr el build con el dev levantado deja al dev sirviendo páginas en blanco
+(en la consola de Next, "Jest worker encountered 2 child process exceptions"). Frenar el dev antes del
+build y, si ya pasó, borrar `apps/web/.next` y volver a levantarlo.
 
 **Lo que cambió en el Sprint 4 (para Selenium):**
 
