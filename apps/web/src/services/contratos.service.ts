@@ -336,6 +336,8 @@ const BUCKET_CONTRATOS = 'contratos-pdf'
 /**
  * US-05, paso 3 — "Se debe cargar el contrato en formato PDF". El archivo no
  * pasa por la API (acepta hasta 4,5 MB): va directo a Storage con una URL firmada.
+ * Se llama al tocar "Guardar borrador" o "Enviar a firmar", antes del `PATCH`, no
+ * al adjuntar (US-05 y US-06: el PDF adjuntado es un cambio sin guardar más).
  * @backend POST /api/v1/contratos/:id/pdf/url-subida   (existe · rol locador) → UrlSubidaPdfResponse
  * @backend PUT  /api/v1/contratos/:id/pdf   (existe · rol locador) body `{ path, nombre }` → 200 ContratoBorradorApiResponse
  * @returns el borrador con el PDF nuevo. Si falla, el anterior queda como estaba.
