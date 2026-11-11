@@ -85,6 +85,7 @@ import {
   FIRMA_ERROR_GENERICO_MESSAGE,
   FIRMA_RECHAZADA_MESSAGE,
   FIRMANTE_NO_PENDIENTE_MESSAGE,
+  garanteParaLocatario,
   miAlquilerDeDetalle,
   CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
@@ -911,6 +912,15 @@ export async function contarMisAlquileres(): Promise<number> {
 }
 
 /**
+ * US-27 — En mock, la ficha del locatario sale del mismo armado que el detalle
+ * del locador: se le aplica el descarte de real (`garanteParaLocatario`), así
+ * ni el DNI ni el correo de los garantes llegan a la ficha.
+ */
+function fichaDeLocatarioMock(detalle: ContratoDetalle): ContratoDetalle {
+  return { ...detalle, garantes: detalle.garantes.map(garanteParaLocatario) }
+}
+
+/**
  * Mi alquiler (`/panel/alquiler`), US-27 y US-07:
  * - Sin `contratoId`: con un solo contrato (pendiente de firma, vigente o
  *   finalizado), su ficha; con ninguno, `ninguno` ("Todavía no tenés un
@@ -928,17 +938,17 @@ export async function getMiAlquiler(contratoId?: string): Promise<MiAlquiler> {
     const { guardados, alquileres } = misContratosMock(requireSessionUserId())
     if (contratoId) {
       const guardado = guardados.find((contrato) => contrato.id === contratoId || contrato.code === contratoId)
-      if (guardado) return { tipo: 'uno', contrato: detalleDeContratoMock(guardado) }
+      if (guardado) return { tipo: 'uno', contrato: fichaDeLocatarioMock(detalleDeContratoMock(guardado)) }
       const propiedad = alquileres.find((item) => item.rental?.contractId === contratoId)
       const detalle = propiedad ? detalleDeAlquilerMock(propiedad) : null
       if (!detalle) throw new ServiceError('not_found', ALQUILER_NO_ENCONTRADO_MESSAGE)
-      return { tipo: 'uno', contrato: detalle }
+      return { tipo: 'uno', contrato: fichaDeLocatarioMock(detalle) }
     }
     const cantidad = guardados.length + alquileres.length
     if (cantidad === 0) return { tipo: 'ninguno' }
     if (cantidad > 1) return { tipo: 'varios', cantidad }
     const unico = guardados[0] ? detalleDeContratoMock(guardados[0]) : alquileres[0] ? detalleDeAlquilerMock(alquileres[0]) : null
-    return unico ? { tipo: 'uno', contrato: unico } : { tipo: 'ninguno' }
+    return unico ? { tipo: 'uno', contrato: fichaDeLocatarioMock(unico) } : { tipo: 'ninguno' }
   }
   let id = contratoId
   if (!id) {

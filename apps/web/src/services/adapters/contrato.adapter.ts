@@ -22,6 +22,7 @@ import type {
   ContratoEnviado,
   ContratosDePropiedad,
   FirmanteContrato,
+  GaranteContrato,
   IndiceContrato,
   GarantiaOfrecida,
   ParteContrato,
@@ -423,6 +424,16 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
 }
 
 /**
+ * US-27 — Lo que el locatario ve de cada garante en Mi alquiler: solo el
+ * nombre. La misma regla en real (`miAlquilerDeDetalle`) y en mock
+ * (`contratos.service#getMiAlquiler`).
+ * NOTA: DNI y correo van vacíos a propósito: el tipo los exige y la ficha no los muestra.
+ */
+export function garanteParaLocatario({ key, fullName }: Pick<GaranteContrato, 'key' | 'fullName'>): GaranteContrato {
+  return { key, fullName, dni: '', email: '' }
+}
+
+/**
  * `GET /alquileres-locatario/:idContrato` → `ContratoDetalle` (la ficha de Mi
  * alquiler, US-27). Campo por campo; lo que el back no manda queda vacío:
  * - Locatario: vacío (es quien mira; el back no lo repite).
@@ -471,8 +482,7 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     },
     locatario: sinDatos,
     garantiasOfrecidas: [],
-    // NOTA: `email` vacío a propósito (ver el encabezado): el tipo lo exige, la ficha no lo muestra.
-    garantes: dto.garantes.map((garante, posicion) => ({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante), dni: '', email: '' })),
+    garantes: dto.garantes.map((garante, posicion) => garanteParaLocatario({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante) })),
     condiciones: {
       startDate: dto.fecha_inicio_contrato,
       durationMonths: null,
