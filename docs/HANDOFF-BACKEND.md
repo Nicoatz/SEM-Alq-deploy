@@ -1285,6 +1285,12 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
    de los garantes**, que vive en memoria hasta recargar (`services/adapters/contrato-mock.adapter.ts`);
    al recargar, el borrador pide el DNI de nuevo. El DNI de las partes no se guarda en el contrato:
    se lee del perfil.
+   **Limitación del mock (11/11, no se arregla por ahora):** lo mismo pasa con un contrato **reabierto**
+   (US-06, "Modificar" en el detalle). Mientras no se recargue, el wizard tiene el DNI de los
+   garantes; al recargar `/panel/contratos/[id]/editar`, el DNI queda vacío y el paso Partes no deja
+   avanzar ("El DNI tiene 7 u 8 números, sin puntos") hasta volver a cargarlo. Para las pruebas de
+   Selenium sobre un reabierto en mock: no recargar entre "Modificar" y los pasos siguientes. En real
+   no pasa (el DNI viene del back).
 
 ## 11. Numeración de las User Stories
 
