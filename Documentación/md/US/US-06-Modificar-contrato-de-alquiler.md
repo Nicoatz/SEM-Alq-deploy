@@ -30,6 +30,7 @@
 | - Probar modificar un contrato pendiente de firma sin la firma del locatario, confirmar y verificar que vuelva a borrador, con las firmas borradas y el mismo código (pasa). |
 | - Probar modificar un contrato pendiente de firma y cancelar la confirmación (pasa: el contrato sigue pendiente, con sus firmas). |
 | - Probar modificar un contrato que el locatario ya firmó (falla). |
+| - Probar modificar un contrato habiendo iniciado sesión como locatario (falla). |
 | - Probar modificar un contrato vigente o finalizado (falla). |
 | - Probar intentar cambiar la propiedad o el locatario (falla). |
 | - Probar agregar, modificar y quitar garantes con las validaciones de US-05 (pasa). |

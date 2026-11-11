@@ -1309,6 +1309,21 @@ No se arreglaron en el PR del QA; quedan anotados para cuando toque:
    avanzar ("El DNI tiene 7 u 8 números, sin puntos") hasta volver a cargarlo. Para las pruebas de
    Selenium sobre un reabierto en mock: no recargar entre "Modificar" y los pasos siguientes. En real
    no pasa (el DNI viene del back).
+   **También vale para un contrato que volvió a borrador por un rechazo** (US-07, 11/11): después de una
+   recarga completa (la firma en el simulador lo es), el paso Partes pide el DNI del garante para reenviarlo.
+5. **Firma con DocuSign: tres detalles que quedan como están (US-07, Sprint 5, decisión del PO del
+   11/11).**
+   - **"Firmar" se oculta durante la espera.** Mientras se espera el aviso de DocuSign ("Estamos
+     registrando tu firma…" y "Todavía estamos registrando…"), la firma no se ofrece, para no pedir
+     otra URL. Con un `?event=signing_complete` escrito a mano sin haber firmado, el botón vuelve
+     recién al recargar la página.
+   - **Mi alquiler después de un `decline` y una recarga.** Al volver de DocuSign con `decline` se ve
+     "Rechazaste el contrato. Ya no está disponible". Si después se recarga, el `?event=` ya se sacó de
+     la URL y el contrato es un borrador: se ve "No encontramos este alquiler". Es correcto, aunque
+     el mensaje es menos claro.
+   - **El DNI del garante en mock** (punto 4 de esta lista): se pierde al recargar un contrato que
+     volvió a borrador.
+
 
 ## 11. Numeración de las User Stories
 
