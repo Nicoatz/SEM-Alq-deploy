@@ -6,8 +6,9 @@
  * Cubre: US-05 Registrar contrato de alquiler ("Al enviarlo, el contrato
  * pasa al estado 'pendiente de firma', recibe un código con formato
  * CT-AAAA-NNNN y no se puede editar"). Decisión del PO: el resultado va
- * dentro del alta (código, quiénes firman e "Ir a los contratos de la propiedad"); el detalle
- * del contrato llega con US-07.
+ * dentro del alta (código, quiénes firman —locador, locatario y garantes, US-07— e
+ * "Ir a los contratos de la propiedad"). Desde "Ver contrato y firmar", el locador firma
+ * y genera el enlace de cada garante.
  * Quién lo usa: `AltaContrato.tsx`.
  */
 import { CheckCircleFilled } from '@ant-design/icons'
@@ -30,7 +31,9 @@ interface ResultadoEnvioProps {
 /** "Enviaste el contrato a firmar", con el código y los firmantes. */
 export function ResultadoEnvio({ enviado, direccion, propiedadId }: ResultadoEnvioProps) {
   const router = useRouter()
-  const firmantes = enviado.firmantes.map((firmante) => `${firmante.nombre} (${firmante.rol})`).join(' y ')
+  // US-07: el locador, el locatario y cada garante ("A, B y C").
+  const nombres = enviado.firmantes.map((firmante) => `${firmante.nombre} (${firmante.rol})`)
+  const firmantes = nombres.length > 1 ? `${nombres.slice(0, -1).join(', ')} y ${nombres.at(-1)}` : (nombres[0] ?? '')
   return (
     <div className={styles.resultado} role="status" data-testid="contrato-enviado">
       <CheckCircleFilled className={styles.resultadoIcono} aria-hidden />

@@ -10,7 +10,7 @@ export { usuarios, MOCK_PASSWORD, type UsuarioMock } from './usuarios.mock'
 export { propiedades, type PropiedadMock, type FotoMock, type AlquilerMock } from './propiedades.mock'
 export { reclamos, type ReclamoMock } from './panel.mock'
 export { solicitudes, type SolicitudMock } from './solicitudes.mock'
-export { contratos, type ContratoMock, type FirmaMock } from './contratos.mock'
+export { contratos, type ContratoMock, type FirmaMock, type FirmasMock } from './contratos.mock'
 export {
   cobrosDePeriodos,
   periodos,

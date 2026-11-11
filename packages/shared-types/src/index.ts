@@ -345,6 +345,7 @@ export type {
   PdfContrato,
   FirmaDePropiedad,
   DatosAlquilerApi,
+  EventoFirma,
   FirmanteContrato,
   GaranteContrato,
   IndiceContrato,

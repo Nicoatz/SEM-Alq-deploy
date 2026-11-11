@@ -45,9 +45,8 @@ function hoyDelMock(): string {
  *   la HORA es la real. Así los datos del elenco no se desacomodan día a
  *   día (los "19 días de atraso" siguen siendo 19 y los tests de Selenium,
  *   estables) y lo que pasa en la sesión (crear, enviar, firmar, rechazar,
- *   cancelar o reenviar un contrato; enviar o responder una solicitud) queda
- *   con una hora de verdad: el límite de "un reenvío por hora" (US-07) se
- *   cumple con el reloj real.
+ *   o modificar un contrato; enviar o responder una solicitud) queda con una
+ *   hora de verdad.
  * NOTA: las dos solicitudes "de hace horas" del elenco (US-36) tienen su fecha
  * relativa a este reloj (`solicitudes.mock.ts`), así su texto no cambia con
  * la hora del día.

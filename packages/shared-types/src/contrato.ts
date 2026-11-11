@@ -176,7 +176,7 @@ export interface ContratoResumen {
 }
 
 /** Una firma en la pestaña Contratos (US-43: quién firmó, con fecha y hora, y quién falta). */
-export type FirmaDePropiedad = Pick<FirmanteContrato, 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
+export type FirmaDePropiedad = Pick<FirmanteContrato, 'key' | 'rol' | 'nombre' | 'estado' | 'firmadoEl'>
 
 /** Un contrato en la pestaña Contratos de una propiedad (US-43). Sin DNI ni datos de contacto. */
 export interface ContratoDePropiedad {
@@ -196,7 +196,7 @@ export interface ContratoDePropiedad {
   nextAdjustmentDate: string | null
   /** `false` si no hay registro de las firmas: no se inventan. */
   firmasRegistradas: boolean
-  /** Solo locador y locatario: el garante no firma (decisión del PO). */
+  /** Locador, locatario y garantes (US-07: los garantes firman, decisión del PO del 11/11). */
   firmantes: FirmaDePropiedad[]
   /** Fecha y hora ISO de la última firma, con el contrato vigente; `null` si no se registró. */
   firmadoPorTodasEl: string | null
@@ -219,8 +219,8 @@ export interface ContratoEnviado {
   id: string
   code: string
   status: 'pendiente_firma'
-  /** Quiénes firman (decisión del PO: locador y locatario; el garante no firma en el Sprint 3). */
-  firmantes: { rol: 'locador' | 'locatario'; nombre: string }[]
+  /** Quiénes firman: el locador, el locatario y cada garante (US-07, decisión del PO del 11/11). */
+  firmantes: { rol: RolFirmante; nombre: string }[]
 }
 
 /**
@@ -234,26 +234,50 @@ export interface ContratoDeSolicitud {
 
 // ─── US-07 Firmar contrato de alquiler ──────────────────────────────────
 
-/** Quién firma (decisión del PO: el locador y el locatario; el garante no firma en el Sprint 3). */
-export type RolFirmante = 'locador' | 'locatario'
+/**
+ * Quién firma. Decisión del PO del 11/11 (se acepta lo que hizo el back): el
+ * locador, el locatario y cada garante. Los garantes firman sin cuenta, con
+ * un enlace temporal que les pasa el locador.
+ */
+export type RolFirmante = 'locador' | 'locatario' | 'garante'
 
-/** Una de las dos partes que firman, con el estado de su firma. */
+/** Un firmante del contrato, con el estado de su firma. */
 export interface FirmanteContrato {
+  /**
+   * Identifica la fila en la lista: `locador`, `locatario` o `garante-<n>`
+   * (puede haber varios garantes, así que `rol` no alcanza).
+   */
+  key: string
   rol: RolFirmante
+  /** Id del usuario (locador y locatario); vacío en los garantes, que no tienen cuenta. */
   userId: string
+  /**
+   * Id del garante, para pedir su enlace de firma (Tanda B); `null` en el
+   * locador y el locatario, o si el back no lo informa.
+   */
+  garanteId: string | null
   /** Nombre y apellido. */
   nombre: string
-  /** US-07: "pendiente, firmado (con fecha y hora) o rechazado (con el motivo)". Es el dominio `firma` de `StatusTag`. */
+  /**
+   * US-07: "pendiente o firmado (con fecha y hora)". Es el dominio `firma` de `StatusTag`.
+   * NOTA: `rechazado` solo puede venir en datos viejos: desde la firma con
+   * DocuSign, rechazar vuelve el contrato a borrador y borra todas las firmas.
+   */
   estado: SignatureStatus
   /** Fecha y hora ISO de la firma; `null` si no firmó. */
   firmadoEl: string | null
-  /** Fecha y hora ISO del rechazo; `null` si no rechazó. */
+  /** Fecha y hora ISO del rechazo (solo datos viejos); `null` si no rechazó. */
   rechazadoEl: string | null
-  /** Motivo del rechazo (opcional, hasta 300 caracteres); `null` si no dio uno. */
+  /** Motivo del rechazo (solo datos viejos); `null` si no dio uno. */
   motivoRechazo: string | null
-  /** Fecha y hora ISO de la última invitación (el envío o un reenvío); `null` si nunca se invitó. */
-  ultimaInvitacion: string | null
 }
+
+/**
+ * Cómo vuelve el usuario de la firma en DocuSign (`?event=` en la URL de
+ * regreso). Son los valores que la pantalla sabe tratar; cualquier otro se
+ * descarta y se muestra un mensaje genérico (`lib/contratos/eventoFirma.ts`).
+ */
+export type EventoFirma = 'signing_complete' | 'decline' | 'cancel' | 'session_timeout' | 'ttl_expired' | 'exception' | 'otro'
 
 /**
  * El detalle de un contrato (`/panel/contratos/[id]`, US-07): lo del alta
@@ -276,8 +300,14 @@ export interface ContratoDetalle extends ContratoBorrador {
   firmasRegistradas: boolean
   /** `acciones.modificar` del back (US-06); `null` en mock y en la ficha del locatario. */
   modificarDelBack: boolean | null
-  /** Locador y locatario, en ese orden. Vacío si `firmasRegistradas` es `false`. */
+  /** Locador, locatario y garantes, en ese orden. Vacío si `firmasRegistradas` es `false`. */
   firmantes: FirmanteContrato[]
+  /**
+   * `true` si quien mira puede firmar ahora: en real, `acciones.firmar` del
+   * detalle del locador o `puede_firmar` de Mi alquiler; en mock, se calcula
+   * con las mismas reglas (pendiente de firma y su firma pendiente).
+   */
+  puedoFirmar: boolean
   /**
    * Monto mensual actual, con los ajustes aplicados (US-27: "monto actual");
    * `null` si no se sabe. NOTA: en mock, en los contratos hechos en RentAR es
@@ -292,10 +322,8 @@ export interface ContratoDetalle extends ContratoBorrador {
   /**
    * Lo que la ficha del locatario recibe de la API real (US-27,
    * `GET /alquileres-locatario/:id`) y no tiene lugar en el resto del tipo.
-   * `null` en modo mock y en el detalle del locador (`/contratos/:id`,
-   * propuesto). Cuando viene, la ficha usa estas fechas en lugar de
-   * calcularlas, no ofrece la firma en línea (US-07 no existe en la API) y
-   * el PDF es el del back, no uno armado en el navegador.
+   * `null` en modo mock. Cuando viene, la ficha usa estas fechas en lugar de
+   * calcularlas y el PDF es el del back, no uno armado en el navegador.
    */
   datosApi: DatosAlquilerApi | null
 }

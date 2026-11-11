@@ -6,7 +6,8 @@
  * guardado. Si el contrato ya no es borrador, avisa que no se puede editar.
  * `?guardado=1` llega del primer "Guardar borrador" del alta (que reemplaza
  * `/nuevo` por esta URL) y muestra el aviso de guardado. `?envio=cancelado`
- * llega de "Modificar" en el detalle (US-06).
+ * llega de "Modificar" en el detalle (US-06) y `?envio=rechazado`, de un
+ * rechazo de la firma (US-07: el contrato vuelve a borrador).
  * NOTA: esta ruta NO está en `docs/MapaDePantallas.pdf` (el mapa solo tiene
  * `/nuevo` y `/[id]`). Decisión del PO, Sprint 3: `/[id]` queda para el
  * detalle de US-07 y el borrador se edita acá (como
@@ -17,7 +18,7 @@
  * (y el detalle de un borrador, que redirige acá).
  */
 import type { Metadata } from 'next'
-import { AltaContrato } from '@/components/contratos/AltaContrato'
+import { AltaContrato, type AvisoEnvio } from '@/components/contratos/AltaContrato'
 
 /** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
 export const metadata: Metadata = { title: 'Continuar contrato' }
@@ -27,5 +28,7 @@ export default async function EditarContratoPage({ params, searchParams }: PageP
   const { id } = await params
   const { guardado, envio } = await searchParams
   const contratoId = decodeURIComponent(id)
-  return <AltaContrato key={contratoId} contratoId={contratoId} recienGuardado={guardado === '1'} envioCancelado={envio === 'cancelado'} />
+  // Solo los dos valores conocidos: cualquier otro texto del query se ignora.
+  const avisoEnvio: AvisoEnvio | null = envio === 'cancelado' || envio === 'rechazado' ? envio : null
+  return <AltaContrato key={contratoId} contratoId={contratoId} recienGuardado={guardado === '1'} avisoEnvio={avisoEnvio} />
 }

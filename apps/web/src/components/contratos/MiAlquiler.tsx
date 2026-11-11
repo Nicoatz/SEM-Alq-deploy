@@ -17,8 +17,11 @@
  *   firmas (y la firma, si falta la suya: `FirmaContrato`), documento y PDF.
  *   Un finalizado, en solo lectura y sin "Lo que viene".
  *
- * - En real (`GET /alquileres-locatario`): sin firma en línea ni PDF armado
- *   en el navegador (decisiones del PO, ver `DetalleContrato.tsx`).
+ * - US-07: el locatario firma en DocuSign y vuelve a
+ *   `/panel/alquiler?contrato=<id>&event=…` (`useEventoDeFirma`, que limpia
+ *   `event` de la URL). Con `?contrato=` se abre esa ficha aunque tenga varios
+ *   contratos. Si rechazó (o declinó en DocuSign) el contrato vuelve a
+ *   borrador y deja de existir para él: "ya no está disponible", no un error.
  * De dónde saca los datos: `contratos.service#getMiAlquiler`.
  * Quién lo usa: `app/(app)/panel/alquiler/page.tsx`.
  */
@@ -26,10 +29,13 @@ import { useCallback, useEffect } from 'react'
 import { Button, Skeleton } from 'antd'
 import { useRouter } from 'next/navigation'
 import { EmptyState, PageHeader } from '@rentar/ui'
+import type { ContratoDetalle } from '@rentar/shared-types'
 import { useAuth } from '@/lib/auth/AuthProvider'
+import { useEventoDeFirma } from '@/lib/hooks/useRegresoDeFirma'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { getMiAlquiler } from '@/services/contratos.service'
-import { rolEnContrato, VistaContrato } from './DetalleContrato'
+import { ServiceError } from '@/services/shared/errors'
+import { ContratoYaNoDisponible, rolEnContrato, VistaContrato } from './DetalleContrato'
 import styles from './DetalleContrato.module.css'
 
 /** Props de {@link MiAlquiler}. */
@@ -42,8 +48,16 @@ interface MiAlquilerProps {
 export function MiAlquiler({ contratoId }: MiAlquilerProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const evento = useEventoDeFirma()
   const cargar = useCallback(() => getMiAlquiler(contratoId), [contratoId])
   const carga = useServiceCall(cargar)
+  /** La misma ficha, para la espera después de firmar en DocuSign (US-07). */
+  const recargar = useCallback(async (): Promise<ContratoDetalle> => {
+    const resultado = await getMiAlquiler(contratoId)
+    // Sin `?contrato=` y sin contratos: el único que tenía volvió a borrador.
+    if (resultado.tipo !== 'uno') throw new ServiceError('not_found', 'Este contrato ya no está disponible.')
+    return resultado.contrato
+  }, [contratoId])
   const varios = carga.status === 'listo' && carga.data.tipo === 'varios'
   // Con un contrato elegido del listado, la miga vuelve a "Mis alquileres".
   const miga = contratoId
@@ -62,6 +76,12 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
         <Skeleton active paragraph={{ rows: 8 }} />
       </div>
     )
+  }
+
+  // US-07: volvió de DocuSign con `decline` y el rechazo ya se registró: el
+  // contrato volvió a borrador y para el locatario ya no existe.
+  if (evento === 'decline' && ((carga.status === 'error' && carga.code === 'not_found') || (carga.status === 'listo' && carga.data.tipo === 'ninguno'))) {
+    return <ContratoYaNoDisponible miga={miga} titulo="Mi alquiler" rechazoPropio />
   }
 
   if (carga.status === 'error') {
@@ -125,6 +145,8 @@ export function MiAlquiler({ contratoId }: MiAlquilerProps) {
       miga={miga}
       titulo="Mi alquiler"
       vista="locatario"
+      evento={evento}
+      recargar={recargar}
     />
   )
 }

@@ -11,7 +11,8 @@
  * - hasta 3 garantes con nombre y apellido, DNI y correo (los tres
  *   obligatorios), con las validaciones de `lib/contratos/validaciones.ts`;
  * - quitar un garante cargado.
- * Decisión del PO: el garante es un dato del contrato y NO firma este sprint.
+ * US-07 (decisión del PO del 11/11): el garante firma, con un enlace temporal
+ * que le pasa el locador desde el detalle del contrato (sin cuenta).
  *
  * Qué muestra (Claude Design, "Flujo de contratos" · 02): el aviso de
  * contexto, las dos tarjetas de solo lectura y la lista de garantes.
@@ -112,7 +113,7 @@ export function PasoPartes({ borrador, onGarantesChange, mostrarErrores }: PasoP
 
       <FormSection
         title="Garantes"
-        description={`Hasta ${GARANTES_MAX}. En esta versión el garante queda como dato del contrato: no firma. Podés enviar el contrato sin garantes.`}
+        description={`Hasta ${GARANTES_MAX}. Cada garante firma el contrato con un enlace que le vas a pasar después de enviarlo. Podés enviar el contrato sin garantes.`}
       >
         <p className={styles.referencia} data-testid="contrato-garantias-ofrecidas">
           {borrador.garantiasOfrecidas.length > 0

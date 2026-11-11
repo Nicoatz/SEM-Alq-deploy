@@ -45,8 +45,6 @@ interface PasoRevisionProps {
   onAceptoChange: (acepto: boolean) => void
   /** `true` si se tocó "Enviar a firmar" sin marcar la casilla. */
   mostrarErrorCasilla: boolean
-  /** `false` en real: sin `POST /contratos/:id/enviar`, el botón se muestra deshabilitado. */
-  envioDisponible: boolean
   /** Fecha de fin guardada (la del back); `null` si cambiaron el inicio o la duración sin guardar. */
   finGuardado: string | null
 }
@@ -72,7 +70,7 @@ function Bloque({ titulo, paso, onEditar, testId, children }: { titulo: string; 
 }
 
 /** Paso 4 del alta: el resumen y la casilla de revisión. */
-export function PasoRevision({ borrador, pdfPendiente, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible, finGuardado }: PasoRevisionProps) {
+export function PasoRevision({ borrador, pdfPendiente, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, finGuardado }: PasoRevisionProps) {
   const { condiciones, propiedad, locador, locatario, garantes } = borrador
   const contratoId = borrador.id ?? ''
   const obtenerGuardado = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
@@ -159,8 +157,14 @@ export function PasoRevision({ borrador, pdfPendiente, onEditar, acepto, onAcept
         <h3 className={styles.bloqueRevisionTitulo}>Al enviar a firmar</h3>
         <ul className={styles.alEnviarLista}>
           <li>
-            Lo firman <strong>{nombre(locador)}</strong> (locador) y <strong>{nombre(locatario)}</strong> (locatario), cada uno desde su panel.
-            {garantes.length > 0 ? ' El garante queda como dato del contrato: en esta versión no firma.' : ''}
+            Lo firman <strong>{nombre(locador)}</strong> (locador) y <strong>{nombre(locatario)}</strong> (locatario), cada uno desde su panel
+            {garantes.length > 0 ? (
+              <>
+                , y {garantes.length === 1 ? 'el garante, con un enlace que le' : `los ${garantes.length} garantes, con un enlace que les`} vas a pasar desde el detalle del contrato.
+              </>
+            ) : (
+              '.'
+            )}
           </li>
           <li>
             El contrato queda <strong>pendiente de firma</strong> y ya no se puede editar.
@@ -181,15 +185,6 @@ export function PasoRevision({ borrador, pdfPendiente, onEditar, acepto, onAcept
         )}
       </div>
 
-      {/* Decisión del PO: en real el flujo termina en borrador. */}
-      {!envioDisponible && (
-        <div className={styles.envioNoDisponible} data-testid="contrato-envio-no-disponible">
-          <Button type="primary" disabled data-testid="contrato-enviar-deshabilitado">
-            Enviar a firmar
-          </Button>
-          <span className={styles.referencia}>Disponible cuando esté habilitada la firma. Mientras tanto, tu contrato queda guardado como borrador.</span>
-        </div>
-      )}
     </div>
   )
 }

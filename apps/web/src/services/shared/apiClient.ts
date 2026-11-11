@@ -133,7 +133,7 @@ function errorDeRespuesta(response: Response, envelope: ApiResponse<unknown> | n
   const code = response.ok ? 'server' : errorCodeFromHttpStatus(response.status)
   // NOTA: el 401 del back trae un texto técnico ("el token de Supabase no es
   // válido"). Para quien usa la app, es que la sesión venció.
-  return new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message, codigoDeNegocio(envelope))
+  return new ServiceError(code, code === 'unauthorized' ? SESSION_EXPIRED_MESSAGE : message, codigoDeNegocio(envelope), response.status)
 }
 
 /**
