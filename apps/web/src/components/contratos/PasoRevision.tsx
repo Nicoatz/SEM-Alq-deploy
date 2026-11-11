@@ -5,7 +5,8 @@
  *
  * Cubre: US-05 Registrar contrato de alquiler, "Paso 4 · Revisión y envío":
  * - resumen de todo lo cargado (propiedad, partes, garantes, vigencia,
- *   monto inicial, ajuste, depósito, vencimiento del pago y miniatura del PDF), con
+ *   monto inicial, ajuste, depósito, vencimiento del pago y miniatura del PDF,
+ *   también la de un PDF adjuntado que todavía no se guardó), con
  *   "Editar" en cada bloque;
  * - la casilla obligatoria "Revisé la correcta redacción del contrato y
  *   entiendo que después de enviarlo no puedo editarlo";
@@ -19,7 +20,7 @@
  * Quién lo usa: `AltaContrato.tsx`.
  */
 import { useCallback, type ReactNode } from 'react'
-import { Button, Checkbox } from 'antd'
+import { Alert, Button, Checkbox } from 'antd'
 import { EditOutlined } from '@ant-design/icons'
 import type { ContratoBorrador } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount } from '@rentar/ui'
@@ -27,13 +28,17 @@ import { cantidadAjustes, fechaCorta, fechaFin, MESES_POR_PERIODO, textoPlazo } 
 import { tamanoLegible } from '@/lib/contratos/pdfCarga'
 import { MENSAJES_CONTRATO } from '@/lib/contratos/validaciones'
 import { dniParaMostrar } from '@/lib/perfil/formato'
+import { useUrlPdfLocal } from '@/lib/contratos/pdfLocal'
 import { urlPdfDeContrato } from '@/services/contratos.service'
 import { MiniaturaPdf } from './MiniaturaPdf'
+import { textoPdfPendiente } from './PasoCarga'
 import styles from './AltaContrato.module.css'
 
 /** Props de {@link PasoRevision}. */
 interface PasoRevisionProps {
   borrador: ContratoBorrador
+  /** El PDF adjuntado en el paso Carga que todavía no se subió; `null` si no hay. */
+  pdfPendiente: File | null
   /** Lleva al paso para editar ese bloque (US-05: "cada bloque tiene la opción de volver a editarlo"). */
   onEditar: (paso: number) => void
   acepto: boolean
@@ -67,10 +72,14 @@ function Bloque({ titulo, paso, onEditar, testId, children }: { titulo: string; 
 }
 
 /** Paso 4 del alta: el resumen y la casilla de revisión. */
-export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible, finGuardado }: PasoRevisionProps) {
+export function PasoRevision({ borrador, pdfPendiente, onEditar, acepto, onAceptoChange, mostrarErrorCasilla, envioDisponible, finGuardado }: PasoRevisionProps) {
   const { condiciones, propiedad, locador, locatario, garantes } = borrador
   const contratoId = borrador.id ?? ''
-  const obtenerPdf = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
+  const obtenerGuardado = useCallback(() => urlPdfDeContrato(contratoId, 'borrador'), [contratoId])
+  const obtenerPendiente = useUrlPdfLocal(pdfPendiente)
+  // El pendiente tapa al guardado: es el que se sube al guardar o al enviar.
+  const pdf = pdfPendiente ? { nombre: pdfPendiente.name, tamanoBytes: pdfPendiente.size } : borrador.pdf
+  const obtenerPdf = pdfPendiente ? obtenerPendiente : obtenerGuardado
   const fin = finGuardado ?? fechaFin(condiciones.startDate, condiciones.durationMonths)
   const ajustes = cantidadAjustes(condiciones.durationMonths, condiciones.adjustmentIndex, condiciones.adjustmentPeriod)
   const falta = 'Sin cargar'
@@ -130,11 +139,15 @@ export function PasoRevision({ borrador, onEditar, acepto, onAceptoChange, mostr
       </Bloque>
 
       <Bloque titulo="Contrato" paso={2} onEditar={onEditar} testId="contrato-revision-pdf">
-        {borrador.pdf ? (
+        {pdfPendiente && (
+          <Alert type="warning" showIcon title="Este PDF todavía no está guardado" description={textoPdfPendiente(borrador.pdf !== null)} data-testid="contrato-revision-pdf-pendiente" />
+        )}
+        {pdf ? (
           <div className={styles.revisionPdf}>
-            <MiniaturaPdf obtenerUrl={obtenerPdf} data-testid="contrato-revision-miniatura" />
+            {/* La `key` vuelve a abrir la miniatura si cambia de guardado a pendiente. */}
+            {obtenerPdf && <MiniaturaPdf key={pdfPendiente ? 'pendiente' : 'guardado'} obtenerUrl={obtenerPdf} data-testid="contrato-revision-miniatura" />}
             <span className={styles.referencia}>
-              {borrador.pdf.nombre} · {tamanoLegible(borrador.pdf.tamanoBytes)}
+              {pdf.nombre} · {tamanoLegible(pdf.tamanoBytes)}
             </span>
           </div>
         ) : (

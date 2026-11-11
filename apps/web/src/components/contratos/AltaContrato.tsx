@@ -23,7 +23,10 @@
  * Usa `WizardLayout` de `@rentar/ui` (como el alta de propiedad).
  *
  * Aviso de salida (US-21, `AvisoCambiosProvider`): marca cambios mientras
- * haya algo que no está en el borrador guardado.
+ * haya algo que no está en el borrador guardado, incluido un PDF adjuntado y
+ * todavía no subido (US-05 y US-06: "Si el usuario intenta salir con cambios
+ * sin guardar, se debe mostrar un aviso"). El PDF se sube recién al guardar o
+ * al enviar, antes del `PATCH`; si se descarta, no se sube nada.
  *
  * De dónde saca los datos: `contratos.service#iniciarContrato` (nuevo) o
  * `#getBorrador` (borrador); guarda con `#guardarBorrador`, `#eliminarBorrador`
@@ -41,7 +44,7 @@ import { errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/cont
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
 import { hoy } from '@/lib/utils/fechas'
-import { eliminarBorrador, ENVIO_A_FIRMA_DISPONIBLE, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato } from '@/services/contratos.service'
+import { eliminarBorrador, ENVIO_A_FIRMA_DISPONIBLE, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato, subirPdfContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { PasoCarga } from './PasoCarga'
 import { PasoCondiciones } from './PasoCondiciones'
@@ -53,6 +56,9 @@ import styles from './AltaContrato.module.css'
 
 /** Aviso al guardar: los contratos se retoman desde la propiedad (US-43). */
 const BORRADOR_GUARDADO = 'Guardamos el borrador. Lo retomás desde la pestaña Contratos de la propiedad.'
+
+/** El PDF subió pero el `PATCH` falló: el PDF ya quedó y lo demás sigue sin guardar. */
+const SOLO_PDF_GUARDADO = 'Se guardó el PDF, pero no el resto de los cambios. Probá guardar de nuevo.'
 
 const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
 
@@ -126,6 +132,11 @@ function mensajeDe(error: unknown, generico: string): string {
   return error instanceof ServiceError ? error.message : generico
 }
 
+/** El contrato dejó de ser borrador mientras se editaba (409 `CONTRATO_NO_EDITABLE`). */
+function esNoEditable(error: unknown): error is ServiceError {
+  return error instanceof ServiceError && error.apiCode === 'CONTRATO_NO_EDITABLE'
+}
+
 /** Props de {@link ContratoNoEditable}. */
 interface ContratoNoEditableProps {
   titulo: string
@@ -183,6 +194,11 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const [errorPaso, setErrorPaso] = useState<string | null>(null)
   /** Lo último guardado (o lo que vino al abrir): de ahí salen los cambios a mandar. */
   const [guardado, setGuardado] = useState(inicial)
+  /**
+   * El PDF adjuntado en el paso Carga, todavía sin subir. Vive solo en memoria:
+   * pesa hasta 5 MB y tiene datos personales, así que no va a `localStorage`.
+   */
+  const [pdfPendiente, setPdfPendiente] = useState<File | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(() => {
     // US-06: "el contrato vuelve a 'borrador' y conserva su código".
@@ -200,13 +216,13 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const [noEditable, setNoEditable] = useState<string | null>(null)
 
   const contratoId = inicial.id ?? ''
-  const hayCambios = !enviado && !noEditable && huella(borrador) !== huella(guardado)
+  const hayCambios = !enviado && !noEditable && (huella(borrador) !== huella(guardado) || pdfPendiente !== null)
   useAvisoCambiosSinGuardar(hayCambios)
 
   // ─── Handlers ───────────────────────────────────────────────────────
   /** Muestra el error de una acción. `CONTRATO_NO_EDITABLE` cambia el wizard por la salida al detalle. */
   function avisarError(error: unknown, generico: string): void {
-    if (error instanceof ServiceError && error.apiCode === 'CONTRATO_NO_EDITABLE') setNoEditable(error.message)
+    if (esNoEditable(error)) setNoEditable(error.message)
     else setErrorAccion(mensajeDe(error, generico))
   }
 
@@ -218,13 +234,48 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
     setBorrador((actual) => ({ ...actual, condiciones }))
   }, [])
 
-  /** El PDF ya se guardó en el contrato: no cuenta como cambio sin guardar. */
-  const cambiarPdf = useCallback((contrato: ContratoBorrador) => {
-    setBorrador((actual) => ({ ...actual, pdf: contrato.pdf }))
-    setGuardado((actual) => ({ ...actual, pdf: contrato.pdf }))
-    // `PUT /pdf` no guarda el paso. NOTA: si falla no se avisa: el PDF ya quedó y solo se retoma un paso antes.
-    guardarBorrador(contratoId, { paso }).catch(() => undefined)
-  }, [contratoId, paso])
+  /** Un PDF válido elegido en el paso Carga: queda pendiente hasta guardar. */
+  const elegirPdf = useCallback((archivo: File) => setPdfPendiente(archivo), [])
+
+  /**
+   * Guarda todo lo pendiente: primero sube el PDF (url-subida → bucket →
+   * `PUT /pdf`) y después manda el `PATCH` con lo demás.
+   * - Si la subida falla, no se guarda nada y el PDF anterior sigue igual.
+   * - Si el PDF sube y el `PATCH` falla, el PDF ya quedó: se avisa y lo
+   *   demás sigue como cambio sin guardar.
+   * @returns el borrador guardado, o `null` si algo falló (el error ya se mostró).
+   */
+  async function guardarTodo(pasoAGuardar: number, generico: string): Promise<ContratoBorrador | null> {
+    let base = guardado
+    if (pdfPendiente) {
+      try {
+        const conPdf = await subirPdfContrato(contratoId, pdfPendiente)
+        base = { ...guardado, pdf: conPdf.pdf }
+        setGuardado(base)
+        setBorrador((actual) => ({ ...actual, pdf: conPdf.pdf }))
+        setPdfPendiente(null)
+      } catch (error) {
+        if (esNoEditable(error)) {
+          setNoEditable(error.message)
+        } else {
+          const otros = huella(borrador) !== huella(guardado) ? ' Tampoco se guardó el resto de los cambios.' : ''
+          setErrorAccion(`${mensajeDe(error, 'No pudimos subir el PDF. El que estaba cargado sigue igual: probá de nuevo.')}${otros}`)
+        }
+        return null
+      }
+    }
+    const subioPdf = base !== guardado
+    try {
+      const nuevo = await guardarBorrador(contratoId, cambiosDeBorrador(base, borrador, pasoAGuardar))
+      setGuardado(nuevo)
+      setBorrador(nuevo)
+      return nuevo
+    } catch (error) {
+      if (subioPdf && !esNoEditable(error)) setErrorAccion(SOLO_PDF_GUARDADO)
+      else avisarError(error, generico)
+      return null
+    }
+  }
 
   /** Hacia adelante valida el paso actual; hacia atrás, nunca (US-05: "sin perder lo cargado"). */
   function irAlPaso(siguiente: number): void {
@@ -246,12 +297,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
     setErrorAccion(null)
     setAviso(null)
     try {
-      const nuevo = await guardarBorrador(contratoId, cambiosDeBorrador(guardado, borrador, paso))
-      setGuardado(nuevo)
-      setBorrador(nuevo)
-      setAviso(BORRADOR_GUARDADO)
-    } catch (error) {
-      avisarError(error, 'No pudimos guardar el borrador. Probá de nuevo.')
+      if (await guardarTodo(paso, 'No pudimos guardar el borrador. Probá de nuevo.')) setAviso(BORRADOR_GUARDADO)
     } finally {
       setGuardando(false)
     }
@@ -280,7 +326,9 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       setErrorPaso(null)
       return
     }
-    const error = errorParaEnviar(borrador, hoy().format('YYYY-MM-DD'))
+    // Un PDF pendiente cuenta como cargado: se sube antes de enviar (`guardarTodo`).
+    const conPdf = pdfPendiente ? { ...borrador, pdf: { nombre: pdfPendiente.name, tamanoBytes: pdfPendiente.size, subidoEl: null, url: '' } } : borrador
+    const error = errorParaEnviar(conPdf, hoy().format('YYYY-MM-DD'))
     if (error) {
       setErrorPaso(error)
       return
@@ -293,8 +341,11 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
     setEnviando(true)
     setErrorAccion(null)
     try {
-      const nuevo = await guardarBorrador(contratoId, cambiosDeBorrador(guardado, borrador, ULTIMO_PASO))
-      setGuardado(nuevo)
+      // Primero lo pendiente (PDF y después lo demás); si falla, el error ya se mostró.
+      if (!(await guardarTodo(ULTIMO_PASO, 'No pudimos enviar el contrato. Probá de nuevo.'))) {
+        setConfirmarEnvio(false)
+        return
+      }
       setEnviado(await enviarAFirmar(contratoId))
       setConfirmarEnvio(false)
     } catch (error) {
@@ -338,9 +389,9 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       ) : indice === 1 ? (
         <PasoCondiciones borrador={borrador} onCondicionesChange={cambiarCondiciones} mostrarErrores={conErrores.has(1)} />
       ) : indice === 2 ? (
-        <PasoCarga contratoId={contratoId} pdf={borrador.pdf} onPdfCargado={cambiarPdf} onNoEditable={setNoEditable} />
+        <PasoCarga contratoId={contratoId} pdf={borrador.pdf} pdfPendiente={pdfPendiente} onPdfElegido={elegirPdf} />
       ) : (
-        <PasoRevision borrador={borrador} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} finGuardado={mismoPlazo ? guardado.endDate : null} />
+        <PasoRevision borrador={borrador} pdfPendiente={pdfPendiente} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} finGuardado={mismoPlazo ? guardado.endDate : null} />
       ),
   }))
 

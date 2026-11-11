@@ -22,6 +22,7 @@ import type {
   ContratoEnviado,
   ContratosDePropiedad,
   FirmanteContrato,
+  GaranteContrato,
   IndiceContrato,
   GarantiaOfrecida,
   ParteContrato,
@@ -423,6 +424,16 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
 }
 
 /**
+ * US-27 — Lo que el locatario ve de cada garante en Mi alquiler: solo el
+ * nombre. La misma regla en real (`miAlquilerDeDetalle`) y en mock
+ * (`contratos.service#getMiAlquiler`).
+ * NOTA: DNI y correo van vacíos a propósito: el tipo los exige y la ficha no los muestra.
+ */
+export function garanteParaLocatario({ key, fullName }: Pick<GaranteContrato, 'key' | 'fullName'>): GaranteContrato {
+  return { key, fullName, dni: '', email: '' }
+}
+
+/**
  * `GET /alquileres-locatario/:idContrato` → `ContratoDetalle` (la ficha de Mi
  * alquiler, US-27). Campo por campo; lo que el back no manda queda vacío:
  * - Locatario: vacío (es quien mira; el back no lo repite).
@@ -431,7 +442,11 @@ function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteCont
  * - Propiedad: dirección exacta con el piso; foto principal directa del
  *   bucket. Sin precio publicado ni condiciones de cobro (los medios de pago
  *   del contrato van en `datosApi.mediosPago`).
- * - Garantes: nombre y correo; sin DNI (el back no lo manda en la ficha).
+ * - Garantes: solo el nombre. Sin DNI (el back no lo manda en la ficha) y sin
+ *   correo ni teléfono: el back los manda, pero ninguna pantalla del locatario
+ *   los usa (US-27 dice solo "garantes"), así que se descartan acá.
+ *   TODO(backend): que `GET /alquileres-locatario/:id` no mande `email` ni
+ *   `telefono` de los garantes (HANDOFF §7, US-27): hoy igual llegan al navegador.
  * - Condiciones: sin monto inicial ni duración (no vienen).
  * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
  */
@@ -467,7 +482,7 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     },
     locatario: sinDatos,
     garantiasOfrecidas: [],
-    garantes: dto.garantes.map((garante, posicion) => ({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante), dni: '', email: garante.email })),
+    garantes: dto.garantes.map((garante, posicion) => garanteParaLocatario({ key: `garante-${posicion + 1}`, fullName: nombreCompleto(garante) })),
     condiciones: {
       startDate: dto.fecha_inicio_contrato,
       durationMonths: null,
