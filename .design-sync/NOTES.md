@@ -290,6 +290,22 @@ Sin APIs exclusivas de React 19 (regla del 09/10): los dos cambios son props y e
 componente cambió. Si `dtsPropsFor` de `config.json` llegara a listar alguno de los dos, actualizar
 la unión (hoy no los lista).
 
+## Pendiente de subir (Sprint 4): `ConfirmActionModal` con el `data-testid` en el panel (2026-11-11)
+
+- **Qué cambió:** el `data-testid` ya no va a la raíz del `Modal` de antd (`.ant-modal-root`, que
+  mide 0×0 y Selenium y Playwright no la dan por visible), sino a un `div` que envuelve el panel del
+  modal (`modalRender`): título, cuerpo y botones quedan adentro, así que `confirm-action-ok` y
+  `confirm-action-cancel` siguen siendo descendientes del testid. Sin cambios visuales ni de props.
+- **Por qué:** el aviso de salida (`aviso-salida`, `AvisoCambiosProvider`) no se podía esperar como
+  visible en las pruebas del PDF del contrato (US-05). Afecta a todos los usos con testid:
+  `aviso-salida`, `contrato-enviar-modal`, `contrato-eliminar-modal`, `contrato-modificar-modal`,
+  `contrato-firma-modal`, `contrato-rechazo-modal`, `editar-propiedad-salir-modal`,
+  `mi-propiedad-eliminar-modal`, `mi-propiedad-eliminar-bloqueado-modal`,
+  `propiedad-contrato-eliminar-modal` y los de `ModalAccionSolicitud`. Antes de cambiarlo se buscó en
+  el repo: no hay suites de Selenium ni Playwright que dependan del nodo anterior.
+- Sin APIs exclusivas de React 19: `modalRender` es una prop de antd.
+- **No se corrió `/design-sync`** (hoy da 403). Subirlo en la próxima corrida; el preview no cambia.
+
 ## Hecho (Sprint 3, cierre): `IndexBadge` con CAC y "Sin ajuste" (2026-10-21)
 
 - El alta de contrato (US-05) ofrece cuatro opciones de ajuste: Sin ajuste, ICL, IPC y CAC. Antes,

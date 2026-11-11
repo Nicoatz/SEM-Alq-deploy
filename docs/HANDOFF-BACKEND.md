@@ -1315,6 +1315,11 @@ de Jira (US-27 = Consultar mis alquileres) hasta que el PO lo corrija.
 
 ## 12. `data-testid` para Selenium
 
+**Modales de confirmación (11/11):** el `data-testid` de cada `ConfirmActionModal` (`aviso-salida`,
+`contrato-*-modal`, `mi-propiedad-eliminar-*modal`, etc.) está en el panel visible del modal, con
+`confirm-action-ok` y `confirm-action-cancel` adentro. Antes estaba en la raíz de antd (0×0): esperarlo
+como visible fallaba. Ahora alcanza con esperar el testid visible y buscar los botones dentro.
+
 **Lo que cambió en el Sprint 4 (para Selenium):**
 
 | Pantalla | Salen | Entran |

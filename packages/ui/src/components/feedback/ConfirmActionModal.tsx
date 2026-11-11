@@ -38,6 +38,10 @@ interface ConfirmActionModalProps {
    * Escape siguen llamando a `onCancel`.
    */
   hideCancel?: boolean
+  /**
+   * Va en el panel visible del modal (envuelve título, cuerpo y botones), no en
+   * la raíz de antd, que mide 0×0 y Selenium y Playwright no la dan por visible.
+   */
   'data-testid'?: string
 }
 
@@ -58,7 +62,7 @@ export function ConfirmActionModal({
   children,
   confirmLoading = false,
   hideCancel = false,
-  ...rest
+  'data-testid': testId,
 }: ConfirmActionModalProps) {
   return (
     <Modal
@@ -78,7 +82,8 @@ export function ConfirmActionModal({
       cancelButtonProps={{ 'data-testid': 'confirm-action-cancel' }}
       // Sin botón secundario: el pie queda solo con el de confirmar.
       footer={hideCancel ? (_, { OkBtn }) => <OkBtn /> : undefined}
-      {...rest}
+      // El `data-testid` envuelve el panel (con los botones adentro), así se ve como visible.
+      modalRender={testId ? (panel) => <div data-testid={testId}>{panel}</div> : undefined}
     >
       {description && <p>{description}</p>}
       {children}
