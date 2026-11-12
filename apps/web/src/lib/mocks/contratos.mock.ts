@@ -54,6 +54,12 @@ export interface FirmaMock {
   /** Solo datos viejos: rechazar ahora vuelve el contrato a borrador y borra las firmas. */
   rechazadoEl: string | null
   motivoRechazo: string | null
+  /**
+   * Solo garantes: el enlace de firma vigente (US-07), como lo guarda el back: el hash SHA-256 del
+   * token y su vencimiento (fecha y hora ISO del reloj del mock). Nunca el token ni la URL.
+   * Uno nuevo reemplaza al anterior. Sin el campo (o `null`): no tiene enlace.
+   */
+  enlace?: { hash: string; venceEl: string } | null
 }
 
 /**

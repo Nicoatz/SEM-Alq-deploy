@@ -78,6 +78,11 @@ export const CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE = 'No se puede modificar un 
 export const SOLO_LOCADOR_MESSAGE = 'Solo el locador del contrato puede hacer esto.'
 /** 502 de `/firmar`: DocuSign no respondió. Se puede reintentar. */
 export const DOCUSIGN_FIRMA_ERROR_MESSAGE = 'No pudimos abrir la firma en DocuSign. Probá de nuevo en unos minutos.'
+/** US-07, enlace del garante: el garante no existe o no es de un contrato suyo (sin distinguir). */
+export const GARANTE_NO_ENCONTRADO_MESSAGE = 'No encontramos este garante.'
+/** US-07: a un garante que ya firmó no se le genera otro enlace (409 `YA_FIRMO`). */
+export const GARANTE_YA_FIRMO_MESSAGE = 'Este garante ya firmó el contrato: no hace falta otro enlace.'
+export const ENLACE_GARANTE_ERROR_MESSAGE = 'No pudimos generar el enlace. Probá de nuevo en unos minutos.'
 /** 502 de `/enviar` (guía del back, §3.1): el contrato sigue en borrador. */
 export const DOCUSIGN_ENVIO_ERROR_MESSAGE = 'No pudimos enviar el contrato, probá de nuevo. El contrato sigue en borrador.'
 export const MIS_ALQUILERES_ERROR_MESSAGE = 'No pudimos traer tus alquileres. Probá de nuevo en unos minutos.'

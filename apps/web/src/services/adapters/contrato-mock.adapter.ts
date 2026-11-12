@@ -334,22 +334,12 @@ function conFirmasActualesMock(contrato: ContratoMock): ContratoMock {
   }
 }
 
-/**
- * Quién firma en una acción del mock: una parte, un garante por su posición
- * (`garante-1`, `garante-2`…) o todos los garantes juntos (`garantes`, el botón
- * de desarrollo "Firmar como garantes" del simulador).
- */
-export type FirmanteMock = 'locador' | 'locatario' | `garante-${number}` | 'garantes'
+/** Quién firma en una acción del mock: una parte o un garante por su posición (`garante-1`, `garante-2`…). */
+export type FirmanteMock = 'locador' | 'locatario' | `garante-${number}`
 
 /** US-07: "Cuando firman el locador, el locatario y todos los garantes, el contrato pasa a vigente". */
 export function firmaronTodosMock(firmas: FirmasMock): boolean {
   return [firmas.locador, firmas.locatario, ...firmas.garantes].every((firma) => firma.estado === 'firmado')
-}
-
-/** La firma de `firmante` en el contrato. `null` si no existe (ej. `garante-3` con un garante). */
-export function firmaDeMock(firmas: FirmasMock, firmante: Exclude<FirmanteMock, 'garantes'>): FirmaMock | null {
-  if (firmante === 'locador' || firmante === 'locatario') return firmas[firmante]
-  return firmas.garantes[Number(firmante.slice('garante-'.length)) - 1] ?? null
 }
 
 /**
@@ -365,7 +355,7 @@ export function firmarMock(contrato: ContratoMock, firmante: FirmanteMock, fecha
   const nuevas: FirmasMock = {
     locador: firmar(firmas.locador, firmante === 'locador'),
     locatario: firmar(firmas.locatario, firmante === 'locatario'),
-    garantes: firmas.garantes.map((firma, posicion) => firmar(firma, firmante === 'garantes' || firmante === `garante-${posicion + 1}`)),
+    garantes: firmas.garantes.map((firma, posicion) => firmar(firma, firmante === `garante-${posicion + 1}`)),
   }
   const todas = firmaronTodosMock(nuevas)
   const actualizado: ContratoMock = todas
@@ -490,4 +480,44 @@ export function aplicarFirmasDiferidasMock(): void {
     }
     deleteMockRecord('firmas-diferidas', diferida.id)
   }
+}
+
+// ─── Enlace de firma del garante (US-07, Tanda B) ───────────────────────
+
+/** Vigencia del enlace del garante, como el back (`HORAS_VIGENCIA_ENLACE_GARANTE`). */
+export const HORAS_VIGENCIA_ENLACE_GARANTE = 48
+
+/**
+ * Token nuevo del enlace, como el back: 32 bytes al azar en base64url (43 caracteres).
+ * NOTA: se devuelve una sola vez; lo único que se guarda es su hash.
+ */
+export function tokenDeEnlaceMock(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32))
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+
+/** SHA-256 del token en hexadecimal (el mismo formato que `garante.token_firma_hash`). */
+export async function hashDeTokenMock(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+/**
+ * Guarda el hash del enlace nuevo en la firma del garante `posicion` (0, 1…).
+ * Reemplaza al anterior: el enlace viejo deja de servir.
+ * @returns `false` si `localStorage` está lleno o bloqueado.
+ */
+export function guardarEnlaceGaranteMock(contrato: ContratoMock, posicion: number, enlace: { hash: string; venceEl: string }): boolean {
+  if (!contrato.firmas) return false
+  const garantes = contrato.firmas.garantes.map((firma, indice) => (indice === posicion ? { ...firma, enlace } : firma))
+  return guardarContratoMock({ ...contrato, firmas: { ...contrato.firmas, garantes } })
+}
+
+/** El contrato y la posición del garante dueño de un enlace (por el hash del token), o `null`. */
+export function garantePorHashMock(hash: string): { contrato: ContratoMock; posicion: number } | null {
+  for (const contrato of readContratosMock()) {
+    const posicion = contrato.firmas?.garantes.findIndex((firma) => firma.enlace?.hash === hash) ?? -1
+    if (posicion >= 0) return { contrato, posicion }
+  }
+  return null
 }

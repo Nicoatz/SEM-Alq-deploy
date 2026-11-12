@@ -765,6 +765,25 @@ export interface RechazarContratoResponse {
   estado: 'borrador'
 }
 
+/**
+ * Respuesta de `POST /contratos/:id/garantes/:idGarante/enlace-firma`. La `url` se da una sola vez
+ * (la base guarda solo el hash del token); `vence_en` es ISO 8601 (48 h).
+ */
+export interface EnlaceFirmaGaranteResponse {
+  url: string
+  vence_en: string
+}
+
+/**
+ * Respuesta de `GET /firma-garante/:token` (público, sin Bearer): lo mínimo para que el garante sepa
+ * qué firma. Nunca DNI, montos ni datos del locador o del locatario.
+ */
+export interface ConsultaEnlaceGaranteResponse {
+  garante: { nombre: string; apellido: string }
+  contrato: { codigo: string | null; propiedad: string }
+  vence_en: string | null
+}
+
 // ─── Alquileres del locatario (US-27) · EXISTE ──────────────────────────
 // `GET /alquileres-locatario` y `GET /alquileres-locatario/:idContrato`
 // (develop, 066c032, 26/10). Copia de `apps/api/src/dtos/alquiler-locatario.dto.ts`:

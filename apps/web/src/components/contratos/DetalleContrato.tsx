@@ -30,9 +30,11 @@
  * Qué muestra (Claude Design, "Flujo de contratos" · 04 y 08): la franja de
  * estado arriba, firmantes y datos a la izquierda, documento y calendario a
  * la derecha; en móvil, una sola columna.
- * NOTA (diseño vs. decisión del PO): el diseño muestra "el link vence el…" de
- * cada garante; eso llega con el enlace del garante (Tanda B). Acá, además, el
- * calendario (US-42).
+ * - Garantes: en la fila de cada garante pendiente, el locador genera su enlace
+ *   de firma (`EnlaceGarante`, US-07).
+ * NOTA (diseño vs. decisión del PO): el diseño muestra "el link vence el…" en
+ * cada garante; acá el vencimiento se ve solo al generar el enlace, porque el
+ * detalle no lo informa (TODO(backend), HANDOFF §7). Además, el calendario (US-42).
  *
  * De dónde saca los datos: `contratos.service#getDetalleContrato` (y la
  * función que pase Mi alquiler para volver a pedir la ficha); "Modificar",
@@ -58,6 +60,7 @@ import { getDetalleContrato, reabrirContrato, urlPdfDeContrato } from '@/service
 import { ServiceError } from '@/services/shared/errors'
 import { AvisoFirmaDePrueba } from './AvisoFirmaDePrueba'
 import { BotonPdf } from './BotonPdf'
+import { EnlaceGarante } from './EnlaceGarante'
 import { MontoAlquiler } from '@/components/cobros/MontoAlquiler'
 import { CalendarioAjustes } from './CalendarioAjustes'
 import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlquiler } from './FichaAlquiler'
@@ -457,6 +460,10 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
                       </span>
                     </span>
                     <StatusTag domain="firma" status={firmante.estado} data-testid="contrato-firmante-estado" />
+                    {/* US-07: el locador le genera el enlace a cada garante que todavía no firmó. */}
+                    {soyLocador && !esFicha && pendiente && firmante.rol === 'garante' && firmante.estado === 'pendiente' && firmante.garanteId && (
+                      <EnlaceGarante contratoId={contratoId} garanteId={firmante.garanteId} nombre={firmante.nombre} />
+                    )}
                   </li>
                 ))}
               </ul>

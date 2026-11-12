@@ -25,6 +25,9 @@
 | - Los garantes firman el contrato desde un enlace temporal que les entrega el locador, sin necesidad de iniciar sesión. |
 | - El enlace vence a los 2 días y deja de funcionar cuando el garante firma o cuando el contrato vuelve a borrador. Si el locador genera un enlace nuevo, el anterior deja de funcionar. |
 | - Si el enlace no existe, venció o ya se usó, se debe mostrar el mismo mensaje en los tres casos. |
+| - El enlace se muestra una sola vez, cuando el locador lo genera, con su fecha y hora de vencimiento. |
+| - El garante ve su nombre, el código del contrato y la propiedad, y lee el contrato en DocuSign antes de firmar. |
+| - Para firmar, el garante debe marcar la casilla "Leí el contrato completo y acepto sus condiciones y cláusulas" y confirmar. No se le pide llegar a la última página: el contrato completo se lee en DocuSign. |
 | - Los garantes solo pueden firmar: no pueden rechazar la firma. |
 | - En el detalle del contrato se debe mostrar el estado de la firma de cada garante, igual que el de las partes. |
 | *Rechazo y cancelación* |
@@ -57,6 +60,9 @@
 | - Probar firmar como garante con un enlace válido, sin iniciar sesión (pasa). |
 | - Probar abrir el enlace de un garante vencido, ya usado o inexistente y verificar que el mensaje sea el mismo (pasa). |
 | - Probar firmar como garante con un enlace que quedó sin efecto porque el locador generó uno nuevo (falla). |
+| - Probar firmar como garante sin marcar la casilla de aceptación (falla). |
+| - Probar volver de DocuSign como garante después de firmar y verificar que se muestre que la firma quedó registrada (pasa). |
+| - Probar generar un enlace nuevo para un garante y verificar que se pida confirmación avisando que el anterior deja de funcionar (pasa). |
 | - Probar rechazar la firma como garante (falla). |
 | - Probar que con el locador y el locatario firmados y un garante pendiente el contrato siga pendiente de firma (pasa). |
 | - Probar completar todas las firmas y verificar que el contrato quede vigente y la propiedad, alquilada (pasa). |

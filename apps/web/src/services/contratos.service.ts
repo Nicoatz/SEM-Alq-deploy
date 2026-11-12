@@ -33,6 +33,7 @@ import type {
   ContratoEnviado,
   ContratoResumen,
   ContratosDePropiedad,
+  EnlaceGarante,
   FirmanteContrato,
   MiAlquiler,
   ParteContrato,
@@ -48,10 +49,14 @@ import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
-import { PLAZO_POR_CONTRATO, type ContratoMock, type FirmasMock, type PropiedadMock } from '@/lib/mocks'
+import { PLAZO_POR_CONTRATO, type ContratoMock, type FirmaMock, type FirmasMock, type PropiedadMock } from '@/lib/mocks'
 import {
   ahoraIsoMock,
   aplicarFirmasDiferidasMock,
+  guardarEnlaceGaranteMock,
+  hashDeTokenMock,
+  HORAS_VIGENCIA_ENLACE_GARANTE,
+  tokenDeEnlaceMock,
   PDF_FICTICIO_URL,
   pdfDeContratoMock,
   recordarPdfMock,
@@ -82,6 +87,9 @@ import {
   DETALLE_CONTRATO_ERROR_MESSAGE,
   DOCUSIGN_ENVIO_ERROR_MESSAGE,
   DOCUSIGN_FIRMA_ERROR_MESSAGE,
+  ENLACE_GARANTE_ERROR_MESSAGE,
+  GARANTE_NO_ENCONTRADO_MESSAGE,
+  GARANTE_YA_FIRMO_MESSAGE,
   CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
   contratosDePropiedadDeDto,
   patchDeCambios,
@@ -111,6 +119,7 @@ import type {
   ContratoCreadoResponse,
   ContratoDetalleApiResponse,
   ContratoEnviadoResponse,
+  EnlaceFirmaGaranteResponse,
   EnviarContratoRequest,
   FirmarContratoRequest,
   IniciarFirmaResponse,
@@ -493,15 +502,16 @@ function detalleDeContratoMock(contrato: ContratoMock, userId?: string): Contrat
   const { firmas } = contrato
   const firmantes: FirmanteContrato[] = firmas
     ? [
-        { key: 'locador', rol: 'locador', userId: base.locador.userId, garanteId: null, nombre: nombreDe(base.locador), ...firmas.locador },
-        { key: 'locatario', rol: 'locatario', userId: base.locatario.userId, garanteId: null, nombre: nombreDe(base.locatario) || contrato.tenantName, ...firmas.locatario },
+        { key: 'locador', rol: 'locador', userId: base.locador.userId, garanteId: null, nombre: nombreDe(base.locador), ...estadoDeFirmaMock(firmas.locador) },
+        { key: 'locatario', rol: 'locatario', userId: base.locatario.userId, garanteId: null, nombre: nombreDe(base.locatario) || contrato.tenantName, ...estadoDeFirmaMock(firmas.locatario) },
         ...firmas.garantes.map((firma, posicion): FirmanteContrato => ({
           key: `garante-${posicion + 1}`,
           rol: 'garante',
           userId: '',
-          garanteId: contrato.garantes[posicion]?.key ?? null,
+          // NOTA: en mock, el id del garante es su posición (`garante-1`…), como la `key` del alta.
+          garanteId: `garante-${posicion + 1}`,
           nombre: contrato.garantes[posicion]?.fullName ?? `Garante ${posicion + 1}`,
-          ...firma,
+          ...estadoDeFirmaMock(firma),
         })),
       ]
     : []
@@ -524,6 +534,11 @@ function detalleDeContratoMock(contrato: ContratoMock, userId?: string): Contrat
     // En mock, la ficha calcula las fechas y arma el PDF en el navegador.
     datosApi: null,
   }
+}
+
+/** El estado de una firma del mock, sin el enlace del garante (su hash no sale del service). */
+function estadoDeFirmaMock({ estado, firmadoEl, rechazadoEl, motivoRechazo }: FirmaMock): Pick<FirmanteContrato, 'estado' | 'firmadoEl' | 'rechazadoEl' | 'motivoRechazo'> {
+  return { estado, firmadoEl, rechazadoEl, motivoRechazo }
 }
 
 /** Cada cuántos meses ajusta un contrato de RentAR (`null` sin ajuste). */
@@ -746,7 +761,7 @@ export async function iniciarFirma(id: string): Promise<{ url: string }> {
     const firmas = pendienteDeFirmaMock(contrato)
     if (firmas[rol].estado === 'firmado') throw new ServiceError('conflict', YA_FIRMO_MESSAGE, 'YA_FIRMO')
     if (firmas[rol].estado !== 'pendiente') throw new ServiceError('conflict', CONTRATO_NO_PENDIENTE_MESSAGE, 'CONTRATO_NO_PENDIENTE')
-    return { url: urlDelSimulador({ contratoId: contrato.id, firmante: rol, regreso: regresoDeFirma(id, rol) }) }
+    return { url: urlDelSimuladorMock({ contratoId: contrato.id, firmante: rol, regreso: regresoDeFirma(id, rol) }) }
   }
   try {
     const body: FirmarContratoRequest = { acepta_condiciones: true }
@@ -802,13 +817,23 @@ export async function rechazarFirma(id: string, motivo: string | null): Promise<
  */
 export interface SesionSimuladorFirma {
   contratoId: string
-  firmante: Exclude<RolFirmante, 'garante'>
-  /** Ruta de regreso, sin `?event=` (el simulador lo agrega). */
+  /** Quién firma: una parte o un garante por su posición (`garante-1`…). */
+  firmante: FirmanteSimulador
+  /**
+   * Ruta de regreso, sin `?event=` (el simulador lo agrega). Para el garante es
+   * `/firma-garante/<token>`, igual que en DocuSign.
+   */
   regreso: string
 }
 
-/** Arma la URL del simulador con la sesión en el fragmento (base64url de un JSON). */
-function urlDelSimulador(sesion: SesionSimuladorFirma): string {
+/** Quién firma en el simulador. */
+export type FirmanteSimulador = Exclude<RolFirmante, 'garante'> | `garante-${number}`
+
+/**
+ * Arma la URL del simulador con la sesión en el fragmento (base64url de un JSON).
+ * Solo mock: la usan `iniciarFirma` y `firma-garante.service#iniciarFirmaGarante`.
+ */
+export function urlDelSimuladorMock(sesion: SesionSimuladorFirma): string {
   const json = JSON.stringify(sesion)
   const base64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
   return `/simulador-firma#${base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
@@ -826,32 +851,30 @@ export function leerSesionSimulador(fragmento: string): SesionSimuladorFirma | n
     const datos: unknown = JSON.parse(new TextDecoder().decode(bytes))
     if (typeof datos !== 'object' || datos === null) return null
     const { contratoId, firmante, regreso } = datos as Record<string, unknown>
+    const firmanteValido = typeof firmante === 'string' && /^(locador|locatario|garante-\d+)$/.test(firmante)
     // La ruta de regreso tiene que ser interna: nunca otro sitio.
-    if (typeof contratoId !== 'string' || (firmante !== 'locador' && firmante !== 'locatario') || typeof regreso !== 'string' || !regreso.startsWith('/') || regreso.startsWith('//')) return null
-    return { contratoId, firmante, regreso }
+    if (typeof contratoId !== 'string' || !firmanteValido || typeof regreso !== 'string' || !regreso.startsWith('/') || regreso.startsWith('//')) return null
+    return { contratoId, firmante: firmante as FirmanteSimulador, regreso }
   } catch {
     return null
   }
 }
 
 /** Qué hace la persona en el simulador. */
-export type AccionSimulador = 'firmar' | 'declinar' | 'firmar_garantes'
+export type AccionSimulador = 'firmar' | 'declinar'
 
 /**
  * US-07, solo mock — Lo que en real hace DocuSign y su aviso al back: deja la
  * firma (o el rechazo) para dentro de `demoraMs`. La pantalla, después, vuelve a
- * la ruta de regreso con `?event=`. "Firmar como garantes" (`firmar_garantes`)
- * es un botón de desarrollo para poder cerrar un contrato en mock.
+ * la ruta de regreso con `?event=`. Sirve para las partes y para los garantes:
+ * un `decline` de cualquiera vuelve el contrato a borrador, como en real.
  * @backend ninguno: en real, DocuSign avisa al back por `POST /webhooks/docusign`.
  * @throws {ServiceError} `server` si `localStorage` está lleno, o si se llama en modo real.
  */
 export async function simularFirmaMock(sesion: SesionSimuladorFirma, accion: AccionSimulador, demoraMs: number): Promise<void> {
   if (!USE_MOCKS) throw new ServiceError('server', 'El simulador de firma solo existe en modo mock.')
   await delay(300)
-  const datos =
-    accion === 'firmar_garantes'
-      ? { contratoId: sesion.contratoId, firmante: 'garantes' as const, accion: 'firmar' as const }
-      : { contratoId: sesion.contratoId, firmante: sesion.firmante, accion: accion === 'firmar' ? ('firmar' as const) : ('rechazar' as const) }
+  const datos = { contratoId: sesion.contratoId, firmante: sesion.firmante, accion: accion === 'firmar' ? ('firmar' as const) : ('rechazar' as const) }
   if (!registrarFirmaDiferidaMock(datos, demoraMs)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
 }
 
@@ -891,6 +914,49 @@ export async function reabrirContrato(id: string): Promise<void> {
     await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}/reabrir`, { method: 'POST' })
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
+  }
+}
+
+/**
+ * US-07 — "Los garantes firman el contrato desde un enlace temporal que les
+ * entrega el locador, sin necesidad de iniciar sesión." El enlace vence a las
+ * 48 h; uno nuevo anula el anterior. Solo con el contrato pendiente de firma y
+ * el garante sin firmar.
+ * NOTA (seguridad): la URL se devuelve una sola vez (el back guarda solo el hash
+ * del token) y la pantalla la muestra sin guardarla en ningún lado.
+ * @param garanteId El id del garante (en real, `garantes[].id` del detalle, emparejado por posición;
+ *   en mock, `garante-<n>`).
+ * @backend POST /api/v1/contratos/:id/garantes/:idGarante/enlace-firma   (existe · rol locador) → 200 EnlaceFirmaGaranteResponse
+ * @throws {ServiceError}
+ *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE`, `YA_FIRMO` ("Este garante ya firmó") o `SOBRE_NO_DISPONIBLE`.
+ *   - `not_found`: el contrato o el garante no existen o no son suyos (sin distinguir).
+ */
+export async function generarEnlaceGarante(contratoId: string, garanteId: string): Promise<EnlaceGarante> {
+  if (USE_MOCKS) {
+    await delay()
+    const contrato = contratoDelLocadorMock(contratoId, requireSessionUserId())
+    const firmas = pendienteDeFirmaMock(contrato)
+    const posicion = Number(garanteId.replace('garante-', '')) - 1
+    const firma = firmas.garantes[posicion]
+    if (!firma) throw new ServiceError('not_found', GARANTE_NO_ENCONTRADO_MESSAGE)
+    if (firma.estado !== 'pendiente') throw new ServiceError('conflict', GARANTE_YA_FIRMO_MESSAGE, 'YA_FIRMO')
+    const token = tokenDeEnlaceMock()
+    // NOTA: el vencimiento usa el reloj del mock (el "hoy" del elenco con la hora real), como el resto de las fechas.
+    const venceEl = dayjs(ahoraIsoMock()).add(HORAS_VIGENCIA_ENLACE_GARANTE, 'hour').format('YYYY-MM-DDTHH:mm:ss')
+    if (!guardarEnlaceGaranteMock(contrato, posicion, { hash: await hashDeTokenMock(token), venceEl })) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+    return { url: `${window.location.origin}/firma-garante/${token}`, venceEl }
+  }
+  try {
+    const dto = await apiRequest<EnlaceFirmaGaranteResponse>(`/contratos/${encodeURIComponent(contratoId)}/garantes/${encodeURIComponent(garanteId)}/enlace-firma`, { method: 'POST' })
+    return { url: dto.url, venceEl: dto.vence_en }
+  } catch (error) {
+    throw errorDeContrato(error, {
+      porDefecto409: 'CONTRATO_NO_PENDIENTE',
+      noEncontrado: GARANTE_NO_ENCONTRADO_MESSAGE,
+      prohibido: SOLO_LOCADOR_MESSAGE,
+      generico: ENLACE_GARANTE_ERROR_MESSAGE,
+      mensajesPorCodigo: { YA_FIRMO: GARANTE_YA_FIRMO_MESSAGE },
+    })
   }
 }
 
