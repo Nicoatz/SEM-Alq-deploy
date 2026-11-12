@@ -3,21 +3,23 @@
 | Como locador, locatario o garante, quiero firmar electrónicamente el contrato de alquiler para formalizar el acuerdo entre las partes. |
 | **Criterios de aceptación:** |
 | *Acceso* |
-| - Se debe haber iniciado sesión con un usuario que sea locador o locatario del contrato. |
+| - Se debe haber iniciado sesión con un usuario que sea locador o locatario del contrato. Los garantes firman sin sesión, desde su enlace (ver "Garantes"). |
 | - Solo se pueden firmar contratos en estado "pendiente de firma". |
 | - El locador firma desde el detalle del contrato (/panel/contratos/[id]) y el locatario, desde Mi alquiler (/panel/alquiler). |
 | - Si el contrato no existe o no es del usuario, se debe mostrar "No encontramos este contrato", sin distinguir entre los dos casos. |
 | *Detalle del contrato* |
-| - Se debe mostrar el estado de cada firmante: pendiente, firmado (con fecha y hora) o rechazado (con el motivo). |
+| - Se debe mostrar el estado de cada firmante (locador, locatario y garantes): pendiente o firmado (con fecha y hora). |
 | - Se debe indicar cuántas firmas faltan. |
 | - Se deben mostrar los datos principales del contrato: propiedad, partes, garantes, vigencia, monto inicial, depósito, ajuste y día de vencimiento del pago. |
 | - Se debe mostrar el documento del contrato y permitir descargarlo en PDF en cualquier estado. |
 | *Firma* |
+| - Antes de firmar se debe informar que, mientras se use el entorno de prueba de DocuSign, la firma no tiene validez legal. |
 | - El botón "Firmar contrato" solo se habilita cuando el usuario llegó a la última página del documento y marcó la casilla "Leí el contrato completo y acepto sus condiciones y cláusulas". |
 | - Mientras el botón no esté habilitado, se debe indicar cuántas páginas faltan leer. |
 | - Volver a páginas anteriores no reduce el progreso de lectura. |
 | - Se debe solicitar confirmación antes de firmar, avisando que la firma no se puede deshacer. |
-| - Se deben registrar la fecha, la hora y la dirección IP de cada firma. |
+| - Al confirmar, el usuario firma en DocuSign y vuelve a RentAR. Mientras se registra la firma, se debe mostrar "Estamos registrando tu firma"; si tarda más de 45 segundos, "Todavía estamos registrando tu firma" con la opción de actualizar. |
+| - Se deben registrar la fecha y la hora de cada firma. |
 | - Una parte no puede firmar más de una vez el mismo contrato. |
 | *Garantes* |
 | - Los garantes firman el contrato desde un enlace temporal que les entrega el locador, sin necesidad de iniciar sesión. |
@@ -26,9 +28,9 @@
 | - Los garantes solo pueden firmar: no pueden rechazar la firma. |
 | - En el detalle del contrato se debe mostrar el estado de la firma de cada garante, igual que el de las partes. |
 | *Rechazo y cancelación* |
-| - Tanto el locatario como el locador pueden rechazar la firma |
-| - Quien rechazó la firma no puede firmar después. Para volver a enviarlo a firmar, el locador debe modificar el contrato si lo necesita y enviarlo de nuevo. |
-| - Al rechazar la firma el contrato vuelve a "borrador" y se borran las firmas registradas. |
+| - Tanto el locatario como el locador pueden rechazar la firma mientras no hayan firmado. |
+| - Al rechazar, el contrato vuelve a "borrador", se borran todas las firmas registradas y dejan de funcionar los enlaces de los garantes. Para volver a firmar, el locador debe enviarlo de nuevo y firman todos otra vez. |
+| - Después de un rechazo, el locatario ya no ve el contrato hasta que el locador lo vuelva a enviar. |
 | *Contrato vigente* |
 | - Cuando firman el locador, el locatario y todos los garantes, el contrato pasa a "vigente". |
 | - Cuando el contrato pasa a vigente, la propiedad pasa a "alquilada" y deja de aparecer en la búsqueda de propiedades. |
@@ -38,7 +40,7 @@
 | - Probar firmar un contrato sin haber iniciado sesión (falla). |
 | - Probar acceder por URL al contrato de otro usuario (falla). |
 | - Probar firmar un contrato en estado borrador o vigente (falla). |
-| - Probar verificar que se muestre el aviso de firma simulada antes de firmar (pasa). |
+| - Probar verificar que se muestre el aviso de firma de prueba antes de firmar (pasa). |
 | - Probar firmar sin haber llegado a la última página del documento (falla). |
 | - Probar firmar habiendo llegado a la última página sin marcar la casilla de aceptación (falla). |
 | - Probar volver a una página anterior y verificar que el progreso de lectura no baje (pasa). |
@@ -48,11 +50,10 @@
 | - Probar verificar que en el detalle se muestren la fecha y la hora de cada firma registrada (pasa). |
 | - Probar rechazar la firma como locatario con un motivo de hasta 300 caracteres (pasa). |
 | - Probar rechazar la firma con un motivo de más de 300 caracteres (falla). |
-| - Probar firmar como locatario después de haber rechazado la firma (falla). |
-| - Probar cancelar el envío como locador cuando nadie más firmó y verificar que el contrato vuelva a borrador (pasa). |
-| - Probar cancelar el envío como locador cuando el locatario ya firmó (falla). |
-| - Probar cancelar el envío habiendo iniciado sesión como locatario (falla). |
-| - Probar verificar que en el detalle se muestre la dirección IP de cada firma registrada (pasa). |
+| - Probar rechazar la firma y verificar que el contrato vuelva a borrador y se borren las firmas (pasa). |
+| - Probar rechazar la firma después de haber firmado (falla). |
+| - Probar volver de DocuSign sin firmar y verificar que la firma siga pendiente (pasa). |
+| - Probar abrir la URL de regreso con "event=signing_complete" sin haber firmado y verificar que no se muestre como firmado (pasa). |
 | - Probar firmar como garante con un enlace válido, sin iniciar sesión (pasa). |
 | - Probar abrir el enlace de un garante vencido, ya usado o inexistente y verificar que el mensaje sea el mismo (pasa). |
 | - Probar firmar como garante con un enlace que quedó sin efecto porque el locador generó uno nuevo (falla). |

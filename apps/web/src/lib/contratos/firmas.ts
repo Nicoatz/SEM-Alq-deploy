@@ -1,22 +1,21 @@
 /**
- * firmas.ts — reglas de la firma, el rechazo, el reenvío y la cancelación.
+ * firmas.ts — reglas de la firma, el rechazo y la modificación de un contrato enviado.
  *
  * Qué es: lógica pura (sin React ni services). Cubre US-07 Firmar contrato de
- * alquiler. Las usan la pantalla (qué botón se ve y por qué está
- * deshabilitado) y la rama mock del service (que responde como el back), así
- * las dos dicen lo mismo.
+ * alquiler y US-06 Modificar. Las usan la pantalla (qué botón se ve y por qué
+ * está deshabilitado) y la rama mock del service (que responde como el back),
+ * así las dos dicen lo mismo.
  *
- * Decisiones del PO (Sprint 3): firman el locador y el locatario; el garante
- * es un dato del contrato y no firma.
+ * Decisiones del PO del 11/11 (se acepta lo que hizo el back): firman el
+ * locador, el locatario y cada garante; rechazar vuelve el contrato a borrador;
+ * no hay "Reenviar invitación".
  *
  * Quién lo usa: `components/contratos/DetalleContrato.tsx`,
- * `components/contratos/FirmaContrato.tsx` y `services/contratos.service.ts`.
+ * `components/contratos/FirmaContrato.tsx`, `components/mi-propiedad/PestanaContratos.tsx`
+ * y `services/contratos.service.ts`.
  */
 import type { ContratoDetalle, FirmanteContrato, RolFirmante } from '@rentar/shared-types'
 import dayjs from 'dayjs'
-
-/** US-07: "como máximo una vez por hora". */
-export const REENVIO_ESPERA_MINUTOS = 60
 
 /** US-07: "un motivo opcional de hasta 300 caracteres". */
 export const MOTIVO_RECHAZO_MAX = 300
@@ -25,6 +24,7 @@ export const MOTIVO_RECHAZO_MAX = 300
 export const NOMBRE_ROL: Record<RolFirmante, string> = {
   locador: 'Locador',
   locatario: 'Locatario',
+  garante: 'Garante',
 }
 
 /** Fecha y hora para mostrar: "22/09/2026 a las 11:40". */
@@ -32,59 +32,20 @@ export function fechaYHora(iso: string): string {
   return dayjs(iso).format('DD/MM/YYYY [a las] HH:mm')
 }
 
-/** US-07: "se debe indicar cuántas firmas faltan". */
+/** US-07: "se debe indicar cuántas firmas faltan" (garantes incluidos). */
 export function firmasQueFaltan(firmantes: readonly FirmanteContrato[]): number {
   return firmantes.filter((firmante) => firmante.estado !== 'firmado').length
 }
 
 /**
- * Desde cuándo se puede volver a reenviar la invitación (fecha y hora ISO):
- * una hora después de la última. `null` si nunca se invitó.
- */
-export function reenvioDisponibleDesde(firmante: Pick<FirmanteContrato, 'ultimaInvitacion'>): string | null {
-  if (!firmante.ultimaInvitacion) return null
-  return dayjs(firmante.ultimaInvitacion).add(REENVIO_ESPERA_MINUTOS, 'minute').format('YYYY-MM-DDTHH:mm:ss')
-}
-
-/**
- * `true` si pasó menos de una hora desde la última invitación (US-07: "como
- * máximo una vez por hora").
- * NOTA: en mock la fecha es fija (23/09/2026) y la hora es la real: si el
- * reloj real pasó la medianoche, "ahora" queda antes de la última
- * invitación; eso no se toma como bloqueo.
- */
-export function reenvioBloqueado(firmante: Pick<FirmanteContrato, 'ultimaInvitacion'>, ahoraIso: string): boolean {
-  const desde = reenvioDisponibleDesde(firmante)
-  if (!desde || !firmante.ultimaInvitacion) return false
-  const ahora = dayjs(ahoraIso)
-  return !ahora.isBefore(dayjs(firmante.ultimaInvitacion)) && ahora.isBefore(dayjs(desde))
-}
-
-/**
- * ¿Se puede reenviar la invitación a este firmante? (US-07: "a un firmante
- * pendiente, como máximo una vez por hora. Mientras no pueda reenviar, el
- * botón debe explicar por qué".)
- * @returns `null` si se puede; si no, el motivo para mostrar en el botón.
- */
-export function motivoSinReenvio(firmante: FirmanteContrato, ahoraIso: string): string | null {
-  if (firmante.estado === 'firmado') return 'Ya firmó: no hace falta reenviarle la invitación.'
-  if (firmante.estado === 'rechazado') return 'Rechazó la firma: para volver a enviárselo, tocá Modificar.'
-  if (reenvioBloqueado(firmante, ahoraIso)) {
-    const desde = reenvioDisponibleDesde(firmante) ?? ahoraIso
-    return `La invitación se envió a las ${dayjs(firmante.ultimaInvitacion).format('HH:mm')}. Se puede reenviar una vez por hora: de nuevo desde las ${dayjs(desde).format('HH:mm')}.`
-  }
-  return null
-}
-
-/**
  * ¿El locador puede modificar el contrato? En real decide el back
  * (`acciones.modificar`); en mock, la regla de US-06: "pendiente de firma sin la
- * firma del locatario". La firma del propio locador no cuenta: se borra.
+ * firma del locatario". Las firmas del locador y de los garantes no cuentan: se borran.
  */
 export function puedeModificar(contrato: Pick<ContratoDetalle, 'status' | 'firmantes' | 'modificarDelBack'>): boolean {
   if (contrato.modificarDelBack !== null) return contrato.modificarDelBack
   if (contrato.status !== 'pendiente_firma') return false
-  return !contrato.firmantes.some((firmante) => firmante.rol !== 'locador' && firmante.estado === 'firmado')
+  return !contrato.firmantes.some((firmante) => firmante.rol === 'locatario' && firmante.estado === 'firmado')
 }
 
 /** El motivo del rechazo, limpio: sin espacios a los costados y `null` si quedó vacío. */
@@ -98,4 +59,3 @@ export function errorDeMotivoRechazo(motivo: string | null | undefined): string 
   const limpio = normalizarMotivoRechazo(motivo)
   return limpio && limpio.length > MOTIVO_RECHAZO_MAX ? `El motivo puede tener hasta ${MOTIVO_RECHAZO_MAX} caracteres.` : null
 }
-

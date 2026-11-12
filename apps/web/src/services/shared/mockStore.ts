@@ -24,7 +24,7 @@
 export const MOCK_KEY_PREFIX = 'rentar:mock:'
 
 /** Colecciones que se pueden persistir. Cada una se guarda en `rentar:mock:<nombre>`. */
-export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes' | 'contratos' | 'cobros'
+export type MockCollection = 'usuarios' | 'propiedades' | 'solicitudes' | 'contratos' | 'cobros' | 'firmas-diferidas'
 
 /**
  * `true` solo en el navegador.

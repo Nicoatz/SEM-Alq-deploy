@@ -524,11 +524,17 @@ export interface ContratoPdfDto {
 
 /** Un firmante, como lo manda el back (US-42, US-43). Copia de `FirmanteDetalleResponse`. */
 export interface FirmanteApiDto {
-  /** TODO(backend): el back cuenta al garante como firmante; el adaptador lo saca (issue #27, punto 2). */
+  /**
+   * Los garantes firman (decisión del PO del 11/11). NOTA: el firmante garante
+   * no trae el id del garante: se empareja por posición con `garantes[]`.
+   */
   rol: 'locador' | 'locatario' | 'garante'
   nombre: string
   apellido: string
-  /** `sin_registro`: contrato anterior a RentAR, no se inventa si firmó. */
+  /**
+   * `sin_registro`: contrato anterior a RentAR, no se inventa si firmó.
+   * `rechazado` solo en datos viejos: rechazar ahora vuelve el contrato a borrador.
+   */
   estado: 'pendiente' | 'firmado' | 'rechazado' | 'sin_registro'
   fecha_firma: string | null
   fecha_rechazo: string | null
@@ -691,7 +697,12 @@ export interface ContratoDetalleApiResponse {
   acciones: { modificar: boolean; firmar: boolean; descargar_pdf: boolean }
 }
 
-/** Respuesta de `POST /contratos/:id/enviar` (no existe — propuesto). El código lo genera el back. */
+/** Cuerpo de `POST /contratos/:id/enviar` (US-05, paso 4): la casilla de la Revisión. */
+export interface EnviarContratoRequest {
+  confirma_revision: true
+}
+
+/** Respuesta de `POST /contratos/:id/enviar`. El código lo genera el back. */
 export interface ContratoEnviadoResponse {
   id: number
   codigo: string
@@ -699,10 +710,15 @@ export interface ContratoEnviadoResponse {
 }
 
 /**
- * Códigos de negocio de los 409 de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
- * Los de US-07 (Sprint 3, tanda 3): `CONTRATO_NO_PENDIENTE` (firmar, rechazar
- * o reenviar un contrato que no está pendiente de firma), `YA_FIRMO`,
- * `FIRMA_RECHAZADA` (firmar después de rechazar) y `FIRMANTE_NO_PENDIENTE` (reenviar a quien ya firmó o rechazó).
+ * Códigos de negocio de contratos (en el `codigo` del sobre, ver `CodigoErrorPerfil`).
+ * Los de US-07 (firma con DocuSign, `apps/api/src/services/contrato-firma.service.ts`):
+ * - 409 `CONTRATO_NO_PENDIENTE` (firmar o rechazar un contrato que no está pendiente
+ *   de firma), `YA_FIRMO` (firmar dos veces, o rechazar después de firmar) y
+ *   `SOBRE_NO_DISPONIBLE` (el sobre de DocuSign no está listo).
+ * - 400 `FALTA_ACEPTAR_CONDICIONES`, `MOTIVO_MUY_LARGO` y `MOTIVO_INVALIDO`.
+ * Los de US-05 al enviar (`contrato-envio.validacion.ts`): 400 `FALTA_CONFIRMAR_REVISION`,
+ * `FALTA_PDF`, `FALTAN_CONDICIONES`, `FALTAN_PARTES`, `FECHA_INICIO_VENCIDA` y 409
+ * `CONTRATO_NO_BORRADOR`.
  */
 export type CodigoErrorContrato =
   | 'SOLICITUD_NO_ACEPTADA'
@@ -717,27 +733,36 @@ export type CodigoErrorContrato =
   | 'CONTRATO_FIRMADO_POR_LOCATARIO'
   | 'CONTRATO_YA_EN_BORRADOR'
   | 'CONTRATO_NO_EDITABLE'
+  | 'CONTRATO_NO_BORRADOR'
   | 'CONTRATO_NO_PENDIENTE'
   | 'YA_FIRMO'
-  | 'FIRMA_RECHAZADA'
-  | 'FIRMANTE_NO_PENDIENTE'
+  | 'SOBRE_NO_DISPONIBLE'
 
-// ─── Firma de contratos (US-07) · PROPUESTO ─────────────────────────────
-// NOTA: firmar, rechazar y reenviar siguen sin existir (05/11). Contrato en `docs/api-endpoints.md`
-// ("Contratos", US-07). Firman el locador y el locatario (decisión del PO).
+// ─── Firma de contratos (US-07) · EXISTE ────────────────────────────────
+// Firma embebida en DocuSign (develop, 10/11). Copia de `apps/api/src/dtos/contrato.dto.ts`
+// ("US-07: firma con DocuSign"). Contrato en `docs/api-endpoints.md`, "Firma de contratos".
 
-/** Rol de quien firma. */
-export type RolFirmanteDto = 'locador' | 'locatario'
+/** Cuerpo de `POST /contratos/:id/firmar` (y de `POST /firma-garante/:token/firmar`). */
+export interface FirmarContratoRequest {
+  /** La casilla "Leí el contrato completo y acepto sus condiciones y cláusulas". Siempre `true`. */
+  acepta_condiciones: true
+}
 
-/** Cuerpo de `POST /contratos/:id/rechazar` (propuesto). */
+/** Respuesta de las rutas de firma: la URL de DocuSign. Dura pocos minutos y se usa una sola vez. */
+export interface IniciarFirmaResponse {
+  url: string
+}
+
+/** Cuerpo de `POST /contratos/:id/rechazar`. */
 export interface RechazarFirmaRequest {
   /** Opcional, hasta 300 caracteres; `null` sin motivo. */
   motivo: string | null
 }
 
-/** Cuerpo de `POST /contratos/:id/reenviar` (propuesto). Hoy solo `locatario`: el locador es quien reenvía. */
-export interface ReenviarInvitacionRequest {
-  rol: RolFirmanteDto
+/** Respuesta de `POST /contratos/:id/rechazar`: el contrato volvió a borrador (no trae el detalle). */
+export interface RechazarContratoResponse {
+  id: number
+  estado: 'borrador'
 }
 
 // ─── Alquileres del locatario (US-27) · EXISTE ──────────────────────────
@@ -817,9 +842,12 @@ export interface AlquilerLocatarioDetalleResponse extends AlquilerLocatarioItemR
   /** Nombres de `medio_pago` ("Transferencia bancaria", "Efectivo"…). */
   medios_pago: string[]
   garantes: { nombre: string; apellido: string | null; email: string; telefono: string | null }[]
-  /** Locador, locatario y garantes. */
+  /**
+   * Locador, locatario y garantes. NOTA: las firmas de tipo `garante` no
+   * traen el nombre: se emparejan por posición con `garantes[]` (mismo orden).
+   */
   firmas: FirmaAlquilerDto[]
-  /** Si el locatario podría firmar ya (las dos conformidades sobre el mismo PDF). La firma (US-07) no existe en la API. */
+  /** `true` si el contrato está pendiente de firma, tiene su sobre de DocuSign y el locatario no firmó (US-07). */
   puede_firmar: boolean
   monto_proximo_ajuste: 'a definir' | null
 }

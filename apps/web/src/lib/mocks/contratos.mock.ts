@@ -31,9 +31,10 @@
  * Quién lo usa: la rama mock de `services/contratos.service.ts` (a través de
  * `services/adapters/contrato-mock.adapter.ts`). Ninguna pantalla lo importa.
  *
- * US-07 (tanda 3): CT-2026-0207 arranca pendiente de firma con 0 firmas
- * (`firmas`). CT-2023-0041 no tiene registro de firmas: es anterior a RentAR
- * y no se inventan.
+ * US-07: CT-2026-0207 arranca pendiente de firma con 0 de 3 firmas
+ * (`firmas`: Nicolás, Julieta y su garante, Hugo Peralta). Los garantes
+ * firman desde la decisión del PO del 11/11. CT-2023-0041 no tiene registro
+ * de firmas: es anterior a RentAR y no se inventan.
  *
  * TODO(db): son filas de `contrato` + garantes + firmas, que
  * hoy no existen en el esquema (HANDOFF §7, US-05).
@@ -42,19 +43,27 @@ import type {
   CondicionesNuevoContrato,
   ContractStatus,
   GaranteContrato,
-  RolFirmante,
   SignatureStatus,
 } from '@rentar/shared-types'
 
-/** La firma de una parte, como la guardaría el back (US-07). */
+/** La firma de un firmante, como la guardaría el back (US-07). */
 export interface FirmaMock {
   estado: SignatureStatus
   /** Fecha y hora ISO; `null` si no firmó. */
   firmadoEl: string | null
+  /** Solo datos viejos: rechazar ahora vuelve el contrato a borrador y borra las firmas. */
   rechazadoEl: string | null
   motivoRechazo: string | null
-  /** Fecha y hora ISO de la última invitación (envío o reenvío). */
-  ultimaInvitacion: string | null
+}
+
+/**
+ * Las firmas de un contrato enviado (US-07): el locador, el locatario y una
+ * por garante, en el mismo orden que `ContratoMock.garantes`.
+ */
+export interface FirmasMock {
+  locador: FirmaMock
+  locatario: FirmaMock
+  garantes: FirmaMock[]
 }
 
 /**
@@ -87,10 +96,10 @@ export interface ContratoMock {
   /** Fecha y hora ISO en que se envió a firmar; `null` si es borrador. */
   sentAt: string | null
   /**
-   * Firmas de las dos partes (US-07). Sin el campo: no hay registro (los
-   * borradores y los anteriores a RentAR, como CT-2023-0041).
+   * Firmas del locador, el locatario y los garantes (US-07). Sin el campo:
+   * no hay registro (los borradores y los anteriores a RentAR, como CT-2023-0041).
    */
-  firmas?: Record<RolFirmante, FirmaMock>
+  firmas?: FirmasMock
   /** Fecha y hora ISO de la última firma, cuando firmaron todas las partes. */
   firmadoPorTodasEl?: string | null
   /** El PDF cargado (solo los datos: el archivo no entra en `localStorage`). */
@@ -132,11 +141,11 @@ export const contratos: ContratoMock[] = [
     updatedAt: '2026-09-22T11:40:00',
     sentAt: '2026-09-22T11:40:00',
     pdf: { nombre: 'contrato-rondeau-480-pb.pdf', tamanoBytes: PDF_FICTICIO_BYTES, subidoEl: '2026-09-22T11:30:00' },
-    // US-07 (tanda 3): arranca pendiente con 0 firmas. Las dos partes fueron
-    // invitadas al enviarlo, así que el primer reenvío ya se puede hacer.
+    // US-07: arranca pendiente con 0 de 3 firmas (Nicolás, Julieta y Hugo).
     firmas: {
-      locador: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
-      locatario: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: '2026-09-22T11:40:00' },
+      locador: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null },
+      locatario: { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null },
+      garantes: [{ estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null }],
     },
   },
   {

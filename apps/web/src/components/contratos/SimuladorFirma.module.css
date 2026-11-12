@@ -1,0 +1,48 @@
+/* Simulador de DocuSign (solo modo mock, US-07). Una tarjeta centrada, sin el header de la app. */
+
+.page {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  background: var(--rentar-color-bg-page);
+}
+
+.tarjeta {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+  max-width: 36rem;
+  height: fit-content;
+  padding: 1.25rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  box-shadow: var(--rentar-shadow-resting);
+}
+
+.titulo {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.datos {
+  margin: 0;
+  color: var(--rentar-color-text-secondary);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.625rem;
+}
+
+.desarrollo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding-top: 0.875rem;
+  border-top: 1px dashed rgba(var(--rentar-color-ink-rgb), 0.2);
+}

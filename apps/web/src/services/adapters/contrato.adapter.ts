@@ -2,14 +2,14 @@
  * contrato.adapter.ts — traduce los contratos del back a los tipos de vista,
  * y los errores a mensajes en español.
  *
- * Qué es: la frontera entre los DTO PROPUESTOS de `/contratos` (ver
+ * Qué es: la frontera entre los DTO de `/contratos` (ver
  * `shared/backend-dtos.ts`, "Contratos") y `ContratoDePropiedad` /
- * `ContratoBorrador` / `ContratoEnviado`. Cuando el back haga las rutas, lo
- * que cambie de forma se ajusta acá, nunca en las pantallas.
- * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
- * alquiler (detalle y firmas), contra rutas propuestas; y US-27
- * Consultar mis alquileres contra `GET /alquileres-locatario` (EXISTE, ver
- * "Alquileres del locatario (US-27)" más abajo).
+ * `ContratoBorrador` / `ContratoEnviado` / `ContratoDetalle`. Si el back
+ * cambia algo de forma, se ajusta acá, nunca en las pantallas.
+ * Cubre: US-05 Registrar contrato de alquiler, US-07 Firmar contrato de
+ * alquiler (firma con DocuSign: locador, locatario y garantes), US-42 y US-43
+ * (detalle y pestaña Contratos), y US-27 Consultar mis alquileres contra
+ * `GET /alquileres-locatario`.
  * Quién lo usa: `services/contratos.service.ts` (los mensajes, también la
  * rama mock, así responde igual que el back).
  */
@@ -28,7 +28,7 @@ import type {
   ParteContrato,
   PdfContrato,
   PeriodicidadAjuste,
-  RolFirmante,
+  SignatureStatus,
 } from '@rentar/shared-types'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { telefonoDelBack } from '@/lib/perfil/formato'
@@ -43,7 +43,6 @@ import type {
   ContratoPropiedadResponse,
   ContratosInmuebleResponse,
   FirmaAlquilerDto,
-  FirmanteApiDto,
   FirmasApiDto,
   GuardarBorradorRequest,
   ParteApiDto,
@@ -71,12 +70,16 @@ export const CONTRATO_ERROR_GENERICO_MESSAGE = 'No pudimos guardar el contrato. 
 // US-07
 export const CONTRATO_NO_PENDIENTE_MESSAGE = 'Este contrato ya no está pendiente de firma.'
 export const YA_FIRMO_MESSAGE = 'Ya firmaste este contrato: una parte no puede firmarlo dos veces.'
-export const FIRMA_RECHAZADA_MESSAGE = 'Rechazaste la firma de este contrato. Para firmarlo, el locador tiene que volver a enviártelo.'
+/** US-07: quien ya firmó no puede rechazar (409 `YA_FIRMO` de `/rechazar`). */
+export const YA_FIRMO_NO_RECHAZA_MESSAGE = 'Ya firmaste este contrato: no podés rechazarlo.'
+export const SOBRE_NO_DISPONIBLE_MESSAGE = 'La firma todavía no está lista. Probá de nuevo en unos minutos.'
+export const CONTRATO_NO_BORRADOR_MESSAGE = 'Este contrato ya no es un borrador: ya se envió a firmar.'
 export const CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE = 'No se puede modificar un contrato que el locatario ya firmó.'
-export const FIRMANTE_NO_PENDIENTE_MESSAGE = 'Solo se puede reenviar la invitación a quien todavía no firmó ni rechazó.'
-export const REENVIO_MUY_PRONTO_MESSAGE = 'Ya se reenvió la invitación hace menos de una hora. Se puede reenviar una vez por hora.'
 export const SOLO_LOCADOR_MESSAGE = 'Solo el locador del contrato puede hacer esto.'
-export const SOLO_LOCATARIO_MESSAGE = 'Solo el locatario puede rechazar la firma.'
+/** 502 de `/firmar`: DocuSign no respondió. Se puede reintentar. */
+export const DOCUSIGN_FIRMA_ERROR_MESSAGE = 'No pudimos abrir la firma en DocuSign. Probá de nuevo en unos minutos.'
+/** 502 de `/enviar` (guía del back, §3.1): el contrato sigue en borrador. */
+export const DOCUSIGN_ENVIO_ERROR_MESSAGE = 'No pudimos enviar el contrato, probá de nuevo. El contrato sigue en borrador.'
 export const MIS_ALQUILERES_ERROR_MESSAGE = 'No pudimos traer tus alquileres. Probá de nuevo en unos minutos.'
 export const FIRMA_ERROR_GENERICO_MESSAGE = 'No pudimos registrar la acción. No se cambió nada: probá de nuevo.'
 const CONTRATO_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revisá tu conexión y probá de nuevo.'
@@ -84,32 +87,40 @@ const CONTRATO_SIN_RED_MESSAGE = 'No pudimos conectarnos con el servidor. Revis�
 // ─── DTO → vista ────────────────────────────────────────────────────────
 
 /**
- * Las firmas del back → solo locador y locatario. `null` si alguna de las dos
- * partes no tiene registro: no se inventa quién firmó (US-42).
- * TODO(backend): el back cuenta al garante como firmante, y el garante no firma
- * (decisión del PO; issue #27, punto 2). Se saca acá y `faltan` se
- * recalcula en la vista con `firmasQueFaltan`.
+ * Las firmas del back → firmantes de la vista: locador, locatario y cada
+ * garante (US-07: los garantes firman, decisión del PO del 11/11; se sacó el
+ * filtro de la brecha S4-3). `null` si no hay registro (contratos anteriores
+ * a RentAR, `sin_registro`): no se inventa quién firmó (US-42).
+ * - `key`: `locador`, `locatario` o `garante-<n>` (puede haber varios garantes).
+ * - `garanteId`: el `id` de `garantes[]` en la misma posición.
+ *   TODO(backend): el firmante garante no trae su id (HANDOFF §7, US-07); el
+ *   back arma las dos listas desde el mismo arreglo y en el mismo orden.
  */
-function partesQueFirman(firmas: FirmasApiDto | null): (FirmanteApiDto & { rol: RolFirmante; estado: FirmanteContrato['estado'] })[] | null {
-  if (!firmas) return null
-  const partes = firmas.firmantes.filter((firmante) => firmante.rol !== 'garante')
-  if (partes.length === 0 || partes.some((firmante) => firmante.estado === 'sin_registro')) return null
-  return partes as (FirmanteApiDto & { rol: RolFirmante; estado: FirmanteContrato['estado'] })[]
-}
-
-/**
- * La fecha en que firmaron las dos partes: la última `fecha_firma`. Se calcula
- * con las partes porque `firmado_por_todos_el` queda en `null` si hay garantes.
- */
-function firmadoPorLasPartes(partes: { fecha_firma: string | null }[] | null): string | null {
-  const fechas = (partes ?? []).map((parte) => parte.fecha_firma)
-  if (fechas.length < 2 || fechas.some((fecha) => fecha === null)) return null
-  return (fechas as string[]).sort().at(-1) ?? null
+function firmantesDeApi(firmas: FirmasApiDto | null, garantes: readonly { id: number }[]): FirmanteContrato[] | null {
+  if (!firmas || firmas.firmantes.length === 0 || firmas.firmantes.some((firmante) => firmante.estado === 'sin_registro')) return null
+  let posicionGarante = 0
+  return firmas.firmantes.map((firmante) => {
+    const esGarante = firmante.rol === 'garante'
+    if (esGarante) posicionGarante += 1
+    const garante = esGarante ? garantes[posicionGarante - 1] : undefined
+    return {
+      key: esGarante ? `garante-${posicionGarante}` : firmante.rol,
+      rol: firmante.rol,
+      userId: '',
+      garanteId: garante ? String(garante.id) : null,
+      nombre: nombreCompleto(firmante),
+      // `sin_registro` ya se descartó arriba.
+      estado: firmante.estado as SignatureStatus,
+      firmadoEl: firmante.fecha_firma,
+      rechazadoEl: firmante.fecha_rechazo,
+      motivoRechazo: firmante.motivo_rechazo,
+    }
+  })
 }
 
 /** Una fila de `GET /inmuebles/:id/contratos` → la pestaña Contratos (US-43). */
 function contratoDePropiedadDeDto(dto: ContratoPropiedadResponse): ContratoDePropiedad {
-  const partes = partesQueFirman(dto.firmas)
+  const firmantes = firmantesDeApi(dto.firmas, [])
   return {
     id: String(dto.id),
     code: dto.codigo,
@@ -120,9 +131,10 @@ function contratoDePropiedadDeDto(dto: ContratoPropiedadResponse): ContratoDePro
     endDate: dto.fecha_fin_contrato,
     adjustmentIndex: dto.indice,
     nextAdjustmentDate: dto.proximo_ajuste,
-    firmasRegistradas: partes !== null,
-    firmantes: (partes ?? []).map((parte) => ({ rol: parte.rol, nombre: nombreCompleto(parte), estado: parte.estado, firmadoEl: parte.fecha_firma })),
-    firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
+    firmasRegistradas: firmantes !== null,
+    firmantes: (firmantes ?? []).map(({ key, rol, nombre, estado, firmadoEl }) => ({ key, rol, nombre, estado, firmadoEl })),
+    // US-07: el back lo calcula con todos los firmantes, garantes incluidos.
+    firmadoPorTodasEl: dto.firmas?.firmado_por_todos_el ?? null,
     tienePdf: dto.pdf !== null,
   }
 }
@@ -236,14 +248,17 @@ function parteDeApi(dto: ParteApiDto | null): ParteContrato {
 }
 
 /**
- * `GET /contratos/:id/detalle` → el detalle del locador (US-42).
+ * `GET /contratos/:id/detalle` → el detalle del locador (US-42 y US-07).
  * - Lo que no vino queda en `null` o vacío: la pantalla muestra "Sin dato".
- * - `datosApi` en lugar de `null`: no ofrece firma en línea (US-07 no existe en la API).
+ * - Firmantes: locador, locatario y garantes (`firmantesDeApi`).
+ * - `puedoFirmar` = `acciones.firmar` (pendiente de firma y el locador sin firmar).
+ * - `pdf`: con el contrato vigente es el documento firmado (`<codigo>-firmado.pdf`,
+ *   con el certificado de DocuSign); mientras no se guarde, el original.
  */
 export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): ContratoDetalle {
   const { condiciones } = dto
   const indice = indiceDeDescripcion(condiciones.indice?.descripcion ?? null)
-  const partes = partesQueFirman(dto.firmas)
+  const firmantes = firmantesDeApi(dto.firmas, dto.garantes)
   return {
     id: String(dto.id),
     code: dto.codigo,
@@ -280,19 +295,11 @@ export function detalleDeLocadorDeDto(dto: ContratoDetalleApiResponse): Contrato
     pdf: pdfDeApi(dto.pdf),
     fechaInicioVencida: false,
     enviadoEl: null,
-    firmadoPorTodasEl: dto.estado === 'vigente' ? firmadoPorLasPartes(partes) : null,
-    firmasRegistradas: partes !== null,
+    firmadoPorTodasEl: dto.firmas?.firmado_por_todos_el ?? null,
+    firmasRegistradas: firmantes !== null,
     modificarDelBack: dto.acciones.modificar,
-    firmantes: (partes ?? []).map((parte) => ({
-      rol: parte.rol,
-      userId: '',
-      nombre: nombreCompleto(parte),
-      estado: parte.estado,
-      firmadoEl: parte.fecha_firma,
-      rechazadoEl: parte.fecha_rechazo,
-      motivoRechazo: parte.motivo_rechazo,
-      ultimaInvitacion: null,
-    })),
+    firmantes: firmantes ?? [],
+    puedoFirmar: dto.acciones.firmar,
     endDate: condiciones.fecha_fin_contrato,
     montoActual: condiciones.monto_actual,
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : mesesDeFrecuencia(condiciones.frecuencia_ajuste),
@@ -391,36 +398,34 @@ function estadoDeFirma(estado: FirmaAlquilerDto['estado']): FirmanteContrato['es
 }
 
 /**
- * Firmas del detalle → firmantes de la vista (locador primero).
- * - Decisión del PO (Sprint 3): firman el locador y el locatario; los
- *   garantes que traiga `firmas[]` se descartan acá (la ficha los muestra
- *   como datos, sin estado de firma).
+ * Firmas de Mi alquiler → firmantes de la vista: locador, locatario ("Vos") y
+ * cada garante (US-07: los garantes firman, decisión del PO del 11/11).
  * - El locador se nombra con `locador` del DTO; el locatario es quien mira
  *   la ficha (el back solo responde contratos propios): "Vos".
- * - Si alguna de las dos está en `desconocido` o falta, no hay registro de
- *   firmas: lista vacía (no se inventa un "pendiente").
- * TODO(backend): las invitaciones (US-07) no existen: `ultimaInvitacion` va en `null`.
+ * - Los garantes se nombran con `garantes[]` en la misma posición.
+ *   TODO(backend): las firmas de tipo `garante` no traen el nombre (HANDOFF §7, US-07).
+ * - Si alguna está en `desconocido`, o falta el locador o el locatario, no hay
+ *   registro de firmas: lista vacía (no se inventa un "pendiente").
  */
 function firmantesDeDetalle(dto: AlquilerLocatarioDetalleResponse): FirmanteContrato[] {
-  const nombres: Record<RolFirmante, string> = { locador: nombreCompleto(dto.locador), locatario: 'Vos' }
-  const ids: Record<RolFirmante, string> = { locador: String(dto.locador.id), locatario: '' }
-  const firmantes: FirmanteContrato[] = []
-  for (const rol of ['locador', 'locatario'] as const) {
-    const firma = dto.firmas.find((item) => item.tipo === rol)
-    const estado = firma ? estadoDeFirma(firma.estado) : null
-    if (!firma || !estado) return []
-    firmantes.push({
-      rol,
-      userId: ids[rol],
-      nombre: nombres[rol],
-      estado,
-      firmadoEl: firma.fecha_firma,
-      rechazadoEl: firma.fecha_rechazo,
-      motivoRechazo: firma.motivo_rechazo,
-      ultimaInvitacion: null,
-    })
+  const locador = dto.firmas.find((item) => item.tipo === 'locador')
+  const locatario = dto.firmas.find((item) => item.tipo === 'locatario')
+  const garantes = dto.firmas.filter((item) => item.tipo === 'garante')
+  if (!locador || !locatario) return []
+  const firmante = (firma: FirmaAlquilerDto, datos: Pick<FirmanteContrato, 'key' | 'rol' | 'userId' | 'nombre'>): FirmanteContrato | null => {
+    const estado = estadoDeFirma(firma.estado)
+    if (!estado) return null
+    return { ...datos, garanteId: null, estado, firmadoEl: firma.fecha_firma, rechazadoEl: firma.fecha_rechazo, motivoRechazo: firma.motivo_rechazo }
   }
-  return firmantes
+  const firmantes = [
+    firmante(locador, { key: 'locador', rol: 'locador', userId: String(dto.locador.id), nombre: nombreCompleto(dto.locador) }),
+    firmante(locatario, { key: 'locatario', rol: 'locatario', userId: '', nombre: 'Vos' }),
+    ...garantes.map((firma, posicion) => {
+      const garante = dto.garantes[posicion]
+      return firmante(firma, { key: `garante-${posicion + 1}`, rol: 'garante', userId: '', nombre: garante ? nombreCompleto(garante) : `Garante ${posicion + 1}` })
+    }),
+  ]
+  return firmantes.every((item): item is FirmanteContrato => item !== null) ? firmantes : []
 }
 
 /**
@@ -448,7 +453,10 @@ export function garanteParaLocatario({ key, fullName }: Pick<GaranteContrato, 'k
  *   TODO(backend): que `GET /alquileres-locatario/:id` no mande `email` ni
  *   `telefono` de los garantes (HANDOFF §7, US-27): hoy igual llegan al navegador.
  * - Condiciones: sin monto inicial ni duración (no vienen).
- * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron las dos partes.
+ * - `firmadoPorTodasEl`: la última `fecha_firma`, si firmaron todos (garantes incluidos).
+ * - `puedoFirmar` = `puede_firmar` del back (US-07: pendiente, con sobre y sin su firma).
+ * - `pdfUrl`: con el contrato vigente o finalizado, el documento firmado. Es una
+ *   URL firmada de 60 s: la pantalla la vuelve a pedir al hacer clic (S4-13).
  */
 export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): ContratoDetalle {
   const indice = indiceDeDescripcion(dto.indice_ajuste)
@@ -500,6 +508,7 @@ export function miAlquilerDeDetalle(dto: AlquilerLocatarioDetalleResponse): Cont
     firmasRegistradas: firmantes.length > 0,
     modificarDelBack: null,
     firmantes,
+    puedoFirmar: dto.puede_firmar,
     endDate: dto.fecha_fin_contrato,
     montoActual: dto.monto_actual,
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : mesesDeFrecuencia(dto.frecuencia_ajuste),
@@ -535,8 +544,11 @@ export function errorDeMiAlquiler(error: unknown, opciones: { detalle: boolean }
   return errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', noEncontrado: ALQUILER_NO_ENCONTRADO_MESSAGE, generico: MIS_ALQUILERES_ERROR_MESSAGE })
 }
 
-/** Respuesta de `POST /contratos/:id/enviar` → `ContratoEnviado`. Los firmantes salen del borrador (decisión del PO: locador y locatario). */
-export function contratoEnviadoDeDto(dto: ContratoEnviadoResponse, borrador: Pick<ContratoBorrador, 'locador' | 'locatario'>): ContratoEnviado {
+/**
+ * Respuesta de `POST /contratos/:id/enviar` → `ContratoEnviado`. Los firmantes
+ * salen del borrador: el locador, el locatario y cada garante (US-07).
+ */
+export function contratoEnviadoDeDto(dto: ContratoEnviadoResponse, borrador: Pick<ContratoBorrador, 'locador' | 'locatario' | 'garantes'>): ContratoEnviado {
   return {
     id: String(dto.id),
     code: dto.codigo,
@@ -544,6 +556,7 @@ export function contratoEnviadoDeDto(dto: ContratoEnviadoResponse, borrador: Pic
     firmantes: [
       { rol: 'locador', nombre: `${borrador.locador.nombre} ${borrador.locador.apellido}`.trim() },
       { rol: 'locatario', nombre: `${borrador.locatario.nombre} ${borrador.locatario.apellido}`.trim() },
+      ...borrador.garantes.map((garante) => ({ rol: 'garante' as const, nombre: garante.fullName })),
     ],
   }
 }
@@ -564,10 +577,10 @@ const MENSAJE_DE_CODIGO: Record<CodigoErrorContrato, string> = {
   CONTRATO_FIRMADO_POR_LOCATARIO: CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE,
   CONTRATO_YA_EN_BORRADOR: 'El contrato ya está en borrador.',
   CONTRATO_NO_EDITABLE: CONTRATO_NO_EDITABLE_MESSAGE,
+  CONTRATO_NO_BORRADOR: CONTRATO_NO_BORRADOR_MESSAGE,
   CONTRATO_NO_PENDIENTE: CONTRATO_NO_PENDIENTE_MESSAGE,
   YA_FIRMO: YA_FIRMO_MESSAGE,
-  FIRMA_RECHAZADA: FIRMA_RECHAZADA_MESSAGE,
-  FIRMANTE_NO_PENDIENTE: FIRMANTE_NO_PENDIENTE_MESSAGE,
+  SOBRE_NO_DISPONIBLE: SOBRE_NO_DISPONIBLE_MESSAGE,
 }
 
 /**
@@ -597,7 +610,9 @@ const TEXTOS_TECNICOS = [
  *   distingue "no existe" de "no es tuyo". Salvo que la ruta pase
  *   `prohibido`: es parte del contrato pero no le toca (US-07: el locatario
  *   que cancela el envío), y se dice por qué.
- * - 429 → "una vez por hora" (US-07, reenviar la invitación).
+ * - `mensajesPorCodigo`: la ruta cambia el texto de un 409 (US-07: `YA_FIRMO`
+ *   no dice lo mismo al rechazar que al firmar).
+ * - 502 con `docusign`: DocuSign no respondió (US-07); se puede reintentar.
  * - 400 → `validation` con el texto del back (repite las reglas del front).
  *   Con `idInvalidoEsNoEncontrado`, en una ruta sin cuerpo el único 400 es un
  *   id que no es un entero: va como "no encontrado", sin mostrar el texto técnico.
@@ -607,18 +622,28 @@ const TEXTOS_TECNICOS = [
  */
 export function errorDeContrato(
   error: unknown,
-  opciones: { porDefecto409: CodigoErrorContrato; noEncontrado?: string; prohibido?: string; generico?: string; idInvalidoEsNoEncontrado?: boolean },
+  opciones: {
+    porDefecto409: CodigoErrorContrato
+    noEncontrado?: string
+    prohibido?: string
+    generico?: string
+    idInvalidoEsNoEncontrado?: boolean
+    mensajesPorCodigo?: Partial<Record<CodigoErrorContrato, string>>
+    /** Mensaje del 502 (DocuSign no respondió). Sin él, un 502 es un 5xx más. */
+    docusign?: string
+  },
 ): unknown {
   if (!(error instanceof ServiceError)) return error
   if (error.code === 'conflict') {
     const codigo = (error.apiCode as CodigoErrorContrato | undefined) ?? opciones.porDefecto409
-    return new ServiceError('conflict', MENSAJE_DE_CODIGO[codigo] ?? MENSAJE_DE_CODIGO[opciones.porDefecto409], codigo)
+    const mensaje = opciones.mensajesPorCodigo?.[codigo] ?? MENSAJE_DE_CODIGO[codigo] ?? MENSAJE_DE_CODIGO[opciones.porDefecto409]
+    return new ServiceError('conflict', mensaje, codigo)
   }
+  if (error.code === 'server' && opciones.docusign && error.status === 502) return new ServiceError('server', opciones.docusign)
   if (error.code === 'forbidden' && opciones.prohibido) return new ServiceError('forbidden', opciones.prohibido)
   if (error.code === 'validation' && opciones.idInvalidoEsNoEncontrado) return new ServiceError('not_found', opciones.noEncontrado ?? CONTRATO_NO_ENCONTRADO_MESSAGE)
   if (error.code === 'validation' && TEXTOS_TECNICOS.some((texto) => texto.test(error.message))) return new ServiceError('validation', opciones.generico ?? CONTRATO_ERROR_GENERICO_MESSAGE)
   if (error.code === 'forbidden' || error.code === 'not_found') return new ServiceError('not_found', opciones.noEncontrado ?? CONTRATO_NO_ENCONTRADO_MESSAGE)
-  if (error.code === 'too_many_requests') return new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
   // 413 de `PUT /pdf`: el texto del back se puede mostrar, y no es una caída.
   if (error.code === 'server' && /supera?r? los 5 MB/.test(error.message)) return new ServiceError('validation', error.message)
   if (error.code === 'server') return new ServiceError('server', opciones.generico ?? CONTRATO_ERROR_GENERICO_MESSAGE)

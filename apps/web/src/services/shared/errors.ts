@@ -20,7 +20,7 @@ export type ServiceErrorCode =
   | 'forbidden' // 403
   | 'not_found' // 404
   | 'conflict' // 409
-  | 'too_many_requests' // 429 (ej. reenviar la invitación a firmar antes de la hora, US-07)
+  | 'too_many_requests' // 429 (ej. demasiados intentos con el enlace de firma de un garante, US-07)
   | 'server' // 5xx o cualquier otro status inesperado
   | 'network' // el backend no respondió (apagado, CORS, sin red)
 
@@ -33,12 +33,18 @@ export class ServiceError extends Error {
    * `PATCH /usuarios/me`, US-21). Solo lo leen los adaptadores.
    */
   apiCode?: string
+  /**
+   * Status HTTP de la respuesta, si hubo una. Sirve para distinguir dos 5xx
+   * (ej. el 502 de DocuSign en la firma, US-07). Solo lo leen los adaptadores.
+   */
+  status?: number
 
-  constructor(code: ServiceErrorCode, message: string, apiCode?: string) {
+  constructor(code: ServiceErrorCode, message: string, apiCode?: string, status?: number) {
     super(message)
     this.name = 'ServiceError'
     this.code = code
     this.apiCode = apiCode
+    this.status = status
   }
 }
 

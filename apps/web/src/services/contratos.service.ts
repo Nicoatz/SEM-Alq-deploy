@@ -3,25 +3,25 @@
  *
  * Qué es: los contratos de una propiedad (US-43), el inicio desde una solicitud
  * aceptada, el borrador (guardar, retomar y eliminar) y el envío a firmar.
- * Cubre: US-05 Registrar contrato de alquiler y US-07 Firmar contrato de
- * alquiler (detalle, firmar, rechazar, cancelar el envío y reenviar la
- * invitación); US-27 Consultar mis alquileres (`listarMisAlquileres`,
- * `contarMisAlquileres` y `getMiAlquiler`).
+ * Cubre: US-05 Registrar contrato de alquiler (alta y envío a firmar), US-06
+ * Modificar (`reabrirContrato`), US-07 Firmar contrato de alquiler (firma en
+ * DocuSign y rechazo), US-42 y US-43 (detalle y pestaña Contratos) y US-27
+ * Consultar mis alquileres (`listarMisAlquileres`, `contarMisAlquileres` y
+ * `getMiAlquiler`).
  * De dónde saca los datos:
  * - Modo mock: los vigentes del elenco (`propiedades.mock.ts`, `rental`),
  *   `contratos.mock.ts` y los borradores del navegador, a través de
  *   `adapters/contrato-mock.adapter.ts` (ver ahí la NOTA de datos sensibles:
  *   el DNI de los garantes no se guarda en `localStorage`).
- * - Modo real: US-27 (Mis alquileres) contra `GET /alquileres-locatario`
- *   (EXISTE desde el 26/10). Lo de US-05 y US-07 sigue contra las rutas PROPUESTAS
- *   del Sprint 3 hasta conectarlo (Tandas 1 a 3 del Sprint 4). Estado de cada una en
- *   `docs/api-endpoints.md`, "Contratos" y "Alquileres del locatario".
+ * - Modo real: todas las rutas existen (la firma con DocuSign desde el 10/11).
+ *   Estado de cada una en `docs/api-endpoints.md`, "Contratos", "Firma de
+ *   contratos" y "Alquileres del locatario".
  * Quién lo usa: `components/contratos/*` y `app/(app)/panel/contratos/*`.
  *
- * NOTA (decisiones del PO, Sprint 3): firman el locador y el locatario; el
- * garante es un dato del contrato y no firma. Mientras el contrato está
- * pendiente de firma, la propiedad sigue publicada (este service no toca la
- * propiedad).
+ * NOTA (decisiones del PO del 11/11, se acepta lo que hizo el back): firman el
+ * locador, el locatario y los garantes; rechazar vuelve el contrato a borrador;
+ * no hay "Reenviar invitación". Mientras el contrato está pendiente de firma, la
+ * propiedad sigue publicada (este service no toca la propiedad).
  */
 import type {
   AlquilerResumen,
@@ -41,16 +41,17 @@ import type {
 } from '@rentar/shared-types'
 import dayjs from 'dayjs'
 import { fechaFin, MESES_POR_PERIODO } from '@/lib/contratos/fechas'
-import { errorDeMotivoRechazo, normalizarMotivoRechazo, reenvioBloqueado } from '@/lib/contratos/firmas'
+import { errorDeMotivoRechazo, normalizarMotivoRechazo } from '@/lib/contratos/firmas'
 import { ordenarAlquileres } from '@/lib/contratos/listado'
 import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { cabeceraDe, errorDeArchivoPdf } from '@/lib/contratos/pdfCarga'
 import { separarContratos } from '@/lib/contratos/propiedad'
 import { PLAZO_VENCIMIENTO_POR_DEFECTO, DURACION_POR_DEFECTO, errorParaEnviar } from '@/lib/contratos/validaciones'
 import { hoy } from '@/lib/utils/fechas'
-import { PLAZO_POR_CONTRATO, type ContratoMock, type FirmaMock, type PropiedadMock } from '@/lib/mocks'
+import { PLAZO_POR_CONTRATO, type ContratoMock, type FirmasMock, type PropiedadMock } from '@/lib/mocks'
 import {
   ahoraIsoMock,
+  aplicarFirmasDiferidasMock,
   PDF_FICTICIO_URL,
   pdfDeContratoMock,
   recordarPdfMock,
@@ -60,16 +61,18 @@ import {
   eliminarContratoMock,
   firmasAlEnviar,
   guardarContratoMock,
-  pasarAVigenteMock,
   periodicidadDePublicacion,
   propiedadConContratoActivoMock,
   readContratosMock,
   readPropiedadesContratoMock,
+  rechazoMock,
+  registrarFirmaDiferidaMock,
   siguienteCodigoMock,
 } from './adapters/contrato-mock.adapter'
 import {
   ALQUILER_NO_ENCONTRADO_MESSAGE,
   alquilerResumenDeItem,
+  CONTRATO_NO_BORRADOR_MESSAGE,
   CONTRATO_NO_EDITABLE_MESSAGE,
   CONTRATO_NO_ENCONTRADO_MESSAGE,
   CONTRATO_NO_PENDIENTE_MESSAGE,
@@ -77,27 +80,26 @@ import {
   contratoEnviadoDeDto,
   detalleDeLocadorDeDto,
   DETALLE_CONTRATO_ERROR_MESSAGE,
+  DOCUSIGN_ENVIO_ERROR_MESSAGE,
+  DOCUSIGN_FIRMA_ERROR_MESSAGE,
   CONTRATOS_DE_PROPIEDAD_ERROR_MESSAGE,
   contratosDePropiedadDeDto,
   patchDeCambios,
   errorDeMiAlquiler,
   errorDeContrato,
   FIRMA_ERROR_GENERICO_MESSAGE,
-  FIRMA_RECHAZADA_MESSAGE,
-  FIRMANTE_NO_PENDIENTE_MESSAGE,
   garanteParaLocatario,
   miAlquilerDeDetalle,
   CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE,
   PROPIEDAD_CON_CONTRATO_MESSAGE,
-  REENVIO_MUY_PRONTO_MESSAGE,
   SOLICITUD_CON_CONTRATO_MESSAGE,
   SOLICITUD_NO_ACEPTADA_MESSAGE,
   SOLICITUD_NO_ENCONTRADA_PARA_CONTRATO_MESSAGE,
   PDF_SUBIDA_ERROR_MESSAGE,
   PROPIEDAD_NO_ENCONTRADA_MESSAGE,
   SOLO_LOCADOR_MESSAGE,
-  SOLO_LOCATARIO_MESSAGE,
   YA_FIRMO_MESSAGE,
+  YA_FIRMO_NO_RECHAZA_MESSAGE,
 } from './adapters/contrato.adapter'
 import { formatAddress, mainPhotoSrc } from './adapters/propiedad-mock.adapter'
 import { perfilMockDe } from './perfil.service'
@@ -108,11 +110,15 @@ import type {
   ContratoBorradorApiResponse,
   ContratoCreadoResponse,
   ContratoDetalleApiResponse,
+  ContratoEnviadoResponse,
+  EnviarContratoRequest,
+  FirmarContratoRequest,
+  IniciarFirmaResponse,
   RegistrarPdfRequest,
   UrlSubidaPdfResponse,
   ContratosInmuebleResponse,
+  RechazarContratoResponse,
   RechazarFirmaRequest,
-  ReenviarInvitacionRequest,
 } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
@@ -394,31 +400,29 @@ export async function eliminarBorrador(id: string): Promise<void> {
 // ─── Enviar a firmar ────────────────────────────────────────────────────
 
 /**
- * En real no hay envío a firmar: el flujo termina en borrador (decisión del PO,
- * Sprint 4). La pantalla deja "Enviar a firmar" deshabilitado.
- * TODO(backend): `POST /contratos/:id/enviar` (issue #27, punto 1).
- */
-export const ENVIO_A_FIRMA_DISPONIBLE = USE_MOCKS
-
-/**
  * US-05 — "Al enviarlo, el contrato pasa al estado 'pendiente de firma' y
  * recibe un código con formato CT-AAAA-NNNN." La propiedad sigue publicada
- * (decisión del PO). Lo último ya se guardó con `guardarBorrador`.
- * @backend POST /api/v1/contratos/:id/enviar   (no existe — propuesto) → 200 ContratoEnviadoResponse
- * @returns el código y quiénes firman (locador y locatario).
+ * (decisión del PO). Lo último ya se guardó con `guardarBorrador`. El back
+ * arma la hoja de firmas y crea el sobre en DocuSign (US-07).
+ * @backend POST /api/v1/contratos/:id/enviar   (existe · rol locador) body `{ confirma_revision: true }` → 200 ContratoEnviadoResponse
+ * @param borrador Las partes y los garantes, para decir quiénes firman (el back no los devuelve).
+ * @returns el código y quiénes firman (locador, locatario y garantes).
  * @throws {ServiceError}
- *   - `validation`: falta un dato o no cumple la US (el primer error).
- *   - `conflict` (`apiCode`): `CONTRATO_NO_EDITABLE` o `PROPIEDAD_CON_CONTRATO`.
+ *   - `validation`: falta un dato o no cumple la US (el texto del back: `FALTA_PDF`,
+ *     `FALTAN_CONDICIONES`, `FALTAN_PARTES`, `FECHA_INICIO_VENCIDA`…).
+ *   - `conflict` (`apiCode`): `CONTRATO_NO_BORRADOR` (ya se envió) o, en mock, `PROPIEDAD_CON_CONTRATO`.
+ *   - `server`: DocuSign no respondió (502). El contrato sigue en borrador: se puede reintentar.
  */
-export async function enviarAFirmar(id: string): Promise<ContratoEnviado> {
+export async function enviarAFirmar(id: string, borrador: Pick<ContratoBorrador, 'locador' | 'locatario' | 'garantes'>): Promise<ContratoEnviado> {
   if (USE_MOCKS) {
     await delay()
     const contrato = contratoPropioMock(id, requireSessionUserId())
-    const borrador = borradorDeContratoMock(contrato)
-    const error = errorParaEnviar(borrador, hoyIso())
+    const actual = borradorDeContratoMock(contrato)
+    if (contrato.status !== 'borrador') throw new ServiceError('conflict', CONTRATO_NO_BORRADOR_MESSAGE, 'CONTRATO_NO_BORRADOR')
+    const error = errorParaEnviar(actual, hoyIso())
     if (error) throw new ServiceError('validation', error)
     if (propiedadConContratoActivoMock(contrato.propertyId, contrato.id)) throw new ServiceError('conflict', PROPIEDAD_CON_CONTRATO_MESSAGE, 'PROPIEDAD_CON_CONTRATO')
-    // NOTA: si el envío se había cancelado (US-06), conserva el código que ya tenía.
+    // NOTA: si el envío se había cancelado (US-06) o rechazado (US-07), conserva el código que ya tenía.
     const code = contrato.code ?? siguienteCodigoMock(hoy().year())
     const ahora = ahoraIsoMock()
     const aFirmar: ContratoMock = {
@@ -427,15 +431,21 @@ export async function enviarAFirmar(id: string): Promise<ContratoEnviado> {
       status: 'pendiente_firma',
       updatedAt: ahora,
       sentAt: ahora,
-      // US-07: las dos partes quedan invitadas a firmar, con las firmas en cero.
-      firmas: firmasAlEnviar(ahora),
+      // US-07: firman el locador, el locatario y cada garante, con las firmas en cero.
+      firmas: firmasAlEnviar(contrato.garantes.length),
       firmadoPorTodasEl: null,
     }
     if (!guardarContratoMock(aFirmar)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-    const enviado = contratoEnviadoDeDto({ id: 0, codigo: code, estado: 'pendiente_firma' }, borrador)
+    const enviado = contratoEnviadoDeDto({ id: 0, codigo: code, estado: 'pendiente_firma' }, actual)
     return { ...enviado, id: contrato.id }
   }
-  throw new ServiceError('conflict', CONTRATO_NO_EDITABLE_MESSAGE, 'CONTRATO_NO_EDITABLE')
+  try {
+    const body: EnviarContratoRequest = { confirma_revision: true }
+    const dto = await apiRequest<ContratoEnviadoResponse>(`/contratos/${encodeURIComponent(id)}/enviar`, { method: 'POST', body })
+    return contratoEnviadoDeDto(dto, borrador)
+  } catch (error) {
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_BORRADOR', prohibido: SOLO_LOCADOR_MESSAGE, docusign: DOCUSIGN_ENVIO_ERROR_MESSAGE })
+  }
 }
 
 // ─── US-07: detalle ─────────────────────────────────────────────────────
@@ -450,8 +460,8 @@ function buscarContratoMock(id: string): ContratoMock | undefined {
   return readContratosMock().find((item) => item.id === id || item.code === id)
 }
 
-/** Rol del usuario en el contrato guardado, o `null` si no es parte. */
-function rolEnContratoMock(contrato: Pick<ContratoMock, 'ownerId' | 'tenantUserId'>, userId: string): RolFirmante | null {
+/** Rol del usuario en el contrato guardado, o `null` si no es parte (el garante no tiene cuenta). */
+function rolEnContratoMock(contrato: Pick<ContratoMock, 'ownerId' | 'tenantUserId'>, userId: string): Exclude<RolFirmante, 'garante'> | null {
   if (contrato.ownerId === userId) return 'locador'
   if (contrato.tenantUserId === userId) return 'locatario'
   return null
@@ -462,30 +472,51 @@ function rolEnContratoMock(contrato: Pick<ContratoMock, 'ownerId' | 'tenantUserI
  * locatario). Un borrador solo lo ve el locador. No distingue "no existe"
  * de "no es tuyo" (US-07).
  */
-function contratoDeParteMock(id: string, userId: string): { contrato: ContratoMock; rol: RolFirmante } {
+function contratoDeParteMock(id: string, userId: string): { contrato: ContratoMock; rol: Exclude<RolFirmante, 'garante'> } {
   const contrato = buscarContratoMock(id)
   const rol = contrato ? rolEnContratoMock(contrato, userId) : null
   if (!contrato || !rol || (contrato.status === 'borrador' && rol !== 'locador')) throw new ServiceError('not_found', CONTRATO_NO_ENCONTRADO_MESSAGE)
   return { contrato, rol }
 }
 
-/** Contrato guardado → `ContratoDetalle` (firmantes con el nombre de hoy del perfil). */
-function detalleDeContratoMock(contrato: ContratoMock): ContratoDetalle {
+/**
+ * Contrato guardado → `ContratoDetalle` (firmantes con el nombre de hoy del perfil).
+ * - Firmantes: locador, locatario y cada garante (US-07).
+ * - `puedoFirmar`: pendiente de firma y la firma de `userId` pendiente, como
+ *   `acciones.firmar` / `puede_firmar` del back.
+ * - Vigente: el PDF pasa a ser el "firmado" (`<código>-firmado.pdf`), como en
+ *   real; el archivo sigue siendo el ficticio del elenco.
+ */
+function detalleDeContratoMock(contrato: ContratoMock, userId?: string): ContratoDetalle {
   const base = borradorDeContratoMock(contrato)
   const nombreDe = (parte: ParteContrato) => `${parte.nombre} ${parte.apellido}`.trim()
-  const nombres: Record<RolFirmante, string> = { locador: nombreDe(base.locador), locatario: nombreDe(base.locatario) || contrato.tenantName }
-  const ids: Record<RolFirmante, string> = { locador: base.locador.userId, locatario: base.locatario.userId }
   const { firmas } = contrato
   const firmantes: FirmanteContrato[] = firmas
-    ? (['locador', 'locatario'] as const).map((rol) => ({ rol, userId: ids[rol], nombre: nombres[rol], ...firmas[rol] }))
+    ? [
+        { key: 'locador', rol: 'locador', userId: base.locador.userId, garanteId: null, nombre: nombreDe(base.locador), ...firmas.locador },
+        { key: 'locatario', rol: 'locatario', userId: base.locatario.userId, garanteId: null, nombre: nombreDe(base.locatario) || contrato.tenantName, ...firmas.locatario },
+        ...firmas.garantes.map((firma, posicion): FirmanteContrato => ({
+          key: `garante-${posicion + 1}`,
+          rol: 'garante',
+          userId: '',
+          garanteId: contrato.garantes[posicion]?.key ?? null,
+          nombre: contrato.garantes[posicion]?.fullName ?? `Garante ${posicion + 1}`,
+          ...firma,
+        })),
+      ]
     : []
+  const rol = userId ? rolEnContratoMock(contrato, userId) : null
+  const miFirma = rol && firmas ? firmas[rol] : null
+  const firmado = contrato.status === 'vigente' && Boolean(firmas) && base.pdf
   return {
     ...base,
+    pdf: firmado && base.pdf ? { ...base.pdf, nombre: `${contrato.code ?? 'contrato'}-firmado.pdf` } : base.pdf,
     enviadoEl: contrato.sentAt,
     firmadoPorTodasEl: contrato.firmadoPorTodasEl ?? null,
     firmasRegistradas: Boolean(firmas),
     modificarDelBack: null,
     firmantes,
+    puedoFirmar: contrato.status === 'pendiente_firma' && miFirma?.estado === 'pendiente',
     endDate: fechaFin(contrato.condiciones.startDate, contrato.condiciones.durationMonths),
     // NOTA: en mock los ajustes no se calculan: el monto actual es el inicial.
     montoActual: contrato.condiciones.initialAmount,
@@ -553,6 +584,7 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
     firmasRegistradas: false,
     modificarDelBack: null,
     firmantes: [],
+    puedoFirmar: false,
     montoActual: rental.currentAmount,
     // El elenco ajusta cada 4 o 12 meses (la periodicidad del contrato de RentAR no tiene 4).
     ajusteCadaMeses: indice === 'sin_ajuste' ? null : propiedad.adjustmentEveryMonths,
@@ -572,8 +604,12 @@ function detalleDeAlquilerMock(propiedad: PropiedadMock): ContratoDetalle | null
 export async function getDetalleContrato(id: string): Promise<ContratoDetalle> {
   if (USE_MOCKS) {
     await delay(400)
+    aplicarFirmasDiferidasMock()
     const userId = requireSessionUserId()
-    if (buscarContratoMock(id)) return detalleDeContratoMock(contratoDeParteMock(id, userId).contrato)
+    const guardado = buscarContratoMock(id)
+    // Como el back: un borrador no tiene detalle (409); la pantalla lo manda al alta.
+    if (guardado?.status === 'borrador' && guardado.ownerId === userId) throw new ServiceError('conflict', 'Este contrato es un borrador: se sigue editando en el alta.', 'CONTRATO_BORRADOR')
+    if (guardado) return detalleDeContratoMock(contratoDeParteMock(id, userId).contrato, userId)
     const propiedad = readPropiedadesContratoMock().find((item) => item.rental?.contractId === id)
     const esParte = propiedad && (propiedad.ownerId === userId || propiedad.rental?.tenantUserId === userId)
     const detalle = esParte ? detalleDeAlquilerMock(propiedad) : null
@@ -604,7 +640,7 @@ function contratoDePropiedadMock(resumen: ContratoResumen, propiedad: PropiedadM
     adjustmentIndex: resumen.adjustmentIndex,
     nextAdjustmentDate: resumen.nextAdjustmentDate,
     firmasRegistradas: detalle?.firmasRegistradas ?? false,
-    firmantes: (detalle?.firmantes ?? []).map(({ rol, nombre, estado, firmadoEl }) => ({ rol, nombre, estado, firmadoEl })),
+    firmantes: (detalle?.firmantes ?? []).map(({ key, rol, nombre, estado, firmadoEl }) => ({ key, rol, nombre, estado, firmadoEl })),
     firmadoPorTodasEl: detalle?.firmadoPorTodasEl ?? null,
     // US-43: el PDF, "salvo que sea un borrador". El detalle del anterior lo baja desde su pantalla.
     tienePdf: resumen.status !== 'borrador' && resumen.status !== 'finalizado' && Boolean(detalle?.pdf),
@@ -621,6 +657,7 @@ function contratoDePropiedadMock(resumen: ContratoResumen, propiedad: PropiedadM
 export async function listarContratosDePropiedad(propiedadId: string): Promise<ContratosDePropiedad> {
   if (USE_MOCKS) {
     await delay()
+    aplicarFirmasDiferidasMock()
     const userId = requireSessionUserId()
     const propiedad = readPropiedadesContratoMock().find((item) => item.id === propiedadId)
     if (!propiedad || propiedad.ownerId !== userId) throw new ServiceError('not_found', PROPIEDAD_NO_ENCONTRADA_MESSAGE)
@@ -671,79 +708,70 @@ export async function urlPdfDeContrato(id: string, vista: 'borrador' | 'locador'
 
 // ─── US-07: firmar y rechazar ───────────────────────────────────────────
 
-/** Guarda el contrato con los cambios de una acción de US-07 y devuelve el detalle. */
-function guardarAccionMock(contrato: ContratoMock): ContratoDetalle {
-  if (!guardarContratoMock(contrato)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-  return detalleDeContratoMock(contrato)
-}
-
-/** Las firmas del contrato pendiente de firma (si no está pendiente, 409 `CONTRATO_NO_PENDIENTE`). */
-function pendienteDeFirmaMock(contrato: ContratoMock): Record<RolFirmante, FirmaMock> {
+/** El contrato pendiente de firma con sus firmas (si no está pendiente, 409 `CONTRATO_NO_PENDIENTE`). */
+function pendienteDeFirmaMock(contrato: ContratoMock): FirmasMock {
   if (contrato.status !== 'pendiente_firma' || !contrato.firmas) {
     throw new ServiceError('conflict', CONTRATO_NO_PENDIENTE_MESSAGE, 'CONTRATO_NO_PENDIENTE')
   }
   return contrato.firmas
 }
 
+/** A dónde vuelve cada parte después de firmar en DocuSign (las mismas URL que arma el back). */
+function regresoDeFirma(id: string, rol: Exclude<RolFirmante, 'garante'>): string {
+  return rol === 'locador' ? `/panel/contratos/${encodeURIComponent(id)}` : `/panel/alquiler?contrato=${encodeURIComponent(id)}`
+}
+
 /**
- * US-07 — "Firma": registra la firma de quien está en sesión (el locador
- * desde el detalle; el locatario, desde Mi alquiler). La pantalla ya pidió
- * leer hasta la última página, la casilla y la confirmación.
- * - "Se deben registrar la fecha y la hora de cada firma": lo hace el back. En
- *   mock, el "hoy" del elenco con la hora real (`ahora()`).
- * - "Una parte no puede firmar más de una vez el mismo contrato": 409.
- * - "Cuando firman todas las partes, el contrato pasa a 'vigente'": la
- *   propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas
- *   (en mock, `pasarAVigenteMock`; en real, el back).
- * @backend POST /api/v1/contratos/:id/firmar   (no existe — propuesto) → 200 ContratoDetalleApiResponse
+ * US-07 — "Firma": pide la URL de DocuSign donde firma quien está en sesión (el
+ * locador desde el detalle; el locatario, desde Mi alquiler). La pantalla ya
+ * pidió leer hasta la última página, la casilla y la confirmación, y redirige a
+ * la URL apenas llega: dura pocos minutos, se usa una sola vez y no se guarda.
+ * - La firma NO se registra acá: la registra el back cuando DocuSign le avisa
+ *   (entre 3 y 30 s después). Al volver, la pantalla espera ese aviso
+ *   (`useRegresoDeFirma`).
+ * - "Una parte no puede firmar más de una vez el mismo contrato": 409 `YA_FIRMO`.
+ * - Las firmas son en paralelo: nadie espera a nadie.
+ * - En mock, la URL es la del simulador (`/simulador-firma`), con los datos en el
+ *   fragmento (`#`): no viajan al servidor ni quedan en el `Referer`.
+ * @backend POST /api/v1/contratos/:id/firmar   (existe · locador o locatario) body `{ acepta_condiciones: true }` → 200 IniciarFirmaResponse
  * @throws {ServiceError}
- *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE` (borrador, vigente…),
- *     `YA_FIRMO` o `FIRMA_RECHAZADA` (ver la NOTA).
+ *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE` (borrador, vigente…), `YA_FIRMO` o `SOBRE_NO_DISPONIBLE`.
  *   - `not_found`: no existe o no es parte.
- * NOTA: quien rechazó no puede firmar después. Las reglas del rechazo son las de
- * la versión del 30/10 de la US; el equipo las está redefiniendo (ver `rechazarFirma`).
+ *   - `server`: DocuSign no respondió (502); se puede reintentar.
  */
-export async function firmarContrato(id: string): Promise<ContratoDetalle> {
+export async function iniciarFirma(id: string): Promise<{ url: string }> {
   if (USE_MOCKS) {
     await delay()
     const { contrato, rol } = contratoDeParteMock(id, requireSessionUserId())
     const firmas = pendienteDeFirmaMock(contrato)
     if (firmas[rol].estado === 'firmado') throw new ServiceError('conflict', YA_FIRMO_MESSAGE, 'YA_FIRMO')
-    if (firmas[rol].estado === 'rechazado') throw new ServiceError('conflict', FIRMA_RECHAZADA_MESSAGE, 'FIRMA_RECHAZADA')
-    const ahora = ahoraIsoMock()
-    const firmada: FirmaMock = { ...firmas[rol], estado: 'firmado', firmadoEl: ahora }
-    const nuevas: Record<RolFirmante, FirmaMock> = { ...firmas, [rol]: firmada }
-    const todas = nuevas.locador.estado === 'firmado' && nuevas.locatario.estado === 'firmado'
-    const conFirma: ContratoMock = { ...contrato, firmas: nuevas, updatedAt: ahora }
-    const firmado: ContratoMock = todas
-      ? { ...conFirma, status: 'vigente', firmadoPorTodasEl: ahora }
-      : conFirma
-    const detalle = guardarAccionMock(firmado)
-    if (todas && !pasarAVigenteMock(firmado, ahora)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
-    return detalle
+    if (firmas[rol].estado !== 'pendiente') throw new ServiceError('conflict', CONTRATO_NO_PENDIENTE_MESSAGE, 'CONTRATO_NO_PENDIENTE')
+    return { url: urlDelSimulador({ contratoId: contrato.id, firmante: rol, regreso: regresoDeFirma(id, rol) }) }
   }
   try {
-    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/firmar`, { method: 'POST' }))
+    const body: FirmarContratoRequest = { acepta_condiciones: true }
+    return await apiRequest<IniciarFirmaResponse>(`/contratos/${encodeURIComponent(id)}/firmar`, { method: 'POST', body })
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', generico: FIRMA_ERROR_GENERICO_MESSAGE })
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', generico: FIRMA_ERROR_GENERICO_MESSAGE, docusign: DOCUSIGN_FIRMA_ERROR_MESSAGE })
   }
 }
 
 /**
- * US-07 — "El locatario puede rechazar la firma, indicando un motivo
- * opcional de hasta 300 caracteres, previa confirmación. Esto no cambia el
- * estado del contrato, que sigue pendiente de firma, y el rechazo se ve en
- * el detalle." (La confirmación la pide la pantalla.)
- * NOTA: son las reglas de la US del 30/10. El equipo está redefiniendo el rechazo: la
- * versión del repo dice que rechazan las dos partes y que vuelve a borrador.
- * @backend POST /api/v1/contratos/:id/rechazar   (no existe — propuesto) body RechazarFirmaRequest → 200 ContratoDetalleApiResponse
+ * US-07 — "Tanto el locatario como el locador pueden rechazar la firma" (D1,
+ * 11/11), con un motivo opcional de hasta 300 caracteres y confirmación (la pide
+ * la pantalla). "Al rechazar la firma el contrato vuelve a 'borrador' y se borran
+ * las firmas registradas": las de todos, también la del locatario si ya firmó.
+ * Conserva el código. Quien ya firmó no puede rechazar.
+ * Después, el locador sigue en el alta (`/editar`) y el locatario deja de ver el
+ * contrato (para él, un borrador no existe).
+ * @backend POST /api/v1/contratos/:id/rechazar   (existe · locador o locatario) body RechazarFirmaRequest → 200 RechazarContratoResponse
+ * @returns el id y el estado nuevo (`borrador`): el back no devuelve el detalle.
  * @throws {ServiceError}
  *   - `validation`: el motivo pasa los 300 caracteres.
- *   - `forbidden`: quien llama es el locador.
- *   - `conflict`: `CONTRATO_NO_PENDIENTE`, `YA_FIRMO` o `FIRMA_RECHAZADA` (ya rechazó).
+ *   - `conflict` (`apiCode`): `CONTRATO_NO_PENDIENTE`, `YA_FIRMO` (ya firmó: no puede rechazar) o `SOBRE_NO_DISPONIBLE`.
  *   - `not_found`: no existe o no es parte.
  */
-export async function rechazarFirma(id: string, motivo: string | null): Promise<ContratoDetalle> {
+export async function rechazarFirma(id: string, motivo: string | null): Promise<{ id: string; estado: 'borrador' }> {
   const error = errorDeMotivoRechazo(motivo)
   const limpio = normalizarMotivoRechazo(motivo)
   // Como el back: el largo se valida antes de buscar el contrato.
@@ -751,23 +779,80 @@ export async function rechazarFirma(id: string, motivo: string | null): Promise<
   if (USE_MOCKS) {
     await delay()
     const { contrato, rol } = contratoDeParteMock(id, requireSessionUserId())
-    if (rol !== 'locatario') throw new ServiceError('forbidden', SOLO_LOCATARIO_MESSAGE)
     const firmas = pendienteDeFirmaMock(contrato)
-    if (firmas.locatario.estado === 'firmado') throw new ServiceError('conflict', YA_FIRMO_MESSAGE, 'YA_FIRMO')
-    if (firmas.locatario.estado === 'rechazado') throw new ServiceError('conflict', FIRMA_RECHAZADA_MESSAGE, 'FIRMA_RECHAZADA')
-    const ahora = ahoraIsoMock()
-    return guardarAccionMock({
-      ...contrato,
-      firmas: { ...firmas, locatario: { ...firmas.locatario, estado: 'rechazado', rechazadoEl: ahora, motivoRechazo: limpio } },
-      updatedAt: ahora,
-    })
+    if (firmas[rol].estado === 'firmado') throw new ServiceError('conflict', YA_FIRMO_NO_RECHAZA_MESSAGE, 'YA_FIRMO')
+    // NOTA: el motivo no se guarda en el contrato (el back lo deja solo en su registro de avisos).
+    if (!guardarContratoMock(rechazoMock(contrato, ahoraIsoMock()))) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+    return { id: contrato.id, estado: 'borrador' }
   }
   try {
     const body: RechazarFirmaRequest = { motivo: limpio }
-    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/rechazar`, { method: 'POST', body }))
+    const dto = await apiRequest<RechazarContratoResponse>(`/contratos/${encodeURIComponent(id)}/rechazar`, { method: 'POST', body })
+    return { id: String(dto.id), estado: dto.estado }
   } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', prohibido: SOLO_LOCATARIO_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
+    throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_PENDIENTE', generico: FIRMA_ERROR_GENERICO_MESSAGE, mensajesPorCodigo: { YA_FIRMO: YA_FIRMO_NO_RECHAZA_MESSAGE } })
   }
+}
+
+// ─── US-07: simulador de DocuSign (solo mock) ───────────────────────────
+
+/**
+ * Lo que el simulador necesita saber: qué contrato, quién firma y a dónde vuelve.
+ * Viaja en el fragmento de la URL (`/simulador-firma#…`), nunca en `localStorage`.
+ */
+export interface SesionSimuladorFirma {
+  contratoId: string
+  firmante: Exclude<RolFirmante, 'garante'>
+  /** Ruta de regreso, sin `?event=` (el simulador lo agrega). */
+  regreso: string
+}
+
+/** Arma la URL del simulador con la sesión en el fragmento (base64url de un JSON). */
+function urlDelSimulador(sesion: SesionSimuladorFirma): string {
+  const json = JSON.stringify(sesion)
+  const base64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
+  return `/simulador-firma#${base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
+}
+
+/**
+ * Lee la sesión del fragmento del simulador. `null` si falta o está mal formada
+ * (la pantalla muestra "Esta sesión de firma no es válida").
+ * Solo mock: en real no existe el simulador.
+ */
+export function leerSesionSimulador(fragmento: string): SesionSimuladorFirma | null {
+  try {
+    const base64 = fragmento.replace(/^#/, '').replace(/-/g, '+').replace(/_/g, '/')
+    const bytes = Uint8Array.from(atob(base64), (letra) => letra.charCodeAt(0))
+    const datos: unknown = JSON.parse(new TextDecoder().decode(bytes))
+    if (typeof datos !== 'object' || datos === null) return null
+    const { contratoId, firmante, regreso } = datos as Record<string, unknown>
+    // La ruta de regreso tiene que ser interna: nunca otro sitio.
+    if (typeof contratoId !== 'string' || (firmante !== 'locador' && firmante !== 'locatario') || typeof regreso !== 'string' || !regreso.startsWith('/') || regreso.startsWith('//')) return null
+    return { contratoId, firmante, regreso }
+  } catch {
+    return null
+  }
+}
+
+/** Qué hace la persona en el simulador. */
+export type AccionSimulador = 'firmar' | 'declinar' | 'firmar_garantes'
+
+/**
+ * US-07, solo mock — Lo que en real hace DocuSign y su aviso al back: deja la
+ * firma (o el rechazo) para dentro de `demoraMs`. La pantalla, después, vuelve a
+ * la ruta de regreso con `?event=`. "Firmar como garantes" (`firmar_garantes`)
+ * es un botón de desarrollo para poder cerrar un contrato en mock.
+ * @backend ninguno: en real, DocuSign avisa al back por `POST /webhooks/docusign`.
+ * @throws {ServiceError} `server` si `localStorage` está lleno, o si se llama en modo real.
+ */
+export async function simularFirmaMock(sesion: SesionSimuladorFirma, accion: AccionSimulador, demoraMs: number): Promise<void> {
+  if (!USE_MOCKS) throw new ServiceError('server', 'El simulador de firma solo existe en modo mock.')
+  await delay(300)
+  const datos =
+    accion === 'firmar_garantes'
+      ? { contratoId: sesion.contratoId, firmante: 'garantes' as const, accion: 'firmar' as const }
+      : { contratoId: sesion.contratoId, firmante: sesion.firmante, accion: accion === 'firmar' ? ('firmar' as const) : ('rechazar' as const) }
+  if (!registrarFirmaDiferidaMock(datos, demoraMs)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
 }
 
 // ─── US-07: acciones del locador ────────────────────────────────────────
@@ -783,8 +868,9 @@ function contratoDelLocadorMock(id: string, userId: string): ContratoMock {
  * US-06 — "Antes de modificar un contrato pendiente de firma, se debe solicitar
  * confirmación" (la pide la pantalla). "Al confirmar, el contrato vuelve a
  * 'borrador' y conserva su código": se cancela el envío y se borran las firmas.
- * Es la única acción para volver atrás un envío (decisión del PO, Sprint 4): cubre
- * el "cancelar el envío" de US-07. La firma del propio locador no cuenta: se borra.
+ * Es la acción principal del locador para volver atrás un envío (D1, 11/11:
+ * "Rechazar firma" es la secundaria). La firma del propio locador no cuenta: se
+ * borra. En real, además, el back anula el sobre de DocuSign.
  * @backend POST /api/v1/contratos/:id/reabrir   (existe · rol locador) → 200 ContratoBorradorApiResponse
  * @throws {ServiceError}
  *   - `conflict` (`apiCode`): `CONTRATO_FIRMADO_POR_LOCATARIO`, `CONTRATO_VIGENTE`,
@@ -797,52 +883,14 @@ export async function reabrirContrato(id: string): Promise<void> {
     const contrato = contratoDelLocadorMock(id, requireSessionUserId())
     const firmas = pendienteDeFirmaMock(contrato)
     if (firmas.locatario.estado === 'firmado') throw new ServiceError('conflict', CONTRATO_FIRMADO_POR_LOCATARIO_MESSAGE, 'CONTRATO_FIRMADO_POR_LOCATARIO')
-    // Se borran las firmas registradas: el registro queda sin `firmas`, como un borrador.
-    const sinFirmas: ContratoMock = { ...contrato }
-    delete sinFirmas.firmas
-    // Vuelve al paso 1, como el back.
-    guardarAccionMock({ ...sinFirmas, status: 'borrador', ultimoPaso: 0, sentAt: null, firmadoPorTodasEl: null, updatedAt: ahoraIsoMock() })
+    // Como el back: borrador, sin firmas y de vuelta al paso 1 (el mismo resultado que un rechazo).
+    if (!guardarContratoMock(rechazoMock(contrato, ahoraIsoMock()))) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
     return
   }
   try {
     await apiRequest<ContratoBorradorApiResponse>(`/contratos/${encodeURIComponent(id)}/reabrir`, { method: 'POST' })
   } catch (error) {
     throw errorDeContrato(error, { porDefecto409: 'CONTRATO_NO_EDITABLE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
-  }
-}
-
-/**
- * US-07 — "El locador puede reenviar la invitación a un firmante pendiente,
- * como máximo una vez por hora." Hoy el único a quien reenviar es el
- * locatario (el garante no firma en el Sprint 3).
- * NOTA: no se manda ningún mail (ni en mock ni todavía en real): la
- * pantalla lo aclara con `SimulatedFeatureNotice`.
- * @backend POST /api/v1/contratos/:id/reenviar   (no existe — propuesto) body ReenviarInvitacionRequest → 200 ContratoDetalleApiResponse
- * @throws {ServiceError}
- *   - `too_many_requests` (429): pasó menos de una hora desde la última invitación.
- *   - `conflict`: `FIRMANTE_NO_PENDIENTE` (ya firmó o rechazó) o `CONTRATO_NO_PENDIENTE`.
- *   - `forbidden`: quien llama es el locatario. `not_found`: no es parte.
- */
-export async function reenviarInvitacion(id: string, rol: RolFirmante): Promise<ContratoDetalle> {
-  if (USE_MOCKS) {
-    await delay()
-    const contrato = contratoDelLocadorMock(id, requireSessionUserId())
-    const firmas = pendienteDeFirmaMock(contrato)
-    const firma = firmas[rol]
-    if (rol === 'locador' || firma.estado !== 'pendiente') throw new ServiceError('conflict', FIRMANTE_NO_PENDIENTE_MESSAGE, 'FIRMANTE_NO_PENDIENTE')
-    const ahora = ahoraIsoMock()
-    if (reenvioBloqueado(firma, ahora)) throw new ServiceError('too_many_requests', REENVIO_MUY_PRONTO_MESSAGE)
-    return guardarAccionMock({
-      ...contrato,
-      firmas: { ...firmas, [rol]: { ...firma, ultimaInvitacion: ahora } },
-      updatedAt: ahora,
-    })
-  }
-  try {
-    const body: ReenviarInvitacionRequest = { rol }
-    return detalleDeLocadorDeDto(await apiRequest<ContratoDetalleApiResponse>(`/contratos/${encodeURIComponent(id)}/reenviar`, { method: 'POST', body }))
-  } catch (error) {
-    throw errorDeContrato(error, { porDefecto409: 'FIRMANTE_NO_PENDIENTE', prohibido: SOLO_LOCADOR_MESSAGE, generico: FIRMA_ERROR_GENERICO_MESSAGE })
   }
 }
 
@@ -889,6 +937,7 @@ function alquileresLocatarioApi(): Promise<AlquilerLocatarioItemResponse[]> {
 export async function listarMisAlquileres(): Promise<AlquilerResumen[]> {
   if (USE_MOCKS) {
     await delay(400)
+    aplicarFirmasDiferidasMock()
     return ordenarAlquileres(contratosDeLocatarioMock(requireSessionUserId(), nombreDeCuenta, hoyIso(), ESTADOS_MIS_ALQUILERES))
   }
   try {
@@ -905,6 +954,7 @@ export async function listarMisAlquileres(): Promise<AlquilerResumen[]> {
  */
 export async function contarMisAlquileres(): Promise<number> {
   if (USE_MOCKS) {
+    aplicarFirmasDiferidasMock()
     const { guardados, alquileres } = misContratosMock(requireSessionUserId())
     return guardados.length + alquileres.length
   }
@@ -935,10 +985,12 @@ function fichaDeLocatarioMock(detalle: ContratoDetalle): ContratoDetalle {
 export async function getMiAlquiler(contratoId?: string): Promise<MiAlquiler> {
   if (USE_MOCKS) {
     await delay(400)
-    const { guardados, alquileres } = misContratosMock(requireSessionUserId())
+    aplicarFirmasDiferidasMock()
+    const userId = requireSessionUserId()
+    const { guardados, alquileres } = misContratosMock(userId)
     if (contratoId) {
       const guardado = guardados.find((contrato) => contrato.id === contratoId || contrato.code === contratoId)
-      if (guardado) return { tipo: 'uno', contrato: fichaDeLocatarioMock(detalleDeContratoMock(guardado)) }
+      if (guardado) return { tipo: 'uno', contrato: fichaDeLocatarioMock(detalleDeContratoMock(guardado, userId)) }
       const propiedad = alquileres.find((item) => item.rental?.contractId === contratoId)
       const detalle = propiedad ? detalleDeAlquilerMock(propiedad) : null
       if (!detalle) throw new ServiceError('not_found', ALQUILER_NO_ENCONTRADO_MESSAGE)
@@ -947,7 +999,7 @@ export async function getMiAlquiler(contratoId?: string): Promise<MiAlquiler> {
     const cantidad = guardados.length + alquileres.length
     if (cantidad === 0) return { tipo: 'ninguno' }
     if (cantidad > 1) return { tipo: 'varios', cantidad }
-    const unico = guardados[0] ? detalleDeContratoMock(guardados[0]) : alquileres[0] ? detalleDeAlquilerMock(alquileres[0]) : null
+    const unico = guardados[0] ? detalleDeContratoMock(guardados[0], userId) : alquileres[0] ? detalleDeAlquilerMock(alquileres[0]) : null
     return unico ? { tipo: 'uno', contrato: fichaDeLocatarioMock(unico) } : { tipo: 'ninguno' }
   }
   let id = contratoId

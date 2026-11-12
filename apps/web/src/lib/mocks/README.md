@@ -65,15 +65,31 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
 - **CT-2026-0207** tiene un garante, Hugo Peralta (DNI 14.902.338, `hugo.peralta@rentar.test`, del
   diseño). Mientras está pendiente de firma, **Rondeau 480 sigue publicada** (decisión del PO). Su
   monto es el canónico del mapa ($385.000; el wizard del diseño decía $320.000).
-- **Firmas (US-07, tanda 3):** CT-2026-0207 arranca **pendiente con 0 firmas**; las dos partes fueron
-  invitadas el 22/09 a las 11:40 (el primer reenvío ya se puede hacer). Firman Nicolás (desde el
-  detalle, `/panel/contratos/CT-2026-0207`) y Julieta (desde **Mi alquiler**, `/panel/alquiler`). Las
-  firmas, rechazos, cancelaciones y reenvíos hechos en el navegador se guardan en
-  `rentar:mock:contratos` con el reloj único (`ahora()`: el 23/09/2026 con la **hora real**,
-  decisión del PO). **No hay un contrato sembrado con 1 firma**: se arma
-  en la prueba con SOL-2026-0034 (Diego firma en Mi alquiler). Cuando firman los dos, Rondeau 480 pasa a **alquilada** (sale de
-  `/buscar`) y sus solicitudes pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con
-  "La propiedad ya fue alquilada.". "Reiniciar datos de prueba" lo deja todo como al principio.
+- **Firmas (US-07, firma con DocuSign, Sprint 5):** firman el locador, el locatario **y cada
+  garante** (decisión del PO del 11/11). CT-2026-0207 arranca **pendiente con 0 de 3 firmas**
+  (Nicolás, Julieta y Hugo). Nicolás firma desde el detalle (`/panel/contratos/CT-2026-0207`) y
+  Julieta desde **Mi alquiler** (`/panel/alquiler`). No hay "Reenviar invitación".
+- **DocuSign simulado (`/simulador-firma`, solo con mocks):** "Ir a firmar" lleva a una pantalla que
+  reemplaza a DocuSign, con los datos en el fragmento de la URL (`#…`, nunca en `localStorage`). Ahí se
+  elige **Firmar**, **Declinar**, **Cerrar sin firmar** (`cancel`) o **Dejar vencer la sesión**
+  (`session_timeout`); después vuelve a la ficha con `?event=…`, como DocuSign.
+- **Firmas diferidas:** Firmar y Declinar no se registran en el momento: quedan en
+  `rentar:mock:firmas-diferidas` (contrato, firmante y desde cuándo, sin URLs ni tokens) y se aplican
+  **8 segundos después** (o **60** con "Simular un aviso demorado"), cuando alguna pantalla vuelve a
+  leer los contratos. Así se ve "Estamos registrando tu firma…" y, con 60 s, "Todavía estamos
+  registrando tu firma" (la espera corta a los 45 s). Usan el reloj real, no el "hoy" del elenco.
+- **"Firmar como garantes"** (herramienta de desarrollo del simulador): firma por todos los garantes
+  con la misma demora. Sirve para cerrar un contrato en mock antes de la pantalla del garante (Tanda B):
+  el último en firmar toca primero "Firmar como garantes" y después "Firmar".
+- **Rechazar** (las dos partes, mientras no hayan firmado) o **Declinar** en el simulador: el contrato
+  vuelve a **borrador**, conserva el código y se borran todas las firmas, como en el back. El locador
+  sigue en el alta (`/editar?envio=rechazado`); el locatario deja de verlo ("Rechazaste el contrato").
+- Cuando firman todos, Rondeau 480 pasa a **alquilada** (sale de `/buscar`), sus solicitudes
+  pendientes (0032 de Matías y 0040 de Diego) pasan a **rechazadas** con "La propiedad ya fue
+  alquilada." y el documento se muestra como **`CT-2026-0207-firmado.pdf`** (el mismo PDF ficticio),
+  con el aviso de firma de prueba.
+- Los contratos guardados en el navegador antes del 11/11 (sin garantes en `firmas`) se leen con los
+  garantes pendientes: no hace falta reiniciar. "Reiniciar datos de prueba" deja todo como al principio.
 - Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas registradas
   (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más

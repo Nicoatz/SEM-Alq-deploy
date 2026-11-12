@@ -290,6 +290,18 @@ Sin APIs exclusivas de React 19 (regla del 09/10): los dos cambios son props y e
 componente cambió. Si `dtsPropsFor` de `config.json` llegara a listar alguno de los dos, actualizar
 la unión (hoy no los lista).
 
+## Propuesta (Sprint 5): `SimulatedFeatureNotice` con prop `title` (2026-11-11)
+
+- **Qué pasa hoy:** el aviso de la firma con DocuSign (US-07) tiene que decir "firma de prueba", y
+  `SimulatedFeatureNotice` arma el título fijo "Esta función (…) todavía es simulada". Por eso el front
+  usa un `Alert` local de antd: `apps/web/src/components/contratos/AvisoFirmaDePrueba.tsx` (decisión D3
+  del PO, 11/11). No se tocó `@rentar/ui`.
+- **Propuesta para cuando `/design-sync` vuelva a andar:** sumar a `SimulatedFeatureNotice` una prop
+  opcional `title` que reemplace el texto armado (sin `title`, igual que hoy), con una historia
+  `ConTitulo` en `previews/SimulatedFeatureNotice.tsx`. Después, reemplazar `AvisoFirmaDePrueba` por
+  `<SimulatedFeatureNotice title="Firma de prueba: …" />` en `FirmaContrato.tsx` y `DetalleContrato.tsx`.
+- Consultar con el PO antes de cambiar `@rentar/ui` (regla del `CLAUDE.md`).
+
 ## Pendiente de subir (Sprint 4): `ConfirmActionModal` con el `data-testid` en el panel (2026-11-11)
 
 - **Qué cambió:** el `data-testid` ya no va a la raíz del `Modal` de antd (`.ant-modal-root`, que

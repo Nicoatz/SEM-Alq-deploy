@@ -20,23 +20,28 @@
  * el borrador pide el DNI de nuevo. El DNI de las partes no se guarda en el
  * contrato: se lee del perfil al abrirlo.
  *
- * US-07 (tanda 3): las firmas viven en el mismo registro (`firmas`). Cuando
- * firman las dos partes, este adaptador
- * refleja lo que en real hace el back ({@link pasarAVigenteMock}): la
- * propiedad pasa a alquilada y sus solicitudes pendientes, a rechazadas.
+ * US-07: las firmas viven en el mismo registro (`firmas`): locador, locatario
+ * y una por garante. Cuando firman todos, este adaptador refleja lo que en
+ * real hace el back ({@link pasarAVigenteMock}): la propiedad pasa a alquilada
+ * y sus solicitudes pendientes, a rechazadas. Rechazar vuelve el contrato a
+ * borrador ({@link rechazoMock}).
+ * La firma en DocuSign se simula en `/simulador-firma`: la firma no se registra
+ * en el momento sino unos segundos después ({@link registrarFirmaDiferidaMock}),
+ * como el aviso de DocuSign al back. Ver "Firmas diferidas" más abajo.
  *
  * Cubre: US-05 Registrar contrato de alquiler, US-07 Firmar contrato de
  * alquiler, US-27 Consultar mis alquileres (y US-21, el bloqueo).
  * Quién lo usa: la rama mock de `contratos.service.ts`, `solicitudes.service.ts`
  * y `perfil.service.ts`. Nunca las pantallas.
  */
-import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PdfContrato, PeriodicidadAjuste, RolFirmante } from '@rentar/shared-types'
+import type { AlquilerResumen, ContractStatus, ContratoDeSolicitud, ContratoResumen, IndiceContrato, PdfContrato, PeriodicidadAjuste } from '@rentar/shared-types'
 import {
   contratos as contratosElenco,
   propiedades as propiedadesElenco,
   solicitudes as solicitudesElenco,
   type ContratoMock,
   type FirmaMock,
+  type FirmasMock,
   type PropiedadMock,
 } from '@/lib/mocks'
 import { fechaFin, fechaPrimerAjuste, MESES_POR_PERIODO, proximoAjuste } from '@/lib/contratos/fechas'
@@ -75,7 +80,8 @@ export function readPropiedadesContratoMock(): PropiedadMock[] {
 
 /** Los contratos guardados (elenco + navegador), con el DNI de los garantes que está en memoria. */
 export function readContratosMock(): ContratoMock[] {
-  return readMockCollection('contratos', contratosElenco).filter((contrato) => !contrato.descartado).map((contrato) => {
+  return readMockCollection('contratos', contratosElenco).filter((contrato) => !contrato.descartado).map((guardado) => {
+    const contrato = conFirmasActualesMock(guardado)
     const enMemoria = dniGarantesEnMemoria.get(contrato.id)
     if (!enMemoria) return contrato
     return { ...contrato, garantes: contrato.garantes.map((garante) => ({ ...garante, dni: enMemoria.get(garante.key) ?? garante.dni })) }
@@ -292,7 +298,7 @@ export function periodicidadDePublicacion(propiedad: Pick<PropiedadMock, 'adjust
 
 /**
  * Fecha y hora ISO de un hecho nuevo en mock (borradores, envíos, firmas,
- * rechazos, cancelaciones y reenvíos): el reloj único (`lib/utils/fechas.ts#ahora`).
+ * rechazos y cancelaciones): el reloj único (`lib/utils/fechas.ts#ahora`).
  */
 export function ahoraIsoMock(): string {
   return ahoraIso()
@@ -300,10 +306,85 @@ export function ahoraIsoMock(): string {
 
 // ─── Firmas (US-07) ─────────────────────────────────────────────────────
 
-/** Las dos firmas al enviar a firmar: pendientes e invitadas en ese momento. */
-export function firmasAlEnviar(fecha: string): Record<RolFirmante, FirmaMock> {
-  const pendiente: FirmaMock = { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null, ultimaInvitacion: fecha }
-  return { locador: { ...pendiente }, locatario: { ...pendiente } }
+/** Una firma que todavía no se hizo. */
+const FIRMA_PENDIENTE: FirmaMock = { estado: 'pendiente', firmadoEl: null, rechazadoEl: null, motivoRechazo: null }
+
+/** Las firmas al enviar a firmar (US-07): todas pendientes, una por garante. */
+export function firmasAlEnviar(cantidadGarantes: number): FirmasMock {
+  return {
+    locador: { ...FIRMA_PENDIENTE },
+    locatario: { ...FIRMA_PENDIENTE },
+    garantes: Array.from({ length: cantidadGarantes }, () => ({ ...FIRMA_PENDIENTE })),
+  }
+}
+
+/**
+ * Un contrato guardado antes del 11/11 tiene las firmas de las dos partes sin
+ * los garantes (y con `ultimaInvitacion`). Se le suman los garantes pendientes,
+ * así un navegador con datos viejos sigue funcionando sin reiniciar.
+ */
+function conFirmasActualesMock(contrato: ContratoMock): ContratoMock {
+  const { firmas } = contrato
+  // NOTA: el tipo dice que `garantes` siempre está; en datos viejos del navegador, no.
+  if (!firmas || Array.isArray(firmas.garantes)) return contrato
+  const limpia = ({ estado, firmadoEl, rechazadoEl, motivoRechazo }: FirmaMock): FirmaMock => ({ estado, firmadoEl, rechazadoEl, motivoRechazo })
+  return {
+    ...contrato,
+    firmas: { locador: limpia(firmas.locador), locatario: limpia(firmas.locatario), garantes: contrato.garantes.map(() => ({ ...FIRMA_PENDIENTE })) },
+  }
+}
+
+/**
+ * Quién firma en una acción del mock: una parte, un garante por su posición
+ * (`garante-1`, `garante-2`…) o todos los garantes juntos (`garantes`, el botón
+ * de desarrollo "Firmar como garantes" del simulador).
+ */
+export type FirmanteMock = 'locador' | 'locatario' | `garante-${number}` | 'garantes'
+
+/** US-07: "Cuando firman el locador, el locatario y todos los garantes, el contrato pasa a vigente". */
+export function firmaronTodosMock(firmas: FirmasMock): boolean {
+  return [firmas.locador, firmas.locatario, ...firmas.garantes].every((firma) => firma.estado === 'firmado')
+}
+
+/** La firma de `firmante` en el contrato. `null` si no existe (ej. `garante-3` con un garante). */
+export function firmaDeMock(firmas: FirmasMock, firmante: Exclude<FirmanteMock, 'garantes'>): FirmaMock | null {
+  if (firmante === 'locador' || firmante === 'locatario') return firmas[firmante]
+  return firmas.garantes[Number(firmante.slice('garante-'.length)) - 1] ?? null
+}
+
+/**
+ * Registra la firma de `firmante`, como el webhook en el back. Si con ella
+ * firmaron todos, el contrato pasa a vigente (y la propiedad, a alquilada:
+ * {@link pasarAVigenteMock}). Un contrato que ya no está pendiente no cambia.
+ * @returns `false` si `localStorage` está lleno o bloqueado.
+ */
+export function firmarMock(contrato: ContratoMock, firmante: FirmanteMock, fecha: string): boolean {
+  const { firmas } = contrato
+  if (contrato.status !== 'pendiente_firma' || !firmas) return true
+  const firmar = (firma: FirmaMock, leToca: boolean): FirmaMock => (leToca && firma.estado === 'pendiente' ? { ...firma, estado: 'firmado', firmadoEl: fecha } : firma)
+  const nuevas: FirmasMock = {
+    locador: firmar(firmas.locador, firmante === 'locador'),
+    locatario: firmar(firmas.locatario, firmante === 'locatario'),
+    garantes: firmas.garantes.map((firma, posicion) => firmar(firma, firmante === 'garantes' || firmante === `garante-${posicion + 1}`)),
+  }
+  const todas = firmaronTodosMock(nuevas)
+  const actualizado: ContratoMock = todas
+    ? { ...contrato, firmas: nuevas, updatedAt: fecha, status: 'vigente', firmadoPorTodasEl: fecha }
+    : { ...contrato, firmas: nuevas, updatedAt: fecha }
+  if (!guardarContratoMock(actualizado)) return false
+  return todas ? pasarAVigenteMock(actualizado, fecha) : true
+}
+
+/**
+ * US-07 — "Al rechazar la firma el contrato vuelve a 'borrador' y se borran las
+ * firmas registradas", como `registrar_rechazo_contrato` en el back: conserva
+ * el código, vuelve al paso 1 del alta (el back guarda 1; el alta cuenta desde
+ * 0) y deja de estar enviado. Devuelve el contrato; lo guarda quien llama.
+ */
+export function rechazoMock(contrato: ContratoMock, fecha: string): ContratoMock {
+  const borrador: ContratoMock = { ...contrato, status: 'borrador', ultimoPaso: 0, sentAt: null, firmadoPorTodasEl: null, updatedAt: fecha }
+  delete borrador.firmas
+  return borrador
 }
 
 /** US-07: "un mensaje automático de que la propiedad ya fue alquilada" (va en `mensaje_rechazo`). */
@@ -353,4 +434,60 @@ export function pasarAVigenteMock(contrato: ContratoMock, fecha: string): boolea
   return pendientes.every((solicitud) =>
     saveMockRecord('solicitudes', { ...solicitud, status: 'rechazada', respondedAt: fecha, rejectionMessage: MENSAJE_PROPIEDAD_ALQUILADA }),
   )
+}
+
+// ─── Firmas diferidas: el aviso de DocuSign, simulado (US-07) ───────────
+
+/**
+ * Una firma (o un rechazo desde DocuSign) que todavía no se registró. En real,
+ * DocuSign devuelve a la persona apenas firma, pero el back se entera entre 3 y
+ * 30 segundos después (guía del back, §6). El simulador (`/simulador-firma`)
+ * deja la acción acá y se aplica cuando vence `aplicarDesde`, así la pantalla
+ * pasa por "Estamos registrando tu firma" igual que en real.
+ * NOTA: se guarda en `rentar:mock:firmas-diferidas`, sin URLs ni tokens.
+ */
+export interface FirmaDiferidaMock {
+  id: string
+  contratoId: string
+  firmante: FirmanteMock
+  /** `rechazar`: el firmante declinó en DocuSign (vuelve a borrador, como `/rechazar`). */
+  accion: 'firmar' | 'rechazar'
+  /**
+   * Desde cuándo se aplica, en milisegundos del reloj REAL (`Date.now()`).
+   * NOTA: no usa el "hoy" del mock: es una espera de segundos, no una fecha del elenco.
+   */
+  aplicarDesde: number
+}
+
+/**
+ * Deja una firma o un rechazo para dentro de `demoraMs` (el simulador usa 8 s, o
+ * 60 s con "Simular un aviso demorado").
+ * @returns `false` si `localStorage` está lleno o bloqueado.
+ */
+export function registrarFirmaDiferidaMock(datos: Pick<FirmaDiferidaMock, 'contratoId' | 'firmante' | 'accion'>, demoraMs: number): boolean {
+  const ahora = Date.now()
+  return saveMockRecord<FirmaDiferidaMock>('firmas-diferidas', { ...datos, id: `${datos.contratoId}|${datos.firmante}|${ahora}`, aplicarDesde: ahora + demoraMs })
+}
+
+/**
+ * Aplica las firmas y rechazos diferidos que ya vencieron, en orden. Lo llaman
+ * las lecturas mock de contratos antes de responder (detalle, Mi alquiler,
+ * pestaña Contratos y listados), como si el webhook ya hubiera llegado.
+ * Un contrato que dejó de estar pendiente (otro lo rechazó, el locador lo
+ * modificó) se ignora, igual que el back con un sobre anulado.
+ */
+export function aplicarFirmasDiferidasMock(): void {
+  const ahora = Date.now()
+  const vencidas = readMockCollection<FirmaDiferidaMock>('firmas-diferidas', [])
+    .filter((diferida) => diferida.aplicarDesde <= ahora)
+    .sort((a, b) => a.aplicarDesde - b.aplicarDesde)
+  for (const diferida of vencidas) {
+    const contrato = readContratosMock().find((item) => item.id === diferida.contratoId)
+    if (contrato?.status === 'pendiente_firma') {
+      const fecha = ahoraIso()
+      if (diferida.accion === 'firmar') firmarMock(contrato, diferida.firmante, fecha)
+      else guardarContratoMock(rechazoMock(contrato, fecha))
+    }
+    deleteMockRecord('firmas-diferidas', diferida.id)
+  }
 }

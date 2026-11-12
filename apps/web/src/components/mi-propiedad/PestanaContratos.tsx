@@ -103,7 +103,7 @@ function FirmasDelContrato({ contrato }: { contrato: ContratoDePropiedad }) {
   return (
     <ul className={styles.firmas} data-testid="propiedad-contrato-firmas">
       {contrato.firmantes.map((firmante) => (
-        <li key={firmante.rol} className={styles.firma}>
+        <li key={firmante.key} className={styles.firma}>
           <span>
             <strong>{firmante.nombre || NOMBRE_ROL[firmante.rol]}</strong> · {NOMBRE_ROL[firmante.rol]}
           </span>

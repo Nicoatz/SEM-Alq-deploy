@@ -14,12 +14,12 @@
  * - "Guardar borrador" en el encabezado de cada paso manda solo lo que cambió
  *   (`cambiosDeBorrador`); "Eliminar borrador" con confirmación.
  * - Paso 4: la casilla de revisión es obligatoria y "Enviar a firmar" pide
- *   confirmación nombrando a los dos firmantes (decisión del PO: locador y
- *   locatario). Al enviar, el resultado va dentro del alta.
- * - En real el flujo termina en borrador (decisión del PO): sin
- *   `POST /contratos/:id/enviar`, "Enviar a firmar" queda visible y
- *   deshabilitado en la Revisión (`WizardLayout` no tiene un botón final
- *   deshabilitado y no se toca `@rentar/ui`).
+ *   confirmación nombrando a quienes firman: el locador, el locatario y cada
+ *   garante (US-07, decisión del PO del 11/11). Al enviar, el resultado va
+ *   dentro del alta. En real, el back crea el sobre en DocuSign; si DocuSign
+ *   no responde (502), el contrato sigue en borrador y se puede reintentar.
+ * - Avisos al llegar: `?envio=cancelado` (US-06, "Modificar" en el detalle) y
+ *   `?envio=rechazado` (US-07, alguien rechazó la firma y volvió a borrador).
  * Usa `WizardLayout` de `@rentar/ui` (como el alta de propiedad).
  *
  * Aviso de salida (US-21, `AvisoCambiosProvider`): marca cambios mientras
@@ -30,7 +30,7 @@
  *
  * De dónde saca los datos: `contratos.service#iniciarContrato` (nuevo) o
  * `#getBorrador` (borrador); guarda con `#guardarBorrador`, `#eliminarBorrador`
- * y `#enviarAFirmar` (solo en mock: en real no existe, ver `ENVIO_A_FIRMA_DISPONIBLE`).
+ * y `#enviarAFirmar`.
  * Quién lo usa: `app/(app)/panel/contratos/nuevo/page.tsx` y `[id]/editar/page.tsx`.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -44,7 +44,7 @@ import { errorDeGarantes, erroresCondiciones, errorParaEnviar } from '@/lib/cont
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import { useAvisoCambiosSinGuardar } from '@/lib/navigation/AvisoCambiosProvider'
 import { hoy } from '@/lib/utils/fechas'
-import { eliminarBorrador, ENVIO_A_FIRMA_DISPONIBLE, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato, subirPdfContrato } from '@/services/contratos.service'
+import { eliminarBorrador, enviarAFirmar, getBorrador, guardarBorrador, iniciarContrato, subirPdfContrato } from '@/services/contratos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { PasoCarga } from './PasoCarga'
 import { PasoCondiciones } from './PasoCondiciones'
@@ -83,8 +83,20 @@ interface AltaContratoProps {
   contratoId?: string
   /** `true` al llegar del primer "Guardar borrador" (`?guardado=1`): muestra el aviso. */
   recienGuardado?: boolean
-  /** `true` al llegar de "Modificar" en el detalle (`?envio=cancelado`, US-06): muestra el aviso. */
-  envioCancelado?: boolean
+  /**
+   * Aviso al llegar desde el detalle: `cancelado` ("Modificar", US-06) o
+   * `rechazado` (se rechazó la firma y volvió a borrador, US-07). `null` sin aviso.
+   */
+  avisoEnvio?: AvisoEnvio | null
+}
+
+/** Por qué un contrato enviado volvió a borrador (`?envio=` de `/[id]/editar`). */
+export type AvisoEnvio = 'cancelado' | 'rechazado'
+
+/** Texto del aviso de cada caso (US-06 y US-07: "conserva su código"). */
+const TEXTO_AVISO_ENVIO: Record<AvisoEnvio, string> = {
+  cancelado: 'Se canceló el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.',
+  rechazado: 'Se rechazó la firma: el contrato volvió a borrador, con el mismo código, y se borraron todas las firmas. Podés corregirlo y volver a enviarlo.',
 }
 
 /** Huella de lo cargado, sin el paso (moverse entre pasos no es un cambio). */
@@ -178,11 +190,11 @@ function ContratoNoEditable({ titulo, miga, descripcion, contratoId, propiedadId
 interface EditorContratoProps {
   inicial: ContratoBorrador
   recienGuardado: boolean
-  envioCancelado: boolean
+  avisoEnvio: AvisoEnvio | null
 }
 
 /** El wizard, con el contrato cargado. Se monta de nuevo si cambia el contrato (`key`). */
-function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContratoProps) {
+function EditorContrato({ inicial, recienGuardado, avisoEnvio }: EditorContratoProps) {
   const router = useRouter()
 
   // ─── Estado local ───────────────────────────────────────────────────
@@ -201,8 +213,8 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   const [pdfPendiente, setPdfPendiente] = useState<File | null>(null)
   const [guardando, setGuardando] = useState(false)
   const [aviso, setAviso] = useState<string | null>(() => {
-    // US-06: "el contrato vuelve a 'borrador' y conserva su código".
-    if (envioCancelado) return 'Se canceló el envío: el contrato volvió a borrador y se borraron las firmas. Podés editarlo y volver a enviarlo.'
+    // US-06 y US-07: "el contrato vuelve a 'borrador' y conserva su código".
+    if (avisoEnvio) return TEXTO_AVISO_ENVIO[avisoEnvio]
     return recienGuardado ? BORRADOR_GUARDADO : null
   })
   const [errorAccion, setErrorAccion] = useState<string | null>(null)
@@ -346,7 +358,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
         setConfirmarEnvio(false)
         return
       }
-      setEnviado(await enviarAFirmar(contratoId))
+      setEnviado(await enviarAFirmar(contratoId, borrador))
       setConfirmarEnvio(false)
     } catch (error) {
       avisarError(error, 'No pudimos enviar el contrato. Probá de nuevo.')
@@ -359,6 +371,10 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
   // ─── Render ─────────────────────────────────────────────────────────
   const nombreLocador = `${borrador.locador.nombre} ${borrador.locador.apellido}`.trim()
   const nombreLocatario = `${borrador.locatario.nombre} ${borrador.locatario.apellido}`.trim()
+  // US-05: "indicando quiénes deben firmar". US-07: los garantes también firman, con un enlace.
+  const garantesQueFirman = borrador.garantes.map((garante) => `${garante.fullName} (garante)`)
+  const quienesFirman = [`${nombreLocador} (locador, vos)`, `${nombreLocatario} (locatario)`, ...garantesQueFirman]
+  const listaDeFirmantes = `${quienesFirman.slice(0, -1).join(', ')} y ${quienesFirman.at(-1) ?? ''}`
   const titulo = 'Continuar contrato'
   const miga = [...MIGA_BASE, { label: borrador.propiedad.address, href: contratosDePropiedadHref(borrador.propiedad.id) }, { label: titulo }]
   const subtitulo = `${borrador.propiedad.address} · ${nombreLocatario}`
@@ -391,7 +407,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       ) : indice === 2 ? (
         <PasoCarga contratoId={contratoId} pdf={borrador.pdf} pdfPendiente={pdfPendiente} onPdfElegido={elegirPdf} />
       ) : (
-        <PasoRevision borrador={borrador} pdfPendiente={pdfPendiente} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} envioDisponible={ENVIO_A_FIRMA_DISPONIBLE} finGuardado={mismoPlazo ? guardado.endDate : null} />
+        <PasoRevision borrador={borrador} pdfPendiente={pdfPendiente} onEditar={irAlPaso} acepto={acepto} onAceptoChange={setAcepto} mostrarErrorCasilla={conErrores.has(ULTIMO_PASO)} finGuardado={mismoPlazo ? guardado.endDate : null} />
       ),
   }))
 
@@ -434,7 +450,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
         steps={steps}
         currentStep={paso}
         onStepChange={irAlPaso}
-        onFinish={ENVIO_A_FIRMA_DISPONIBLE ? pedirEnvio : undefined}
+        onFinish={pedirEnvio}
         finishLabel="Enviar a firmar"
         navigableSteps
         loading={enviando}
@@ -445,7 +461,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
       <ConfirmActionModal
         open={confirmarEnvio}
         title="¿Enviar el contrato a firmar?"
-        description={`Lo van a firmar ${nombreLocador} (locador, vos) y ${nombreLocatario} (locatario), cada uno desde su panel. Después de enviarlo ya no se puede editar.`}
+        description={`Lo van a firmar ${listaDeFirmantes}. El locador y el locatario firman desde su panel; a cada garante le vas a pasar un enlace. Después de enviarlo ya no se puede editar.`}
         confirmLabel="Enviar a firmar"
         cancelLabel="Seguir revisando"
         confirmLoading={enviando}
@@ -473,7 +489,7 @@ function EditorContrato({ inicial, recienGuardado, envioCancelado }: EditorContr
 // ─── Carga ──────────────────────────────────────────────────────────────
 
 /** Alta de contrato: carga el contrato (nuevo o borrador) y monta el wizard. */
-export function AltaContrato({ solicitudId, propiedadId, contratoId, recienGuardado = false, envioCancelado = false }: AltaContratoProps) {
+export function AltaContrato({ solicitudId, propiedadId, contratoId, recienGuardado = false, avisoEnvio = null }: AltaContratoProps) {
   const router = useRouter()
   const cargar = useCallback(() => (contratoId ? getBorrador(contratoId) : iniciarUnaVez(solicitudId ?? '')), [contratoId, solicitudId])
   const carga = useServiceCall(cargar)
@@ -536,5 +552,5 @@ export function AltaContrato({ solicitudId, propiedadId, contratoId, recienGuard
     return <ContratoNoEditable titulo={titulo} miga={miga} descripcion={motivoNoEditable(contrato)} contratoId={contrato.id ?? ''} propiedadId={contrato.propiedad.id} />
   }
 
-  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} recienGuardado={recienGuardado} envioCancelado={envioCancelado} />
+  return <EditorContrato key={contrato.id ?? `nuevo-${contrato.solicitudId}`} inicial={contrato} recienGuardado={recienGuardado} avisoEnvio={avisoEnvio} />
 }
