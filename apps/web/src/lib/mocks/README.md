@@ -158,6 +158,10 @@ prueba". Cada firma se registra **8 segundos** después de volver del simulador:
   prueba: Nicolás cancela la aceptada 0034 de Fructuoso Rivera (US-38) y queda solo la pendiente 0039.
 - **"Iniciar contrato"** se prueba con **SOL-2026-0034** (Diego, Fructuoso Rivera 785): aceptada y
   sin contrato. Crea el borrador al entrar, como el back: si salís sin guardar, queda en la pestaña. SOL-2026-0031 ya originó CT-2026-0207: muestra el estado del contrato, no el botón.
+- **Id `BOR-<n>` de los contratos creados en el navegador:** es interno y se mantiene después de enviar a
+  firmar. Por eso la ruta sigue siendo `/panel/contratos/BOR-<n>` aunque el contrato ya tenga código
+  (`CT-AAAA-NNNN`). El mock lo encuentra por id o por código. En real no existe: el id es el de la fila en
+  la base, que no cambia de borrador a vigente (por ejemplo, `/panel/contratos/34`).
 - **Borrador sembrado: BOR-2026-0001** (Chacabuco 690, desde SOL-2026-0041 de Matías). Chacabuco sigue
   **pausada**: el locador la pausó mientras arma el contrato, y no aparece en `/buscar`. Eliminarlo lo
   marca `descartado` en el navegador y la solicitud **vuelve a pendiente**, como en el back (decisión del

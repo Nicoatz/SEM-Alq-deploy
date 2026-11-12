@@ -20,6 +20,11 @@ import type { ObtenerUrlPdf } from './pdfVisor'
  * Pide una URL `blob:` del archivo cada vez que se la necesita (como la URL
  * firmada del PDF guardado) y las libera todas al cambiar de archivo o al
  * desmontar: si no, el navegador retiene el PDF hasta cerrar la pestaña.
+ * NOTA: en `next dev`, React StrictMode monta, desmonta y vuelve a montar: la
+ * limpieza revoca la URL que la miniatura acaba de pedir y pdf.js loguea
+ * `ERR_FILE_NOT_FOUND` en la consola (al pasar de Carga a Revisión y al volver).
+ * El segundo montaje pide otra URL y la miniatura se dibuja igual: no tiene
+ * efecto visible. En producción no pasa (sin StrictMode; verificado el 12/11).
  * @returns un `ObtenerUrlPdf` estable para `MiniaturaPdf` y `BotonPdf`; `null` sin archivo.
  */
 export function useUrlPdfLocal(archivo: File | null): ObtenerUrlPdf | null {
