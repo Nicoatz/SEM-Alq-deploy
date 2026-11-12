@@ -17,7 +17,9 @@ import { ordenarPeriodos } from './orden'
 /**
  * Arma el listado.
  *
- * - Los períodos futuros no se muestran.
+ * - Los períodos futuros no se muestran, pero se devuelve el inicio del más
+ *   cercano (`proximoInicio`): un contrato recién firmado que arranca el mes que
+ *   viene no es lo mismo que no tener contratos.
  * - Las cantidades de cada estado respetan la propiedad y el mes, no el estado.
  * - Los indicadores son del mes elegido; sin mes, del mes de hoy (US-09).
  * - Una propiedad que no está en la lista se ignora, como un filtro desconocido.
@@ -26,6 +28,7 @@ import { ordenarPeriodos } from './orden'
  */
 export function armarListado(periodos: readonly PeriodoFila[], filtros: FiltrosCobros, hoyIso: string): ListadoCobros {
   const vigentes = periodos.filter((periodo) => periodo.inicio <= hoyIso)
+  const futuros = periodos.filter((periodo) => periodo.inicio > hoyIso).map((periodo) => periodo.inicio).sort()
 
   const nombres = new Map(vigentes.map((periodo) => [periodo.propiedadId, periodo.propiedad]))
   const propiedades = [...nombres].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre))
@@ -44,6 +47,7 @@ export function armarListado(periodos: readonly PeriodoFila[], filtros: FiltrosC
   return {
     filas: ordenarPeriodos(delFiltro.filter((periodo) => filtros.estado === 'todos' || periodo.estado === filtros.estado)),
     totalPeriodos: vigentes.length,
+    proximoInicio: futuros[0] ?? null,
     cantidades: {
       todos: delFiltro.length,
       vencido: contar('vencido'),

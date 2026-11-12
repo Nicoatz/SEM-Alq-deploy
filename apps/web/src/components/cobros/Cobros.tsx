@@ -9,7 +9,10 @@
  *   "Ver detalle". Sin DNI ni contacto.
  * - Filtros por propiedad, mes y estado, guardados en la URL.
  * - "Si el locador no tiene contratos vigentes, se debe mostrar un mensaje con
- *   acceso a Contratos."
+ *   acceso a Contratos." El acceso lleva a Propiedades: los contratos se ven
+ *   desde cada propiedad. Si hay contratos vigentes pero todos sus períodos son
+ *   futuros (un contrato recién firmado que arranca el mes que viene), el
+ *   mensaje dice cuándo empieza el primero.
  * El botón general abre el registro de un cobro (US-08). La fila solo lleva al
  * detalle: gana la US sobre el diseño.
  * NOTA: no se implementa aunque esté dibujado: gastos informados, pago informado
@@ -24,7 +27,7 @@ import { PlusOutlined } from '@ant-design/icons'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { CobroCreado, FiltroEstadoCobro, FiltrosCobros, ListadoCobros, PeriodoFila } from '@rentar/shared-types'
-import { DataTable, EmptyState, formatARS, formatPeriod, MoneyAmount, PageHeader, StatCard, StatusTag, type DataTableColumn } from '@rentar/ui'
+import { DataTable, EmptyState, formatARS, formatDate, formatPeriod, MoneyAmount, PageHeader, StatCard, StatusTag, type DataTableColumn } from '@rentar/ui'
 import { PestaniasSolicitudes } from '@/components/solicitudes/PestaniasSolicitudes'
 import { FILTROS_PREDETERMINADOS, filtrosDeUrl, hayFiltros, urlDeFiltros } from '@/lib/cobros/filtrosUrl'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
@@ -162,14 +165,18 @@ export function Cobros() {
 
       {carga.status !== 'error' && listado?.totalPeriodos === 0 && (
         <EmptyState
-          title="Todavía no hay cobros"
-          description="Los períodos aparecen acá cuando tenés un contrato vigente."
+          title={listado.proximoInicio ? 'Todavía no hay períodos para cobrar' : 'Todavía no hay cobros'}
+          description={
+            listado.proximoInicio
+              ? `Tu primer período empieza el ${formatDate(listado.proximoInicio)}.`
+              : 'Los períodos aparecen acá cuando tenés un contrato vigente.'
+          }
           action={
             <Link href="/panel/propiedades" data-testid="cobros-ir-contratos">
               Ir a Propiedades
             </Link>
           }
-          data-testid="cobros-vacio"
+          data-testid={listado.proximoInicio ? 'cobros-vacio-proximo' : 'cobros-vacio'}
         />
       )}
 
