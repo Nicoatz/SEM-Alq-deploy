@@ -13,6 +13,9 @@
  *
  * De dónde saca los datos: `obtenerUrl`, al abrirse: la URL firmada vence a los
  * 5 minutos (S4-13). El documento ya abierto se sigue viendo.
+ * NOTA: en modo mock, si se ve el PDF de ejemplo del elenco, arriba de la hoja
+ * va un aviso (`contratos.service#esPdfDeEjemplo`): el PDF subido no se guarda
+ * en el navegador y la otra parte ve el de ejemplo.
  * Quién lo usa: `DetalleContrato.tsx` y `FirmaContrato.tsx`.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -20,6 +23,7 @@ import { Alert, Button, Skeleton } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { dibujarPagina, usePdf, type ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
+import { esPdfDeEjemplo } from '@/services/contratos.service'
 import { BotonPdf } from './BotonPdf'
 import styles from './VisorPdf.module.css'
 
@@ -39,10 +43,12 @@ interface HojaProps {
   nombre?: string
   onPaginasVistas?: VisorPdfProps['onPaginasVistas']
   testId: string
+  /** Modo mock: el documento es el PDF de ejemplo, no el que se subió. */
+  esEjemplo: boolean
 }
 
 /** Una hoja con su paginador. Se monta con el documento ya abierto. */
-function Hoja({ documento, nombre, onPaginasVistas, testId }: HojaProps) {
+function Hoja({ documento, nombre, onPaginasVistas, testId, esEjemplo }: HojaProps) {
   const total = documento.numPages
   const [pagina, setPagina] = useState(1)
   const [error, setError] = useState(false)
@@ -81,6 +87,14 @@ function Hoja({ documento, nombre, onPaginasVistas, testId }: HojaProps) {
 
   return (
     <div className={styles.visor} data-testid={testId}>
+      {esEjemplo && (
+        <Alert
+          type="info"
+          showIcon
+          title="Modo demo: este es un PDF de ejemplo. El archivo que se sube no se guarda en este navegador."
+          data-testid="visor-pdf-aviso-demo"
+        />
+      )}
       <div className={styles.encabezado}>
         {nombre && <span className={styles.nombre}>{nombre}</span>}
         <span className={styles.pagina} data-testid={`${testId}-pagina`}>
@@ -123,5 +137,5 @@ export function VisorPdf({ obtenerUrl, nombre, onPaginasVistas, 'data-testid': t
       </div>
     )
   }
-  return <Hoja documento={pdf.documento} nombre={nombre} onPaginasVistas={onPaginasVistas} testId={testId} />
+  return <Hoja documento={pdf.documento} nombre={nombre} onPaginasVistas={onPaginasVistas} testId={testId} esEjemplo={esPdfDeEjemplo(pdf.url)} />
 }

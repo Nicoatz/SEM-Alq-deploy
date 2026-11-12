@@ -72,6 +72,12 @@ export interface ListadoCobros {
   filas: PeriodoFila[]
   /** Períodos del locador sin filtros: en 0 es el estado vacío, no "sin resultados". */
   totalPeriodos: number
+  /**
+   * Inicio ISO (`AAAA-MM-DD`) del período futuro más cercano; `null` si no hay
+   * futuros. Con `totalPeriodos` en 0, distingue "todavía no empezó" de "no hay
+   * ningún período".
+   */
+  proximoInicio: string | null
   cantidades: Record<FiltroEstadoCobro, number>
   indicadores: IndicadoresCobros
   propiedades: { id: string; nombre: string }[]
