@@ -1450,6 +1450,23 @@ carpeta `apps/web/.next`. Correr el build con el dev levantado deja al dev sirvi
 (en la consola de Next, "Jest worker encountered 2 child process exceptions"). Frenar el dev antes del
 build y, si ya pasó, borrar `apps/web/.next` y volver a levantarlo.
 
+**Mi perfil: Guardar deshabilitado (12/11, US-21):** en `/panel/perfil`, `perfil-datos-guardar` y
+`perfil-password-guardar` ("Cambiar la contraseña") **arrancan deshabilitados** (atributo `disabled`)
+y solo se habilitan cuando el bloque tiene cambios respecto de lo guardado y ningún campo tiene error.
+Las reglas corren al escribir, no al guardar. Los testids no cambiaron, pero hay que ajustar las
+pruebas que:
+- hacen clic en Guardar sin cambiar nada (antes cerraba la edición; ahora el clic no hace nada);
+- esperan el error recién después de hacer clic en Guardar (ahora el mensaje sale en el campo al
+  escribir y el botón queda deshabilitado: verificar el mensaje y que el botón esté deshabilitado,
+  sin hacer clic);
+- vacían un teléfono o una fecha ya guardados y esperan el error del service al guardar (ahora el
+  error sale en el campo al vaciarlo).
+
+Siguen esperando el clic los errores del back: DNI o correo ya registrados (`perfil-datos-error` y
+el mensaje en el campo; el botón queda deshabilitado hasta cambiar ese campo, y el cartel se va al
+cambiarlo) y la contraseña actual incorrecta (mensaje en `perfil-password-actual`, mismo
+comportamiento). El DNI vacío ahora es válido si la cuenta no tenía uno guardado.
+
 **Lo que cambió en el Sprint 4 (para Selenium):**
 
 | Pantalla | Salen | Entran |
