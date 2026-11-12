@@ -365,6 +365,16 @@ locatario tenga varios contratos (el listado solo aparece sin `?contrato=`).
 | 2 | TODO(backend): `id_garante` en cada firmante garante de `firmas.firmantes` (detalle y pestaña Contratos) y el nombre en las firmas de tipo `garante` de `GET /alquileres-locatario/:id` | Hoy el front empareja por posición con `garantes[]` (el back arma las dos listas en el mismo orden) | backend |
 | 3 | `acciones.firmar` del detalle no mira si hay sobre (`puede_firmar` sí) | Sin sobre, el locador ve "Firmar" y recibe 409 `SOBRE_NO_DISPONIBLE` (el front muestra "La firma todavía no está lista") | backend |
 | 4 | `GET /alquileres-locatario/:id` sigue mandando `email` y `telefono` de los garantes (ver US-27) | El front los descarta | backend |
+| 5 | TODO(backend): **distinguir `RECIPIENT_LIMIT_EXCEEDED` del resto de los 502.** Hoy cualquier error de DocuSign al enviar responde 502 "No pudimos enviar el contrato a firmar. Probá de nuevo en unos minutos.", pero con este error reintentar no sirve. Propuesta: un `codigo` propio (por ejemplo, `DOCUSIGN_LIMITE_CUENTA`) para que el front diga que la cuenta de firma llegó a su límite. El front no cambia hasta que exista | Mensaje correcto cuando la cuenta de DocuSign está bloqueada | backend |
+
+**Bloqueo de la cuenta de DocuSign (sandbox), 11/11/2026.** En la prueba en real de la Tanda A, el cuarto
+envío del contrato 34 falló: DocuSign respondió **400 `RECIPIENT_LIMIT_EXCEEDED`** en `POST /envelopes`
+("You have reached the maximum number of recipients permitted for a single transaction in your account").
+Es un **límite acumulado de destinatarios de las cuentas de desarrollador nuevas**, no un error del código:
+cada sobre suma sus firmantes (4 en el contrato 34) y la cuenta ya tenía los de la prueba del back del 10/11.
+Mientras la cuenta esté bloqueada **no se puede enviar a firmar ningún contrato en real**. Hace falta que
+DocuSign suba el límite o usar otra cuenta de desarrollador (dueño: backend). Quedaron pendientes en real el
+rechazo del locatario desde la app y el `decline` en DocuSign (ver §9).
 
 **Brechas que se cierran:** las filas 1 (tabla de firmas), 3, 4 y 7 de la versión anterior de esta
 sección (firmas, rutas de firma y mails), y S4-3 (filtro de garantes).
@@ -1075,6 +1085,51 @@ solicitud 23 a pendiente) o, si se quiere conservar, volver el depósito y la fe
 **"Reabrir" (US-06, `POST /contratos/:id/reabrir`) quedó sin probar en real:** el único contrato
 pendiente de firma de la cuenta es el **2**, que se usa para US-42 y US-43, y el front todavía no puede
 volver a enviarlo a firmar. Probarlo cuando backend arme un contrato pendiente de firma descartable.
+
+**Prueba en real de la firma con DocuSign (US-07, Tanda A del Sprint 5, 11/11, `feature/vistas`).** Front
+(`dev:web`) y API (`dev:api`) locales; el aviso de DocuSign llega a la API de Vercel `develop`, que escribe
+en la misma base. Contrato **34** (inmueble **13**, solicitud **23**), locador usuario **1** y locatario
+usuario **23** (cuenta de un integrante del equipo, usada con su acuerdo). Ningún contrato pasa a vigente:
+los garantes 10 y 11 no firman nunca. Sin credenciales ni correos.
+
+Estado del contrato 34 **antes** de la prueba (para dejarlo igual):
+
+| Campo | Antes |
+|---|---|
+| Estado | Borrador (5), sin código, sin sobre (`docusign_envelope_id` vacío) |
+| `ultimo_paso_borrador` | **3** |
+| Garantes | **10** ("Tomás Rosales") y **11** ("Chiqui Tapia"), los dos pendientes y sin enlace. No se tocan |
+| PDF | `nuevo-contrato.pdf` (7602 bytes, el PDF ficticio del elenco) |
+| Condiciones | Inicio **01/12/2026**, 24 meses, monto 3.000.000, depósito 654.321, plazo 10 días |
+| Solicitud 23 | Aceptada |
+| `docusign_evento` | Sin eventos del contrato |
+
+Recorrido y estado final:
+
+| Paso | Resultado | Sobres creados |
+|---|---|---|
+| 1. Enviar (locador) | Pasa: `CT-2026-0002`, pendiente de firma, 4 firmantes (locador, locatario y garantes 10 y 11). 11 s | **1** |
+| 2. Firmar y "Terminar más tarde" en DocuSign | Pasa: vuelve con `cancel`, "No firmaste…", la firma sigue disponible, faltan 4 de 4 | — |
+| 3. Firmar (locador) | Pasa: de vuelta en RentAR a los 6 s de "Finalizar"; "Estamos registrando tu firma…" y confirmada a los **29 s** de "Finalizar". Faltan 3 de 4. Recargar no repite la espera | — |
+| 4. "Modificar" (US-06, `/reabrir`) | Pasa: vuelve a borrador con el aviso, se borra la firma del locador y se anula el sobre (`voided`) | — |
+| 5. Reenviar y "Rechazar firma" (locador) | Pasa: borrador, `/editar?envio=rechazado` con el aviso, firmas borradas, mismo código | **2** |
+| 6. Reenviar; firmar (locatario, usuario 23) | Pasa: de vuelta a los 10 s de "Finalizar"; confirmada a los **31 s**. El aviso llegó a la base a los **25 s** (igual que la del locador). URL con `?contrato=34` y sin `event` | **3** |
+| 7. "Modificar" bloqueado y "Rechazar firma" (locador, con el locatario firmado) | Pasa: "Ulises ya firmó: el contrato no se puede modificar"; la confirmación avisa que se borra también la firma del locatario. Vuelve a borrador; el locatario, al recargar, ve "No encontramos este alquiler" | — |
+| 8. Reenviar (cuarto envío) | **Falla en DocuSign:** 400 `RECIPIENT_LIMIT_EXCEEDED` ("You have reached the maximum number of recipients permitted for a single transaction in your account") en `POST /envelopes`; la API responde **502** y el front muestra "No pudimos enviar el contrato, probá de nuevo. El contrato sigue en borrador." No se creó el sobre. Se cerró la Tanda A acá (decisión del PO): quedan **pendientes en real** el rechazo del locatario en la app (motivo de 300) y el `decline` en DocuSign (§7, "Bloqueo de la cuenta de DocuSign") | no se creó |
+
+Estado del contrato 34 después de los pasos del locador (leído en la base, solo lectura): borrador, **código
+`CT-2026-0002`** (antes no tenía: el código se conserva al volver a borrador), **`ultimo_paso_borrador` 1**
+(antes 3: lo deja así el rechazo, no se corrige), sin sobre, garantes 10 y 11 igual que antes, mismo PDF y
+condiciones. En `docusign_evento` quedaron los avisos de los dos sobres (`sent`, `delivered`, `completed`,
+`voided` y `rechazo-en-app`).
+
+Después del intento fallido (paso 8): borrador, código `CT-2026-0002`, **`ultimo_paso_borrador` 4** (lo guardó
+el alta al llegar a la Revisión antes de enviar), sin sobre, garantes 10 y 11 sin cambios, firmas en cero.
+**Estado final del contrato 34 (cierre de la Tanda A):** igual que después del paso 8. Diferencias con el
+estado inicial: código **`CT-2026-0002`** (antes ninguno) y **`ultimo_paso_borrador` 4** (antes 3); el resto
+(PDF, condiciones, garantes 10 y 11, solicitud 23 aceptada) quedó igual. No se corrigió nada a mano en la base.
+**Sobres creados en el sandbox de DocuSign: 3, los tres anulados** (uno por "Modificar" y dos por rechazos).
+Avisos en `docusign_evento`: ids **8 a 14**.
 
 **Prueba en real de US-20 y US-21 (05/11, Tanda 0, usuario 1).** Pasan la consulta del perfil, las
 validaciones de nombre, DNI, teléfono y fecha, cancelar, el aviso de cambios sin guardar y el
