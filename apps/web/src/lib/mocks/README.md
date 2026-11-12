@@ -14,7 +14,7 @@ documentada, también el catálogo `/design-system` (no es una pantalla del prod
 | `usr-sofia` | Sofía Ledesma | locador y locatario | Locataria de Obispo Trejo 1250 7° B y locadora de Mariano Moreno 285. |
 | `usr-julieta` | Julieta Peralta | locatario | La que busca: encuentra Rondeau 480, la solicita, se la aceptan y su contrato CT-2026-0207 está pendiente de firma (Sprint 3). |
 | `usr-matias` | Matías Quiroga | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante de Rondeau 480 y Fructuoso Rivera 785. No es inquilino de nada. |
-| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. **Sin teléfono** (Sprint 3): el caso "Sin cargar" de US-20. |
+| `usr-diego` | Diego Ferreyra | locatario | **No está en el mapa** (Sprint 2, OK del PO). Postulante; su solicitud de Fructuoso Rivera 785 está aceptada. No es inquilino de nada. **Sin teléfono** (Sprint 3): el caso "Sin cargar" de US-20. Por eso el detalle de un contrato con Diego como locatario muestra "Teléfono: Sin dato": el teléfono sale del perfil, y el que carga en una solicitud es otro dato. |
 | `usr-camila` | Camila Ríos | locatario | Inquilina de Mariano Moreno 285 (de Sofía). **Cuenta desde la tanda 4 del Sprint 3** (OK del PO; en el mapa ya estaba, sin cuenta): `camila.rios@rentar.test`. Tiene un vigente (CT-2026-0133) y un finalizado (CT-2023-0041): el caso de "Mis alquileres" (US-27). |
 
 Contraseña de las seis en modo mock: `Rentar2026` (`MOCK_PASSWORD`). La cuenta admin del mapa no

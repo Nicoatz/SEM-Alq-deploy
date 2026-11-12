@@ -721,6 +721,18 @@ export async function urlPdfDeContrato(id: string, vista: 'borrador' | 'locador'
   }
 }
 
+/**
+ * Modo mock: si `url` es la del PDF de ejemplo del elenco. El PDF que se sube
+ * solo vive en la pestaña donde se subió (no entra en `localStorage`): después
+ * de recargar, o en la sesión de la otra parte, se ve el de ejemplo, y la
+ * pantalla lo avisa para que no parezca que se cambió el documento.
+ * Sin US en Sprint 0: es un aviso del modo demo.
+ * @returns siempre `false` en modo real.
+ */
+export function esPdfDeEjemplo(url: string): boolean {
+  return USE_MOCKS && url === PDF_FICTICIO_URL
+}
+
 // ─── US-07: firmar y rechazar ───────────────────────────────────────────
 
 /** El contrato pendiente de firma con sus firmas (si no está pendiente, 409 `CONTRATO_NO_PENDIENTE`). */

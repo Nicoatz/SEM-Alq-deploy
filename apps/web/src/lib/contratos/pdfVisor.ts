@@ -27,13 +27,13 @@ function cargarLibreria(): Promise<typeof import('pdfjs-dist')> {
 }
 
 /** Estado de un PDF que se está abriendo. */
-export type EstadoPdf = { status: 'cargando' } | { status: 'error' } | { status: 'listo'; documento: PDFDocumentProxy }
+export type EstadoPdf = { status: 'cargando' } | { status: 'error' } | { status: 'listo'; documento: PDFDocumentProxy; url: string }
 
 /** Pide la URL del PDF en el momento; `null` si no hay. */
 export type ObtenerUrlPdf = () => Promise<string | null>
 
 /** Resultado guardado, con el pedido al que corresponde. */
-type Resultado = { origen: ObtenerUrlPdf } & ({ status: 'error' } | { status: 'listo'; documento: PDFDocumentProxy })
+type Resultado = { origen: ObtenerUrlPdf } & ({ status: 'error' } | { status: 'listo'; documento: PDFDocumentProxy; url: string })
 
 /**
  * Hace `accion` y, si falla, una vez más en silencio: la causa más común es
@@ -62,12 +62,12 @@ export function usePdf(obtenerUrl: ObtenerUrlPdf): EstadoPdf {
     reintentarUnaVez(async () => {
       const [pdfjs, url] = await Promise.all([cargarLibreria(), obtenerUrl()])
       if (!url) throw new Error('Sin PDF')
-      return pdfjs.getDocument({ url }).promise
+      return { documento: await pdfjs.getDocument({ url }).promise, url }
     })
-      .then((documento) => {
+      .then(({ documento, url }) => {
         abierto = documento
         if (cancelado) void documento.destroy()
-        else setResultado({ origen: obtenerUrl, status: 'listo', documento })
+        else setResultado({ origen: obtenerUrl, status: 'listo', documento, url })
       })
       .catch(() => {
         if (!cancelado) setResultado({ origen: obtenerUrl, status: 'error' })
