@@ -160,6 +160,12 @@ export async function getMiPerfil(): Promise<PerfilUsuario> {
 export const CAMPO_NO_BORRABLE = { telefono: 'TELEFONO_NO_BORRABLE', fechaNacimiento: 'FECHA_NO_BORRABLE' } as const
 
 /**
+ * Los mensajes de {@link CAMPO_NO_BORRABLE}. `DatosPersonalesBloque` los
+ * muestra en el campo apenas se vacía (pedido del PO, 12/11), en los dos modos.
+ */
+export const MENSAJE_NO_BORRABLE = { telefono: PERFIL_NO_SE_BORRA_TELEFONO_MESSAGE, fechaNacimiento: PERFIL_NO_SE_BORRA_FECHA_MESSAGE } as const
+
+/**
  * US-21 Modificar usuario — guarda el bloque "Datos personales": nombre,
  * apellido, DNI, correo, teléfono y fecha de nacimiento. `cambios` trae solo
  * lo que cambió respecto de lo guardado (lo compara `DatosPersonalesBloque`),
