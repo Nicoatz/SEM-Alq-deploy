@@ -181,6 +181,8 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
   const [form] = Form.useForm<ValoresDatos>()
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /** El campo que causó el cartel de error (DNI o correo repetidos): al cambiarlo, el cartel se va. */
+  const [campoDelError, setCampoDelError] = useState<keyof Rechazados | null>(null)
   /**
    * DNI y correo que el back rechazó por repetidos. NOTA: solo en memoria
    * (nada de storage ni logs); se borran al cancelar y al guardar con éxito.
@@ -225,6 +227,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
     }
     setGuardando(true)
     setError(null)
+    setCampoDelError(null)
     try {
       const actualizado = await actualizarDatosPersonales(cambios)
       rechazados.current = {}
@@ -244,6 +247,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
         const campo = codigo === 'DNI_DUPLICADO' ? 'dni' : 'email'
         const valor = campo === 'dni' ? normalizarDni(valoresForm.dni) : normalizarEmail(valoresForm.email)
         rechazados.current = { ...rechazados.current, [campo]: { valor, mensaje } }
+        setCampoDelError(campo)
         form.setFields([{ name: campo, errors: [mensaje] }])
         revalidar()
       }
@@ -254,9 +258,31 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
     }
   }
 
+  /**
+   * Pedido del PO (12/11): el cartel del DNI o del correo repetido se va
+   * cuando el usuario cambia ese campo (el mensaje del campo lo sigue
+   * explicando si vuelve al valor rechazado). Al cancelar o guardar se
+   * desmonta el formulario y se va solo.
+   */
+  function alCambiarValores(cambiados: Partial<ValoresDatos>): void {
+    if (campoDelError && campoDelError in cambiados) {
+      setError(null)
+      setCampoDelError(null)
+    }
+  }
+
   // ─── Render ─────────────────────────────────────────────────────────
   return (
-    <Form<ValoresDatos> form={form} layout="vertical" initialValues={iniciales} onFinish={guardar} requiredMark={false} disabled={guardando} data-testid="perfil-datos-form">
+    <Form<ValoresDatos>
+      form={form}
+      layout="vertical"
+      initialValues={iniciales}
+      onFinish={guardar}
+      onValuesChange={alCambiarValores}
+      requiredMark={false}
+      disabled={guardando}
+      data-testid="perfil-datos-form"
+    >
       {avisoBloqueo && <div className={styles.formAlert}>{avisoBloqueo}</div>}
       {error && <Alert type="error" showIcon title={error} className={styles.formAlert} data-testid="perfil-datos-error" />}
       <div className={styles.grid}>
