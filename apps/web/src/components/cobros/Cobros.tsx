@@ -166,7 +166,7 @@ export function Cobros() {
           description="Los períodos aparecen acá cuando tenés un contrato vigente."
           action={
             <Link href="/panel/propiedades" data-testid="cobros-ir-contratos">
-              Ir a Contratos
+              Ir a Propiedades
             </Link>
           }
           data-testid="cobros-vacio"
