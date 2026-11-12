@@ -334,22 +334,12 @@ function conFirmasActualesMock(contrato: ContratoMock): ContratoMock {
   }
 }
 
-/**
- * Quién firma en una acción del mock: una parte, un garante por su posición
- * (`garante-1`, `garante-2`…) o todos los garantes juntos (`garantes`, el botón
- * de desarrollo "Firmar como garantes" del simulador).
- */
-export type FirmanteMock = 'locador' | 'locatario' | `garante-${number}` | 'garantes'
+/** Quién firma en una acción del mock: una parte o un garante por su posición (`garante-1`, `garante-2`…). */
+export type FirmanteMock = 'locador' | 'locatario' | `garante-${number}`
 
 /** US-07: "Cuando firman el locador, el locatario y todos los garantes, el contrato pasa a vigente". */
 export function firmaronTodosMock(firmas: FirmasMock): boolean {
   return [firmas.locador, firmas.locatario, ...firmas.garantes].every((firma) => firma.estado === 'firmado')
-}
-
-/** La firma de `firmante` en el contrato. `null` si no existe (ej. `garante-3` con un garante). */
-export function firmaDeMock(firmas: FirmasMock, firmante: Exclude<FirmanteMock, 'garantes'>): FirmaMock | null {
-  if (firmante === 'locador' || firmante === 'locatario') return firmas[firmante]
-  return firmas.garantes[Number(firmante.slice('garante-'.length)) - 1] ?? null
 }
 
 /**
@@ -365,7 +355,7 @@ export function firmarMock(contrato: ContratoMock, firmante: FirmanteMock, fecha
   const nuevas: FirmasMock = {
     locador: firmar(firmas.locador, firmante === 'locador'),
     locatario: firmar(firmas.locatario, firmante === 'locatario'),
-    garantes: firmas.garantes.map((firma, posicion) => firmar(firma, firmante === 'garantes' || firmante === `garante-${posicion + 1}`)),
+    garantes: firmas.garantes.map((firma, posicion) => firmar(firma, firmante === `garante-${posicion + 1}`)),
   }
   const todas = firmaronTodosMock(nuevas)
   const actualizado: ContratoMock = todas

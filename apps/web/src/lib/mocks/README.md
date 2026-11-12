@@ -78,9 +78,12 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   **8 segundos después** (o **60** con "Simular un aviso demorado"), cuando alguna pantalla vuelve a
   leer los contratos. Así se ve "Estamos registrando tu firma…" y, con 60 s, "Todavía estamos
   registrando tu firma" (la espera corta a los 45 s). Usan el reloj real, no el "hoy" del elenco.
-- **"Firmar como garantes"** (herramienta de desarrollo del simulador): firma por todos los garantes
-  con la misma demora. Sirve para cerrar un contrato en mock antes de la pantalla del garante (Tanda B):
-  el último en firmar toca primero "Firmar como garantes" y después "Firmar".
+- **Enlace del garante (Tanda B):** el locador genera el enlace de cada garante desde el detalle
+  ("Generar enlace"). En `rentar:mock:contratos` se guarda solo el **hash SHA-256** del token y su
+  vencimiento (**48 h**, con el reloj del mock), nunca el token ni la URL. Un enlace nuevo anula el
+  anterior; firmar o volver a borrador también lo anulan. Un enlace inexistente, vencido o anulado
+  muestra siempre "Este enlace no es válido o ya no está disponible.". El garante firma en
+  `/firma-garante/<token>` y pasa por el mismo simulador (firma diferida de 8 s, o Declinar).
 - **Rechazar** (las dos partes, mientras no hayan firmado) o **Declinar** en el simulador: el contrato
   vuelve a **borrador**, conserva el código y se borran todas las firmas, como en el back. El locador
   sigue en el alta (`/editar?envio=rechazado`); el locatario deja de verlo ("Rechazaste el contrato").
@@ -90,6 +93,32 @@ alquileres") y el resto, de `contratos.mock.ts` más los borradores del navegado
   con el aviso de firma de prueba.
 - Los contratos guardados en el navegador antes del 11/11 (sin garantes en `firmas`) se leen con los
   garantes pendientes: no hace falta reiniciar. "Reiniciar datos de prueba" deja todo como al principio.
+
+**Cerrar CT-2026-0207 en mock, paso por paso** (para Selenium). Las cuentas son las del elenco
+(`usuarios.mock.ts`), con la contraseña del elenco (`CLAUDE.md`). Arrancar con "Reiniciar datos de
+prueba". Cada firma se registra **8 segundos** después de volver del simulador: esperar a que se vea
+`contrato-regreso-confirmado` (o `firma-garante-listo`) antes de seguir.
+
+1. **Locador.** Entrar como Nicolás e ir a `/panel/contratos/CT-2026-0207`. En `contrato-firma-visor`,
+   pasar las páginas con `contrato-firma-visor-siguiente` hasta la última (6), marcar
+   `contrato-firma-acepto`, tocar `contrato-firma-firmar` y confirmar (`confirm-action-ok`). En el
+   simulador, `simulador-firma-firmar`. Vuelve al detalle: `contrato-regreso-esperando` y, a los 8 s,
+   `contrato-regreso-confirmado`. Faltan 2 de 3.
+2. **Locatario.** Cerrar la sesión (o borrar la cookie `rentar_session`, sin tocar `localStorage`),
+   entrar como Julieta e ir a `/panel/alquiler`. Los mismos pasos que el locador. Faltan 1 de 3.
+3. **Enlace de Hugo.** Entrar otra vez como Nicolás, abrir `/panel/contratos/CT-2026-0207` y, en la
+   fila del garante (`contrato-firmante` con `data-rol="garante"`), tocar
+   `contrato-garante-enlace-generar`. Leer la URL de `contrato-garante-enlace-url` (y el vencimiento en
+   `contrato-garante-enlace-vence`) y cerrar con `contrato-garante-enlace-listo`. La URL no se vuelve a
+   mostrar.
+4. **Firma de Hugo.** Abrir esa URL (no hace falta cerrar la sesión: la página es pública). En
+   `firma-garante-datos`, marcar `firma-garante-acepto`, tocar `firma-garante-firmar` y confirmar
+   (`confirm-action-ok`). En el simulador, `simulador-firma-firmar`. Vuelve a `/firma-garante/<token>`
+   con `firma-garante-listo`.
+5. **Verificar** (8 s después): en `/panel/contratos/CT-2026-0207`, `contrato-detalle` con
+   `data-estado="vigente"`, `contrato-firmado-todas`, "Documento firmado" con
+   `CT-2026-0207-firmado.pdf` y `contrato-documento-aviso-prueba`. Rondeau 480 aparece **alquilada** en
+   Mis propiedades y ya no está en `/buscar`. Abrir otra vez el enlace de Hugo: `firma-garante-invalido`.
 - Los **5 vigentes** y CT-2023-0041 son anteriores a RentAR: su detalle no tiene firmas registradas
   (no se inventan).
 - **CT-2023-0041:** Camila Ríos queda con un vigente (0133) y un finalizado: el caso de "dos o más

@@ -12,8 +12,8 @@
  *   `?event=decline`.
  * - "Cerrar sin firmar" (`cancel`) y "Dejar vencer la sesión" (`session_timeout`):
  *   no registran nada.
- * - Desarrollo: "Firmar como garantes" firma por todos los garantes (con la
- *   misma demora), para poder cerrar un contrato en mock antes de la Tanda B.
+ * Sirve para el locador, el locatario y cada garante (que llega desde
+ * `/firma-garante/[token]`): el cierre en mock se hace firmando con cada uno.
  *
  * NOTA (seguridad): los datos llegan en el fragmento de la URL (`#…`): no van al
  * servidor ni al `Referer`, y no se guardan en `localStorage`. La ruta de
@@ -45,7 +45,7 @@ function conEvento(regreso: string, evento: string): string {
   return `${regreso}${regreso.includes('?') ? '&' : '?'}event=${evento}`
 }
 
-/** El simulador: datos de la firma, las cuatro salidas y la herramienta de desarrollo. */
+/** El simulador: datos de la firma y las cuatro salidas. */
 export function SimuladorFirma() {
   // ─── Estado local ───────────────────────────────────────────────────
   const fragmento = useSyncExternalStore(sinSuscripcion, () => window.location.hash, () => '')
@@ -53,11 +53,10 @@ export function SimuladorFirma() {
   const [demorado, setDemorado] = useState(false)
   const [procesando, setProcesando] = useState<AccionSimulador | 'salir' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [aviso, setAviso] = useState<string | null>(null)
 
   // ─── Handlers ───────────────────────────────────────────────────────
   /** Firmar o declinar: deja la acción diferida y vuelve a RentAR. */
-  async function registrar(accion: Exclude<AccionSimulador, 'firmar_garantes'>): Promise<void> {
+  async function registrar(accion: AccionSimulador): Promise<void> {
     if (!sesion) return
     setProcesando(accion)
     setError(null)
@@ -66,21 +65,6 @@ export function SimuladorFirma() {
       window.location.assign(conEvento(sesion.regreso, accion === 'firmar' ? 'signing_complete' : 'decline'))
     } catch (causa) {
       setError(causa instanceof ServiceError ? causa.message : 'No pudimos simular la firma.')
-      setProcesando(null)
-    }
-  }
-
-  /** "Firmar como garantes": firma por todos los garantes y se queda acá. */
-  async function firmarGarantes(): Promise<void> {
-    if (!sesion) return
-    setProcesando('firmar_garantes')
-    setError(null)
-    try {
-      await simularFirmaMock(sesion, 'firmar_garantes', demorado ? DEMORA_LARGA_MS : DEMORA_MS)
-      setAviso(`Listo: las firmas de los garantes se registran en ${demorado ? '60' : '8'} segundos.`)
-    } catch (causa) {
-      setError(causa instanceof ServiceError ? causa.message : 'No pudimos simular la firma.')
-    } finally {
       setProcesando(null)
     }
   }
@@ -117,7 +101,7 @@ export function SimuladorFirma() {
           description="Elegí qué hace la persona. La firma o el rechazo se registran unos segundos después, como cuando DocuSign le avisa a RentAR."
         />
         <p className={styles.datos}>
-          Contrato <strong>{sesion.contratoId}</strong> · firma como <strong>{sesion.firmante}</strong>
+          Contrato <strong>{sesion.contratoId}</strong> · firma como <strong>{sesion.firmante.startsWith('garante-') ? `garante ${sesion.firmante.replace('garante-', '')}` : sesion.firmante}</strong>
         </p>
         <Checkbox checked={demorado} onChange={(evento) => setDemorado(evento.target.checked)} disabled={ocupado} data-testid="simulador-firma-demora">
           Simular un aviso demorado (60 s)
@@ -137,17 +121,6 @@ export function SimuladorFirma() {
           </Button>
         </div>
         {error && <Alert type="error" showIcon title={error} data-testid="simulador-firma-error" />}
-
-        <div className={styles.desarrollo}>
-          <strong>Herramienta de desarrollo</strong>
-          <span className={styles.datos}>Para cerrar un contrato en mock sin la pantalla del garante (Tanda B).</span>
-          <span>
-            <Button size="small" loading={procesando === 'firmar_garantes'} disabled={ocupado} onClick={() => void firmarGarantes()} data-testid="simulador-firma-garantes">
-              Firmar como garantes
-            </Button>
-          </span>
-          {aviso && <Alert type="success" showIcon title={aviso} data-testid="simulador-firma-garantes-aviso" />}
-        </div>
       </section>
     </main>
   )

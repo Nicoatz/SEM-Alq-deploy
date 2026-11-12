@@ -20,6 +20,11 @@
  * (ver `lib/next-bridge.tsx#AppImage`). Esta lista queda para cualquier
  * `next/image` remoto que sí se optimice.
  *
+ * `headers()`: la página pública del garante (`/firma-garante/[token]`, US-07)
+ * lleva el token en la URL. Con `Referrer-Policy: no-referrer` el navegador no
+ * lo manda en el `Referer` a ningún otro sitio (DocuSign, fuentes, etc.).
+ * La página también lo declara en su metadata: esto lo cubre desde el primer byte.
+ *
  * @type {import('next').NextConfig}
  */
 const nextConfig = {
@@ -29,6 +34,9 @@ const nextConfig = {
       { protocol: 'https', hostname: '*.supabase.co', pathname: '/storage/v1/object/public/**' },
       { protocol: 'https', hostname: 'rentar.com', pathname: '/fotos/**' },
     ],
+  },
+  async headers() {
+    return [{ source: '/firma-garante/:path*', headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }] }]
   },
 }
 

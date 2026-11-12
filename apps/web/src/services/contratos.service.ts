@@ -761,7 +761,7 @@ export async function iniciarFirma(id: string): Promise<{ url: string }> {
     const firmas = pendienteDeFirmaMock(contrato)
     if (firmas[rol].estado === 'firmado') throw new ServiceError('conflict', YA_FIRMO_MESSAGE, 'YA_FIRMO')
     if (firmas[rol].estado !== 'pendiente') throw new ServiceError('conflict', CONTRATO_NO_PENDIENTE_MESSAGE, 'CONTRATO_NO_PENDIENTE')
-    return { url: urlDelSimulador({ contratoId: contrato.id, firmante: rol, regreso: regresoDeFirma(id, rol) }) }
+    return { url: urlDelSimuladorMock({ contratoId: contrato.id, firmante: rol, regreso: regresoDeFirma(id, rol) }) }
   }
   try {
     const body: FirmarContratoRequest = { acepta_condiciones: true }
@@ -817,13 +817,23 @@ export async function rechazarFirma(id: string, motivo: string | null): Promise<
  */
 export interface SesionSimuladorFirma {
   contratoId: string
-  firmante: Exclude<RolFirmante, 'garante'>
-  /** Ruta de regreso, sin `?event=` (el simulador lo agrega). */
+  /** Quién firma: una parte o un garante por su posición (`garante-1`…). */
+  firmante: FirmanteSimulador
+  /**
+   * Ruta de regreso, sin `?event=` (el simulador lo agrega). Para el garante es
+   * `/firma-garante/<token>`, igual que en DocuSign.
+   */
   regreso: string
 }
 
-/** Arma la URL del simulador con la sesión en el fragmento (base64url de un JSON). */
-function urlDelSimulador(sesion: SesionSimuladorFirma): string {
+/** Quién firma en el simulador. */
+export type FirmanteSimulador = Exclude<RolFirmante, 'garante'> | `garante-${number}`
+
+/**
+ * Arma la URL del simulador con la sesión en el fragmento (base64url de un JSON).
+ * Solo mock: la usan `iniciarFirma` y `firma-garante.service#iniciarFirmaGarante`.
+ */
+export function urlDelSimuladorMock(sesion: SesionSimuladorFirma): string {
   const json = JSON.stringify(sesion)
   const base64 = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
   return `/simulador-firma#${base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
@@ -841,32 +851,30 @@ export function leerSesionSimulador(fragmento: string): SesionSimuladorFirma | n
     const datos: unknown = JSON.parse(new TextDecoder().decode(bytes))
     if (typeof datos !== 'object' || datos === null) return null
     const { contratoId, firmante, regreso } = datos as Record<string, unknown>
+    const firmanteValido = typeof firmante === 'string' && /^(locador|locatario|garante-\d+)$/.test(firmante)
     // La ruta de regreso tiene que ser interna: nunca otro sitio.
-    if (typeof contratoId !== 'string' || (firmante !== 'locador' && firmante !== 'locatario') || typeof regreso !== 'string' || !regreso.startsWith('/') || regreso.startsWith('//')) return null
-    return { contratoId, firmante, regreso }
+    if (typeof contratoId !== 'string' || !firmanteValido || typeof regreso !== 'string' || !regreso.startsWith('/') || regreso.startsWith('//')) return null
+    return { contratoId, firmante: firmante as FirmanteSimulador, regreso }
   } catch {
     return null
   }
 }
 
 /** Qué hace la persona en el simulador. */
-export type AccionSimulador = 'firmar' | 'declinar' | 'firmar_garantes'
+export type AccionSimulador = 'firmar' | 'declinar'
 
 /**
  * US-07, solo mock — Lo que en real hace DocuSign y su aviso al back: deja la
  * firma (o el rechazo) para dentro de `demoraMs`. La pantalla, después, vuelve a
- * la ruta de regreso con `?event=`. "Firmar como garantes" (`firmar_garantes`)
- * es un botón de desarrollo para poder cerrar un contrato en mock.
+ * la ruta de regreso con `?event=`. Sirve para las partes y para los garantes:
+ * un `decline` de cualquiera vuelve el contrato a borrador, como en real.
  * @backend ninguno: en real, DocuSign avisa al back por `POST /webhooks/docusign`.
  * @throws {ServiceError} `server` si `localStorage` está lleno, o si se llama en modo real.
  */
 export async function simularFirmaMock(sesion: SesionSimuladorFirma, accion: AccionSimulador, demoraMs: number): Promise<void> {
   if (!USE_MOCKS) throw new ServiceError('server', 'El simulador de firma solo existe en modo mock.')
   await delay(300)
-  const datos =
-    accion === 'firmar_garantes'
-      ? { contratoId: sesion.contratoId, firmante: 'garantes' as const, accion: 'firmar' as const }
-      : { contratoId: sesion.contratoId, firmante: sesion.firmante, accion: accion === 'firmar' ? ('firmar' as const) : ('rechazar' as const) }
+  const datos = { contratoId: sesion.contratoId, firmante: sesion.firmante, accion: accion === 'firmar' ? ('firmar' as const) : ('rechazar' as const) }
   if (!registrarFirmaDiferidaMock(datos, demoraMs)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
 }
 
