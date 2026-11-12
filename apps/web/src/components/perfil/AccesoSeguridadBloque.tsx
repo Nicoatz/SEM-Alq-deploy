@@ -10,17 +10,22 @@
  *   la contraseña actual, la nueva y su confirmación"; la nueva cumple las
  *   reglas de US-19 y es distinta de la actual; indicador de seguridad. Se
  *   guarda solo, con Guardar y Cancelar.
+ * - Pedido del PO (12/11): "Cambiar la contraseña" deshabilitado mientras no
+ *   haya nada escrito o algún campo tenga un error (incluida una contraseña
+ *   actual que Supabase ya rechazó, hasta que se cambie).
  * De dónde saca los datos: `PerfilUsuario.email` (lo pasa `PerfilScreen`);
  * cambia la contraseña con `perfil.service#cambiarContrasena` (Supabase
  * verifica la actual: ver el BLOQUEANTE en ese service).
  * Quién lo usa: `PerfilScreen.tsx`.
  *
- * NOTA de privacidad: las contraseñas viven solo en el formulario; al
- * guardar o cancelar se desmonta y se borran.
+ * NOTA de privacidad: las contraseñas viven solo en el formulario (y la
+ * actual rechazada, en un `useRef`); al guardar o cancelar se borran. Nunca
+ * van a storage, logs ni consola.
  */
-import { useEffect, useState } from 'react'
-import { Alert, Button, Form, Input } from 'antd'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Alert, Button, Form, Input, type FormRule, type GetProps } from 'antd'
 import { DetailList, PasswordStrengthMeter } from '@rentar/ui'
+import { useFormularioValido } from '@/lib/perfil/useFormularioValido'
 import { fuerzaPassword, reglasPasswordActual, reglasPasswordCambio, reglasPasswordRepetida, requisitosPassword } from '@/lib/validation/usuario.rules'
 import { cambiarContrasena } from '@/services/perfil.service'
 import { ServiceError } from '@/services/shared/errors'
@@ -41,6 +46,19 @@ interface ValoresContrasena {
   repetida: string
 }
 
+/** Id del indicador de seguridad: lo describe al campo de la contraseña nueva. */
+const ID_FUERZA = 'perfil-password-fuerza'
+
+/**
+ * El campo de la contraseña nueva. NOTA (accesibilidad): cuando el campo
+ * tiene un error, `Form.Item` pisa su `aria-describedby` con el id del
+ * mensaje. Acá se suman los dos ids (el error y el indicador de seguridad),
+ * así el lector de pantalla lee ambos.
+ */
+function PasswordNueva({ 'aria-describedby': describedBy, ...props }: GetProps<typeof Input.Password>) {
+  return <Input.Password {...props} aria-describedby={[describedBy, ID_FUERZA].filter(Boolean).join(' ')} />
+}
+
 /** Props de {@link FormularioContrasena}. */
 interface FormularioContrasenaProps {
   onGuardado: () => void
@@ -53,9 +71,31 @@ function FormularioContrasena({ onGuardado, onCancelar, onCambiosSinGuardar }: F
   const [form] = Form.useForm<ValoresContrasena>()
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * La contraseña actual que Supabase rechazó, con su mensaje. NOTA: solo en
+   * memoria (nada de storage, logs ni consola); se borra al cancelar y al
+   * cambiar la contraseña.
+   */
+  const actualRechazada = useRef<{ valor: string; mensaje: string } | null>(null)
   const valores = Form.useWatch([], form) as Partial<ValoresContrasena> | undefined
   const nueva = valores?.nueva ?? ''
+  // En este bloque no hay nada guardado que comparar: "hay cambios" es que haya algo escrito.
   const hayCambios = Boolean(valores?.actual || valores?.nueva || valores?.repetida)
+  const { valido, revalidar } = useFormularioValido(form)
+
+  /** Las reglas de la actual, más "no es la que ya se rechazó" (se lee al validar). */
+  const reglasActual = useMemo<FormRule[]>(
+    () => [
+      ...reglasPasswordActual,
+      {
+        validator: (_rule, value?: string) => {
+          const rechazada = actualRechazada.current
+          return rechazada && value === rechazada.valor ? Promise.reject(new Error(rechazada.mensaje)) : Promise.resolve()
+        },
+      },
+    ],
+    [],
+  )
 
   useEffect(() => {
     onCambiosSinGuardar(hayCambios)
@@ -63,17 +103,25 @@ function FormularioContrasena({ onGuardado, onCancelar, onCambiosSinGuardar }: F
   useEffect(() => () => onCambiosSinGuardar(false), [onCambiosSinGuardar])
 
   // ─── Handlers ───────────────────────────────────────────────────────
+  function cancelar(): void {
+    actualRechazada.current = null
+    onCancelar()
+  }
+
   async function guardar({ actual, nueva: nuevaForm }: ValoresContrasena): Promise<void> {
     setGuardando(true)
     setError(null)
     try {
       await cambiarContrasena({ actual, nueva: nuevaForm })
+      actualRechazada.current = null
       onGuardado()
     } catch (excepcion) {
       const mensaje = excepcion instanceof ServiceError ? excepcion.message : 'No pudimos cambiar la contraseña. Probá de nuevo.'
       // La contraseña actual incorrecta se marca en su campo (US-21).
       if (excepcion instanceof ServiceError && excepcion.apiCode === 'current_password_invalid') {
+        actualRechazada.current = { valor: actual, mensaje }
         form.setFields([{ name: 'actual', errors: [mensaje] }])
+        revalidar()
       } else {
         setError(mensaje)
       }
@@ -85,24 +133,26 @@ function FormularioContrasena({ onGuardado, onCancelar, onCambiosSinGuardar }: F
   return (
     <Form<ValoresContrasena> form={form} layout="vertical" onFinish={guardar} requiredMark={false} disabled={guardando} data-testid="perfil-password-form">
       {error && <Alert type="error" showIcon title={error} className={styles.formAlert} data-testid="perfil-password-error" />}
-      <Form.Item name="actual" label="Contraseña actual" rules={reglasPasswordActual}>
+      <Form.Item name="actual" label="Contraseña actual" rules={reglasActual}>
         <Input.Password autoComplete="current-password" data-testid="perfil-password-actual" />
       </Form.Item>
       <div className={styles.grid}>
         <Form.Item name="nueva" label="Contraseña nueva" rules={reglasPasswordCambio('actual')} dependencies={['actual']}>
-          <Input.Password autoComplete="new-password" aria-describedby="perfil-password-fuerza" data-testid="perfil-password-nueva" />
+          <PasswordNueva autoComplete="new-password" data-testid="perfil-password-nueva" />
         </Form.Item>
         <Form.Item name="repetida" label="Repetí la contraseña nueva" rules={reglasPasswordRepetida('nueva')} dependencies={['nueva']}>
           <Input.Password autoComplete="new-password" visibilityToggle={false} data-testid="perfil-password-repetir" />
         </Form.Item>
       </div>
       {/* US-21: "se debe mostrar el indicador de seguridad de la contraseña nueva" (mismo que US-19). */}
-      <PasswordStrengthMeter id="perfil-password-fuerza" strength={fuerzaPassword(nueva)} requirements={requisitosPassword(nueva)} data-testid="perfil-password-fuerza" />
+      <PasswordStrengthMeter id={ID_FUERZA} strength={fuerzaPassword(nueva)} requirements={requisitosPassword(nueva)} data-testid="perfil-password-fuerza" />
       <div className={`${styles.actions} ${styles.actionsSeparadas}`}>
-        <Button type="primary" htmlType="submit" loading={guardando} data-testid="perfil-password-guardar">
+        {/* Deshabilitado (atributo `disabled`) sin nada escrito o con algún
+            error: el porqué lo dice el mensaje de cada campo. */}
+        <Button type="primary" htmlType="submit" loading={guardando} disabled={guardando || !hayCambios || !valido} data-testid="perfil-password-guardar">
           Cambiar la contraseña
         </Button>
-        <Button onClick={onCancelar} disabled={guardando} data-testid="perfil-password-cancelar">
+        <Button onClick={cancelar} disabled={guardando} data-testid="perfil-password-cancelar">
           Cancelar
         </Button>
       </div>
