@@ -33,7 +33,7 @@ conectados; enviar a firmar y la firma siguen propuestos. Las brechas están en
 | `POST /contratos/:id/reabrir` | locador | **Conectado** (Tanda 2), sin probar en real | Conserva el código y resetea las firmas. Hace falta enviar a firmar para probarlo sin gastar el contrato 2 |
 | `DELETE /contratos/:id` | locador | **Conectado** (Tanda 1, desde la pestaña); parcial | Borra el contrato. La solicitud vuelve a pendiente: decisión del PO (HANDOFF §7, S4-11). 200 sin `data` |
 | `GET /inmuebles/:id/contratos` | locador | **Conectado** (Tanda 1); parcial | Sin DNI ni contacto. `firmas` cuenta garantes: el adaptador los saca |
-| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma` | locador (enviar y enlace); locador o locatario (firmar y rechazar) | **Implementado** con DocuSign (US-07, ver "Firma de contratos"); probado de punta a punta en Vercel el 10/11. **Front conectado el 11/11** (enviar, firmar y rechazar); falta el enlace del garante (Tanda B) | `/reenviar` se **eliminó** de US-07 |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma` | locador (enviar y enlace); locador o locatario (firmar y rechazar) | **Implementado** con DocuSign (US-07, ver "Firma de contratos"); probado de punta a punta en Vercel el 10/11. **Front conectado:** enviar, firmar y rechazar (11/11) y el garante (enlace y `/firma-garante/[token]`, 12/11, solo probado en mock) | `/reenviar` se **eliminó** de US-07 |
 | `GET /cobros-locador` | locador | **Conectado** (Tanda 4), sin datos para probar; parcial | Incluye períodos futuros, que el `POST` rechaza: el front los filtra. Sin tasa ni gracia |
 | `POST /cobros-locador` | locador | **Conectado** (Tanda 4), sin probar en real; parcial | Multipart. Registra el total (no hay pago parcial, decisión del PO del 05/11). Un tipo de archivo inválido da 500: el adaptador lo traduce |
 | `GET /cobros-locador/historial` | locador | **Conectado** (Tanda 4), solo con 0 períodos; parcial | `cantidades` depende del filtro de estado y `resumen` no trae pendiente: el front pide todo sin filtros y lo calcula |
@@ -609,10 +609,15 @@ prueba no tenía otras; lo cubren los tests).
   "hasta unos 45 segundos"; medido, el aviso llega entre 3 y 30 s). Después: "Todavía estamos
   registrando tu firma" con "Actualizar". Con `decline`, espera el paso a borrador. `?event=` se lee una
   vez y se saca de la URL. (Mejora posible del back: una ruta que sincronice al volver.)
-- **Pendiente (Tanda B):** el enlace del garante en el detalle y la pantalla pública
-  `/firma-garante/[token]`. El garante vuelve a `/firma-garante/<token>?event=...`: su enlace deja de
-  servir cuando se registra la firma, así que con `signing_complete` no se vuelve a consultar y se
-  muestra "Tu firma quedó registrada".
+- **Garante (12/11, Tanda B):** el locador genera el enlace desde el detalle (`POST .../enlace-firma`);
+  la URL se muestra una sola vez, con "Copiar" y el vencimiento, y no se guarda. La página pública
+  `/firma-garante/[token]` usa las dos rutas sin Bearer: muestra solo lo del `GET`, pide la casilla y la
+  confirmación (sin la lectura de la última página: el contrato se lee en DocuSign) y redirige. El
+  garante vuelve a `/firma-garante/<token>?event=...`: con `signing_complete` ("Listo, tu firma quedó
+  registrada") y con `decline` **no se vuelve a llamar al `GET`**, porque el enlace puede no servir más.
+  Cualquier 404 es el mismo mensaje; el 429 tiene el suyo. La página sale con `Referrer-Policy:
+  no-referrer`. Probado solo en mock: la cuenta de DocuSign está bloqueada (`RECIPIENT_LIMIT_EXCEEDED`,
+  HANDOFF §7).
 
 ## Alquileres del locatario (Sprint 3, US-27)
 

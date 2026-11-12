@@ -188,7 +188,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `POST /contratos/:id/reabrir`, `DELETE /contratos/:id` | Detalle, pestaña Contratos y alta (US-06) | **Conectado** (Tanda 2). `DELETE` probado en real; `reabrir` sin probar en real: no se reabrió el contrato 2 |
 | `POST /contratos/:id/enviar` | Alta del contrato (US-05) | **Conectado** (11/11, Sprint 5): body `{ confirma_revision: true }`; 400 con el texto del back, 409 `CONTRATO_NO_BORRADOR`, 502 de DocuSign (§7, "US-07") |
 | `GET /contratos/:id/detalle` | `/panel/contratos/[id]` (US-42) | **Conectado** (Sprint 4, Tanda 1; probado en real): Bearer + rol locador; 404 uniforme; 409 `CONTRATO_BORRADOR` redirige al alta. El calendario sale de `lib/contratos/ajustes.ts` y el monto es siempre "a definir" |
-| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma`, `GET`/`POST /firma-garante/:token`, `POST /webhooks/docusign` | `/panel/contratos/[id]`, `/panel/alquiler` (US-07) | **Implementado en el back** con DocuSign (07/11; probado en Vercel el 10/11). **Front conectado (11/11, Tanda A):** enviar, firmar y rechazar. Falta la Tanda B: enlace del garante y `/firma-garante/[token]` (§7, "US-07"). `/reenviar` se eliminó |
+| `POST /contratos/:id/enviar`, `/firmar`, `/rechazar`, `POST /contratos/:id/garantes/:idGarante/enlace-firma`, `GET`/`POST /firma-garante/:token`, `POST /webhooks/docusign` | `/panel/contratos/[id]`, `/panel/alquiler` (US-07) | **Implementado en el back** con DocuSign (07/11; probado en Vercel el 10/11). **Front conectado:** enviar, firmar y rechazar (11/11, Tanda A, PR #32) y el enlace del garante y `/firma-garante/[token]` (12/11, Tanda B, solo probado en mock: la cuenta de DocuSign está bloqueada, §7). `/reenviar` se eliminó |
 | `GET /alquileres-locatario[?estado=]` y `GET /alquileres-locatario/:idContrato` | `/panel/alquiler` y `/panel/alquileres` (US-27, Sprint 3) | **Conectado** (27/10, `feature/vistas`; API del 26/10, 066c032: Bearer, pertenencia por `contrato_x_usuario`, filtro por estado y detalle con 404 indistinguible): listado, cuenta del menú y ficha. Con la firma en DocuSign desde el 11/11 (US-07, `puede_firmar`); sin cláusulas ni historial; la prueba con login quedó pendiente de un usuario con contratos (§7 "US-27" y §9). Las columnas de la migración `20261026000000_us27_alquileres_locatario.sql` ya se ven en la base (27/10); falta que backend confirme que la aplicó entera |
 | Supabase Auth `updateUser` (contraseña) | `/panel/perfil` (US-21) | **Probado en real** (06/11): la protección "Require current password" está activa (§7, "US-20 y US-21") |
 
@@ -313,15 +313,16 @@ por mora queda fuera de esta iteración.
 
 ### US-07 Firmar contrato de alquiler (Sprint 5, firma con DocuSign; `/panel/contratos/[id]` y `/panel/alquiler`)
 
-**Estado (11/11/2026, Tanda A del Sprint 5):** el front del **locador y el locatario** está conectado
-a la firma con DocuSign (`feature/vistas`). Falta la **Tanda B**: el enlace del garante en el detalle,
-la página pública `/firma-garante/[token]` y el cierre completo en real. Guía del back: `Seminario/
+**Estado (12/11/2026):** el front está conectado a la firma con DocuSign: el **locador y el locatario**
+(Tanda A, PR #32, probada en real) y el **garante** (Tanda B: enlace en el detalle y página pública
+`/firma-garante/[token]`, probada solo en mock). Falta en real: el rechazo del locatario desde la app, el
+`decline`, todo lo del garante y el cierre a vigente (la cuenta de DocuSign está bloqueada, ver abajo). Guía del back: `Seminario/
 FRONT-FIRMA-CONTRATOS.md` (10/11). Contrato de las rutas: [`api-endpoints.md`](api-endpoints.md),
 "Firma de contratos".
 
 **Decisiones del PO (11/11): se acepta lo que hizo el back.** Reemplazan las de los Sprints 3 y 4.
 
-- **Los garantes firman**, con un enlace público de 48 h y sin cuenta (Tanda B). Cuentan en los
+- **Los garantes firman**, con un enlace público de 48 h y sin cuenta (Tanda B, ver abajo). Cuentan en los
   firmantes, en `faltan` y en "Firmado por todas las partes". Se sacó el filtro de S4-3.
 - **Rechazar vuelve el contrato a borrador** y borra todas las firmas (también la del locatario si ya
   firmó). Quien ya firmó no puede rechazar. El garante no rechaza desde RentAR.
@@ -349,6 +350,30 @@ FRONT-FIRMA-CONTRATOS.md` (10/11). Contrato de las rutas: [`api-endpoints.md`](a
 | Rechazar | Modal con motivo opcional (300) y confirmación. 200 `{ id, estado: "borrador" }`: el locador va a `/editar?envio=rechazado`; el locatario ve "Rechazaste el contrato" |
 | Vigente | El documento es el firmado (`<código>-firmado.pdf`), con el aviso de firma de prueba. La URL del PDF se pide al hacer clic (S4-13): en Mi alquiler `pdf_url` dura 60 s |
 
+**Tanda B (12/11/2026, `feature/vistas`, probada solo en mock):** el garante firma.
+
+- **Enlace en el detalle del locador** (`EnlaceGarante.tsx`): "Generar enlace" en la fila de cada garante
+  pendiente. La URL se ve **una sola vez**, en un modal con "Copiar" y "Vence el dd/mm/aaaa a las HH:MM";
+  al cerrarlo se descarta (no va a `localStorage`, `sessionStorage`, logs ni a la URL). Con un enlace ya
+  generado en la visita, "Generar otro enlace" pide confirmación ("El enlace anterior va a dejar de
+  funcionar"). Después de recargar se ve "Generar enlace" con la ayuda "Si ya le mandaste uno, generar
+  otro lo anula": el detalle no informa el enlace vigente (TODO(backend) 1 de la tabla de abajo). El
+  garante se identifica por posición con `garantes[]` (TODO(backend) 2).
+- **Página pública `/firma-garante/[token]`** (`FirmaGarante.tsx`, layout con solo el logo): sin sesión,
+  sin `RequireRole` y sin "Rechazar". Muestra el nombre, el código, la propiedad y el vencimiento (solo lo
+  del `GET`), el aviso de firma de prueba, la casilla y la confirmación. **D2:** sin el requisito de la
+  última página (la API no da el PDF): la ayuda dice "El contrato completo se abre en DocuSign: podés
+  leerlo entero y salir sin firmar".
+- **Regresos:** `signing_complete` → "Listo, tu firma quedó registrada" y `decline` → "Declinaste la
+  firma…", los dos **sin volver a llamar al `GET`** (el enlace puede no servir más). `cancel`,
+  `session_timeout`, `ttl_expired`, `exception` u otro → el mensaje y la pantalla de siempre.
+- **Errores:** cualquier 404 es "Este enlace no es válido o ya no está disponible.", sin acciones; 429 →
+  "Demasiados intentos, esperá unos minutos."; 409 `SOBRE_NO_DISPONIBLE` y 502 se pueden reintentar.
+- **Seguridad:** `Referrer-Policy: no-referrer` en la metadata de la página y como header en
+  `next.config.mjs` (`/firma-garante/:path*`), `robots: noindex` y título genérico ("Firma del
+  contrato"). El token solo viaja en el path de la API (`auth: false`): ni consola ni storage.
+- **Pendiente en real:** todo lo del garante (la cuenta de DocuSign está bloqueada, ver abajo).
+
 **Rutas de regreso (verificado):** `/panel/contratos/[id]` existe y muestra el detalle (el redirect a
 Mis propiedades es solo de `/panel/contratos`). `/panel/alquiler?contrato=<id>` abre esa ficha aunque el
 locatario tenga varios contratos (el listado solo aparece sin `?contrato=`).
@@ -361,7 +386,8 @@ locatario tenga varios contratos (el listado solo aparece sin `?contrato=`).
 
 | # | Qué | Para qué | Dueño |
 |---|---|---|---|
-| 1 | TODO(backend): `enlace_vence_en` por garante en `GET /contratos/:id/detalle` (solo la fecha, nunca el token) | Mostrar "Vence el dd/mm a las HH:MM" después de recargar (Tanda B). Sin eso, el vencimiento se ve solo al generar el enlace | backend |
+| 1 | TODO(backend): `enlace_vence_en` por garante en `GET /contratos/:id/detalle` (solo la fecha, nunca el token) | Mostrar "Vence el dd/mm a las HH:MM" después de recargar. Hoy el vencimiento se ve solo al generar el enlace; después, "Generar enlace" con la ayuda "Si ya le mandaste uno, generar otro lo anula" | backend |
+| 6 | TODO(backend), opcional: un `pdf_url` (60 s) en `GET /firma-garante/:token` | Que el garante pueda leer el contrato en RentAR antes de ir a DocuSign. Hoy lo lee en DocuSign (D2) | backend |
 | 2 | TODO(backend): `id_garante` en cada firmante garante de `firmas.firmantes` (detalle y pestaña Contratos) y el nombre en las firmas de tipo `garante` de `GET /alquileres-locatario/:id` | Hoy el front empareja por posición con `garantes[]` (el back arma las dos listas en el mismo orden) | backend |
 | 3 | `acciones.firmar` del detalle no mira si hay sobre (`puede_firmar` sí) | Sin sobre, el locador ve "Firmar" y recibe 409 `SOBRE_NO_DISPONIBLE` (el front muestra "La firma todavía no está lista") | backend |
 | 4 | `GET /alquileres-locatario/:id` sigue mandando `email` y `telefono` de los garantes (ver US-27) | El front los descarta | backend |
@@ -385,9 +411,8 @@ sección (firmas, rutas de firma y mails), y S4-3 (filtro de garantes).
   vuelve al paso 1, como `/reabrir`), sin reenvío.
 - **`/simulador-firma`** (solo con `NEXT_PUBLIC_USE_MOCKS=true`; en real, 404): reemplaza a DocuSign.
   Firmar o Declinar se registran **8 s después** (60 s con "Simular un aviso demorado"), como el aviso de
-  DocuSign; "Cerrar sin firmar" y "Dejar vencer la sesión" no registran nada. "Firmar como garantes"
-  (desarrollo) permite cerrar un contrato antes de la Tanda B. Los datos viajan en el fragmento de la
-  URL; en `localStorage` (`rentar:mock:firmas-diferidas`) no quedan URLs ni tokens. Detalle en
+  DocuSign; "Cerrar sin firmar" y "Dejar vencer la sesión" no registran nada. Sirve también para el
+  garante, que llega desde `/firma-garante/[token]`. Los datos viajan en el fragmento de la URL; en `localStorage` (`rentar:mock:firmas-diferidas`) no quedan URLs ni tokens. Detalle en
   `apps/web/src/lib/mocks/README.md`.
 - CT-2026-0207 arranca pendiente con 0 de 3 firmas (Nicolás, Julieta y Hugo). En mock,
   `/panel/contratos/<id>` acepta el id interno (`BOR-<n>`) o el código `CT-AAAA-NNNN`.
@@ -1131,6 +1156,12 @@ estado inicial: código **`CT-2026-0002`** (antes ninguno) y **`ultimo_paso_borr
 **Sobres creados en el sandbox de DocuSign: 3, los tres anulados** (uno por "Modificar" y dos por rechazos).
 Avisos en `docusign_evento`: ids **8 a 14**.
 
+**Cómo probar el garante en mock (Tanda B, 12/11).** No hace falta crear nada: CT-2026-0207 tiene a Hugo
+Peralta como garante. El paso por paso para cerrarlo (locador → locatario → enlace de Hugo → firma de
+Hugo) está en `apps/web/src/lib/mocks/README.md`, "Cerrar CT-2026-0207 en mock". En el navegador quedan
+solo el hash del token y su vencimiento (`rentar:mock:contratos`); "Reiniciar datos de prueba" los borra.
+En real no se probó: la cuenta de DocuSign está bloqueada (§7).
+
 **Prueba en real de US-20 y US-21 (05/11, Tanda 0, usuario 1).** Pasan la consulta del perfil, las
 validaciones de nombre, DNI, teléfono y fecha, cancelar, el aviso de cambios sin guardar y el
 `PATCH /usuarios/me` del teléfono (se cambió y se dejó como estaba). No se probaron el cambio de correo y
@@ -1472,7 +1503,9 @@ sesión dura hasta cerrarla).
 | `/panel/cobros/[id]` y `/comprobante` (US-09 y US-10, Sprint 4) | Detalle: `cobro-detalle` (con `data-estado`), `cobro-detalle-cargando`, `cobro-detalle-error` (con `cobro-detalle-reintentar`), `cobro-no-encontrado`, `cobro-detalle-aviso`, `cobro-detalle-datos`, `-estado`, `-contrato`, `-cargos`, `-alquiler`, `-mora`, `-total`, `-cobros`, `-cobro`, `-cobros-no-disponible`, `-historial`, `-historial-no-disponible`, `-registrar`, `-ver-comprobante`, `-comprobante`, `-adjunto`. Comprobante: `comprobante`, `comprobante-cargando`, `comprobante-error` (con `comprobante-reintentar`), `comprobante-no-encontrado`, `comprobante-hoja`, `-numero`, `-locatario`, `-locador`, `-domicilio`, `-periodo`, `-mora`, `-total`, `-letras`, `-medio`, `-fecha-pago`, `-leyenda`, `-imprimir`, `-descargar`, `-descargar-error` | — |
 | `/panel/pagos` y `/panel` del locatario (US-09 y US-12, Sprint 4) | Mis pagos: `mis-pagos`, `mis-pagos-cargando`, `mis-pagos-error` (con `mis-pagos-reintentar`), `mis-pagos-vacio`, `mis-pagos-sin-resultados` (con `mis-pagos-limpiar-vacio`), `mis-pagos-pendiente` (con `data-estado` y `mis-pagos-pendiente-detalle`), `mis-pagos-indicadores`, `mis-pagos-tab-<estado>`, `mis-pagos-filtro-anio`, `mis-pagos-filtro-medio`, `mis-pagos-limpiar`, `mis-pagos-tabla`, `mis-pagos-indice`, `mis-pagos-recargo`, `mis-pagos-fecha`, `mis-pagos-comprobante`. Tarjeta: `proximo-alquiler` (con `data-variante`), `-chip`, `-monto`, `-periodo`, `-aviso`, `-aclaracion`, `-desglose`, `-recargo`, `-detalle`, `-comprobante`, `-total-mes`, `-cargando`, `-error`, `-reintentar`, `-sin-contrato`. Panel: `panel-ultimos-pagos`, `panel-ultimo-pago`, `panel-ver-historial`, `panel-ultimos-pagos-error`, `panel-ultimos-pagos-reintentar` | Mi alquiler: `mi-alquiler-monto`, `mi-alquiler-monto-error`, `mi-alquiler-monto-reintentar`, `mi-alquiler-ajuste`, `mi-alquiler-sin-ajuste` |
 | `/panel/alquiler` (US-07 y US-27, Sprint 3) | `mi-alquiler-cargando`, `mi-alquiler-vacio` ("Todavía no tenés un contrato activo", con `mi-alquiler-buscar`), `mi-alquiler-no-encontrado` y `mi-alquiler-error` (con `mi-alquiler-ir` y `mi-alquiler-reintentar`). Ficha: `mi-alquiler-propiedad` (con `mi-alquiler-direccion`, `mi-alquiler-estado`, `mi-alquiler-codigo`), `mi-alquiler-lo-que-viene` (con `mi-alquiler-proximo-pago`, `mi-alquiler-proximo-ajuste` —no está sin ajuste— y `mi-alquiler-fin`), `mi-alquiler-condiciones`, `mi-alquiler-locador` (con `mi-alquiler-locador-email` y `-telefono`), y los mismos testids del detalle (`contrato-detalle`, `contrato-firmantes`, `contrato-firma`, `contrato-firma-rechazar`, `contrato-descargar-pdf`…). Después de un rechazo (propio o `decline`): `mi-alquiler-no-disponible` (con `mi-alquiler-ir`). Solo en modo real (27/10): `mi-alquiler-documento-pdf`, `contrato-pdf-no-disponible` (junto al botón deshabilitado) y `contrato-firmas-sin-registro` (firmas en `desconocido`). Se fue el 11/11: `mi-alquiler-firma-no-disponible` (la firma ya existe en real). |
-| `/simulador-firma` (US-07, solo modo mock, Sprint 5) | `simulador-firma`, `simulador-firma-invalido`, `simulador-firma-demora` (casilla de 60 s), `simulador-firma-firmar`, `simulador-firma-declinar`, `simulador-firma-cancelar`, `simulador-firma-vencer`, `simulador-firma-error`, `simulador-firma-garantes` (+ `simulador-firma-garantes-aviso`) | — |
+| `/simulador-firma` (US-07, solo modo mock, Sprint 5) | `simulador-firma`, `simulador-firma-invalido`, `simulador-firma-demora` (casilla de 60 s), `simulador-firma-firmar`, `simulador-firma-declinar`, `simulador-firma-cancelar`, `simulador-firma-vencer`, `simulador-firma-error` | Se fueron el 12/11 (Tanda B): `simulador-firma-garantes` y `simulador-firma-garantes-aviso` ("Firmar como garantes") |
+| Enlace del garante en `/panel/contratos/[id]` (US-07, Tanda B) | `contrato-garante-enlace-generar` (en la fila `contrato-firmante` del garante), `contrato-garante-enlace-ayuda`, `contrato-garante-enlace-error`, `contrato-garante-enlace-confirmar` (modal de "Generar otro enlace", con `confirm-action-ok`), `contrato-garante-enlace-modal` con `contrato-garante-enlace-url`, `contrato-garante-enlace-copiar`, `contrato-garante-enlace-vence` y `contrato-garante-enlace-listo` | — |
+| `/firma-garante/[token]` (US-07, Tanda B) | `firma-garante-cargando`, `firma-garante-datos` (con `firma-garante-vence`, `firma-garante-aviso-prueba`, `firma-garante-acepto`, `firma-garante-ayuda` y `firma-garante-firmar`), `firma-garante-modal` (+ `firma-garante-error`, `confirm-action-ok`), `firma-garante-aviso` (regreso sin firmar), `firma-garante-listo` (`signing_complete`), `firma-garante-declinado` (`decline`), `firma-garante-invalido` (cualquier 404), `firma-garante-limite` (429), `firma-garante-error-carga` (+ `firma-garante-reintentar`) | — |
 | `/panel/alquileres` (US-27, Sprint 3) | `mis-alquileres`, `mis-alquileres-cargando`, `mis-alquileres-error` (+ `mis-alquileres-reintentar`), `mis-alquileres-tabla` (filas clickeables; adentro `mis-alquileres-direccion` y `mis-alquileres-estado`), en móvil `mis-alquileres-ficha-movil` (la dirección) y `mis-alquileres-ver-movil` (no en los finalizados). Mis propiedades: `mis-propiedades-ver-contrato` |
 | Herramientas de desarrollo | `dev-tools-toggle`, `dev-tools-reset-mock-data` |
 
