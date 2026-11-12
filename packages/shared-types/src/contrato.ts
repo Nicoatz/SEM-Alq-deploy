@@ -280,6 +280,33 @@ export interface FirmanteContrato {
 export type EventoFirma = 'signing_complete' | 'decline' | 'cancel' | 'session_timeout' | 'ttl_expired' | 'exception' | 'otro'
 
 /**
+ * El enlace de firma de un garante (US-07), recién generado por el locador.
+ * NOTA: la URL se muestra una sola vez y vive solo en el estado de la pantalla:
+ * el back guarda el hash del token y no la puede volver a dar.
+ */
+export interface EnlaceGarante {
+  /** `{WEB_URL}/firma-garante/<token>`. Nunca se guarda en el navegador. */
+  url: string
+  /** Fecha y hora ISO en que vence (48 h después de generarlo). */
+  venceEl: string
+}
+
+/**
+ * Lo que ve el garante al abrir su enlace (`/firma-garante/[token]`, US-07):
+ * solo su nombre, el código y la propiedad. Nunca DNI, montos ni datos de las partes.
+ */
+export interface FirmaGarantePublica {
+  /** Nombre y apellido del garante. */
+  nombre: string
+  /** `CT-AAAA-NNNN`; `null` si el back no lo manda. */
+  codigo: string | null
+  /** Dirección de la propiedad, como la arma el back ("Colón 100, Centro"). */
+  propiedad: string
+  /** Fecha y hora ISO en que vence el enlace; `null` si el back no la manda. */
+  venceEl: string | null
+}
+
+/**
  * El detalle de un contrato (`/panel/contratos/[id]`, US-07): lo del alta
  * más los firmantes.
  */
