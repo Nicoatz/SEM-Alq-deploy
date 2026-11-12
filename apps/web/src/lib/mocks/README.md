@@ -131,7 +131,9 @@ prueba". Cada firma se registra **8 segundos** después de volver del simulador:
   de dos contratos de US-12 y el "Sin ajuste" de US-11. Solo Camila tiene dos vigentes.
 - **PDF del elenco:** todos usan `apps/web/public/mocks/contrato-ficticio.pdf`: 6 páginas, 7 KB, sin datos
   reales. Lo que se sube en el alta se ve hasta recargar: el archivo no entra en `localStorage`, y después
-  se muestra el ficticio con el nombre y el tamaño guardados. BOR-2026-0001 no tiene PDF: está en el paso 2.
+  se muestra el ficticio. Las listas y el alta siguen mostrando el nombre y el tamaño guardados; el visor
+  dice "contrato-ficticio.pdf (ejemplo)" y muestra el aviso `visor-pdf-aviso-demo`. BOR-2026-0001 no tiene
+  PDF: está en el paso 2.
 - **Vencimiento:** es un **plazo en días** desde el inicio del período, no el día del mes (US-05). Vale
   igual para Mi alquiler y para cobros (`PLAZO_POR_CONTRATO` en `periodos.mock.ts`): Laprida 3, Belgrano 15,
   Av. Colón 27, Mariano Moreno 4, Obispo Trejo 10 e Ituzaingó 27. Con Obispo Trejo, el 23/09 el próximo vencimiento es el
