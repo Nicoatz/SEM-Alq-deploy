@@ -733,6 +733,12 @@ export function esPdfDeEjemplo(url: string): boolean {
   return USE_MOCKS && url === PDF_FICTICIO_URL
 }
 
+/**
+ * Título del visor cuando se ve el PDF de ejemplo ({@link esPdfDeEjemplo}): el
+ * nombre del archivo subido no corresponde a lo que se ve.
+ */
+export const NOMBRE_PDF_DE_EJEMPLO = 'contrato-ficticio.pdf (ejemplo)'
+
 // ─── US-07: firmar y rechazar ───────────────────────────────────────────
 
 /** El contrato pendiente de firma con sus firmas (si no está pendiente, 409 `CONTRATO_NO_PENDIENTE`). */

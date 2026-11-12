@@ -15,7 +15,8 @@
  * 5 minutos (S4-13). El documento ya abierto se sigue viendo.
  * NOTA: en modo mock, si se ve el PDF de ejemplo del elenco, arriba de la hoja
  * va un aviso (`contratos.service#esPdfDeEjemplo`): el PDF subido no se guarda
- * en el navegador y la otra parte ve el de ejemplo.
+ * en el navegador y la otra parte ve el de ejemplo. El título dice que es el de
+ * ejemplo, no el nombre del archivo subido.
  * Quién lo usa: `DetalleContrato.tsx` y `FirmaContrato.tsx`.
  */
 import { useEffect, useRef, useState } from 'react'
@@ -23,7 +24,7 @@ import { Alert, Button, Skeleton } from 'antd'
 import { LeftOutlined, RightOutlined } from '@ant-design/icons'
 import type { PDFDocumentProxy } from 'pdfjs-dist'
 import { dibujarPagina, usePdf, type ObtenerUrlPdf } from '@/lib/contratos/pdfVisor'
-import { esPdfDeEjemplo } from '@/services/contratos.service'
+import { esPdfDeEjemplo, NOMBRE_PDF_DE_EJEMPLO } from '@/services/contratos.service'
 import { BotonPdf } from './BotonPdf'
 import styles from './VisorPdf.module.css'
 
@@ -43,7 +44,7 @@ interface HojaProps {
   nombre?: string
   onPaginasVistas?: VisorPdfProps['onPaginasVistas']
   testId: string
-  /** Modo mock: el documento es el PDF de ejemplo, no el que se subió. */
+  /** Modo mock: el documento es el PDF de ejemplo, no el que se subió (cambia el aviso y el título). */
   esEjemplo: boolean
 }
 
@@ -96,7 +97,11 @@ function Hoja({ documento, nombre, onPaginasVistas, testId, esEjemplo }: HojaPro
         />
       )}
       <div className={styles.encabezado}>
-        {nombre && <span className={styles.nombre}>{nombre}</span>}
+        {esEjemplo ? (
+          <span className={styles.nombre}>{NOMBRE_PDF_DE_EJEMPLO}</span>
+        ) : (
+          nombre && <span className={styles.nombre}>{nombre}</span>
+        )}
         <span className={styles.pagina} data-testid={`${testId}-pagina`}>
           Página {pagina} de {total}
         </span>
