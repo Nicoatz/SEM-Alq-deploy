@@ -22,19 +22,20 @@
  * (por ejemplo, si el contrato se creó con la pantalla abierta): el bloque
  * pasa a bloqueado hasta salir de la pantalla (`bloqueoDescubierto`).
  * De dónde saca los datos: `PerfilUsuario` (lo pasa `PerfilScreen`); guarda
- * con `perfil.service#actualizarDatosPersonales`.
+ * con `perfil.service#actualizarDatosPersonales`. Qué cambió lo calcula
+ * `lib/perfil/cambios.ts`.
  * Quién lo usa: `PerfilScreen.tsx`.
  */
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Alert, Button, DatePicker, Form, Input } from 'antd'
 import type { Dayjs } from 'dayjs'
-import dayjs from 'dayjs'
-import type { DatosPersonalesCambios, PerfilUsuario } from '@rentar/shared-types'
+import type { PerfilUsuario } from '@rentar/shared-types'
 import { DetailList } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
-import { dniParaMostrar, fechaParaMostrar, telefonoParaMostrar, tieneCodigoPais } from '@/lib/perfil/formato'
+import { dniParaMostrar, fechaParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
-import { aE164, formatoTelefonoEnCampo, MENSAJES_SOLICITUD, reglasEmailSolicitud, telefonoParaPrecargar, telefonoValido } from '@/lib/validation/solicitud.rules'
+import { cambiosEntre, hayCambiosDatos, valoresDe, type ValoresDatos } from '@/lib/perfil/cambios'
+import { formatoTelefonoEnCampo, MENSAJES_SOLICITUD, reglasEmailSolicitud, telefonoValido } from '@/lib/validation/solicitud.rules'
 import { esMayorDeEdad, MENSAJES, reglasDni, reglasNombrePerfil, soloDigitos } from '@/lib/validation/usuario.rules'
 import { actualizarDatosPersonales, CAMPO_NO_BORRABLE } from '@/services/perfil.service'
 import { ServiceError } from '@/services/shared/errors'
@@ -49,66 +50,6 @@ interface DatosPersonalesBloqueProps {
   onActualizado: (perfil: PerfilUsuario) => void
   /** Avisa si hay cambios sin guardar (para el aviso de salida, US-21). */
   onCambiosSinGuardar: (hayCambios: boolean) => void
-}
-
-/** Los campos del formulario, como los maneja antd `Form`. */
-interface ValoresDatos {
-  nombre: string
-  apellido: string
-  dni: string
-  email: string
-  /** Lo que se ve en el campo, sin el "+" (que es fijo). */
-  telefono: string
-  fechaNacimiento: Dayjs | null
-}
-
-/**
- * Teléfono guardado → lo que se precarga en el campo. Un teléfono sin código
- * de país (modo real, los 10 dígitos del seed) se precarga tal cual: no se le
- * agrega el 54 (decisión del PO; si el usuario no lo toca, no viaja).
- */
-function telefonoInicial(telefono: string | null): string {
-  if (telefono && !tieneCodigoPais(telefono)) return formatoTelefonoEnCampo(telefono)
-  return telefonoParaPrecargar(telefono)
-}
-
-/** Perfil → valores del formulario (lo que restaura Cancelar). */
-function valoresDe(perfil: PerfilUsuario): ValoresDatos {
-  return {
-    nombre: perfil.nombre,
-    apellido: perfil.apellido,
-    dni: perfil.dni ?? '',
-    email: perfil.email,
-    telefono: telefonoInicial(perfil.telefono),
-    fechaNacimiento: perfil.fechaNacimiento ? dayjs(perfil.fechaNacimiento) : null,
-  }
-}
-
-/** Teléfono del campo → E.164, o `null` si quedó vacío o solo con el código de país. */
-function telefonoDelCampo(texto: string): string | null {
-  const e164 = aE164(texto)
-  return e164 && e164.length > 4 ? e164 : null
-}
-
-/**
- * Lo que cambió respecto del perfil guardado: solo eso viaja al back (US-21
- * "cada bloque se guarda por separado"). El DNI no viaja si está bloqueado.
- */
-function cambiosEntre(perfil: PerfilUsuario, valores: ValoresDatos): DatosPersonalesCambios {
-  const cambios: DatosPersonalesCambios = {}
-  if (valores.nombre.trim() !== perfil.nombre) cambios.nombre = valores.nombre.trim()
-  if (valores.apellido.trim() !== perfil.apellido) cambios.apellido = valores.apellido.trim()
-  const dni = soloDigitos(valores.dni)
-  if (dni && dni !== perfil.dni) cambios.dni = dni
-  // El correo se compara sin mayúsculas: el back lo guarda en minúsculas.
-  const email = valores.email.trim().toLowerCase()
-  if (email && email !== perfil.email.toLowerCase()) cambios.email = email
-  // Se comparan los dígitos: el guardado puede no tener "+" (sin código de país).
-  const telefono = telefonoDelCampo(valores.telefono)
-  if (soloDigitos(telefono ?? '') !== soloDigitos(perfil.telefono ?? '')) cambios.telefono = telefono
-  const fecha = valores.fechaNacimiento ? valores.fechaNacimiento.format('YYYY-MM-DD') : null
-  if (fecha !== perfil.fechaNacimiento) cambios.fechaNacimiento = fecha
-  return cambios
 }
 
 /**
@@ -177,7 +118,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
 
   const iniciales = useMemo(() => valoresDe(perfil), [perfil])
   const valores = Form.useWatch([], form) as Partial<ValoresDatos> | undefined
-  const hayCambios = valores !== undefined && Object.keys(cambiosEntre(perfil, { ...iniciales, ...valores })).length > 0
+  const hayCambios = valores !== undefined && hayCambiosDatos(perfil, { ...iniciales, ...valores }, { bloqueado })
 
   useEffect(() => {
     onCambiosSinGuardar(hayCambios)
@@ -187,7 +128,7 @@ function FormularioDatos({ perfil, bloqueado, avisoBloqueo, onBloqueoDescubierto
 
   // ─── Handlers ───────────────────────────────────────────────────────
   async function guardar(valoresForm: ValoresDatos): Promise<void> {
-    const cambios = cambiosEntre(perfil, valoresForm)
+    const cambios = cambiosEntre(perfil, valoresForm, { bloqueado })
     if (Object.keys(cambios).length === 0) {
       onCancelar()
       return
