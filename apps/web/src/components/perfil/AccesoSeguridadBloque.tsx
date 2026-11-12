@@ -23,7 +23,7 @@
  * van a storage, logs ni consola.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Button, Form, Input, type FormRule } from 'antd'
+import { Alert, Button, Form, Input, type FormRule, type GetProps } from 'antd'
 import { DetailList, PasswordStrengthMeter } from '@rentar/ui'
 import { useFormularioValido } from '@/lib/perfil/useFormularioValido'
 import { fuerzaPassword, reglasPasswordActual, reglasPasswordCambio, reglasPasswordRepetida, requisitosPassword } from '@/lib/validation/usuario.rules'
@@ -44,6 +44,19 @@ interface ValoresContrasena {
   actual: string
   nueva: string
   repetida: string
+}
+
+/** Id del indicador de seguridad: lo describe al campo de la contraseña nueva. */
+const ID_FUERZA = 'perfil-password-fuerza'
+
+/**
+ * El campo de la contraseña nueva. NOTA (accesibilidad): cuando el campo
+ * tiene un error, `Form.Item` pisa su `aria-describedby` con el id del
+ * mensaje. Acá se suman los dos ids (el error y el indicador de seguridad),
+ * así el lector de pantalla lee ambos.
+ */
+function PasswordNueva({ 'aria-describedby': describedBy, ...props }: GetProps<typeof Input.Password>) {
+  return <Input.Password {...props} aria-describedby={[describedBy, ID_FUERZA].filter(Boolean).join(' ')} />
 }
 
 /** Props de {@link FormularioContrasena}. */
@@ -125,14 +138,14 @@ function FormularioContrasena({ onGuardado, onCancelar, onCambiosSinGuardar }: F
       </Form.Item>
       <div className={styles.grid}>
         <Form.Item name="nueva" label="Contraseña nueva" rules={reglasPasswordCambio('actual')} dependencies={['actual']}>
-          <Input.Password autoComplete="new-password" aria-describedby="perfil-password-fuerza" data-testid="perfil-password-nueva" />
+          <PasswordNueva autoComplete="new-password" data-testid="perfil-password-nueva" />
         </Form.Item>
         <Form.Item name="repetida" label="Repetí la contraseña nueva" rules={reglasPasswordRepetida('nueva')} dependencies={['nueva']}>
           <Input.Password autoComplete="new-password" visibilityToggle={false} data-testid="perfil-password-repetir" />
         </Form.Item>
       </div>
       {/* US-21: "se debe mostrar el indicador de seguridad de la contraseña nueva" (mismo que US-19). */}
-      <PasswordStrengthMeter id="perfil-password-fuerza" strength={fuerzaPassword(nueva)} requirements={requisitosPassword(nueva)} data-testid="perfil-password-fuerza" />
+      <PasswordStrengthMeter id={ID_FUERZA} strength={fuerzaPassword(nueva)} requirements={requisitosPassword(nueva)} data-testid="perfil-password-fuerza" />
       <div className={`${styles.actions} ${styles.actionsSeparadas}`}>
         {/* Deshabilitado (atributo `disabled`) sin nada escrito o con algún
             error: el porqué lo dice el mensaje de cada campo. */}
