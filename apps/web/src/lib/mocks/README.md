@@ -180,10 +180,10 @@ prueba". Cada firma se registra **8 segundos** después de volver del simulador:
 1. **Las del mapa** (8): las 7 de Nicolás y la de Sofía. **Todas tienen un título descriptivo,
    nunca la dirección** (US-41: el detalle público muestra el título en las migas y el subtítulo,
    y la zona pública nunca muestra la altura). Las alquiladas y la pausada usan "tipo de N
-   dormitorios en barrio" (ej. "Departamento de 1 dormitorio en el Centro"). Las dos publicadas:
-   - Rondeau 480, PB (Güemes): "1 dormitorio en planta baja con cochera". $385.000 + $62.000,
+   dormitorios en barrio" (ej. "Departamento de 1 dormitorio en Güemes"). Las dos publicadas:
+   - Rondeau 480, PB (Nueva Córdoba): "1 dormitorio en planta baja con cochera". $385.000 + $62.000,
      disponible desde el 01/10/2026 (cuando empieza CT-2026-0207).
-   - Fructuoso Rivera 785 (Cofico): "PH de 2 dormitorios con patio".
+   - Fructuoso Rivera 785 (Güemes): "PH de 2 dormitorios con patio".
    - Las alquiladas y la pausada nunca aparecen en `/buscar`.
    - **Cada una tiene 3 fotos** (US-01 pide al menos 3), para que se puedan editar (US-03) sin
      subir fotos. Las dos extra salen del mismo banco (`src/assets/properties`): alguna se repite
@@ -214,7 +214,11 @@ Todas están en Córdoba Capital (provincia "Córdoba", ciudad "Córdoba Capital
 2. Un inquilino pertenece a una sola propiedad; un monto, a un solo contrato.
 3. Los montos futuros siempre llevan la palabra "estimado".
 4. "Hoy" es el **23/09/2026** en todas las vistas (fijo en modo mock, ver `lib/utils/fechas.ts`).
-5. Barrios válidos: los de `lib/catalogs/neighborhoods.ts`.
+5. Barrios válidos: los de `lib/catalogs/neighborhoods.ts`, más **Alberdi** (Av. Colón 2450 y
+   Mariano Moreno 285), que no está en el catálogo del piloto. El barrio tiene que ser el real de la
+   calle: el mapa del detalle (`UbicacionMapa`, US-41) lo usa para ubicar la cuadra, y Google se
+   aleja si no coincide. Corregidos el 14/11/2026: Rondeau 480 y Chacabuco 690 → Nueva Córdoba;
+   Fructuoso Rivera 785 y Belgrano 1120 → Güemes; Av. Colón 2450 y Mariano Moreno 285 → Alberdi.
 6. Prefijos de ID: propiedades `prop-…`, contratos `CT-2026-XXXX`, recibos `RC-2026-XXXX`,
    reclamos `RCL-2026-XXXX`, solicitudes `SOL-2026-XXXX`.
 

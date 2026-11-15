@@ -11,14 +11,22 @@
  * Quién lo usa: `DetallePropiedad.tsx`.
  *
  * NOTA: el mapa nunca muestra más que el texto de la pantalla. La búsqueda
- * se arma solo con `address` tal cual llega del adaptador (que ya es la
- * aproximada sin sesión), sin piso ni depto, más ciudad y provincia.
- * NOTA: con dirección, el barrio NO entra en la búsqueda: Google lo toma
- * como un lugar más y se aleja de la cuadra ("General Paz" lo lleva a la
- * avenida de Buenos Aires; un barrio mal cargado, a otra zona). El barrio
- * solo se usa cuando no hay dirección (barrio + ciudad). La ciudad se
- * normaliza solo para buscar ("Córdoba Capital" → "Córdoba"): la pantalla
- * la sigue mostrando como llega.
+ * se arma con `address` tal cual llega del adaptador (que ya es la
+ * aproximada sin sesión), sin piso ni depto, más barrio, ciudad y provincia.
+ * NOTA: el barrio entra siempre que exista, porque desambigua calles que se
+ * repiten en la provincia: sin barrio, "Laprida 340, Córdoba" cae en otra
+ * localidad a ~17 km del centro. La ciudad va como "Córdoba Capital" (no
+ * "Córdoba"): sin eso, "General Paz" lleva a Google a la avenida de Buenos
+ * Aires. Medido en las 72 búsquedas del elenco y de la rama real (con y sin
+ * sesión), noviembre 2026.
+ * NOTA: el mapa depende de que el barrio cargado coincida con la calle. Si
+ * no coincide, Google se aleja de la cuadra: el inmueble 9 de la base
+ * (Laprida 450, cargado en Güemes; Google lo ubica en Nueva Córdoba) queda
+ * con zoom 13–14 en vez de 15.
+ * TODO(backend): que el back mande lat/lng del inmueble (redondeadas a la
+ * cuadra sin sesión, igual que la dirección aproximada) y el mapa use
+ * coordenadas (`?q=<lat>,<lng>`) en lugar de texto: así no depende de cómo
+ * Google interprete la dirección ni de que el barrio esté bien cargado.
  * NOTA: es el embed público de Google (`?output=embed`), sin API key ni
  * dependencias. Si algún día se define una Content-Security-Policy, tiene que
  * permitir `frame-src https://www.google.com`.
@@ -58,21 +66,24 @@ function calleParaBusqueda(address: string, precision: UbicacionMapaProps['addre
 }
 
 /**
- * Ciudad para el texto de búsqueda: "Córdoba Capital" → "Córdoba" (Google no
- * conoce "Capital" como parte del nombre). Lo que se muestra no cambia.
+ * Ciudad para el texto de búsqueda. La capital de Córdoba ("Córdoba" o
+ * "Córdoba Capital", según de dónde venga el dato) se busca como "Córdoba
+ * Capital" para acotar a la ciudad (ver la NOTA del encabezado). Cualquier
+ * otra ciudad va tal cual. Lo que se muestra no cambia.
  */
-function ciudadParaBusqueda(city: string): string {
-  return city.trim().replace(/\s+Capital$/i, '')
+function ciudadParaBusqueda(city: string, province: string): string {
+  const ciudad = city.trim()
+  const esCapitalCordobesa = /^córdoba(\s+capital)?$/i.test(ciudad) && /^córdoba$/i.test(province.trim())
+  return esCapitalCordobesa ? 'Córdoba Capital' : ciudad
 }
 
 /**
- * "Rondeau 400, Córdoba, Córdoba, Argentina". Sin dirección, barrio + ciudad
- * ("Güemes, Córdoba, Córdoba, Argentina"). El barrio no entra junto a la
- * dirección: ver la NOTA del encabezado.
+ * "Rondeau 400, Nueva Córdoba, Córdoba Capital, Córdoba, Argentina". Sin
+ * dirección, barrio + ciudad ("Güemes, Córdoba Capital, Córdoba,
+ * Argentina"). El iframe y el link usan este mismo texto.
  */
 export function textoBusquedaMapa({ address, addressPrecision, neighborhoodName, city, province }: UbicacionMapaProps): string {
-  const calle = calleParaBusqueda(address, addressPrecision)
-  return [calle || neighborhoodName, ciudadParaBusqueda(city), province, 'Argentina']
+  return [calleParaBusqueda(address, addressPrecision), neighborhoodName, ciudadParaBusqueda(city, province), province, 'Argentina']
     .map((parte) => parte?.trim())
     .filter(Boolean)
     .join(', ')
