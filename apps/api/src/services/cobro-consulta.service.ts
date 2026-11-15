@@ -181,6 +181,34 @@ function periodoResumen(
   };
 }
 
+interface PeriodoListadoPreparado {
+  record: PeriodoCobroConsultaRecord;
+  finances: PeriodMoney;
+  summary: PeriodoCobroResumenDTO;
+}
+
+function prepareListRecords(
+  records: PeriodoCobroConsultaRecord[],
+  now: Date
+): PeriodoListadoPreparado[] {
+  const prepared: PeriodoListadoPreparado[] = [];
+
+  for (const record of records) {
+    try {
+      const finances = calculatePeriodMoney(record, now);
+      prepared.push({ record, finances, summary: periodoResumen(record, finances) });
+    } catch (error) {
+      console.error('[US-09] Se omitió un período inconsistente de la lista.', {
+        idPeriodo: record.id,
+        idContrato: record.id_contrato,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      });
+    }
+  }
+
+  return prepared;
+}
+
 function stateBaseAmount(record: PeriodoCobroConsultaRecord): number {
   return Number(record.monto_base_alquiler);
 }
@@ -248,7 +276,8 @@ export class CobroConsultaService {
       });
     }
     const records = fetched.filter(record => !usuarioEsAmbasPartes(record, usuarioId));
-    let items = records.map(record => periodoResumen(record, calculatePeriodMoney(record, now)));
+    const prepared = prepareListRecords(records, now);
+    let items = prepared.map(item => item.summary);
     items = items.filter(item => isEstado(item.estado, filtros.estado));
     items.sort((left, right) => {
       const stateRank: Record<EstadoPeriodoCobroDTO, number> = { vencido: 0, pendiente: 1, pagado: 2 };
@@ -297,13 +326,13 @@ export class CobroConsultaService {
     }
     const records = fetched.filter(record => !usuarioEsAmbasPartes(record, usuarioId));
     const annualYear = filtros.anio ?? now.getUTCFullYear();
+    const prepared = prepareListRecords(records, now);
     const paidInYear = (filtros.estado && filtros.estado !== 'todos' && filtros.estado !== 'pagado'
       ? []
-      : records.filter(record => (record.cobros ?? []).some(cobro =>
+      : prepared.filter(({ record }) => (record.cobros ?? []).some(cobro =>
         Number(cobro.fecha_cobro.slice(0, 4)) === annualYear
         && (!filtros.medio || cobro.medio === filtros.medio)
       )))
-      .map(record => ({ record, finances: calculatePeriodMoney(record, now) }))
       .filter(({ finances }) => finances.cobro !== null);
     const resumenAnual: ResumenPagosLocatarioDTO = {
       anio: annualYear,
@@ -312,25 +341,21 @@ export class CobroConsultaService {
       recargos_pagados: money(paidInYear.reduce((sum, item) => sum + item.finances.interest, 0)),
     };
 
-    let matchingRecords = filtros.anio
-      ? records.filter(record => periodoYear(record) === filtros.anio)
-      : records;
-    const summaries = matchingRecords.map(record => ({
-      record,
-      finances: calculatePeriodMoney(record, now),
-    })).filter(({ finances }) => isEstado(finances.state, filtros.estado));
+    const summaries = prepared
+      .filter(({ record }) => !filtros.anio || periodoYear(record) === filtros.anio)
+      .filter(({ finances }) => isEstado(finances.state, filtros.estado));
 
     const nextCandidate = summaries
       .filter(({ finances }) => finances.state !== 'pagado')
       .sort((left, right) => left.record.fecha_inicio.localeCompare(right.record.fecha_inicio))[0] ?? null;
     const proximoPeriodo = nextCandidate
-      ? periodoResumen(nextCandidate.record, nextCandidate.finances)
+      ? nextCandidate.summary
       : null;
 
     const paidItems = summaries
       .filter(({ finances }) => finances.cobro !== null)
       .filter(({ finances }) => !filtros.medio || finances.cobro?.medio === filtros.medio)
-      .map(({ record, finances }) => toPagoItem(periodoResumen(record, finances), finances.cobro!))
+      .map(({ summary, finances }) => toPagoItem(summary, finances.cobro!))
       .sort((left, right) => right.periodo.localeCompare(left.periodo) || right.fecha_pago.localeCompare(left.fecha_pago));
     const { page, limit } = pageValues(filtros.page, filtros.limit);
 
@@ -347,7 +372,7 @@ export class CobroConsultaService {
 
   async detalle(idPeriodo: number, usuarioId: number): Promise<DetalleCobroConsultaDTO> {
     if (!Number.isSafeInteger(idPeriodo) || idPeriodo <= 0) throw notFoundError();
-    const record = await this.repository.findDetalleByPeriodoIdAndUsuarioPermitido(idPeriodo, usuarioId);
+    const record = await this.repository.findDetalleByPeriodoId(idPeriodo);
     if (!record) throw notFoundError();
 
     const property = record.contrato.inmueble;

@@ -63,6 +63,23 @@ export interface PeriodoCobroConsultaRecord {
   }>;
 }
 
+type CobroConsultaRecord = PeriodoCobroConsultaRecord['cobros'][number];
+
+type PeriodoCobroSupabaseRow = Omit<PeriodoCobroConsultaRecord, 'cobros'> & {
+  cobros?: CobroConsultaRecord | CobroConsultaRecord[] | null;
+};
+
+export function normalizeCobrosRelation<T>(cobros: T | T[] | null | undefined): T[] {
+  return Array.isArray(cobros) ? cobros : cobros ? [cobros] : [];
+}
+
+function normalizePeriodoRows(rows: unknown[]): PeriodoCobroConsultaRecord[] {
+  return rows.map(value => {
+    const row = value as PeriodoCobroSupabaseRow;
+    return { ...row, cobros: normalizeCobrosRelation(row.cobros) };
+  });
+}
+
 export interface PeriodoCobroEventoRecord {
   id: number;
   tipo: 'periodo_generado' | 'cobro_registrado' | 'periodo_pagado';
@@ -79,10 +96,7 @@ export interface ICobroConsultaRepository {
   findPeriodosByLocatarioId(
     usuarioId: number
   ): Promise<PeriodoCobroConsultaRecord[]>;
-  findDetalleByPeriodoIdAndUsuarioPermitido(
-    idPeriodo: number,
-    usuarioId: number
-  ): Promise<PeriodoCobroConsultaRecord | null>;
+  findDetalleByPeriodoId(idPeriodo: number): Promise<PeriodoCobroConsultaRecord | null>;
   findEventosByPeriodoId(idPeriodo: number): Promise<PeriodoCobroEventoRecord[]>;
   createSignedUrlForAttachedProof(path: string): Promise<string>;
 }
@@ -145,7 +159,7 @@ export class CobroConsultaRepository implements ICobroConsultaRepository {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as unknown as PeriodoCobroConsultaRecord[];
+      return normalizePeriodoRows(data ?? []);
     });
   }
 
@@ -174,26 +188,20 @@ export class CobroConsultaRepository implements ICobroConsultaRepository {
 
       const { data, error } = await query;
       if (error) throw error;
-      return (data ?? []) as unknown as PeriodoCobroConsultaRecord[];
+      return normalizePeriodoRows(data ?? []);
     });
   }
 
-  async findDetalleByPeriodoIdAndUsuarioPermitido(
-    idPeriodo: number,
-    usuarioId: number
-  ): Promise<PeriodoCobroConsultaRecord | null> {
+  async findDetalleByPeriodoId(idPeriodo: number): Promise<PeriodoCobroConsultaRecord | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('periodo_cobro')
       .select(PERIODO_SELECT)
       .eq('id', idPeriodo)
-      .or(
-        `inmueble.id_locador.eq.${usuarioId},and(participantes.id_usuario.eq.${usuarioId},participantes.tipo_firmante.eq.2)`,
-        { foreignTable: 'contrato' }
-      )
       .maybeSingle();
 
     if (error) throw error;
-    return (data as unknown as PeriodoCobroConsultaRecord | null) ?? null;
+    if (!data) return null;
+    return normalizePeriodoRows([data])[0] ?? null;
   }
 
   async findEventosByPeriodoId(idPeriodo: number): Promise<PeriodoCobroEventoRecord[]> {

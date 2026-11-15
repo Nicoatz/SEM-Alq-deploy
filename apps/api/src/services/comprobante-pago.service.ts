@@ -140,8 +140,16 @@ export class ComprobantePagoService {
 
   async obtener(idCobro: number, usuarioId: number): Promise<ComprobantePagoDTO> {
     if (!Number.isInteger(idCobro) || idCobro <= 0) throw notFoundError();
-    const record = await this.repository.findByIdAndUsuarioPermitido(idCobro, usuarioId);
+    const record = await this.repository.findById(idCobro);
     if (!record) throw notFoundError();
+    const contrato = record.periodo?.contrato;
+    const inmueble = contrato?.inmueble;
+    const locatario = contrato?.participantes.find(
+      participante => participante.tipo_firmante === 2
+    );
+    const esLocadorPropietario = inmueble?.id_locador === usuarioId;
+    const esLocatarioPrincipal = locatario?.id_usuario === usuarioId;
+    if (!esLocadorPropietario && !esLocatarioPrincipal) throw notFoundError();
     return construirComprobante(record);
   }
 

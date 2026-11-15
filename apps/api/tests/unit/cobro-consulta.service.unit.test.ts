@@ -90,13 +90,13 @@ function makeRepository(records: PeriodoCobroConsultaRecord[] = []) {
   return {
     findHistorialByLocadorId: jest.fn(async () => records),
     findPeriodosByLocatarioId: jest.fn(async () => records),
-    findDetalleByPeriodoIdAndUsuarioPermitido: jest.fn(async () => records[0] ?? null),
+    findDetalleByPeriodoId: jest.fn(async () => records[0] ?? null),
     findEventosByPeriodoId: jest.fn(async () => events),
     createSignedUrlForAttachedProof: jest.fn(async (path: string) => `https://signed.example.test/${path}`),
   } satisfies ICobroConsultaRepository & {
     findHistorialByLocadorId: jest.Mock;
     findPeriodosByLocatarioId: jest.Mock;
-    findDetalleByPeriodoIdAndUsuarioPermitido: jest.Mock;
+    findDetalleByPeriodoId: jest.Mock;
     findEventosByPeriodoId: jest.Mock;
     createSignedUrlForAttachedProof: jest.Mock;
   };
@@ -134,6 +134,25 @@ describe('CobroConsultaService', () => {
     expect(result.items[0].monto_exigible).not.toBe(124000);
   });
 
+  it('registra y omite un período inconsistente sin cancelar el listado', async () => {
+    const records = [
+      makePeriodo(1, '2026-10', '2026-11-20', 'pendiente'),
+      makePeriodo(2, '2026-09', '2026-09-10', 'pagado'),
+    ];
+    const repository = makeRepository(records);
+    const service = new CobroConsultaService(repository, now);
+    const logError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    const result = await service.historialLocador(1, {});
+
+    expect(result.items.map(item => item.id_periodo)).toEqual([1]);
+    expect(logError).toHaveBeenCalledWith(
+      '[US-09] Se omitió un período inconsistente de la lista.',
+      expect.objectContaining({ idPeriodo: 2, idContrato: 52 })
+    );
+    logError.mockRestore();
+  });
+
   it('usa la fecha de pago para el resumen anual aunque el período sea de otro año', async () => {
     const record = makePeriodo(1, '2025-12', '2025-12-31', 'pagado', [
       makeCobro(21, '2026-01-02', 106000),
@@ -161,6 +180,25 @@ describe('CobroConsultaService', () => {
     expect(repository.createSignedUrlForAttachedProof).not.toHaveBeenCalled();
   });
 
+  it('autoriza al locatario principal y devuelve 404 genérico a un tercero', async () => {
+    const record = makePeriodo(1, '2026-09', '2026-09-10', 'pagado', [
+      makeCobro(33, '2026-09-10', 100000),
+    ]);
+    const repository = makeRepository([record]);
+    const service = new CobroConsultaService(repository, now);
+
+    await expect(service.detalle(record.id, locatario.id)).resolves.toMatchObject({
+      id_periodo: record.id,
+      locatario: { id: locatario.id },
+    });
+    await expect(service.detalle(record.id, 44)).rejects.toMatchObject({
+      statusCode: 404,
+      message: 'No encontramos este cobro',
+    });
+    expect(repository.findDetalleByPeriodoId).toHaveBeenNthCalledWith(1, record.id);
+    expect(repository.findDetalleByPeriodoId).toHaveBeenNthCalledWith(2, record.id);
+  });
+
   it('firma temporalmente el adjunto solo después de autorizar el detalle', async () => {
     const record = makePeriodo(1, '2026-09', '2026-09-10', 'pagado', [
       makeCobro(33, '2026-09-10', 100000, 'cobros/1/1/original.pdf'),
@@ -172,6 +210,6 @@ describe('CobroConsultaService', () => {
 
     expect(detail.cobros[0].adjunto_url).toBe('https://signed.example.test/cobros/1/1/original.pdf');
     expect(detail.cobros[0]).not.toHaveProperty('comprobante_storage_path');
-    expect(repository.findDetalleByPeriodoIdAndUsuarioPermitido).toHaveBeenCalledWith(record.id, 1);
+    expect(repository.findDetalleByPeriodoId).toHaveBeenCalledWith(record.id);
   });
 });

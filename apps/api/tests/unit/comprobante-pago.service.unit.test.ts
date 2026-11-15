@@ -29,6 +29,7 @@ function crearComprobante(overrides: Partial<ComprobantePagoRecord> = {}): Compr
         fecha_fin_contrato: '2027-10-31',
         inmueble: {
           id: 20,
+          id_locador: 7,
           direccion: 'Av. Colon',
           numero: 1550,
           piso: '4B',
@@ -63,7 +64,7 @@ function crearComprobante(overrides: Partial<ComprobantePagoRecord> = {}): Compr
 
 function crearRepository(record: ComprobantePagoRecord | null): IComprobantePagoRepository {
   return {
-    findByIdAndUsuarioPermitido: jest.fn(async () => record),
+    findById: jest.fn(async () => record),
   };
 }
 
@@ -84,13 +85,20 @@ describe('ComprobantePagoService', () => {
     expect(result.pdf.subarray(0, 5).toString()).toBe('%PDF-');
   });
 
-  it('usa un 404 genérico cuando el repository no autoriza el cobro', async () => {
-    const service = new ComprobantePagoService(crearRepository(null));
+  it('usa un 404 genérico para cobros inexistentes o de un tercero', async () => {
+    const service = new ComprobantePagoService(crearRepository(crearComprobante()));
 
     await expect(service.obtener(50, 99)).rejects.toMatchObject({
       statusCode: 404,
       message: 'No encontramos este comprobante',
     });
+  });
+
+  it('autoriza tanto al locador propietario como al locatario principal', async () => {
+    const service = new ComprobantePagoService(crearRepository(crearComprobante()));
+
+    await expect(service.obtener(50, 7)).resolves.toMatchObject({ id_cobro: 50 });
+    await expect(service.obtener(50, 8)).resolves.toMatchObject({ id_cobro: 50 });
   });
 
   it('rechaza un detalle cuyo total no coincide con el monto persistido', async () => {

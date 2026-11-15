@@ -26,6 +26,7 @@ export interface ComprobantePagoRecord {
       fecha_fin_contrato: string | null;
       inmueble: {
         id: number;
+        id_locador: number;
         direccion: string;
         numero: number;
         piso: string | null;
@@ -57,14 +58,11 @@ export interface ComprobantePagoRecord {
 }
 
 export interface IComprobantePagoRepository {
-  findByIdAndUsuarioPermitido(idCobro: number, usuarioId: number): Promise<ComprobantePagoRecord | null>;
+  findById(idCobro: number): Promise<ComprobantePagoRecord | null>;
 }
 
 export class ComprobantePagoRepository implements IComprobantePagoRepository {
-  async findByIdAndUsuarioPermitido(
-    idCobro: number,
-    usuarioId: number
-  ): Promise<ComprobantePagoRecord | null> {
+  async findById(idCobro: number): Promise<ComprobantePagoRecord | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('cobro')
       .select(`
@@ -88,10 +86,6 @@ export class ComprobantePagoRepository implements IComprobantePagoRepository {
         )
       `)
       .eq('id', idCobro)
-      .or(
-        `inmueble.id_locador.eq.${usuarioId},and(participantes.id_usuario.eq.${usuarioId},participantes.tipo_firmante.eq.2)`,
-        { foreignTable: 'periodo_cobro.contrato' }
-      )
       .maybeSingle();
 
     if (error) throw error;
