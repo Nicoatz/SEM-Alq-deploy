@@ -2,9 +2,10 @@
 
 /**
  * DetallePropiedad.tsx — la pantalla `/propiedad/[id]`: fotos, precio,
- * características, descripción, condiciones, ubicación (exacta con sesión,
- * aproximada sin sesión: decisión del PO con la US-35 actualizada), la
- * tarjeta del dueño con "Solicitar alquiler" y las propiedades similares.
+ * características, descripción, condiciones, ubicación con mapa de Google
+ * (exacta con sesión, aproximada sin sesión: decisión del PO con la US-35
+ * actualizada; ver `UbicacionMapa.tsx`), la tarjeta del dueño con
+ * "Solicitar alquiler" y las propiedades similares.
  *
  * Diseño: Claude Design, "Detalle de propiedad" · 01 (escritorio), · 02
  * (estados del botón), · 03 (móvil) y · 04 (estados alternativos).
@@ -43,6 +44,7 @@ import { estadoAccion, PARAM_SOLICITAR } from './estadoAccion'
 import { OwnerCard } from './OwnerCard'
 import { PropiedadesSimilares } from './PropiedadesSimilares'
 import { SolicitarAlquilerModal } from './SolicitarAlquilerModal'
+import { UbicacionMapa } from './UbicacionMapa'
 import styles from './DetallePropiedad.module.css'
 
 // ─── Tipos y helpers ────────────────────────────────────────────────────
@@ -311,11 +313,15 @@ export function DetallePropiedad({ id }: DetallePropiedadProps) {
               <p className={styles.sectionSubtitle}>
                 {[propiedad.neighborhoodName, propiedad.address].filter(Boolean).join(' · ')}
               </p>
-              {/* NOTA: placeholder de mapa (no hay mapas en el MVP): marca la zona, no el punto exacto. */}
-              <div className={styles.map} role="img" aria-label={`Zona aproximada: ${propiedad.neighborhoodName || propiedad.city}`}>
-                <span className={styles.mapRadius} />
-                <span className={styles.mapDot} />
-              </div>
+              {/* NOTA: Google Maps embebido sin API key. Busca lo mismo que dice el texto: sin sesión, la cuadra
+                  ("Rondeau 400"), nunca la altura exacta (US-35 actualizada, decisión del PO). */}
+              <UbicacionMapa
+                address={propiedad.address}
+                addressPrecision={propiedad.addressPrecision}
+                neighborhoodName={propiedad.neighborhoodName}
+                city={propiedad.city}
+                province={propiedad.province}
+              />
               <p className={styles.mapNote}>
                 {propiedad.addressPrecision === 'exacta'
                   ? 'Ves la dirección exacta porque iniciaste sesión.'

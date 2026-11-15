@@ -209,38 +209,7 @@
   color: var(--rentar-color-text-primary);
 }
 
-/* ─── Mapa (placeholder) ──────────────────────────────────────────── */
-
-.map {
-  position: relative;
-  height: 14rem;
-  border-radius: var(--rentar-radius-lg);
-  background: var(--rentar-color-bg-surface-alt);
-  overflow: hidden;
-}
-
-.mapRadius {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 9rem;
-  height: 9rem;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: rgba(var(--rentar-color-blue-rgb), 0.12);
-  border: 1px solid rgba(var(--rentar-color-blue-rgb), 0.35);
-}
-
-.mapDot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0.875rem;
-  height: 0.875rem;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--rentar-color-blue);
-}
+/* ─── Ubicación: nota debajo del mapa (el mapa está en UbicacionMapa) ─ */
 
 .mapNote {
   margin: 0;
