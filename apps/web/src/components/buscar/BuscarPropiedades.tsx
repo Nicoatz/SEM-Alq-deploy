@@ -13,7 +13,10 @@
  * - La búsqueda APLICADA vive en la URL (`lib/search/busquedaParams.ts`): así
  *   "atrás", recargar o compartir el link mantienen filtros, orden y página.
  * - Los filtros que se están EDITANDO son un borrador local: se aplican con
- *   "Aplicar filtros" (escritorio) o "Ver N propiedades" (móvil).
+ *   "Aplicar filtros" (escritorio) o "Ver N propiedades" (móvil). El borrador
+ *   se descarta cada vez que cambia la búsqueda aplicada. "Limpiar" de la
+ *   barra lateral vuelve a la búsqueda inicial; el del Drawer solo limpia el
+ *   borrador (se ve el conteo antes de aplicar).
  * - Los chips y el orden se aplican al instante.
  *
  * De dónde saca los datos: `services/propiedades.service.ts`
@@ -61,11 +64,24 @@ export function BuscarPropiedades() {
   const aplicada = useMemo(() => leerBusqueda(new URLSearchParams(busquedaKey)), [busquedaKey])
 
   // ─── Estado local ───────────────────────────────────────────────────
-  // Borrador de filtros: se descarta solo cuando cambia la búsqueda aplicada
-  // (se guarda junto con la key de la URL a la que pertenece).
-  const [borradorState, setBorradorState] = useState<{ key: string; filtros: BusquedaFiltros }>({ key: busquedaKey, filtros: aplicada.filtros })
-  const borrador = borradorState.key === busquedaKey ? borradorState.filtros : aplicada.filtros
-  const setBorrador = (filtros: BusquedaFiltros) => setBorradorState({ key: busquedaKey, filtros })
+  // Borrador de filtros (lo que muestra el panel, también el Drawer de móvil).
+  // `null` = sin cambios: el panel muestra la búsqueda aplicada.
+  const [borradorEditado, setBorrador] = useState<BusquedaFiltros | null>(null)
+  const borrador = borradorEditado ?? aplicada.filtros
+
+  // Cada vez que cambia la búsqueda aplicada (aplicar, limpiar, chips, orden,
+  // página, "atrás"/"adelante"), el borrador se descarta y el panel vuelve a
+  // mostrar lo que dice la URL. Se ajusta durante el render (patrón de React
+  // para "resetear estado cuando cambia un valor") y no en un efecto, así el
+  // panel no muestra un frame con el borrador viejo.
+  // NOTA: antes el borrador se guardaba con la key de la URL a la que
+  // pertenecía y se reusaba si la key volvía a coincidir: al limpiar o ir
+  // "atrás" a una URL ya visitada reaparecía un borrador viejo (bug de "Limpiar", 17/11).
+  const [busquedaKeyAnterior, setBusquedaKeyAnterior] = useState(busquedaKey)
+  if (busquedaKeyAnterior !== busquedaKey) {
+    setBusquedaKeyAnterior(busquedaKey)
+    setBorrador(null)
+  }
 
   const [resultado, setResultado] = useState<ResultadoCargado | null>(null)
   const [ultimoConDatos, setUltimoConDatos] = useState<Paginado<PropiedadResumen> | null>(null)
@@ -134,8 +150,14 @@ export function BuscarPropiedades() {
 
   // ─── Handlers ───────────────────────────────────────────────────────
 
-  /** Aplica una búsqueda: la escribe en la URL (queda en el historial para "atrás"). */
+  /**
+   * Aplica una búsqueda: la escribe en la URL (queda en el historial para "atrás").
+   * También descarta el borrador: si la URL nueva es igual a la actual (por
+   * ejemplo, "Limpiar" con solo cambios sin aplicar), el cambio de URL no
+   * alcanza para que el panel vuelva a lo aplicado.
+   */
   function navegar(estado: EstadoBusqueda): void {
+    setBorrador(null)
     const query = escribirBusqueda(estado).toString()
     router.push(query ? `/buscar?${query}` : '/buscar', { scroll: false })
   }
@@ -157,7 +179,12 @@ export function BuscarPropiedades() {
     aplicarFiltros(chip.quitar(aplicada.filtros))
   }
 
-  /** "Limpiar todo" y "Quitar todos los filtros": vuelve a la búsqueda inicial (conserva el orden). */
+  /**
+   * "Limpiar" del panel, "Limpiar todo" y "Quitar todos los filtros": vuelve a
+   * la búsqueda inicial (ubicación del piloto, sin otros filtros, página 1) y
+   * descarta el borrador (ver `navegar`). Conserva el orden elegido: no es un
+   * filtro del panel.
+   */
   function limpiarTodo(): void {
     aplicarFiltros(FILTROS_INICIALES)
   }
@@ -169,7 +196,7 @@ export function BuscarPropiedades() {
 
   /** "Cancelar" del Drawer: descarta lo editado. */
   function cancelarDrawer(): void {
-    setBorrador(aplicada.filtros)
+    setBorrador(null)
     cerrarDrawer()
   }
 
