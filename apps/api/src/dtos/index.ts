@@ -35,3 +35,4 @@ export * from './comprobante-pago.dto';
 export * from './inmueble.dto';
 export * from './solicitud.dto';
 export * from './mensaje.dto';
+export * from './reclamo.dto';

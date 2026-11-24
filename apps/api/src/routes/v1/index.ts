@@ -14,6 +14,7 @@ import cobrosLocatarioRoutes from './cobros-locatario.routes';
 import firmaGaranteRoutes from './firma-garante.routes';
 import webhooksRoutes from './webhooks.routes';
 import mensajesRoutes from './mensajes.routes';
+import reclamosRoutes from './reclamos.routes';
 
 const v1Router = Router();
 
@@ -30,6 +31,7 @@ v1Router.use('/cobros-locador', cobrosLocadorRoutes);
 v1Router.use('/cobros-locatario', cobrosLocatarioRoutes);
 v1Router.use('/cobros', comprobantesRoutes);
 v1Router.use('/mensajes', mensajesRoutes);
+v1Router.use('/reclamos', reclamosRoutes);
 // Público (sin sesión): el garante firma con un enlace temporal. Ver firma-garante.routes.ts.
 v1Router.use('/firma-garante', firmaGaranteRoutes);
 // Lo llama DocuSign (sin sesión): se autentica con la firma HMAC del aviso.

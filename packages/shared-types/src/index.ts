@@ -415,3 +415,12 @@ export type {
   CrearConversacionPayload,
   EnviarMensajePayload,
 } from './mensaje';
+
+export type {
+  TipoReclamoNombre,
+  TipoReclamo,
+  FotoReclamo,
+  FotoReclamoPayload,
+  RegistrarReclamoPayload,
+  ReclamoRegistrado,
+} from './reclamo';
