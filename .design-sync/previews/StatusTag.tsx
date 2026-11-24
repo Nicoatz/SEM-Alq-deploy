@@ -9,7 +9,7 @@ const dominios = [
   { domain: 'contrato', label: 'Contrato', estados: ['borrador', 'pendiente_firma', 'vigente', 'finalizado', 'rescindido'] },
   { domain: 'firma', label: 'Firma', estados: ['pendiente', 'firmado', 'rechazado'] },
   { domain: 'cobro', label: 'Cobro', estados: ['pendiente', 'pagado', 'vencido', 'anulado', 'parcial'] },
-  { domain: 'reclamo', label: 'Reclamo', estados: ['abierto', 'en_proceso', 'resuelto', 'cerrado'] },
+  { domain: 'reclamo', label: 'Reclamo', estados: ['abierto', 'en_proceso', 'resuelto', 'cancelado'] },
   { domain: 'suscripcion', label: 'Suscripción', estados: ['activa', 'vencida', 'cancelada'] },
   { domain: 'solicitud', label: 'Solicitud', estados: ['pendiente', 'aceptada', 'rechazada', 'cancelada'] },
   { domain: 'usuario', label: 'Usuario', estados: ['activo', 'suspendido', 'sin_verificar'] },

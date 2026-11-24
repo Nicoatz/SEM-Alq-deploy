@@ -182,7 +182,7 @@ const semanticColors: SemanticSwatch[] = [
   { name: 'Warning', hex: '#92400E', text: '#ffffff', usage: 'pausada, pendiente_firma, pendiente, en_proceso.' },
   { name: 'Error', hex: '#9F1239', text: '#ffffff', usage: 'rescindido, rechazado, vencido, abierto, vencida.' },
   { name: 'Info', hex: '#004D98', text: '#ffffff', usage: 'alquilada, alquilada_publicada, finalizado — reusa el azul de marca.' },
-  { name: 'Neutral', hex: 'rgba(18,32,46,0.5)', text: '#ffffff', usage: 'borrador, anulado, cerrado, cancelada.' },
+  { name: 'Neutral', hex: 'rgba(18,32,46,0.5)', text: '#ffffff', usage: 'borrador, anulado, cancelado, cancelada.' },
   { name: 'Money', hex: '#8C6B1D', text: '#ffffff', usage: 'MoneyAmount con emphasis, nunca para estados.' },
 ]
 
@@ -819,7 +819,7 @@ export default function DesignSystem() {
                 />
                 <StatusGroup domain="firma" label="Firma" statuses={['pendiente', 'firmado', 'rechazado']} />
                 <StatusGroup domain="cobro" label="Cobro" statuses={['pendiente', 'pagado', 'vencido', 'anulado', 'parcial']} />
-                <StatusGroup domain="reclamo" label="Reclamo" statuses={['abierto', 'en_proceso', 'resuelto', 'cerrado']} />
+                <StatusGroup domain="reclamo" label="Reclamo" statuses={['abierto', 'en_proceso', 'resuelto', 'cancelado']} />
                 <StatusGroup domain="suscripcion" label="Suscripción" statuses={['activa', 'vencida', 'cancelada']} />
                 <StatusGroup domain="solicitud" label="Solicitud" statuses={['pendiente', 'aceptada', 'rechazada', 'cancelada']} />
                 <StatusGroup domain="usuario" label="Usuario" statuses={['activo', 'suspendido', 'sin_verificar']} />

@@ -290,6 +290,20 @@ Sin APIs exclusivas de React 19 (regla del 09/10): los dos cambios son props y e
 componente cambió. Si `dtsPropsFor` de `config.json` llegara a listar alguno de los dos, actualizar
 la unión (hoy no los lista).
 
+## Pendiente de subir (Sprint 5): `StatusTag` de `reclamo` con `cancelado` en vez de `cerrado` (2026-11-24)
+
+Aprobado por el PO (decisión con Thiago del 24/11, US-17). En el dominio `reclamo` de
+`tokens/status-meta.ts`, `cerrado` ("Cerrado", neutral, `CheckCircleFilled`) pasa a ser
+`cancelado: { label: 'Cancelado', colorKey: 'neutral', icon: StopFilled }`. Los estados del reclamo
+quedan abierto → en proceso → resuelto, o cancelado: "cerrado" no existe más.
+
+- `ClaimStatus` (`@rentar/shared-types`) cambió igual, así que un `StatusTag domain="reclamo"
+  status="cerrado"` ya no compila (y en runtime cae en el fallback de estado desconocido).
+- Actualizados la preview (`.design-sync/previews/StatusTag.tsx`), el catálogo `/design-system` y la
+  tabla de dominios de `docs/DESIGN.md`.
+- En el próximo `/design-sync`, revisar que las plantillas `Reclamos.dc.html` de Claude Design ya
+  usen `cancelado`.
+
 ## Propuesta (Sprint 5): `SimulatedFeatureNotice` con prop `title` (2026-11-11)
 
 - **Qué pasa hoy:** el aviso de la firma con DocuSign (US-07) tiene que decir "firma de prueba", y

@@ -136,7 +136,7 @@ export function ProximosCobros({ resumen }: { resumen: ResumenCobros }) {
 /** Segunda línea de un reclamo: dónde, quién, cuándo y si falta responder. */
 function detalleReclamo(reclamo: ReclamoPanel): string {
   const base = `${reclamo.propertyAddress} · ${reclamo.tenantName} · ${textoHaceDias(diasDesde(reclamo.createdAt))}`
-  if (reclamo.status === 'resuelto' || reclamo.status === 'cerrado') return base
+  if (reclamo.status === 'resuelto' || reclamo.status === 'cancelado') return base
   return reclamo.answeredAt ? `${base} · respondiste el ${formatDate(reclamo.answeredAt, DIA_MES)}` : `${base} · sin responder`
 }
 
