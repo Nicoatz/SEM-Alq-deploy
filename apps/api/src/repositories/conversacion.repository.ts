@@ -23,6 +23,7 @@ export interface IConversacionRepository {
   create(data: CreateConversacionEntity): Promise<ConversacionDTO>;
   findById(id: number): Promise<ConversacionDetalleResponse | null>;
   findByUsuarioId(idUsuario: number): Promise<ConversacionResponse[]>;
+  findByReclamoId(idReclamo: number): Promise<ConversacionResponse | null>;
   existeContratoVigente(idLocador: number, idLocatario: number): Promise<boolean>;
   actualizarFechaActividad(idConversacion: number): Promise<void>;
 }
@@ -185,6 +186,44 @@ export class ConversacionRepository implements IConversacionRepository {
     }
 
     return Boolean(data && data.length > 0);
+  }
+
+  async findByReclamoId(idReclamo: number): Promise<ConversacionResponse | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('conversacion')
+      .select(`
+        *,
+        locador:usuario!conversacion_id_locador_fkey(id, nombre, apellido, email, telefono),
+        locatario:usuario!conversacion_id_locatario_fkey(id, nombre, apellido, email, telefono)
+      `)
+      .eq('id_reclamo', idReclamo)
+      .eq('activo', true)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Error al buscar conversación del reclamo: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    const locador = (Array.isArray(data.locador) ? data.locador[0] : data.locador) as ParticipanteConversacionDTO;
+    const locatario = (Array.isArray(data.locatario) ? data.locatario[0] : data.locatario) as ParticipanteConversacionDTO;
+
+    return {
+      id: data.id,
+      id_locador: data.id_locador,
+      id_locatario: data.id_locatario,
+      iniciado_por: data.iniciado_por,
+      tipo_tema: data.tipo_tema,
+      asunto: data.asunto,
+      id_inmueble: data.id_inmueble,
+      id_reclamo: data.id_reclamo,
+      id_contrato: data.id_contrato,
+      activo: data.activo,
+      fecha_creacion: data.fecha_creacion,
+      fecha_actualizacion: data.fecha_actualizacion,
+      otro_participante: locador
+    };
   }
 
   async actualizarFechaActividad(idConversacion: number): Promise<void> {

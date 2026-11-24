@@ -1,12 +1,16 @@
 import { ReclamoService } from '../../src/services/reclamo.service';
 import type { IReclamoRepository } from '../../src/repositories/reclamo.repository';
+import type { IConversacionRepository } from '../../src/repositories/conversacion.repository';
+import type { IMensajeRepository } from '../../src/repositories/mensaje.repository';
 import type { AuthenticatedUser } from '../../src/gateway/middlewares/auth.middleware';
-import type { ReclamoResponse, TipoReclamoDTO } from '../../src/dtos';
+import type { ReclamoResponse, TipoReclamoDTO, ConversacionResponse } from '../../src/dtos';
 
-describe('US-14 y US-15: Reclamos (ReclamoService Unit Tests)', () => {
+describe('US-14, US-15 y US-18: Reclamos (ReclamoService Unit Tests)', () => {
   let service: ReclamoService;
   let mockReclamoRepo: jest.Mocked<IReclamoRepository>;
   let mockInmuebleRepo: any;
+  let mockConversacionRepo: jest.Mocked<IConversacionRepository>;
+  let mockMensajeRepo: jest.Mocked<IMensajeRepository>;
 
   const locatarioUser: AuthenticatedUser = {
     id: 15,
@@ -52,7 +56,7 @@ describe('US-14 y US-15: Reclamos (ReclamoService Unit Tests)', () => {
     id_locatario: 15,
     id_contrato: 1,
     id_tipo_reclamo: 1,
-    id_estado_reclamo: 1,
+    id_estado_reclamo: 1, // Pendiente / Abierto
     titulo: 'Reclamo: Pintura',
     descripcion: mensajeValido50Chars,
     fecha_creacion: '2026-11-24T18:00:00Z',
@@ -84,14 +88,38 @@ describe('US-14 y US-15: Reclamos (ReclamoService Unit Tests)', () => {
       findTiposReclamo: jest.fn(),
       findTipoReclamoById: jest.fn(),
       findTipoReclamoByNombre: jest.fn(),
-      findContratoVigenteLocatarioInmueble: jest.fn()
+      findContratoVigenteLocatarioInmueble: jest.fn(),
+      actualizarEstado: jest.fn()
     };
 
     mockInmuebleRepo = {
       findById: jest.fn()
     };
 
-    service = new ReclamoService(mockReclamoRepo, mockInmuebleRepo);
+    mockConversacionRepo = {
+      create: jest.fn(),
+      findById: jest.fn(),
+      findByUsuarioId: jest.fn(),
+      findByReclamoId: jest.fn(),
+      existeContratoVigente: jest.fn(),
+      actualizarFechaActividad: jest.fn()
+    };
+
+    mockMensajeRepo = {
+      create: jest.fn(),
+      findByConversacionId: jest.fn(),
+      findById: jest.fn(),
+      marcarEliminado: jest.fn(),
+      countByConversacionId: jest.fn(),
+      podarMensajesAntiguos: jest.fn()
+    };
+
+    service = new ReclamoService(
+      mockReclamoRepo,
+      mockInmuebleRepo,
+      mockConversacionRepo,
+      mockMensajeRepo
+    );
   });
 
   // ─────────────────────────────────────────────────────────────
@@ -472,6 +500,192 @@ describe('US-14 y US-15: Reclamos (ReclamoService Unit Tests)', () => {
         statusCode: 404,
         message: 'El reclamo solicitado no existe.'
       });
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // US-18: RESPONDER RECLAMO
+  // ─────────────────────────────────────────────────────────────
+  describe('US-18: Responder Reclamo', () => {
+    const conversacionMock: ConversacionResponse = {
+      id: 50,
+      id_locador: 5,
+      id_locatario: 15,
+      iniciado_por: 5,
+      tipo_tema: 'reclamo',
+      asunto: 'Reclamo: Pintura',
+      id_inmueble: 10,
+      id_reclamo: 100,
+      id_contrato: 1,
+      activo: true,
+      fecha_creacion: '2026-11-24T18:10:00Z',
+      fecha_actualizacion: '2026-11-24T18:10:00Z',
+      otro_participante: { id: 15, nombre: 'Martín', apellido: 'Inquilino', email: 'martin@example.test', telefono: null }
+    };
+
+    it('debe fallar con 401 si no se ha iniciado sesión al responder', async () => {
+      await expect(
+        service.responderReclamo(null as any, 100, 'Respuesta')
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: 'Debe iniciar sesión para responder al reclamo.'
+      });
+    });
+
+    it('debe fallar con 403 si un usuario que no es el locador de la propiedad intenta responder', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock); // Locador es id: 5
+
+      await expect(
+        service.responderReclamo(terceroUser, 100, 'Respuesta intrusa') // id: 99
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        codigo: 'SOLO_LOCADOR_PROPIETARIO',
+        message: 'Solo el locador dueño de la propiedad asociada puede responder al reclamo.'
+      });
+    });
+
+    it('debe fallar con 400 si el mensaje de respuesta está vacío o compuesto solo por espacios', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+
+      await expect(
+        service.responderReclamo(locadorUser, 100, '    ')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'El mensaje de respuesta no puede estar vacío.'
+      });
+    });
+
+    it('debe fallar con 400 si el reclamo ya se encuentra resuelto o cancelado', async () => {
+      mockReclamoRepo.findById.mockResolvedValue({
+        ...reclamoMock,
+        id_estado_reclamo: 3, // Resuelto
+        estado: 'resuelto'
+      });
+
+      await expect(
+        service.responderReclamo(locadorUser, 100, 'Ya fue arreglado.')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        codigo: 'ESTADO_INVALIDO',
+        message: 'Solo se puede responder a un reclamo que se encuentre en estado abierto o en proceso.'
+      });
+    });
+
+    it('debe responder exitosamente a un reclamo abierto: pasar estado a en_proceso e iniciar conversación vinculada', async () => {
+      mockReclamoRepo.findById.mockResolvedValue({
+        ...reclamoMock,
+        id_estado_reclamo: 1, // Abierto / Pendiente
+        estado: 'pendiente'
+      });
+      mockConversacionRepo.findByReclamoId.mockResolvedValue(null); // No existe conversación previa
+      mockConversacionRepo.create.mockResolvedValue(conversacionMock);
+      const now = new Date().toISOString();
+      mockMensajeRepo.create.mockResolvedValue({
+        id: 201,
+        id_conversacion: 50,
+        id_emisor: 5,
+        contenido: 'Hola Martín, voy a enviar al pintor mañana por la mañana.',
+        fecha_envio: now,
+        eliminado: false
+      });
+      mockMensajeRepo.findByConversacionId.mockResolvedValue([
+        {
+          id: 201,
+          id_conversacion: 50,
+          id_emisor: 5,
+          contenido: 'Hola Martín, voy a enviar al pintor mañana por la mañana.',
+          fecha_envio: now,
+          eliminado: false
+        }
+      ]);
+
+      const resultado = await service.responderReclamo(
+        locadorUser,
+        100,
+        'Hola Martín, voy a enviar al pintor mañana por la mañana.'
+      );
+
+      // Verificar cambio de estado en BD
+      expect(mockReclamoRepo.actualizarEstado).toHaveBeenCalledWith(100, 2);
+      // Verificar creación de conversación vinculada
+      expect(mockConversacionRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id_locador: 5,
+          id_locatario: 15,
+          tipo_tema: 'reclamo',
+          id_reclamo: 100
+        })
+      );
+      // Verificar creación del mensaje
+      expect(mockMensajeRepo.create).toHaveBeenCalledWith({
+        id_conversacion: 50,
+        id_emisor: 5,
+        contenido: 'Hola Martín, voy a enviar al pintor mañana por la mañana.'
+      });
+      // Verificar reclamo original fijado en la respuesta
+      expect(resultado.reclamo_original.id).toBe(100);
+      expect(resultado.reclamo_original.descripcion).toBe(mensajeValido50Chars);
+      expect(resultado.reclamo_original.fotos).toHaveLength(1);
+      expect(resultado.mensajes).toHaveLength(1);
+      expect(resultado.mensajes[0].contenido).toBe('Hola Martín, voy a enviar al pintor mañana por la mañana.');
+    });
+
+    it('debe responder a un reclamo en_proceso reutilizando la conversación existente sin crear una nueva', async () => {
+      mockReclamoRepo.findById.mockResolvedValue({
+        ...reclamoMock,
+        id_estado_reclamo: 2, // Ya en proceso
+        estado: 'en_proceso'
+      });
+      mockConversacionRepo.findByReclamoId.mockResolvedValue(conversacionMock); // Ya existe conversación
+      const now = new Date().toISOString();
+      mockMensajeRepo.create.mockResolvedValue({
+        id: 202,
+        id_conversacion: 50,
+        id_emisor: 5,
+        contenido: 'El pintor me confirmó que va a las 10hs.',
+        fecha_envio: now,
+        eliminado: false
+      });
+      mockMensajeRepo.findByConversacionId.mockResolvedValue([
+        { id: 201, id_conversacion: 50, id_emisor: 5, contenido: 'Mensaje anterior', fecha_envio: now, eliminado: false },
+        { id: 202, id_conversacion: 50, id_emisor: 5, contenido: 'El pintor me confirmó que va a las 10hs.', fecha_envio: now, eliminado: false }
+      ]);
+
+      const resultado = await service.responderReclamo(
+        locadorUser,
+        100,
+        'El pintor me confirmó que va a las 10hs.'
+      );
+
+      // No debe actualizar estado porque ya estaba en proceso (id: 2)
+      expect(mockReclamoRepo.actualizarEstado).not.toHaveBeenCalled();
+      // No debe crear nueva conversación
+      expect(mockConversacionRepo.create).not.toHaveBeenCalled();
+      // Debe crear el mensaje en la conversación existente
+      expect(mockMensajeRepo.create).toHaveBeenCalledWith({
+        id_conversacion: 50,
+        id_emisor: 5,
+        contenido: 'El pintor me confirmó que va a las 10hs.'
+      });
+      expect(resultado.conversacion.id).toBe(50);
+      expect(resultado.mensajes).toHaveLength(2);
+    });
+
+    it('debe permitir consultar la conversación del reclamo mostrando el reclamo original fijado', async () => {
+      mockReclamoRepo.findById.mockResolvedValue({
+        ...reclamoMock,
+        id_estado_reclamo: 2,
+        estado: 'en_proceso'
+      });
+      mockConversacionRepo.findByReclamoId.mockResolvedValue(conversacionMock);
+      mockMensajeRepo.findByConversacionId.mockResolvedValue([]);
+
+      const resultado = await service.obtenerConversacionReclamo(locatarioUser, 100);
+
+      expect(resultado.reclamo_original.id).toBe(100);
+      expect(resultado.reclamo_original.descripcion).toBe(mensajeValido50Chars);
+      expect(resultado.reclamo_original.fotos).toHaveLength(1);
+      expect(resultado.conversacion.id).toBe(50);
     });
   });
 });

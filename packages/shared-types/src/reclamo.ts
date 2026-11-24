@@ -1,6 +1,8 @@
 /**
- * Tipos de dominio para el módulo de Reclamos (US-14 Registrar reclamo, US-15 Consultar reclamos).
+ * Tipos de dominio para el módulo de Reclamos (US-14 Registrar reclamo, US-15 Consultar reclamos, US-18 Responder reclamo).
  */
+
+import type { ConversacionResumen, Mensaje } from './mensaje';
 
 export type TipoReclamoNombre =
   | 'pintura'
@@ -83,4 +85,23 @@ export interface FiltrosReclamosPayload {
   rol?: 'locador' | 'locatario';
   estado?: string;
   id_inmueble?: number;
+}
+
+export interface ResponderReclamoPayload {
+  mensaje: string;
+}
+
+export interface ReclamoOriginalFijado {
+  id: number;
+  titulo: string;
+  descripcion: string;
+  fecha_creacion: string;
+  tipo_reclamo: TipoReclamo;
+  fotos: FotoReclamo[];
+}
+
+export interface ConversacionReclamoResponse {
+  conversacion: ConversacionResumen;
+  reclamo_original: ReclamoOriginalFijado;
+  mensajes: Mensaje[];
 }

@@ -35,6 +35,7 @@ export interface IReclamoRepository {
     idLocatario: number,
     idInmueble: number
   ): Promise<ContratoVigenteLocatarioResult | null>;
+  actualizarEstado(idReclamo: number, idEstado: number): Promise<void>;
 }
 
 const SELECT_RECLAMO_COMPLETO = `
@@ -326,6 +327,20 @@ export class ReclamoRepository implements IReclamoRepository {
     if (!data || data.length === 0) return [];
 
     return data.map(mapReclamoRow);
+  }
+
+  async actualizarEstado(idReclamo: number, idEstado: number): Promise<void> {
+    const { error } = await getSupabaseAdmin()
+      .from('reclamo')
+      .update({
+        id_estado_reclamo: idEstado,
+        fecha_actualizacion: new Date().toISOString()
+      })
+      .eq('id', idReclamo);
+
+    if (error) {
+      throw new Error(`Error al actualizar estado del reclamo: ${error.message}`);
+    }
   }
 }
 
