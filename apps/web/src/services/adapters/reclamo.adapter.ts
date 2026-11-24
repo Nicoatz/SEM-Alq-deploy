@@ -162,9 +162,9 @@ export function errorDeReclamo(error: unknown): unknown {
 
 /** Textos de validación del back (`reclamo.service.ts` de `apps/api`) → los del formulario. */
 const VALIDACIONES_DEL_BACK: readonly [string, string][] = [
-  ['Debe seleccionar una propiedad', 'Elegí la propiedad del reclamo.'],
-  ['Debe seleccionar un tipo de reclamo', 'Elegí el tipo de reclamo.'],
-  ['tipo de reclamo seleccionado no es válido', 'Elegí el tipo de reclamo.'],
+  ['Debe seleccionar una propiedad', 'Elegí una propiedad.'],
+  ['Debe seleccionar un tipo de reclamo', 'Elegí un tipo de reclamo.'],
+  ['tipo de reclamo seleccionado no es válido', 'Elegí un tipo de reclamo.'],
   ['Debe redactar un mensaje', 'Contá qué pasa: el mensaje es obligatorio.'],
   ['entre 50 y 5000 caracteres', 'El mensaje tiene que tener entre 50 y 5000 caracteres.'],
   ['más de 10 imágenes', 'Podés adjuntar hasta 10 fotos.'],

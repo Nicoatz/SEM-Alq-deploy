@@ -29,18 +29,18 @@ export const RECLAMO_FOTO_PESO_MAX_BYTES = 350 * 1024
 // ─── Mensajes ───────────────────────────────────────────────────────────
 
 export const MENSAJES_RECLAMO = {
-  propiedad: 'Elegí la propiedad del reclamo.',
+  propiedad: 'Elegí una propiedad.',
   sinPropiedades: 'No tenés propiedades con un contrato vigente para registrar un reclamo.',
-  tipo: 'Elegí el tipo de reclamo.',
+  tipo: 'Elegí un tipo de reclamo.',
   mensajeVacio: 'Contá qué pasa: el mensaje es obligatorio.',
   mensajeLargo: `El mensaje puede tener hasta ${RECLAMO_MENSAJE_MAX} caracteres.`,
   fotosDeMas: `Podés adjuntar hasta ${RECLAMO_FOTOS_MAX} fotos.`,
 } as const
 
-/** "Faltan 12 caracteres (mínimo 50)." */
+/** "El mensaje tiene 32 caracteres: faltan 18." (Claude Design, "Reclamos" · 05). */
 export function textoFaltanCaracteres(largo: number): string {
   const faltan = RECLAMO_MENSAJE_MIN - largo
-  return `Faltan ${faltan} ${faltan === 1 ? 'carácter' : 'caracteres'} (mínimo ${RECLAMO_MENSAJE_MIN}).`
+  return `El mensaje tiene ${largo} ${largo === 1 ? 'carácter' : 'caracteres'}: ${faltan === 1 ? 'falta 1' : `faltan ${faltan}`}.`
 }
 
 /** Largo que cuenta para los límites: sin espacios al principio ni al final. */
