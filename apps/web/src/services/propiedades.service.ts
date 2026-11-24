@@ -33,11 +33,9 @@ import type {
   UbicacionOpciones,
   PropiedadLocadorDetalle,
 } from '@rentar/shared-types'
-import { getSupabaseBrowserClient } from '@/lib/auth/supabase/client'
 import { buscarEnLista, FILTROS_INICIALES, ordenar, ubicacionesDe } from '@/lib/search/busqueda'
 import { propiedades as propiedadesElenco, reclamos as reclamosElenco, solicitudes as solicitudesElenco, type PropiedadMock, type SolicitudMock } from '@/lib/mocks'
 import { ahoraIso, hoy } from '@/lib/utils/fechas'
-import { FOTO_PESO_MAXIMO_BYTES, FOTO_TIPOS_ACEPTADOS } from '@/lib/validation/propiedad.rules'
 import {
   aplicarCambiosMock,
   isSearchable,
@@ -67,6 +65,7 @@ import {
 } from './adapters/propiedad.adapter'
 import { filasDeLocadorMock } from './adapters/cobro-mock.adapter'
 import { apiRequest } from './shared/apiClient'
+import { borrarFotosDeBucket, subirFotoABucket, subirFotosABucket, type FotoEnStorage } from './shared/fotosStorage'
 import type { DisponiblesQuery, InmuebleDetalleResponse, InmueblesDisponiblesResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
@@ -385,18 +384,17 @@ export const FOTO_INVALIDA_MESSAGE = 'Una de las fotos no es JPG o PNG, o pesa m
 export const PUBLICAR_SIN_ROL_MESSAGE = 'Todavía no podés publicar desde esta cuenta, estamos terminando este cambio.'
 
 // ─── Fotos del alta en Supabase Storage (US-01) ────────────────────────
+// NOTA: la subida en sí vive en `shared/fotosStorage.ts` (la comparte el
+// registro de reclamos, US-14); acá queda lo propio del alta.
 
 /** Bucket de las fotos (lo versiona `supabase/migrations/20260929000002_bucket_fotos_propiedades.sql`). */
 const BUCKET_FOTOS = 'fotos-propiedades'
 
-/** Extensión (y `formato` para el back) según el tipo de la foto. Solo JPG y PNG (US-01). */
-const EXTENSION_POR_TIPO: Record<string, 'jpg' | 'png'> = { 'image/jpeg': 'jpg', 'image/png': 'png' }
+/** Textos de error de la subida en el alta y la edición. */
+const MENSAJES_SUBIDA = { invalida: FOTO_INVALIDA_MESSAGE, noSubida: FOTOS_NO_SUBIDAS_MESSAGE }
 
 /** Una foto ya subida: lo que pide el back más la ruta en el bucket (para borrarla si el alta falla). */
-interface FotoSubida extends Omit<CreateFotoPayload, 'es_principal'> {
-  /** Ruta dentro del bucket: `<auth.uid>/<uuid>.<ext>`. */
-  path: string
-}
+type FotoSubida = FotoEnStorage
 
 /**
  * US-01 — sube una foto del alta a Supabase Storage y devuelve lo que el
@@ -410,58 +408,20 @@ interface FotoSubida extends Omit<CreateFotoPayload, 'es_principal'> {
  *   {@link FOTOS_NO_SUBIDAS_MESSAGE} si Storage la rechaza o no responde.
  *
  * NOTA: la foto llega como data URL (así la guarda el formulario, ver
- * `FotosField`); se pasa a `Blob` para subirla.
- * NOTA: se vuelve a validar tipo y peso aunque la pantalla ya lo hace: el
- * bucket rechaza lo que no cumple (límite de 358400 bytes y solo JPG/PNG) y
- * es mejor avisarlo antes, en español.
- * NOTA: `upsert: false`: el bucket no tiene política de UPDATE y el nombre es
- * un uuid nuevo, así que nunca pisa otra foto.
- * NOTA: `peso_kb` se redondea hacia arriba (`Math.ceil`): el front deja hasta
- * 350 × 1024 bytes y el back rechaza `peso_kb > 350`, así coinciden.
+ * `FotosField`). Las reglas de la subida están en `subirFotoABucket`.
  */
-export async function subirFotoPropiedad(foto: FotoNueva): Promise<FotoSubida> {
-  const archivo = await (await fetch(foto.src)).blob()
-  const extension = EXTENSION_POR_TIPO[archivo.type]
-  if (!extension || !FOTO_TIPOS_ACEPTADOS.includes(archivo.type) || archivo.size > FOTO_PESO_MAXIMO_BYTES) {
-    throw new ServiceError('validation', FOTO_INVALIDA_MESSAGE)
-  }
-
-  const supabase = getSupabaseBrowserClient()
-  const { data } = await supabase.auth.getSession()
-  const authUserId = data.session?.user.id
-  if (!authUserId) throw new ServiceError('unauthorized', 'Tu sesión venció. Volvé a iniciar sesión para seguir.')
-
-  const path = `${authUserId}/${crypto.randomUUID()}.${extension}`
-  const { error } = await supabase.storage.from(BUCKET_FOTOS).upload(path, archivo, { contentType: archivo.type, upsert: false })
-  if (error) throw new ServiceError('server', FOTOS_NO_SUBIDAS_MESSAGE)
-
-  const { data: publica } = supabase.storage.from(BUCKET_FOTOS).getPublicUrl(path)
-  return { url: publica.publicUrl, peso_kb: Math.ceil(archivo.size / 1024), formato: extension, path }
+export function subirFotoPropiedad(foto: FotoNueva): Promise<FotoSubida> {
+  return subirFotoABucket(BUCKET_FOTOS, foto.src, MENSAJES_SUBIDA)
 }
 
 /**
  * Borra fotos ya subidas (cuando el alta no se completó), para no dejar
- * archivos sueltos en el bucket. Usa la política "borrar fotos propias".
- * NOTA: es un intento: si el borrado falla, se anota en la consola y no tapa
- * el error del alta, que es lo que la persona tiene que ver.
- * NOTA: para borrar, Storage exige permisos de DELETE **y SELECT** sobre
- * `storage.objects`. Sin la política de SELECT, `remove()` no borra nada y
- * tampoco devuelve error (responde una lista vacía): por eso se compara
- * cuántos borró. La política "ver fotos propias" (migración
- * `20260930000000_bucket_fotos_select_propias.sql`) está aplicada desde el
- * 30/09 y el borrado se probó en real.
+ * archivos sueltos en el bucket. La política "ver fotos propias" que necesita
+ * `remove()` (migración `20260930000000_bucket_fotos_select_propias.sql`) está
+ * aplicada desde el 30/09 y el borrado se probó en real.
  */
-async function borrarFotosSubidas(paths: string[]): Promise<void> {
-  if (paths.length === 0) return
-  try {
-    const { data, error } = await getSupabaseBrowserClient().storage.from(BUCKET_FOTOS).remove(paths)
-    if (error) console.warn('No se pudieron borrar las fotos de un alta que no se completó.', error.message)
-    else if ((data?.length ?? 0) < paths.length) {
-      console.warn(`Se borraron ${data?.length ?? 0} de ${paths.length} fotos de un alta que no se completó (¿falta la política de SELECT del bucket?).`)
-    }
-  } catch (error) {
-    console.warn('No se pudieron borrar las fotos de un alta que no se completó.', error)
-  }
+function borrarFotosSubidas(paths: string[]): Promise<void> {
+  return borrarFotosDeBucket(BUCKET_FOTOS, paths)
 }
 
 /**
@@ -471,13 +431,7 @@ async function borrarFotosSubidas(paths: string[]): Promise<void> {
  * y se tira el error: o suben todas o no queda ninguna.
  */
 async function subirFotosPropiedad(nueva: PropiedadNueva): Promise<(FotoSubida & { es_principal: boolean })[]> {
-  const resultados = await Promise.allSettled(nueva.photos.map(subirFotoPropiedad))
-  const subidas = resultados.flatMap((resultado) => (resultado.status === 'fulfilled' ? [resultado.value] : []))
-  const fallo = resultados.find((resultado): resultado is PromiseRejectedResult => resultado.status === 'rejected')
-  if (fallo) {
-    await borrarFotosSubidas(subidas.map((foto) => foto.path))
-    throw fallo.reason instanceof ServiceError ? fallo.reason : new ServiceError('server', FOTOS_NO_SUBIDAS_MESSAGE)
-  }
+  const subidas = await subirFotosABucket(BUCKET_FOTOS, nueva.photos.map((foto) => foto.src), MENSAJES_SUBIDA)
   return subidas.map((foto, index) => ({ ...foto, es_principal: index === nueva.mainPhotoIndex }))
 }
 

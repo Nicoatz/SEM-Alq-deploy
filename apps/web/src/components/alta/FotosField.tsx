@@ -24,34 +24,16 @@ import { Alert, Button, Form, Upload } from 'antd'
 import { ArrowLeftOutlined, ArrowRightOutlined, CameraOutlined } from '@ant-design/icons'
 import Image from 'next/image'
 import type { FotoNueva } from '@rentar/shared-types'
-import { FOTO_PESO_MAXIMO_BYTES, FOTO_TIPOS_ACEPTADOS, FOTOS_MAXIMO, FOTOS_MINIMO, type AltaValues } from '@/lib/validation/propiedad.rules'
+import { esJpgOPng, FORMATOS_SELECTOR_FOTO as FORMATOS_SELECTOR, leerComoDataUrl, pesoEnKbTexto as pesoTexto } from '@/lib/imagenes/archivosFoto'
+import { FOTO_PESO_MAXIMO_BYTES, FOTOS_MAXIMO, FOTOS_MINIMO, type AltaValues } from '@/lib/validation/propiedad.rules'
 import styles from './Alta.module.css'
-
-/** Lee un archivo como data URL. */
-function leerComoDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(String(reader.result))
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
-
-/** "512 KB". */
-function pesoTexto(bytes: number): string {
-  return `${Math.round(bytes / 1024)} KB`
-}
-
-/** Formatos que ofrece el selector de archivos del sistema (`<input accept>`). */
-const FORMATOS_SELECTOR = '.jpg,.jpeg,.png,image/jpeg,image/png'
 
 /**
  * Por qué se rechaza un archivo, o `null` si cumple US-01. El tipo se mira por
- * MIME y por extensión, y tienen que cumplir los dos.
+ * MIME y por extensión, y tienen que cumplir los dos (`esJpgOPng`).
  */
 function motivoRechazo(file: File): string | null {
-  const extensionOk = /\.(jpe?g|png)$/i.test(file.name)
-  if (!FOTO_TIPOS_ACEPTADOS.includes(file.type) || !extensionOk) return 'solo JPG o PNG'
+  if (!esJpgOPng(file)) return 'solo JPG o PNG'
   if (file.size > FOTO_PESO_MAXIMO_BYTES) return `pesa ${pesoTexto(file.size)} y el máximo es ${pesoTexto(FOTO_PESO_MAXIMO_BYTES)}`
   return null
 }
