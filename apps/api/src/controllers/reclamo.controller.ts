@@ -117,6 +117,56 @@ export class ReclamoController {
     }
   }
 
+  async resolverReclamo(
+    req: Request<{ id: string }>,
+    res: Response<ApiResponse<ReclamoResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idReclamo = this.parseId(req.params.id);
+      if (idReclamo === null) {
+        res.status(400).json({ success: false, error: 'El identificador del reclamo no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const reclamo = await this.service.resolverReclamo(user, idReclamo);
+
+      res.status(200).json({
+        success: true,
+        message: 'Reclamo marcado como resuelto.',
+        data: reclamo
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async cancelarReclamo(
+    req: Request<{ id: string }>,
+    res: Response<ApiResponse<ReclamoResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idReclamo = this.parseId(req.params.id);
+      if (idReclamo === null) {
+        res.status(400).json({ success: false, error: 'El identificador del reclamo no es válido.' });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const reclamo = await this.service.cancelarReclamo(user, idReclamo);
+
+      res.status(200).json({
+        success: true,
+        message: 'Reclamo cancelado.',
+        data: reclamo
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
 }
 
 export const reclamoController = new ReclamoController();

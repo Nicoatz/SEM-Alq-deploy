@@ -4,7 +4,7 @@ import type { IConversacionRepository } from '../../src/repositories/conversacio
 import type { AuthenticatedUser } from '../../src/gateway/middlewares/auth.middleware';
 import type { ReclamoResponse, TipoReclamoDTO, ConversacionDTO } from '../../src/dtos';
 
-describe('US-14, US-15 y US-18: Reclamos (ReclamoService Unit Tests)', () => {
+describe('US-14 a US-17: Reclamos (ReclamoService Unit Tests)', () => {
   let service: ReclamoService;
   let mockReclamoRepo: jest.Mocked<IReclamoRepository>;
   let mockInmuebleRepo: any;
@@ -103,7 +103,8 @@ describe('US-14, US-15 y US-18: Reclamos (ReclamoService Unit Tests)', () => {
       findTipoReclamoById: jest.fn(),
       findTipoReclamoByNombre: jest.fn(),
       findContratoVigenteLocatarioInmueble: jest.fn(),
-      actualizarEstado: jest.fn()
+      actualizarEstado: jest.fn(),
+      actualizarEstadoSiPermitido: jest.fn()
     };
 
     mockInmuebleRepo = {
@@ -517,6 +518,90 @@ describe('US-14, US-15 y US-18: Reclamos (ReclamoService Unit Tests)', () => {
       ).rejects.toMatchObject({
         statusCode: 404,
         message: 'El reclamo solicitado no existe.'
+      });
+    });
+  });
+
+  describe('US-16: Resolver reclamo', () => {
+    it('debe fallar con 401 sin sesión', async () => {
+      await expect(service.resolverReclamo(null as any, 100)).rejects.toMatchObject({ statusCode: 401 });
+    });
+
+    it('debe rechazar al locador', async () => {
+      await expect(service.resolverReclamo(locadorUser, 100)).rejects.toMatchObject({ statusCode: 403 });
+      expect(mockReclamoRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it('debe rechazar a otro locatario', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+
+      await expect(service.resolverReclamo(terceroUser, 100)).rejects.toMatchObject({ statusCode: 403 });
+      expect(mockReclamoRepo.actualizarEstadoSiPermitido).not.toHaveBeenCalled();
+    });
+
+    it('debe fallar con 404 si el reclamo no existe', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(null);
+
+      await expect(service.resolverReclamo(locatarioUser, 999)).rejects.toMatchObject({ statusCode: 404 });
+      expect(mockReclamoRepo.actualizarEstadoSiPermitido).not.toHaveBeenCalled();
+    });
+
+    it('debe fallar con 400 si el identificador no es válido', async () => {
+      await expect(service.resolverReclamo(locatarioUser, 0)).rejects.toMatchObject({ statusCode: 400 });
+      expect(mockReclamoRepo.findById).not.toHaveBeenCalled();
+    });
+
+    it.each([1, 3, 4])('debe rechazar un reclamo con estado %i', async estado => {
+      mockReclamoRepo.findById.mockResolvedValue({ ...reclamoMock, id_estado_reclamo: estado });
+
+      await expect(service.resolverReclamo(locatarioUser, 100)).rejects.toMatchObject({
+        statusCode: 409,
+        codigo: 'ESTADO_INVALIDO'
+      });
+    });
+
+    it('debe resolver un reclamo en proceso y devolver el detalle actualizado', async () => {
+      const actualizado = { ...reclamoMock, id_estado_reclamo: 3, estado: 'resuelto' };
+      mockReclamoRepo.findById.mockResolvedValue({ ...reclamoMock, id_estado_reclamo: 2, estado: 'en_proceso' });
+      mockReclamoRepo.actualizarEstadoSiPermitido.mockResolvedValue(actualizado);
+
+      const resultado = await service.resolverReclamo(locatarioUser, 100);
+
+      expect(mockReclamoRepo.actualizarEstadoSiPermitido).toHaveBeenCalledWith(100, 15, [2], 3);
+      expect(resultado.estado).toBe('resuelto');
+      expect(resultado.id_conversacion).toBe(reclamoMock.id_conversacion);
+    });
+  });
+
+  describe('US-17: Cancelar reclamo', () => {
+    it.each([1, 2])('debe cancelar un reclamo con estado %i', async estado => {
+      const actualizado = { ...reclamoMock, id_estado_reclamo: 4, estado: 'cancelado' };
+      mockReclamoRepo.findById.mockResolvedValue({ ...reclamoMock, id_estado_reclamo: estado });
+      mockReclamoRepo.actualizarEstadoSiPermitido.mockResolvedValue(actualizado);
+
+      const resultado = await service.cancelarReclamo(locatarioUser, 100);
+
+      expect(mockReclamoRepo.actualizarEstadoSiPermitido).toHaveBeenCalledWith(100, 15, [1, 2], 4);
+      expect(resultado.estado).toBe('cancelado');
+    });
+
+    it.each([3, 4])('debe rechazar la cancelación con estado %i', async estado => {
+      mockReclamoRepo.findById.mockResolvedValue({ ...reclamoMock, id_estado_reclamo: estado });
+
+      await expect(service.cancelarReclamo(locatarioUser, 100)).rejects.toMatchObject({
+        statusCode: 409,
+        codigo: 'ESTADO_INVALIDO'
+      });
+      expect(mockReclamoRepo.actualizarEstadoSiPermitido).not.toHaveBeenCalled();
+    });
+
+    it('debe responder conflicto si el estado cambia durante la operación', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+      mockReclamoRepo.actualizarEstadoSiPermitido.mockResolvedValue(null);
+
+      await expect(service.cancelarReclamo(locatarioUser, 100)).rejects.toMatchObject({
+        statusCode: 409,
+        codigo: 'CONFLICTO_ACTUALIZACION'
       });
     });
   });

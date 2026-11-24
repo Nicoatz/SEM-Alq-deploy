@@ -236,6 +236,76 @@ export class ReclamoService {
     return reclamo;
   }
 
+  /**
+   * Marcar como resuelto un reclamo en proceso, por su locatario (US-16).
+   */
+  async resolverReclamo(user: AuthenticatedUser, idReclamo: number): Promise<ReclamoResponse> {
+    return this.cambiarEstadoPorLocatario(user, idReclamo, [2], 3, 'Solo se puede resolver un reclamo en proceso.');
+  }
+
+  /**
+   * Cancelar un reclamo abierto o en proceso, por su locatario (US-17).
+   */
+  async cancelarReclamo(user: AuthenticatedUser, idReclamo: number): Promise<ReclamoResponse> {
+    return this.cambiarEstadoPorLocatario(
+      user,
+      idReclamo,
+      [1, 2],
+      4,
+      'Solo se puede cancelar un reclamo abierto o en proceso.'
+    );
+  }
+
+  private async cambiarEstadoPorLocatario(
+    user: AuthenticatedUser,
+    idReclamo: number,
+    estadosPermitidos: number[],
+    idEstadoNuevo: number,
+    mensajeEstadoInvalido: string
+  ): Promise<ReclamoResponse> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para modificar el reclamo.', 401);
+    }
+
+    if (!user.roles?.includes('locatario')) {
+      this.throwValidationError('Solo un locatario puede modificar el estado del reclamo.', 403);
+    }
+
+    if (!Number.isInteger(idReclamo) || idReclamo < 1) {
+      this.throwValidationError('El identificador del reclamo no es válido.', 400);
+    }
+
+    const reclamo = await this.reclamoRepo.findById(idReclamo);
+    if (!reclamo) {
+      this.throwValidationError('El reclamo solicitado no existe.', 404);
+    }
+
+    if (reclamo.id_locatario !== user.id) {
+      this.throwValidationError('Solo el locatario que registró el reclamo puede modificar su estado.', 403);
+    }
+
+    if (!estadosPermitidos.includes(reclamo.id_estado_reclamo)) {
+      this.throwValidationError(mensajeEstadoInvalido, 409, 'ESTADO_INVALIDO');
+    }
+
+    const actualizado = await this.reclamoRepo.actualizarEstadoSiPermitido(
+      idReclamo,
+      user.id,
+      estadosPermitidos,
+      idEstadoNuevo
+    );
+
+    if (!actualizado) {
+      this.throwValidationError(
+        'El estado del reclamo cambió mientras se procesaba la solicitud. Actualiza la pantalla e inténtalo nuevamente.',
+        409,
+        'CONFLICTO_ACTUALIZACION'
+      );
+    }
+
+    return actualizado;
+  }
+
 }
 
 export const reclamoService = new ReclamoService();

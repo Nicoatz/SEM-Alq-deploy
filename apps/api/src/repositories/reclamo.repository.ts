@@ -36,6 +36,12 @@ export interface IReclamoRepository {
     idInmueble: number
   ): Promise<ContratoVigenteLocatarioResult | null>;
   actualizarEstado(idReclamo: number, idEstado: number): Promise<void>;
+  actualizarEstadoSiPermitido(
+    idReclamo: number,
+    idLocatario: number,
+    estadosActuales: number[],
+    idEstadoNuevo: number
+  ): Promise<ReclamoResponse | null>;
 }
 
 const SELECT_RECLAMO_COMPLETO = `
@@ -343,6 +349,33 @@ export class ReclamoRepository implements IReclamoRepository {
     if (error) {
       throw new Error(`Error al actualizar estado del reclamo: ${error.message}`);
     }
+  }
+
+  async actualizarEstadoSiPermitido(
+    idReclamo: number,
+    idLocatario: number,
+    estadosActuales: number[],
+    idEstadoNuevo: number
+  ): Promise<ReclamoResponse | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('reclamo')
+      .update({
+        id_estado_reclamo: idEstadoNuevo,
+        fecha_actualizacion: new Date().toISOString()
+      })
+      .eq('id', idReclamo)
+      .eq('id_locatario', idLocatario)
+      .in('id_estado_reclamo', estadosActuales)
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Error al actualizar estado del reclamo: ${error.message}`);
+    }
+
+    if (!data) return null;
+
+    return this.findById(data.id);
   }
 }
 

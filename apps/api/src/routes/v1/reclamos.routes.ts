@@ -5,7 +5,7 @@ import { authenticateGateway, requireRole } from '../../gateway/middlewares/auth
 
 const router = Router();
 
-// Requerir autenticación para todas las operaciones de reclamos (Criterio US-14, US-15, US-18)
+// Requerir autenticación para todas las operaciones de reclamos (US-14 a US-18)
 router.use(authenticateGateway);
 
 /**
@@ -148,6 +148,80 @@ router.post(
   '/',
   requireRole('locatario'),
   reclamoController.registrarReclamo.bind(reclamoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/reclamos/{id}/resolver:
+ *   patch:
+ *     summary: Marcar un reclamo como resuelto (US-16)
+ *     description: Permite al locatario que registró el reclamo resolverlo cuando está en proceso.
+ *     tags:
+ *       - Reclamos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Reclamo actualizado.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: Solo el locatario autor puede resolver el reclamo.
+ *       404:
+ *         description: Reclamo no encontrado.
+ *       409:
+ *         description: El reclamo no está en proceso o cambió durante la operación.
+ */
+router.patch(
+  '/:id/resolver',
+  requireRole('locatario'),
+  reclamoController.resolverReclamo.bind(reclamoController)
+);
+
+/**
+ * @openapi
+ * /api/v1/reclamos/{id}/cancelar:
+ *   patch:
+ *     summary: Cancelar un reclamo (US-17)
+ *     description: Permite al locatario que registró el reclamo cancelarlo si está abierto o en proceso.
+ *     tags:
+ *       - Reclamos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       200:
+ *         description: Reclamo actualizado.
+ *       400:
+ *         description: Identificador inválido.
+ *       401:
+ *         description: No autorizado.
+ *       403:
+ *         description: Solo el locatario autor puede cancelar el reclamo.
+ *       404:
+ *         description: Reclamo no encontrado.
+ *       409:
+ *         description: El reclamo no está abierto ni en proceso o cambió durante la operación.
+ */
+router.patch(
+  '/:id/cancelar',
+  requireRole('locatario'),
+  reclamoController.cancelarReclamo.bind(reclamoController)
 );
 
 export default router;
