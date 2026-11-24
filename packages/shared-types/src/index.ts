@@ -404,3 +404,14 @@ export type {
   RegistrarCobroDatos,
   VarianteProximo,
 } from './cobro';
+
+export type {
+  TipoTemaConversacion,
+  Conversacion,
+  Mensaje,
+  ParticipanteConversacion,
+  ConversacionResumen,
+  ConversacionDetalle,
+  CrearConversacionPayload,
+  EnviarMensajePayload,
+} from './mensaje';
