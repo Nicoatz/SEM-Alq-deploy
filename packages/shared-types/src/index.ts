@@ -423,4 +423,8 @@ export type {
   FotoReclamoPayload,
   RegistrarReclamoPayload,
   ReclamoRegistrado,
+  ReclamoResponse,
+  ParticipanteReclamo,
+  InmuebleReclamo,
+  FiltrosReclamosPayload,
 } from './reclamo';

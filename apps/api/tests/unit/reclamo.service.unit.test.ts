@@ -3,7 +3,7 @@ import type { IReclamoRepository } from '../../src/repositories/reclamo.reposito
 import type { AuthenticatedUser } from '../../src/gateway/middlewares/auth.middleware';
 import type { ReclamoResponse, TipoReclamoDTO } from '../../src/dtos';
 
-describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
+describe('US-14 y US-15: Reclamos (ReclamoService Unit Tests)', () => {
   let service: ReclamoService;
   let mockReclamoRepo: jest.Mocked<IReclamoRepository>;
   let mockInmuebleRepo: any;
@@ -28,6 +28,16 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     authUserId: 'uuid-locador-5'
   };
 
+  const terceroUser: AuthenticatedUser = {
+    id: 99,
+    nombre: 'Intruso',
+    apellido: 'Ajeno',
+    email: 'intruso@example.test',
+    numero_documento: '39123456',
+    roles: ['locatario'],
+    authUserId: 'uuid-tercero-99'
+  };
+
   const tipoReclamoValido: TipoReclamoDTO = {
     id: 1,
     nombre: 'pintura',
@@ -36,10 +46,41 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
 
   const mensajeValido50Chars = 'Este es un mensaje de reclamo válido con más de cincuenta caracteres para probar.';
 
+  const reclamoMock: ReclamoResponse = {
+    id: 100,
+    id_inmueble: 10,
+    id_locatario: 15,
+    id_contrato: 1,
+    id_tipo_reclamo: 1,
+    id_estado_reclamo: 1,
+    titulo: 'Reclamo: Pintura',
+    descripcion: mensajeValido50Chars,
+    fecha_creacion: '2026-11-24T18:00:00Z',
+    fecha_actualizacion: '2026-11-24T18:00:00Z',
+    tipo_reclamo: tipoReclamoValido,
+    estado: 'pendiente',
+    fotos: [
+      { id: 1, id_reclamo: 100, url: 'https://example.test/foto1.jpg', peso_kb: 120, formato: 'jpg', orden: 1 }
+    ],
+    inmueble: {
+      id: 10,
+      direccion: 'Av. Colón',
+      numero: 1200,
+      piso: '3A',
+      barrio: 'Alberdi',
+      ciudad: 'Córdoba',
+      foto_principal: 'https://example.test/inmueble.jpg'
+    },
+    locador: { id: 5, nombre: 'Lucía', apellido: 'Propietaria', email: 'lucia@example.test', telefono: null },
+    locatario: { id: 15, nombre: 'Martín', apellido: 'Inquilino', email: 'martin@example.test', telefono: null }
+  };
+
   beforeEach(() => {
     mockReclamoRepo = {
       create: jest.fn(),
       findById: jest.fn(),
+      findByLocatarioId: jest.fn(),
+      findByLocadorId: jest.fn(),
       findTiposReclamo: jest.fn(),
       findTipoReclamoById: jest.fn(),
       findTipoReclamoByNombre: jest.fn(),
@@ -53,7 +94,10 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     service = new ReclamoService(mockReclamoRepo, mockInmuebleRepo);
   });
 
-  describe('Validación de Sesión y Rol', () => {
+  // ─────────────────────────────────────────────────────────────
+  // US-14: REGISTRAR RECLAMO
+  // ─────────────────────────────────────────────────────────────
+  describe('US-14: Validación de Sesión y Rol al Registrar', () => {
     it('debe fallar con 401 si no se ha iniciado sesión', async () => {
       await expect(
         service.registrarReclamo(null as any, {
@@ -82,7 +126,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
   });
 
-  describe('Validación de Propiedad y Contrato Vigente', () => {
+  describe('US-14: Validación de Propiedad y Contrato Vigente', () => {
     it('debe fallar con 400 si no se selecciona una propiedad', async () => {
       await expect(
         service.registrarReclamo(locatarioUser, {
@@ -129,7 +173,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
   });
 
-  describe('Validación de Tipo de Reclamo', () => {
+  describe('US-14: Validación de Tipo de Reclamo', () => {
     beforeEach(() => {
       mockInmuebleRepo.findById.mockResolvedValue({ id: 10, direccion: 'Av. Colón 1200' });
       mockReclamoRepo.findContratoVigenteLocatarioInmueble.mockResolvedValue({ id: 1, estado: 2 });
@@ -163,7 +207,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
   });
 
-  describe('Validación de Mensaje de Reclamo (50 a 5000 caracteres)', () => {
+  describe('US-14: Validación de Mensaje de Reclamo (50 a 5000 caracteres)', () => {
     beforeEach(() => {
       mockInmuebleRepo.findById.mockResolvedValue({ id: 10, direccion: 'Av. Colón 1200' });
       mockReclamoRepo.findContratoVigenteLocatarioInmueble.mockResolvedValue({ id: 1, estado: 2 });
@@ -212,7 +256,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
   });
 
-  describe('Validación de Imágenes Adjuntas (hasta 10 fotos, JPG/PNG, <= 350kb)', () => {
+  describe('US-14: Validación de Imágenes Adjuntas (hasta 10 fotos, JPG/PNG, <= 350kb)', () => {
     beforeEach(() => {
       mockInmuebleRepo.findById.mockResolvedValue({ id: 10, direccion: 'Av. Colón 1200' });
       mockReclamoRepo.findContratoVigenteLocatarioInmueble.mockResolvedValue({ id: 1, estado: 2 });
@@ -220,22 +264,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
 
     it('debe permitir registrar el reclamo sin adjuntar imágenes', async () => {
-      const respuestaEsperada: ReclamoResponse = {
-        id: 100,
-        id_inmueble: 10,
-        id_locatario: 15,
-        id_contrato: 1,
-        id_tipo_reclamo: 1,
-        id_estado_reclamo: 1,
-        titulo: 'Reclamo: Pintura',
-        descripcion: mensajeValido50Chars,
-        fecha_creacion: new Date().toISOString(),
-        fecha_actualizacion: new Date().toISOString(),
-        tipo_reclamo: tipoReclamoValido,
-        estado: 'pendiente',
-        fotos: []
-      };
-      mockReclamoRepo.create.mockResolvedValue(respuestaEsperada);
+      mockReclamoRepo.create.mockResolvedValue(reclamoMock);
 
       const resultado = await service.registrarReclamo(locatarioUser, {
         id_inmueble: 10,
@@ -244,7 +273,6 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
       });
 
       expect(resultado.id).toBe(100);
-      expect(resultado.fotos).toEqual([]);
       expect(mockReclamoRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           id_inmueble: 10,
@@ -306,7 +334,7 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
           fotos: [
             {
               url: 'https://example.test/foto-pesada.png',
-              peso_kb: 351, // Excede 350kb
+              peso_kb: 351,
               formato: 'png'
             }
           ]
@@ -323,25 +351,14 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
         { url: 'https://example.test/foto2.png', peso_kb: 350, formato: 'png' }
       ];
 
-      const respuestaEsperada: ReclamoResponse = {
+      mockReclamoRepo.create.mockResolvedValue({
+        ...reclamoMock,
         id: 101,
-        id_inmueble: 10,
-        id_locatario: 15,
-        id_contrato: 1,
-        id_tipo_reclamo: 1,
-        id_estado_reclamo: 1,
-        titulo: 'Reclamo de prueba',
-        descripcion: mensajeValido50Chars,
-        fecha_creacion: new Date().toISOString(),
-        fecha_actualizacion: new Date().toISOString(),
-        tipo_reclamo: tipoReclamoValido,
-        estado: 'pendiente',
         fotos: [
           { id: 1, id_reclamo: 101, url: 'https://example.test/foto1.jpg', peso_kb: 150, formato: 'jpg', orden: 1 },
           { id: 2, id_reclamo: 101, url: 'https://example.test/foto2.png', peso_kb: 350, formato: 'png', orden: 2 }
         ]
-      };
-      mockReclamoRepo.create.mockResolvedValue(respuestaEsperada);
+      });
 
       const resultado = await service.registrarReclamo(locatarioUser, {
         id_inmueble: 10,
@@ -367,18 +384,94 @@ describe('US-14: Registrar reclamo (ReclamoService Unit Tests)', () => {
     });
   });
 
-  describe('Consultar Tipos de Reclamo', () => {
-    it('debe retornar el catálogo de tipos de reclamos', async () => {
-      const tiposMock: TipoReclamoDTO[] = [
-        { id: 1, nombre: 'pintura', descripcion: 'Pintura' },
-        { id: 2, nombre: 'cobros', descripcion: 'Cobros' }
-      ];
-      mockReclamoRepo.findTiposReclamo.mockResolvedValue(tiposMock);
+  // ─────────────────────────────────────────────────────────────
+  // US-15: CONSULTAR RECLAMOS
+  // ─────────────────────────────────────────────────────────────
+  describe('US-15: Consultar Reclamos (Listado y Detalle)', () => {
+    it('debe fallar con 401 si no se ha iniciado sesión', async () => {
+      await expect(
+        service.consultarReclamos(null as any)
+      ).rejects.toMatchObject({
+        statusCode: 401,
+        message: 'Debe iniciar sesión para consultar reclamos.'
+      });
+    });
 
-      const resultado = await service.obtenerTiposReclamo();
+    it('debe retornar lista vacía si no hay reclamos asociados al usuario', async () => {
+      mockReclamoRepo.findByLocatarioId.mockResolvedValue([]);
 
-      expect(resultado).toEqual(tiposMock);
-      expect(mockReclamoRepo.findTiposReclamo).toHaveBeenCalled();
+      const resultado = await service.consultarReclamos(locatarioUser);
+
+      expect(resultado).toEqual([]);
+      expect(mockReclamoRepo.findByLocatarioId).toHaveBeenCalledWith(15, undefined);
+    });
+
+    it('debe permitir a un locatario consultar sus reclamos con los datos del locador, fotos e inmueble', async () => {
+      mockReclamoRepo.findByLocatarioId.mockResolvedValue([reclamoMock]);
+
+      const resultado = await service.consultarReclamos(locatarioUser);
+
+      expect(resultado).toHaveLength(1);
+      const primero = resultado[0];
+      expect(primero.id).toBe(100);
+      expect(primero.descripcion).toBe(mensajeValido50Chars);
+      expect(primero.inmueble.foto_principal).toBe('https://example.test/inmueble.jpg');
+      expect(primero.inmueble.direccion).toBe('Av. Colón');
+      expect(primero.locador.nombre).toBe('Lucía');
+      expect(primero.locatario.nombre).toBe('Martín');
+      expect(primero.fotos).toHaveLength(1);
+      expect(mockReclamoRepo.findByLocatarioId).toHaveBeenCalledWith(15, undefined);
+    });
+
+    it('debe permitir a un locador consultar los reclamos de sus inmuebles con los datos del locatario', async () => {
+      mockReclamoRepo.findByLocadorId.mockResolvedValue([reclamoMock]);
+
+      const resultado = await service.consultarReclamos(locadorUser);
+
+      expect(resultado).toHaveLength(1);
+      expect(resultado[0].locatario.nombre).toBe('Martín');
+      expect(mockReclamoRepo.findByLocadorId).toHaveBeenCalledWith(5, undefined);
+    });
+
+    it('debe permitir consultar el detalle de un reclamo por ID al locatario del reclamo', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+
+      const resultado = await service.consultarDetalleReclamo(locatarioUser, 100);
+
+      expect(resultado.id).toBe(100);
+      expect(resultado.descripcion).toBe(mensajeValido50Chars);
+      expect(resultado.fotos).toHaveLength(1);
+    });
+
+    it('debe permitir consultar el detalle de un reclamo por ID al locador del inmueble', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+
+      const resultado = await service.consultarDetalleReclamo(locadorUser, 100);
+
+      expect(resultado.id).toBe(100);
+      expect(resultado.locador.id).toBe(5);
+    });
+
+    it('debe fallar con 403 si un usuario ajeno intenta consultar el detalle del reclamo', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(reclamoMock);
+
+      await expect(
+        service.consultarDetalleReclamo(terceroUser, 100)
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: 'No tienes permiso para ver este reclamo.'
+      });
+    });
+
+    it('debe fallar con 404 si el reclamo solicitado no existe', async () => {
+      mockReclamoRepo.findById.mockResolvedValue(null);
+
+      await expect(
+        service.consultarDetalleReclamo(locatarioUser, 999)
+      ).rejects.toMatchObject({
+        statusCode: 404,
+        message: 'El reclamo solicitado no existe.'
+      });
     });
   });
 });

@@ -1,4 +1,5 @@
 import type {
+  FiltrosReclamosDTO,
   RegistrarReclamoRequest,
   ReclamoResponse,
   TipoReclamoDTO
@@ -35,19 +36,11 @@ export class ReclamoService {
 
   /**
    * Registrar un reclamo como locatario (US-14).
-   *
-   * Criterios de aceptación:
-   * 1. Se debe haber iniciado sesión como locatario.
-   * 2. Se debe seleccionar una propiedad con la que se posea un contrato vigente.
-   * 3. Se debe seleccionar un tipo de reclamo (pintura, reparación del inmueble, reparación de artefactos, cobros, otro).
-   * 4. Se debe redactar un mensaje de reclamo, de mínimo 50 caracteres y máximo 5000.
-   * 5. Se pueden adjuntar hasta 10 imágenes en formato JPG/PNG que no excedan los 350kb cada una.
    */
   async registrarReclamo(
     user: AuthenticatedUser,
     request: RegistrarReclamoRequest
   ): Promise<ReclamoResponse> {
-    // 1. Sesión y rol locatario
     if (!user?.id) {
       this.throwValidationError('Debe iniciar sesión para registrar un reclamo.', 401);
     }
@@ -60,7 +53,6 @@ export class ReclamoService {
       );
     }
 
-    // 2. Selección de propiedad
     if (!request.id_inmueble || typeof request.id_inmueble !== 'number' || request.id_inmueble <= 0) {
       this.throwValidationError('Debe seleccionar una propiedad para registrar el reclamo.', 400);
     }
@@ -70,7 +62,6 @@ export class ReclamoService {
       this.throwValidationError('La propiedad seleccionada no existe.', 404);
     }
 
-    // Verificar que el locatario posea un contrato vigente sobre esa propiedad
     const contratoVigente = await this.reclamoRepo.findContratoVigenteLocatarioInmueble(
       user.id,
       request.id_inmueble
@@ -84,7 +75,6 @@ export class ReclamoService {
       );
     }
 
-    // 3. Selección del tipo de reclamo
     if (!request.id_tipo_reclamo && !request.tipo_reclamo) {
       this.throwValidationError('Debe seleccionar un tipo de reclamo.', 400);
     }
@@ -100,7 +90,6 @@ export class ReclamoService {
       this.throwValidationError('El tipo de reclamo seleccionado no es válido.', 400);
     }
 
-    // 4. Mensaje del reclamo (entre 50 y 5000 caracteres)
     if (!request.mensaje || typeof request.mensaje !== 'string' || request.mensaje.trim().length === 0) {
       this.throwValidationError('Debe redactar un mensaje de reclamo.', 400);
     }
@@ -113,7 +102,6 @@ export class ReclamoService {
       );
     }
 
-    // 5. Fotos adjuntas (hasta 10 fotos, JPG o PNG, <= 350kb)
     const fotos = request.fotos ?? [];
     if (fotos.length > MAX_FOTOS) {
       this.throwValidationError(`No se pueden adjuntar más de ${MAX_FOTOS} imágenes.`, 400);
@@ -144,7 +132,6 @@ export class ReclamoService {
 
     const titulo = request.titulo?.trim() || `Reclamo: ${tipoReclamo.descripcion}`;
 
-    // Crear el reclamo y asociar fotos
     return this.reclamoRepo.create(
       {
         id_inmueble: request.id_inmueble,
@@ -156,6 +143,93 @@ export class ReclamoService {
       },
       fotos
     );
+  }
+
+  /**
+   * Consultar reclamos del usuario (US-15).
+   * Puede ser consultado como locador (reclamos sobre sus propiedades)
+   * o como locatario (reclamos realizados por el usuario).
+   */
+  async consultarReclamos(
+    user: AuthenticatedUser,
+    filtros?: FiltrosReclamosDTO
+  ): Promise<ReclamoResponse[]> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para consultar reclamos.', 401);
+    }
+
+    const esLocador = user.roles?.includes('locador') ?? false;
+    const esLocatario = user.roles?.includes('locatario') ?? false;
+
+    if (!esLocador && !esLocatario) {
+      this.throwValidationError('Debe tener rol de locador o locatario para consultar reclamos.', 403);
+    }
+
+    // Si se especifica un rol explícito en los filtros:
+    if (filtros?.rol === 'locador') {
+      if (!esLocador) {
+        this.throwValidationError('No posee el rol de locador para consultar estos reclamos.', 403);
+      }
+      return this.reclamoRepo.findByLocadorId(user.id, filtros);
+    }
+
+    if (filtros?.rol === 'locatario') {
+      if (!esLocatario) {
+        this.throwValidationError('No posee el rol de locatario para consultar estos reclamos.', 403);
+      }
+      return this.reclamoRepo.findByLocatarioId(user.id, filtros);
+    }
+
+    // Si no especifica rol:
+    if (esLocador && !esLocatario) {
+      return this.reclamoRepo.findByLocadorId(user.id, filtros);
+    }
+
+    if (esLocatario && !esLocador) {
+      return this.reclamoRepo.findByLocatarioId(user.id, filtros);
+    }
+
+    // Usuario con ambos roles: consulta ambos y unifica
+    const [deLocatario, deLocador] = await Promise.all([
+      this.reclamoRepo.findByLocatarioId(user.id, filtros),
+      this.reclamoRepo.findByLocadorId(user.id, filtros)
+    ]);
+
+    const mapa = new Map<number, ReclamoResponse>();
+    for (const r of [...deLocatario, ...deLocador]) {
+      mapa.set(r.id, r);
+    }
+
+    return Array.from(mapa.values()).sort(
+      (a, b) => new Date(b.fecha_actualizacion).getTime() - new Date(a.fecha_actualizacion).getTime()
+    );
+  }
+
+  /**
+   * Consultar detalle de un reclamo por ID (US-15).
+   * Solo el locatario que originó el reclamo o el locador del inmueble pueden verlo.
+   */
+  async consultarDetalleReclamo(
+    user: AuthenticatedUser,
+    idReclamo: number
+  ): Promise<ReclamoResponse> {
+    if (!user?.id) {
+      this.throwValidationError('Debe iniciar sesión para ver el reclamo.', 401);
+    }
+
+    const reclamo = await this.reclamoRepo.findById(idReclamo);
+    if (!reclamo) {
+      this.throwValidationError('El reclamo solicitado no existe.', 404);
+    }
+
+    const esLocatario = reclamo.id_locatario === user.id || reclamo.locatario?.id === user.id;
+    const esLocador = reclamo.locador?.id === user.id;
+
+    if (!esLocatario && !esLocador) {
+      this.throwValidationError('No tienes permiso para ver este reclamo.', 403);
+    }
+
+    return reclamo;
   }
 }
 

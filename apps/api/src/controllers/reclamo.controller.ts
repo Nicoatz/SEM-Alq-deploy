@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import {
   ApiResponse,
+  FiltrosReclamosDTO,
   RegistrarReclamoRequest,
   ReclamoResponse,
   TipoReclamoDTO
@@ -10,6 +11,11 @@ import { reclamoService, ReclamoService } from '../services/reclamo.service';
 
 export class ReclamoController {
   constructor(private readonly service: ReclamoService = reclamoService) {}
+
+  private parseId(rawId: string | undefined): number | null {
+    const id = typeof rawId === 'string' ? Number(rawId) : NaN;
+    return Number.isInteger(id) && id > 0 ? id : null;
+  }
 
   async registrarReclamo(
     req: Request<unknown, unknown, RegistrarReclamoRequest>,
@@ -41,6 +47,70 @@ export class ReclamoController {
       res.status(200).json({
         success: true,
         data: tipos
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listarReclamos(
+    req: Request,
+    res: Response<ApiResponse<ReclamoResponse[]>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const user = (req as any).user as AuthenticatedUser;
+      const rolParam = req.query.rol as string | undefined;
+      const estadoParam = req.query.estado as string | undefined;
+      const inmuebleParam = req.query.id_inmueble as string | undefined;
+
+      const filtros: FiltrosReclamosDTO = {
+        rol: rolParam === 'locador' || rolParam === 'locatario' ? rolParam : undefined,
+        estado: estadoParam,
+        id_inmueble: inmuebleParam ? Number(inmuebleParam) : undefined
+      };
+
+      const reclamos = await this.service.consultarReclamos(user, filtros);
+
+      if (reclamos.length === 0) {
+        res.status(200).json({
+          success: true,
+          message: 'No se encontraron reclamos registrados.',
+          data: []
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        data: reclamos
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async obtenerDetalleReclamo(
+    req: Request<{ id: string }>,
+    res: Response<ApiResponse<ReclamoResponse>>,
+    next: NextFunction
+  ): Promise<void> {
+    try {
+      const idReclamo = this.parseId(req.params.id);
+      if (idReclamo === null) {
+        res.status(400).json({
+          success: false,
+          error: 'El identificador del reclamo no es válido.'
+        });
+        return;
+      }
+
+      const user = (req as any).user as AuthenticatedUser;
+      const reclamo = await this.service.consultarDetalleReclamo(user, idReclamo);
+
+      res.status(200).json({
+        success: true,
+        data: reclamo
       });
     } catch (error) {
       next(error);

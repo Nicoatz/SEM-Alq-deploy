@@ -36,6 +36,24 @@ export interface RegistrarReclamoRequest {
   fotos?: FotoReclamoPayloadDTO[];
 }
 
+export interface ParticipanteReclamoDTO {
+  id: number;
+  nombre: string;
+  apellido?: string | null;
+  email: string;
+  telefono?: string | null;
+}
+
+export interface InmuebleReclamoDTO {
+  id: number;
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  barrio: string;
+  ciudad: string;
+  foto_principal?: string | null;
+}
+
 export interface ReclamoResponse {
   id: number;
   id_inmueble: number;
@@ -50,12 +68,13 @@ export interface ReclamoResponse {
   tipo_reclamo: TipoReclamoDTO;
   estado: string;
   fotos: FotoReclamoDTO[];
-  inmueble?: {
-    id: number;
-    direccion: string;
-    numero: number;
-    piso?: string | null;
-    barrio: string;
-    ciudad: string;
-  } | null;
+  inmueble: InmuebleReclamoDTO;
+  locador: ParticipanteReclamoDTO;
+  locatario: ParticipanteReclamoDTO;
+}
+
+export interface FiltrosReclamosDTO {
+  rol?: 'locador' | 'locatario';
+  estado?: string;
+  id_inmueble?: number;
 }

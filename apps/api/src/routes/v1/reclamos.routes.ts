@@ -5,7 +5,7 @@ import { authenticateGateway, requireRole } from '../../gateway/middlewares/auth
 
 const router = Router();
 
-// Requerir autenticación para todas las operaciones de reclamos
+// Requerir autenticación para todas las operaciones de reclamos (Criterio US-14 / US-15)
 router.use(authenticateGateway);
 
 /**
@@ -23,6 +23,65 @@ router.use(authenticateGateway);
  *         description: Lista de tipos de reclamos.
  */
 router.get('/tipos', reclamoController.obtenerTiposReclamo.bind(reclamoController));
+
+/**
+ * @openapi
+ * /api/v1/reclamos:
+ *   get:
+ *     summary: Consultar reclamos del usuario autenticado (US-15)
+ *     description: Lista todos los reclamos asociados al locador o locatario, incluyendo dirección del inmueble, foto principal, estado, tipo, mensaje completo y datos de la otra parte.
+ *     tags:
+ *       - Reclamos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: rol
+ *         schema:
+ *           type: string
+ *           enum: [locador, locatario]
+ *         description: Filtrar por rol activo si el usuario posee ambos.
+ *       - in: query
+ *         name: estado
+ *         schema:
+ *           type: string
+ *         description: Filtrar por nombre del estado (pendiente, en_proceso, resuelto, cancelado).
+ *       - in: query
+ *         name: id_inmueble
+ *         schema:
+ *           type: integer
+ *         description: Filtrar reclamos de un inmueble específico.
+ *     responses:
+ *       200:
+ *         description: Lista de reclamos encontrados (o lista vacía con mensaje amigable).
+ */
+router.get('/', reclamoController.listarReclamos.bind(reclamoController));
+
+/**
+ * @openapi
+ * /api/v1/reclamos/{id}:
+ *   get:
+ *     summary: Consultar detalle de un reclamo (US-15)
+ *     description: Devuelve el reclamo completo con fotos adjuntas, inmueble con foto principal y datos de locador y locatario.
+ *     tags:
+ *       - Reclamos
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Detalle del reclamo.
+ *       403:
+ *         description: No posee autorización para ver este reclamo.
+ *       404:
+ *         description: Reclamo no encontrado.
+ */
+router.get('/:id', reclamoController.obtenerDetalleReclamo.bind(reclamoController));
 
 /**
  * @openapi

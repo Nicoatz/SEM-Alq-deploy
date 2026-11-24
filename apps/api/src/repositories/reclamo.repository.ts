@@ -1,7 +1,9 @@
 import { getSupabaseAdmin } from '../config/supabase';
 import type {
+  FiltrosReclamosDTO,
   FotoReclamoDTO,
   FotoReclamoPayloadDTO,
+  ParticipanteReclamoDTO,
   ReclamoResponse,
   TipoReclamoDTO
 } from '../dtos';
@@ -24,6 +26,8 @@ export interface ContratoVigenteLocatarioResult {
 export interface IReclamoRepository {
   create(data: CreateReclamoEntity, fotos?: FotoReclamoPayloadDTO[]): Promise<ReclamoResponse>;
   findById(id: number): Promise<ReclamoResponse | null>;
+  findByLocatarioId(idLocatario: number, filtros?: FiltrosReclamosDTO): Promise<ReclamoResponse[]>;
+  findByLocadorId(idLocador: number, filtros?: FiltrosReclamosDTO): Promise<ReclamoResponse[]>;
   findTiposReclamo(): Promise<TipoReclamoDTO[]>;
   findTipoReclamoById(id: number): Promise<TipoReclamoDTO | null>;
   findTipoReclamoByNombre(nombre: string): Promise<TipoReclamoDTO | null>;
@@ -31,6 +35,66 @@ export interface IReclamoRepository {
     idLocatario: number,
     idInmueble: number
   ): Promise<ContratoVigenteLocatarioResult | null>;
+}
+
+const SELECT_RECLAMO_COMPLETO = `
+  *,
+  tipo_reclamo(id, nombre, descripcion),
+  estado_reclamo(id, nombre),
+  locatario:usuario!reclamo_id_locatario_fkey(id, nombre, apellido, email, telefono),
+  inmueble!inner(
+    id,
+    direccion,
+    numero,
+    piso,
+    barrio,
+    ciudad,
+    id_locador,
+    locador:usuario!inmueble_id_locador_fkey(id, nombre, apellido, email, telefono),
+    fotos:foto_inmueble(url, es_principal, orden)
+  ),
+  fotos:foto_reclamo(id, id_reclamo, url, peso_kb, formato, orden)
+`;
+
+function mapReclamoRow(data: any): ReclamoResponse {
+  const tipo = Array.isArray(data.tipo_reclamo) ? data.tipo_reclamo[0] : data.tipo_reclamo;
+  const estado = Array.isArray(data.estado_reclamo) ? data.estado_reclamo[0] : data.estado_reclamo;
+  const inmuebleRaw = Array.isArray(data.inmueble) ? data.inmueble[0] : data.inmueble;
+  const fotos = (Array.isArray(data.fotos) ? data.fotos : []) as FotoReclamoDTO[];
+  fotos.sort((a, b) => a.orden - b.orden);
+
+  const locatario = (Array.isArray(data.locatario) ? data.locatario[0] : data.locatario) as ParticipanteReclamoDTO;
+  const locador = (Array.isArray(inmuebleRaw?.locador) ? inmuebleRaw.locador[0] : inmuebleRaw?.locador) as ParticipanteReclamoDTO;
+
+  const fotosInmueble = Array.isArray(inmuebleRaw?.fotos) ? inmuebleRaw.fotos : [];
+  const fotoPrincipal = fotosInmueble.find((f: any) => f.es_principal)?.url ?? fotosInmueble[0]?.url ?? null;
+
+  return {
+    id: data.id,
+    id_inmueble: data.id_inmueble,
+    id_locatario: data.id_locatario,
+    id_contrato: data.id_contrato,
+    id_tipo_reclamo: data.id_tipo_reclamo,
+    id_estado_reclamo: data.id_estado_reclamo,
+    titulo: data.titulo,
+    descripcion: data.descripcion,
+    fecha_creacion: data.fecha_creacion,
+    fecha_actualizacion: data.fecha_actualizacion,
+    tipo_reclamo: tipo,
+    estado: estado?.nombre || 'pendiente',
+    fotos,
+    inmueble: {
+      id: inmuebleRaw?.id ?? data.id_inmueble,
+      direccion: inmuebleRaw?.direccion ?? '',
+      numero: inmuebleRaw?.numero ?? 0,
+      piso: inmuebleRaw?.piso ?? null,
+      barrio: inmuebleRaw?.barrio ?? '',
+      ciudad: inmuebleRaw?.ciudad ?? '',
+      foto_principal: fotoPrincipal
+    },
+    locador: locador ?? { id: 0, nombre: '', email: '' },
+    locatario: locatario ?? { id: data.id_locatario, nombre: '', email: '' }
+  };
 }
 
 export class ReclamoRepository implements IReclamoRepository {
@@ -79,7 +143,6 @@ export class ReclamoRepository implements IReclamoRepository {
     idLocatario: number,
     idInmueble: number
   ): Promise<ContratoVigenteLocatarioResult | null> {
-    // Busca en contrato_x_usuario para el locatario y el inmueble indicado
     const { data, error } = await getSupabaseAdmin()
       .from('contrato_x_usuario')
       .select(`
@@ -99,7 +162,6 @@ export class ReclamoRepository implements IReclamoRepository {
       .limit(1);
 
     if (error) {
-      // Fallback en dos pasos si el inner join de PostgREST tiene diferencias de configuración
       try {
         const { data: contratos } = await getSupabaseAdmin()
           .from('contrato')
@@ -195,13 +257,7 @@ export class ReclamoRepository implements IReclamoRepository {
   async findById(id: number): Promise<ReclamoResponse | null> {
     const { data, error } = await getSupabaseAdmin()
       .from('reclamo')
-      .select(`
-        *,
-        tipo_reclamo(id, nombre, descripcion),
-        estado_reclamo(id, nombre),
-        inmueble(id, direccion, numero, piso, barrio, ciudad),
-        fotos:foto_reclamo(id, id_reclamo, url, peso_kb, formato, orden)
-      `)
+      .select(SELECT_RECLAMO_COMPLETO)
       .eq('id', id)
       .maybeSingle();
 
@@ -211,29 +267,65 @@ export class ReclamoRepository implements IReclamoRepository {
 
     if (!data) return null;
 
-    const tipo = Array.isArray(data.tipo_reclamo) ? data.tipo_reclamo[0] : data.tipo_reclamo;
-    const estado = Array.isArray(data.estado_reclamo) ? data.estado_reclamo[0] : data.estado_reclamo;
-    const inmueble = Array.isArray(data.inmueble) ? data.inmueble[0] : data.inmueble;
-    const fotos = (Array.isArray(data.fotos) ? data.fotos : []) as FotoReclamoDTO[];
+    return mapReclamoRow(data);
+  }
 
-    fotos.sort((a, b) => a.orden - b.orden);
+  async findByLocatarioId(
+    idLocatario: number,
+    filtros?: FiltrosReclamosDTO
+  ): Promise<ReclamoResponse[]> {
+    let query = getSupabaseAdmin()
+      .from('reclamo')
+      .select(SELECT_RECLAMO_COMPLETO)
+      .eq('id_locatario', idLocatario)
+      .order('fecha_actualizacion', { ascending: false });
 
-    return {
-      id: data.id,
-      id_inmueble: data.id_inmueble,
-      id_locatario: data.id_locatario,
-      id_contrato: data.id_contrato,
-      id_tipo_reclamo: data.id_tipo_reclamo,
-      id_estado_reclamo: data.id_estado_reclamo,
-      titulo: data.titulo,
-      descripcion: data.descripcion,
-      fecha_creacion: data.fecha_creacion,
-      fecha_actualizacion: data.fecha_actualizacion,
-      tipo_reclamo: tipo,
-      estado: estado?.nombre || 'pendiente',
-      fotos,
-      inmueble: inmueble ?? null
-    };
+    if (filtros?.id_inmueble) {
+      query = query.eq('id_inmueble', filtros.id_inmueble);
+    }
+
+    if (filtros?.estado) {
+      query = query.eq('estado_reclamo.nombre', filtros.estado);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Error al consultar reclamos del locatario: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) return [];
+
+    return data.map(mapReclamoRow);
+  }
+
+  async findByLocadorId(
+    idLocador: number,
+    filtros?: FiltrosReclamosDTO
+  ): Promise<ReclamoResponse[]> {
+    let query = getSupabaseAdmin()
+      .from('reclamo')
+      .select(SELECT_RECLAMO_COMPLETO)
+      .eq('inmueble.id_locador', idLocador)
+      .order('fecha_actualizacion', { ascending: false });
+
+    if (filtros?.id_inmueble) {
+      query = query.eq('id_inmueble', filtros.id_inmueble);
+    }
+
+    if (filtros?.estado) {
+      query = query.eq('estado_reclamo.nombre', filtros.estado);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      throw new Error(`Error al consultar reclamos del locador: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) return [];
+
+    return data.map(mapReclamoRow);
   }
 }
 

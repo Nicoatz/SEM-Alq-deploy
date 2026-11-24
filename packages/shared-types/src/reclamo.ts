@@ -1,5 +1,5 @@
 /**
- * Tipos de dominio para el módulo de Reclamos (US-14: Registrar reclamo).
+ * Tipos de dominio para el módulo de Reclamos (US-14 Registrar reclamo, US-15 Consultar reclamos).
  */
 
 export type TipoReclamoNombre =
@@ -40,7 +40,25 @@ export interface RegistrarReclamoPayload {
   fotos?: FotoReclamoPayload[];
 }
 
-export interface ReclamoRegistrado {
+export interface ParticipanteReclamo {
+  id: number;
+  nombre: string;
+  apellido?: string | null;
+  email: string;
+  telefono?: string | null;
+}
+
+export interface InmuebleReclamo {
+  id: number;
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  barrio: string;
+  ciudad: string;
+  foto_principal?: string | null;
+}
+
+export interface ReclamoResponse {
   id: number;
   id_inmueble: number;
   id_locatario: number;
@@ -54,12 +72,15 @@ export interface ReclamoRegistrado {
   tipo_reclamo: TipoReclamo;
   estado: string;
   fotos: FotoReclamo[];
-  inmueble?: {
-    id: number;
-    direccion: string;
-    numero: number;
-    piso?: string | null;
-    barrio: string;
-    ciudad: string;
-  } | null;
+  inmueble: InmuebleReclamo;
+  locador: ParticipanteReclamo;
+  locatario: ParticipanteReclamo;
+}
+
+export type ReclamoRegistrado = ReclamoResponse;
+
+export interface FiltrosReclamosPayload {
+  rol?: 'locador' | 'locatario';
+  estado?: string;
+  id_inmueble?: number;
 }
