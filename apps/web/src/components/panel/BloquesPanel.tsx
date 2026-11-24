@@ -157,7 +157,8 @@ export function ReclamosRecientes({ resumen }: { resumen: ResumenReclamos }) {
             </span>
             <span className={styles.rowDetail}>{detalleReclamo(reclamo)}</span>
             {abierto && (
-              <Link href="/panel/reclamos" className={styles.rowLink}>
+              // El detalle del reclamo (`/panel/reclamos/[id]`) llega con la Tanda B (US-15 a US-18).
+              <Link href={`/panel/reclamos/${encodeURIComponent(reclamo.id)}`} className={styles.rowLink} data-testid="panel-reclamo-link">
                 {reclamo.answeredAt ? 'Ver conversación' : 'Responder'}
               </Link>
             )}

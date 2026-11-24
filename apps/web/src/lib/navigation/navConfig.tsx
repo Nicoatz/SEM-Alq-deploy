@@ -47,6 +47,10 @@ const navItemsLocatario: AppShellNavItem[] = [
   { key: 'alquiler', label: 'Mi alquiler', href: '/panel/alquiler', icon: <KeyOutlined /> },
   { key: 'pagos', label: 'Mis pagos', href: '/panel/pagos', icon: <DollarOutlined /> },
   { key: 'mis-solicitudes', label: 'Mis solicitudes', href: '/panel/mis-solicitudes', icon: <FileTextOutlined /> },
+  // US-14 y US-15 (Sprint 5, decisión del PO del 24/11): la misma ruta que el locador; la vista sale del rol activo.
+  { key: 'reclamos', label: 'Mis reclamos', href: '/panel/reclamos', icon: <ExclamationCircleOutlined /> },
+  // US-24 (Tanda C).
+  { key: 'mensajes', label: 'Mensajes', href: '/panel/mensajes', icon: <MessageOutlined /> },
 ]
 
 /**

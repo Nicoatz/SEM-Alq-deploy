@@ -6,7 +6,8 @@
  * Cubre: US-27 Consultar mis alquileres, "Ficha del alquiler":
  * - la propiedad: foto principal, dirección exacta (con el piso) y barrio;
  *   el estado y el código del contrato ({@link EncabezadoAlquiler});
- * - el locador con su nombre y contacto ({@link LocadorAlquiler});
+ * - el locador con su nombre y contacto ({@link LocadorAlquiler}) y, con el
+ *   contrato vigente, "Registrar reclamo" (US-14, Sprint 5);
  * - las condiciones: vigencia, monto actual, depósito, índice y
  *   periodicidad, plazo de vencimiento, medios de pago y garantes
  *   ({@link CondicionesAlquiler});
@@ -24,6 +25,8 @@
  * la firma, el documento y el PDF son los mismos que ve el locador.
  */
 import Image from 'next/image'
+import Link from 'next/link'
+import { Button } from 'antd'
 import { HomeOutlined } from '@ant-design/icons'
 import type { ContratoDetalle } from '@rentar/shared-types'
 import { DetailList, IndexBadge, MoneyAmount, StatusTag, formatARS } from '@rentar/ui'
@@ -229,6 +232,12 @@ export function LocadorAlquiler({ contrato }: FichaProps) {
           </a>
         )}
       </span>
+      {/* US-14: solo con un contrato vigente se puede registrar un reclamo; llega con la propiedad elegida. */}
+      {contrato.status === 'vigente' && (
+        <Link href={`/panel/reclamos/nuevo?propiedad=${encodeURIComponent(contrato.propiedad.id)}`} data-testid="mi-alquiler-registrar-reclamo">
+          <Button block>Registrar reclamo</Button>
+        </Link>
+      )}
     </section>
   )
 }
