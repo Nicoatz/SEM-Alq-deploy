@@ -153,7 +153,7 @@ export function propiedadMockToDetalle(propiedad: PropiedadMock, owner: DuenoPro
 
 // ─── Mis propiedades (US-02) ────────────────────────────────────────────
 
-/** Estado del pago de un período, calculado contra hoy (ver `lib/mocks/panel.mock.ts`). */
+/** Estado del pago de un período, calculado contra hoy (ver `lib/mocks/periodos.mock.ts`). */
 export interface EstadoPagoCalculado {
   status: EstadoPago
   /** Días de atraso; solo si está `retrasada`. */
