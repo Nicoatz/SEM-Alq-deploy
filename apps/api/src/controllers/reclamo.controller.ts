@@ -1,11 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import {
   ApiResponse,
-  ConversacionReclamoResponse,
   FiltrosReclamosDTO,
   RegistrarReclamoRequest,
   ReclamoResponse,
-  ResponderReclamoRequest,
   TipoReclamoDTO
 } from '../dtos';
 import { AuthenticatedUser } from '../gateway/middlewares/auth.middleware';
@@ -119,60 +117,6 @@ export class ReclamoController {
     }
   }
 
-  async responderReclamo(
-    req: Request<{ id: string }, unknown, ResponderReclamoRequest>,
-    res: Response<ApiResponse<ConversacionReclamoResponse>>,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const idReclamo = this.parseId(req.params.id);
-      if (idReclamo === null) {
-        res.status(400).json({
-          success: false,
-          error: 'El identificador del reclamo no es válido.'
-        });
-        return;
-      }
-
-      const user = (req as any).user as AuthenticatedUser;
-      const respuesta = await this.service.responderReclamo(user, idReclamo, req.body?.mensaje);
-
-      res.status(201).json({
-        success: true,
-        message: 'Respuesta al reclamo enviada exitosamente.',
-        data: respuesta
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async obtenerConversacionReclamo(
-    req: Request<{ id: string }>,
-    res: Response<ApiResponse<ConversacionReclamoResponse>>,
-    next: NextFunction
-  ): Promise<void> {
-    try {
-      const idReclamo = this.parseId(req.params.id);
-      if (idReclamo === null) {
-        res.status(400).json({
-          success: false,
-          error: 'El identificador del reclamo no es válido.'
-        });
-        return;
-      }
-
-      const user = (req as any).user as AuthenticatedUser;
-      const conversacion = await this.service.obtenerConversacionReclamo(user, idReclamo);
-
-      res.status(200).json({
-        success: true,
-        data: conversacion
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
 }
 
 export const reclamoController = new ReclamoController();

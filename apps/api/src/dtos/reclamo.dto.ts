@@ -1,5 +1,3 @@
-import type { ConversacionResponse, MensajeResponse } from './mensaje.dto';
-
 export type TipoReclamoNombreDTO =
   | 'pintura'
   | 'reparacion_inmueble'
@@ -58,6 +56,7 @@ export interface InmuebleReclamoDTO {
 
 export interface ReclamoResponse {
   id: number;
+  id_conversacion: number | null;
   id_inmueble: number;
   id_locatario: number;
   id_contrato: number;
@@ -79,23 +78,4 @@ export interface FiltrosReclamosDTO {
   rol?: 'locador' | 'locatario';
   estado?: string;
   id_inmueble?: number;
-}
-
-export interface ResponderReclamoRequest {
-  mensaje: string;
-}
-
-export interface ReclamoOriginalFijadoDTO {
-  id: number;
-  titulo: string;
-  descripcion: string;
-  fecha_creacion: string;
-  tipo_reclamo: TipoReclamoDTO;
-  fotos: FotoReclamoDTO[];
-}
-
-export interface ConversacionReclamoResponse {
-  conversacion: ConversacionResponse;
-  reclamo_original: ReclamoOriginalFijadoDTO;
-  mensajes: MensajeResponse[];
 }

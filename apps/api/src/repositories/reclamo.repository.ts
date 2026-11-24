@@ -43,6 +43,7 @@ const SELECT_RECLAMO_COMPLETO = `
   tipo_reclamo(id, nombre, descripcion),
   estado_reclamo(id, nombre),
   locatario:usuario!reclamo_id_locatario_fkey(id, nombre, apellido, email, telefono),
+  conversacion(id),
   inmueble!inner(
     id,
     direccion,
@@ -72,6 +73,7 @@ function mapReclamoRow(data: any): ReclamoResponse {
 
   return {
     id: data.id,
+    id_conversacion: Array.isArray(data.conversacion) ? data.conversacion[0]?.id ?? null : data.conversacion?.id ?? null,
     id_inmueble: data.id_inmueble,
     id_locatario: data.id_locatario,
     id_contrato: data.id_contrato,

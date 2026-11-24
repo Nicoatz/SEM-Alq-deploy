@@ -62,7 +62,7 @@ router.get('/', reclamoController.listarReclamos.bind(reclamoController));
  * /api/v1/reclamos/{id}:
  *   get:
  *     summary: Consultar detalle de un reclamo (US-15)
- *     description: Devuelve el reclamo completo con fotos adjuntas, inmueble con foto principal y datos de locador y locatario.
+ *     description: Devuelve el reclamo completo, su id_conversacion, fotos adjuntas, inmueble con foto principal y datos de locador y locatario.
  *     tags:
  *       - Reclamos
  *     security:
@@ -148,78 +148,6 @@ router.post(
   '/',
   requireRole('locatario'),
   reclamoController.registrarReclamo.bind(reclamoController)
-);
-
-/**
- * @openapi
- * /api/v1/reclamos/{id}/responder:
- *   post:
- *     summary: Responder a un reclamo (US-18)
- *     description: Permite al locador dueño de la propiedad responder a un reclamo, pasando su estado automáticamente a 'en proceso' e iniciando/continuando el chat del reclamo.
- *     tags:
- *       - Reclamos
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - mensaje
- *             properties:
- *               mensaje:
- *                 type: string
- *     responses:
- *       201:
- *         description: Respuesta enviada exitosamente.
- *       400:
- *         description: Mensaje vacío o estado del reclamo no apto para responder.
- *       403:
- *         description: Solo el locador dueño de la propiedad puede responder.
- *       404:
- *         description: Reclamo no encontrado.
- */
-router.post(
-  '/:id/responder',
-  requireRole('locador'),
-  reclamoController.responderReclamo.bind(reclamoController)
-);
-
-/**
- * @openapi
- * /api/v1/reclamos/{id}/conversacion:
- *   get:
- *     summary: Consultar conversación y reclamo original (US-18)
- *     description: Devuelve el chat vinculado al reclamo junto con el mensaje original y sus fotografías fijadas al inicio.
- *     tags:
- *       - Reclamos
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Conversación del reclamo con reclamo original fijado.
- *       403:
- *         description: No participa del reclamo.
- *       404:
- *         description: Reclamo o conversación no encontrada.
- */
-router.get(
-  '/:id/conversacion',
-  reclamoController.obtenerConversacionReclamo.bind(reclamoController)
 );
 
 export default router;

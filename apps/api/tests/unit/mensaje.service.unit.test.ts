@@ -1,6 +1,7 @@
 import { MensajeService } from '../../src/services/mensaje.service';
 import type { IConversacionRepository } from '../../src/repositories/conversacion.repository';
 import type { IMensajeRepository } from '../../src/repositories/mensaje.repository';
+import type { IReclamoRepository } from '../../src/repositories/reclamo.repository';
 import type { AuthenticatedUser } from '../../src/gateway/middlewares/auth.middleware';
 import type { ConversacionDTO, MensajeDTO, ConversacionDetalleResponse } from '../../src/dtos';
 
@@ -10,6 +11,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
   let mockMensajeRepo: jest.Mocked<IMensajeRepository>;
   let mockLookupRepo: any;
   let mockInmuebleRepo: any;
+  let mockReclamoRepo: jest.Mocked<Pick<IReclamoRepository, 'findById' | 'actualizarEstado'>>;
 
   const locatarioUser: AuthenticatedUser = {
     id: 10,
@@ -46,6 +48,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       create: jest.fn(),
       findById: jest.fn(),
       findByUsuarioId: jest.fn(),
+      findByReclamoId: jest.fn(),
       existeContratoVigente: jest.fn(),
       actualizarFechaActividad: jest.fn()
     };
@@ -76,11 +79,17 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       findById: jest.fn()
     };
 
+    mockReclamoRepo = {
+      findById: jest.fn(),
+      actualizarEstado: jest.fn()
+    };
+
     service = new MensajeService(
       mockConversacionRepo,
       mockMensajeRepo,
       mockLookupRepo,
-      mockInmuebleRepo
+      mockInmuebleRepo,
+      mockReclamoRepo
     );
   });
 
@@ -314,6 +323,75 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       const resultado = await service.enviarMensaje(locatarioUser, 1, 'Perfecto, gracias.');
 
       expect(resultado.fecha_envio).toBe(fechaEnvio);
+    });
+
+    it('debe pasar el reclamo de abierto a en_proceso cuando responde su locador', async () => {
+      mockConversacionRepo.findById.mockResolvedValue({
+        ...conversacionMock,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100
+      });
+      mockReclamoRepo.findById.mockResolvedValue({
+        id: 100,
+        id_estado_reclamo: 1,
+        locador: { id: 20 }
+      } as any);
+      mockMensajeRepo.create.mockResolvedValue({
+        id: 52,
+        id_conversacion: 1,
+        id_emisor: 20,
+        contenido: 'Voy a coordinar la reparación.',
+        fecha_envio: '2026-11-24T18:35:00Z',
+        eliminado: false
+      });
+
+      await service.enviarMensaje(locadorUser, 1, 'Voy a coordinar la reparación.');
+
+      expect(mockReclamoRepo.actualizarEstado).toHaveBeenCalledWith(100, 2);
+      expect(mockMensajeRepo.podarMensajesAntiguos).toHaveBeenCalledWith(1, 100);
+    });
+
+    it('no debe actualizar el estado del reclamo cuando escribe el locatario', async () => {
+      mockConversacionRepo.findById.mockResolvedValue({
+        ...conversacionMock,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100
+      });
+      mockMensajeRepo.create.mockResolvedValue({
+        id: 53,
+        id_conversacion: 1,
+        id_emisor: 10,
+        contenido: 'Gracias por responder.',
+        fecha_envio: '2026-11-24T18:36:00Z',
+        eliminado: false
+      });
+
+      await service.enviarMensaje(locatarioUser, 1, 'Gracias por responder.');
+
+      expect(mockReclamoRepo.findById).not.toHaveBeenCalled();
+      expect(mockReclamoRepo.actualizarEstado).not.toHaveBeenCalled();
+    });
+
+    it('debe rechazar al locador si el reclamo ya no está abierto ni en proceso', async () => {
+      mockConversacionRepo.findById.mockResolvedValue({
+        ...conversacionMock,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100
+      });
+      mockReclamoRepo.findById.mockResolvedValue({
+        id: 100,
+        id_estado_reclamo: 3,
+        locador: { id: 20 }
+      } as any);
+
+      await expect(
+        service.enviarMensaje(locadorUser, 1, 'Mensaje posterior al cierre.')
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        codigo: 'ESTADO_INVALIDO'
+      });
+
+      expect(mockMensajeRepo.create).not.toHaveBeenCalled();
     });
   });
 

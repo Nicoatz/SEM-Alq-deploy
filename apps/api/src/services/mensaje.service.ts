@@ -16,13 +16,15 @@ import {
 } from '../repositories/mensaje.repository';
 import { lookupRepository } from '../repositories/lookup.repository';
 import { IInmuebleRepository, inmuebleRepository } from '../repositories/inmueble.repository';
+import { IReclamoRepository, reclamoRepository } from '../repositories/reclamo.repository';
 
 export class MensajeService {
   constructor(
     private readonly conversacionRepo: IConversacionRepository = conversacionRepository,
     private readonly mensajeRepo: IMensajeRepository = mensajeRepository,
     private readonly lookupRepo = lookupRepository,
-    private readonly inmuebleRepo: Pick<IInmuebleRepository, 'findById'> = inmuebleRepository
+    private readonly inmuebleRepo: Pick<IInmuebleRepository, 'findById'> = inmuebleRepository,
+    private readonly reclamoRepo: Pick<IReclamoRepository, 'findById' | 'actualizarEstado'> = reclamoRepository
   ) {}
 
   private throwValidationError(message: string, statusCode = 400, codigo?: string): never {
@@ -284,11 +286,47 @@ export class MensajeService {
       this.throwValidationError('No tienes permiso para enviar mensajes en esta conversación.', 403);
     }
 
+    let reclamoAbierto: number | null = null;
+    if (
+      conversacion.tipo_tema === 'reclamo' &&
+      conversacion.id_reclamo &&
+      conversacion.id_locador === user.id
+    ) {
+      const reclamo = await this.reclamoRepo.findById(conversacion.id_reclamo);
+      if (!reclamo) {
+        this.throwValidationError('El reclamo asociado a la conversación no existe.', 404);
+      }
+
+      if (reclamo.locador.id !== user.id) {
+        this.throwValidationError(
+          'Solo el locador dueño de la propiedad asociada puede responder al reclamo.',
+          403,
+          'SOLO_LOCADOR_PROPIETARIO'
+        );
+      }
+
+      if (reclamo.id_estado_reclamo !== 1 && reclamo.id_estado_reclamo !== 2) {
+        this.throwValidationError(
+          'Solo se puede responder a un reclamo que se encuentre en estado abierto o en proceso.',
+          400,
+          'ESTADO_INVALIDO'
+        );
+      }
+
+      if (reclamo.id_estado_reclamo === 1) {
+        reclamoAbierto = reclamo.id;
+      }
+    }
+
     const nuevoMensaje = await this.mensajeRepo.create({
       id_conversacion: idConversacion,
       id_emisor: user.id,
       contenido: contenido.trim()
     });
+
+    if (reclamoAbierto !== null) {
+      await this.reclamoRepo.actualizarEstado(reclamoAbierto, 2);
+    }
 
     // Actualizar actividad y asegurar poda a 100 mensajes
     await this.conversacionRepo.actualizarFechaActividad(idConversacion);

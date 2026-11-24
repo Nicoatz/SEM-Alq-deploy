@@ -427,7 +427,4 @@ export type {
   ParticipanteReclamo,
   InmuebleReclamo,
   FiltrosReclamosPayload,
-  ResponderReclamoPayload,
-  ReclamoOriginalFijado,
-  ConversacionReclamoResponse,
 } from './reclamo';
