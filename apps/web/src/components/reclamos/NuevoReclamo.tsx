@@ -31,7 +31,7 @@ import { EmptyState, FormSection, PageHeader } from '@rentar/ui'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
 import type { PropiedadParaReclamo, TipoReclamoVista } from '@/lib/reclamos/tipos'
 import { errorDeMensaje, largoMensaje, MENSAJES_RECLAMO, RECLAMO_MENSAJE_MAX, RECLAMO_MENSAJE_MIN } from '@/lib/validation/reclamo.rules'
-import { getPropiedadesParaReclamo, getTiposReclamo, registrarReclamo } from '@/services/reclamos.service'
+import { getPropiedadesParaReclamo, getTiposReclamo, RECLAMO_NO_REGISTRADO_MESSAGE, registrarReclamo } from '@/services/reclamos.service'
 import { ServiceError } from '@/services/shared/errors'
 import { FotoPropiedadReclamo } from './FotoPropiedadReclamo'
 import { FotosReclamoField, type FotoCargada } from './FotosReclamoField'
@@ -125,7 +125,7 @@ function Formulario({ datos }: { datos: DatosFormulario }) {
       // TODO: con la Tanda B, ir al detalle (`/panel/reclamos/${registrado.id}`).
       router.push(`/panel/reclamos?registrado=${encodeURIComponent(registrado.codigo)}`)
     } catch (error) {
-      const texto = error instanceof ServiceError ? error.message : 'No pudimos registrar el reclamo. Probá de nuevo en unos minutos.'
+      const texto = error instanceof ServiceError ? error.message : RECLAMO_NO_REGISTRADO_MESSAGE
       // Un error de un campo (el back rechazó algo que el front dejó pasar) va en el aviso general igual.
       setErrorEnvio(texto)
       setEnviando(false)
@@ -233,7 +233,7 @@ function Formulario({ datos }: { datos: DatosFormulario }) {
         <Alert
           type="error"
           title="No pudimos registrar el reclamo"
-          description={`${errorEnvio} Guardamos lo que escribiste y las fotos.`}
+          description={`${errorEnvio === RECLAMO_NO_REGISTRADO_MESSAGE ? 'Probá de nuevo en un momento.' : errorEnvio} Guardamos lo que escribiste y las fotos.`}
           action={
             <Button type="primary" onClick={() => void registrar()} data-testid="reclamo-nuevo-reintentar">
               Reintentar
