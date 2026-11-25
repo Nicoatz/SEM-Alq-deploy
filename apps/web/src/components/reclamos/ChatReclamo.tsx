@@ -144,6 +144,7 @@ export function ChatReclamo({ reclamo, usuarioId, onCambio, recarga }: ChatRecla
         escritura={escritura}
         onEnviar={enviar}
         onEliminar={eliminar}
+        otraPersona={otra.nombre}
         // Resuelto o cancelado: solo lectura, también para eliminar (decisión del PO, 24/11).
         permitirEliminar={!esEstadoFinal(reclamo.estado)}
         testIdPrefix="reclamo"

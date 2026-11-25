@@ -33,7 +33,7 @@ export function MensajeOriginalReclamo({ reclamo, esPropio }: MensajeOriginalRec
   return (
     <section className={styles.tarjeta} aria-label="Mensaje del reclamo" data-testid="reclamo-mensaje-original">
       <header className={styles.originalCabecera}>
-        <AvatarPersona nombre={locatario.nombre} fotoSrc={locatario.fotoSrc} conNombre={false} />
+        <AvatarPersona nombre={locatario.nombre} fotoSrc={locatario.fotoSrc} conNombre={false} decorativo />
         <span className={styles.originalQuien}>
           <strong>{esPropio ? `Vos · ${locatario.nombre}` : locatario.nombre}</strong>
           <span>

@@ -1,0 +1,338 @@
+/* Mensajes (Claude Design, "Mensajes" · 01, 02, 04 y 05). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  min-width: 0;
+}
+
+.bandejaVacia {
+  padding: 1.5rem 1rem;
+  border: 1px dashed rgba(var(--rentar-color-ink-rgb), 0.18);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-page);
+}
+
+/* ─── Dos columnas ────────────────────────────────────────────────── */
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+  min-height: 34rem;
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.bandeja {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border-right: 1px solid var(--rentar-color-border-hairline);
+}
+
+.detalle {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.buscador {
+  padding: 0.875rem;
+  border-bottom: 1px solid var(--rentar-color-border-hairline);
+}
+
+.buscador :global(.ant-input-affix-wrapper) {
+  border-radius: var(--rentar-radius-pill);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  max-height: 40rem;
+  overflow-y: auto;
+}
+
+.listaCargando {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.errorBandeja {
+  margin: 0.875rem;
+}
+
+.sinResultados {
+  margin: 0;
+  padding: 1.25rem 1rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+  text-align: center;
+}
+
+/* ─── Fila de la bandeja ──────────────────────────────────────────── */
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.07);
+  border-left: 3px solid transparent;
+  color: var(--rentar-color-text-primary);
+  text-decoration: none;
+}
+
+.item:hover {
+  background: rgba(var(--rentar-color-sky-rgb), 0.45);
+  color: var(--rentar-color-text-primary);
+}
+
+.item:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: -2px;
+}
+
+.itemSeleccionado,
+.itemSeleccionado:hover {
+  border-left-color: var(--rentar-color-blue);
+  background: var(--rentar-color-sky-light);
+}
+
+.itemTextos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.itemFila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.itemNombre {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemFecha {
+  flex: none;
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.itemPropiedad {
+  overflow: hidden;
+  min-height: 1em;
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemSeleccionado .itemPropiedad {
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+}
+
+.itemUltimo {
+  overflow: hidden;
+  font-size: 0.8125rem;
+  color: rgba(var(--rentar-color-ink-rgb), 0.8);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemEliminado {
+  font-style: italic;
+  color: var(--rentar-color-text-tertiary);
+}
+
+/* ─── Conversación abierta ────────────────────────────────────────── */
+
+.panel {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel > :last-child {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.panelVacio {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+}
+
+.cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--rentar-color-border-hairline);
+}
+
+.volver {
+  display: none;
+  color: var(--rentar-color-text-secondary);
+}
+
+.cabeceraTextos {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cabeceraTitulo {
+  overflow: hidden;
+  font-size: 0.96875rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cabeceraSub {
+  font-size: 0.78125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.cabeceraAccion {
+  flex: none;
+}
+
+/* ─── Nueva conversación (modal) ──────────────────────────────────── */
+
+.modalAyuda {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.modalCargando {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modalVacio {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.destinatarios {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 18rem;
+  margin-bottom: 0.75rem;
+  overflow-y: auto;
+}
+
+.destinatario {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.15);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.destinatario:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+.destinatarioElegido {
+  border: 2px solid var(--rentar-color-blue);
+  padding: calc(0.625rem - 1px) calc(0.875rem - 1px);
+  background: var(--rentar-color-sky-light);
+}
+
+.destinatarioTextos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.78125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.destinatarioTextos strong {
+  font-size: 0.9375rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.modalError {
+  margin-top: 0.75rem;
+}
+
+.modalBotones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.625rem;
+  margin-top: 1rem;
+}
+
+/* ─── Móvil (· 05): dos pantallas ─────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .columnas {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .bandeja {
+    border-right: 0;
+  }
+
+  .items {
+    max-height: none;
+  }
+
+  /* Sin conversación abierta, solo la bandeja; con una abierta, solo la conversación. */
+  .page:not(.conPanel) .detalle {
+    display: none;
+  }
+
+  .conPanel .bandeja,
+  .conPanel .encabezado {
+    display: none;
+  }
+
+  /* En la pantalla de la conversación no entra: el diseño móvil (· 05) no lo tiene. */
+  .cabeceraAccion {
+    display: none;
+  }
+
+  .volver {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+  }
+}

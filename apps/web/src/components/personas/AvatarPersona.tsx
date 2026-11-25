@@ -21,6 +21,8 @@ interface AvatarPersonaProps {
   rol?: string
   /** `false` = solo el círculo (el nombre queda como texto accesible). */
   conNombre?: boolean
+  /** `true` = solo el círculo, sin texto accesible: el nombre ya se lee al lado (filas de listas). */
+  decorativo?: boolean
   /** `sm` = 28 px (listas), `md` = 34 px (encabezados). */
   tamanio?: 'sm' | 'md'
   /** Variante del círculo: `fuerte` (azul) para la persona destacada, `suave` para el resto. */
@@ -29,7 +31,7 @@ interface AvatarPersonaProps {
 }
 
 /** Avatar con iniciales y, opcional, nombre y rol. */
-export function AvatarPersona({ nombre, fotoSrc = null, rol, conNombre = true, tamanio = 'md', tono = 'fuerte', ...rest }: AvatarPersonaProps) {
+export function AvatarPersona({ nombre, fotoSrc = null, rol, conNombre = true, decorativo = false, tamanio = 'md', tono = 'fuerte', ...rest }: AvatarPersonaProps) {
   const circulo = `${styles.circulo} ${styles[tamanio]} ${tono === 'fuerte' ? styles.fuerte : styles.suave}`
   return (
     <span className={styles.wrap} data-testid={rest['data-testid']}>
@@ -46,7 +48,7 @@ export function AvatarPersona({ nombre, fotoSrc = null, rol, conNombre = true, t
           <span className={styles.nombre}>{nombre}</span>
           {rol && <span className={styles.rol}>{rol}</span>}
         </span>
-      ) : (
+      ) : decorativo ? null : (
         <span className={styles.oculto}>{rol ? `${nombre}, ${rol.toLowerCase()}` : nombre}</span>
       )}
     </span>

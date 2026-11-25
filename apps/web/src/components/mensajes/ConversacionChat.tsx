@@ -51,6 +51,8 @@ interface ConversacionChatProps {
   onEnviar: (texto: string) => Promise<void>
   /** Elimina un mensaje propio. Si falla, tira el `ServiceError`. */
   onEliminar: (mensajeId: string) => Promise<void>
+  /** Nombre de la otra persona, para el modal de eliminar ("Se borra para vos y para Sofía"). */
+  otraPersona?: string
   /** `false` = sin el menú "Eliminar" (un chat de solo lectura, como el de un reclamo cerrado). */
   permitirEliminar?: boolean
   /** Prefijo de los `data-testid`: `<prefijo>-mensaje`, `<prefijo>-enviar`… */
@@ -96,7 +98,7 @@ function ChatCargando({ testId }: { testId: string }) {
 }
 
 /** Chat de una conversación. */
-export function ConversacionChat({ mensajes, errorCarga = null, eventos = [], vacio, escritura, onEnviar, onEliminar, permitirEliminar = true, testIdPrefix }: ConversacionChatProps) {
+export function ConversacionChat({ mensajes, errorCarga = null, eventos = [], vacio, escritura, onEnviar, onEliminar, otraPersona, permitirEliminar = true, testIdPrefix }: ConversacionChatProps) {
   // ─── Estado local ───────────────────────────────────────────────────
   const [texto, setTexto] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -290,9 +292,9 @@ export function ConversacionChat({ mensajes, errorCarga = null, eventos = [], va
 
       <ConfirmActionModal
         open={aEliminar !== null}
-        title="¿Eliminar el mensaje?"
-        description="Lo vas a dejar de ver los dos. En su lugar queda la marca “Mensaje eliminado”. No se puede deshacer."
-        confirmLabel="Eliminar"
+        title="¿Eliminar este mensaje?"
+        description={`Se borra para vos y para ${otraPersona ? (otraPersona.split(' ')[0] ?? otraPersona) : 'la otra persona'}. En la conversación queda la marca "Mensaje eliminado" con la hora. Esto no se puede deshacer.`}
+        confirmLabel="Eliminar mensaje"
         cancelLabel="Volver"
         danger
         confirmLoading={eliminando}
@@ -303,6 +305,7 @@ export function ConversacionChat({ mensajes, errorCarga = null, eventos = [], va
         }}
         data-testid={`${testIdPrefix}-eliminar-modal`}
       >
+        {aEliminar && <p className={styles.cita}>“{aEliminar.contenido}”</p>}
         {errorEliminar && <Alert type="error" title={errorEliminar} data-testid={`${testIdPrefix}-eliminar-error`} />}
       </ConfirmActionModal>
     </div>

@@ -180,6 +180,17 @@
   text-align: center;
 }
 
+/* Cita del mensaje en el modal de eliminar (Mensajes · 03). */
+.cita {
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
 /* ─── Carga ───────────────────────────────────────────────────────── */
 
 .cargando {
