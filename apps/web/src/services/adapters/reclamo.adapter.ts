@@ -80,10 +80,6 @@ function personaDeDto(persona: Pick<ReclamoResponse['locador'], 'id' | 'nombre' 
   return { id: String(persona.id), nombre: [persona.nombre, persona.apellido].filter(Boolean).join(' '), fotoSrc: null }
 }
 
-/** Nombre del archivo en el bucket (lo último de la URL), para el texto alternativo. */
-function nombreDeArchivo(url: string): string {
-  return decodeURIComponent(url.split('/').pop() ?? 'foto')
-}
 
 /** `ReclamoResponse` → `Reclamo`. */
 export function reclamoDeDto(dto: ReclamoResponse): Reclamo {
@@ -101,7 +97,9 @@ export function reclamoDeDto(dto: ReclamoResponse): Reclamo {
     tipo: dto.tipo_reclamo.nombre,
     estado: estadoDeReclamo(dto),
     mensaje: dto.descripcion,
-    fotos: [...dto.fotos].sort((a, b) => a.orden - b.orden).map((foto) => ({ id: String(foto.id), src: foto.url, nombre: nombreDeArchivo(foto.url) })),
+    // NOTA: en el bucket el archivo se llama con un uuid (el nombre original no se guarda), así
+    // que se muestra "Foto 1", "Foto 2"…
+    fotos: [...dto.fotos].sort((a, b) => a.orden - b.orden).map((foto, indice) => ({ id: String(foto.id), src: foto.url, nombre: `Foto ${indice + 1}` })),
     creadoEl: dto.fecha_creacion,
     // TODO(backend): sin fecha del pasaje a en proceso ni del cierre (brecha 11 del issue).
     enProcesoDesde: null,

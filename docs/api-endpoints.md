@@ -702,12 +702,14 @@ probaron en real ese día. Service: `apps/web/src/services/reclamos.service.ts`;
 |---|---|---|---|---|---|---|
 | `GET /reclamos/tipos` | Bearer | conectado | US-14 | `reclamos.service#getTiposReclamo` | — | `TipoReclamo[]` (`{ id, nombre, descripcion }`, 5 tipos) → `tiposDeReclamoDeDto` |
 | `GET /reclamos?rol=locador\|locatario` | Bearer + rol | conectado; parcial | US-15 | `reclamos.service#listarReclamos` | `rol` (sale del rol activo). **No se manda `estado`**: no filtra (R-2) | `ReclamoResponse[]` → `reclamoDeDto`. `[]` sin reclamos. 403 sin el rol |
-| `GET /reclamos/:id` | Bearer | conectado (el detalle llega en la Tanda B) | US-15 a US-18 | `reclamos.service#getReclamo` | — | `ReclamoResponse` (con `id_conversacion`, fotos, inmueble con `foto_principal`, locador y locatario). 400 / 403 / 404 → "No encontramos este reclamo" |
+| `GET /reclamos/:id` | Bearer | conectado (Tanda B) | US-15 a US-18 | `reclamos.service#getReclamo` | — | `ReclamoResponse` (con `id_conversacion`, fotos, inmueble con `foto_principal`, locador y locatario). 400 / 403 / 404 → "No encontramos este reclamo" |
 | Storage `fotos-reclamos` | sesión de Supabase | conectado | US-14 | `reclamos.service#registrarReclamo` (`shared/fotosStorage.ts`) | `<auth.uid>/<uuid>.<jpg\|png>`, hasta 350 KB | URL pública |
 | `POST /reclamos` | Bearer + rol `locatario` | conectado; parcial | US-14 | `reclamos.service#registrarReclamo` | `{ id_inmueble, id_tipo_reclamo, mensaje, fotos: [{ url, peso_kb, formato, orden }] }`, sin `titulo` | `ReclamoResponse` (estado `pendiente`, con `id_conversacion`). 400 validación; 403 `SIN_CONTRATO_VIGENTE`; **500 con más de 1000 caracteres** (R-1) |
 | `GET /alquileres-locatario` | Bearer | conectado | US-14 | `reclamos.service#getPropiedadesParaReclamo` | — | Se filtran los `vigente` para el selector de propiedad |
-| `PATCH /reclamos/:id/resolver`, `/cancelar` | Bearer + rol `locatario` (el autor) | existe, sin conectar (Tanda B) | US-16, US-17 | — | — | `ReclamoResponse`. 409 `ESTADO_INVALIDO` |
-| `POST /mensajes/conversaciones/:id/mensajes` (responder) | Bearer | existe, sin conectar (Tanda B) | US-18 | — | `{ contenido }` | `MensajeResponse`. El reclamo pasa a `en_proceso` solo |
+| `PATCH /reclamos/:id/resolver`, `/cancelar` | Bearer + rol `locatario` (el autor) | conectado (Tanda B) | US-16, US-17 | `reclamos.service#resolverReclamo`, `#cancelarReclamo` | — | `ReclamoResponse`. 409 `ESTADO_INVALIDO`: el service relee el reclamo y avisa cómo quedó |
+| `GET /mensajes/conversaciones/:id/mensajes` | Bearer (participante) | conectado (Tanda B, chat del reclamo) | US-18, US-24 | `mensajes.service#getMensajes` | — | `MensajeResponse[]` (hasta 100) → `mensajeDeDto` |
+| `POST /mensajes/conversaciones/:id/mensajes` (responder y enviar) | Bearer (participante) | conectado (Tanda B) | US-18, US-24 | `reclamos.service#responderReclamo`, `mensajes.service#enviarMensaje` | `{ contenido }` | `MensajeResponse`. Con el reclamo abierto y el locador, pasa a `en_proceso` solo. 400 `ESTADO_INVALIDO` (no 409) si el reclamo ya está cerrado |
+| `DELETE /mensajes/:id` | Bearer (quien lo mandó) | conectado (Tanda B) | US-24 | `mensajes.service#eliminarMensaje` | — | `{ id }`. 403 si es ajeno |
 
 Propuestos (no existen):
 

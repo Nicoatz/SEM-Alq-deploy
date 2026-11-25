@@ -54,7 +54,7 @@ export interface PropiedadReclamo {
 export interface FotoDeReclamo {
   id: string
   src: string
-  /** Nombre del archivo ("bacha-1.jpg"); en real, el que queda en el bucket. */
+  /** Nombre del archivo ("bacha-1.jpg"); en real, "Foto 1", "Foto 2"… (el bucket no guarda el nombre original). */
   nombre: string
 }
 
