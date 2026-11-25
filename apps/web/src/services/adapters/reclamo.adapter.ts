@@ -194,3 +194,16 @@ export function errorDeRegistrarReclamo(error: unknown): unknown {
   if (error.code === 'not_found') return new ServiceError('validation', 'Esa propiedad ya no está disponible. Elegí otra.')
   return sinTextoTecnico(error, RECLAMO_NO_REGISTRADO_MESSAGE)
 }
+
+/**
+ * Error de `PATCH /reclamos/:id/resolver` y `/cancelar` (US-16, US-17). El 409
+ * lo resuelve el service (relee el reclamo para decir cómo quedó).
+ * - 403 (no es el autor) → `forbidden`.
+ * - 400 (id inválido) y 404 → `not_found`.
+ */
+export function errorDeCambiarEstado(error: unknown): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden') return new ServiceError('forbidden', 'Solo el locatario que registró el reclamo puede cambiar su estado.')
+  if (error.code === 'validation' || error.code === 'not_found') return new ServiceError('not_found', RECLAMO_NO_ENCONTRADO_MESSAGE)
+  return sinTextoTecnico(error, 'No pudimos cambiar el estado del reclamo. Probá de nuevo.')
+}

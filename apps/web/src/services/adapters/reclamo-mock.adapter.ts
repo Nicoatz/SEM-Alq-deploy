@@ -12,7 +12,7 @@
  *
  * Quién lo usa: la rama mock de `reclamos.service.ts`, `propiedades.service.ts` y `panel.service.ts`.
  */
-import { reclamos as reclamosElenco, type PropiedadMock, type ReclamoMock, type UsuarioMock } from '@/lib/mocks'
+import { conversacionDeReclamo, reclamos as reclamosElenco, type PropiedadMock, type ReclamoMock, type UsuarioMock } from '@/lib/mocks'
 import type { PersonaReclamo, Reclamo } from '@/lib/reclamos/tipos'
 import { readMockCollection } from '../shared/mockStore'
 import { formatAddress, mainPhotoSrc } from './propiedad-mock.adapter'
@@ -63,7 +63,7 @@ export function reclamoMockToReclamo(reclamo: ReclamoMock, propiedades: readonly
     creadoEl: reclamo.createdAt,
     enProcesoDesde: reclamo.inProgressAt,
     cerradoEl: reclamo.closedAt,
-    // El chat del reclamo llega con la Tanda B.
-    conversacionId: null,
+    // Como en el back, todo reclamo tiene su conversación desde que se registra.
+    conversacionId: conversacionDeReclamo(reclamo.id),
   }
 }

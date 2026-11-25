@@ -5,8 +5,9 @@
  * función tiene dos ramas: la mock (elenco de `lib/mocks/reclamos.mock.ts` más lo
  * registrado en el navegador) y la real contra `apps/api`; el interruptor es
  * `NEXT_PUBLIC_USE_MOCKS`.
- * Cubre: US-14 Registrar reclamo y US-15 Consultar reclamos (Tanda A). El
- * detalle, responder, resolver y cancelar (US-15 a US-18) llegan con la Tanda B.
+ * Cubre: US-14 Registrar reclamo, US-15 Consultar reclamos (listado y detalle),
+ * US-16 Resolver, US-17 Cancelar y US-18 Responder (un mensaje en la conversación
+ * del reclamo, vía `mensajes.service.ts`).
  *
  * NOTA: las rutas existen en el back desde el 24/11 (`develop` 6f9711c,
  * `apps/api/src/routes/v1/reclamos.routes.ts`) y se probaron en real ese día
@@ -21,12 +22,13 @@
 import type { ReclamoResponse, TipoReclamo } from '@rentar/shared-types'
 import { type ReclamoMock } from '@/lib/mocks'
 import { TIPOS_RECLAMO } from '@/lib/reclamos/catalogo'
-import { RECLAMO_NO_ENCONTRADO_MESSAGE, puedeVerReclamo } from '@/lib/reclamos/reglas'
+import { esLocatarioDelReclamo, puedeCancelar, puedeResolver, puedeVerReclamo, RECLAMO_NO_ENCONTRADO_MESSAGE, textoEstadoYaCambio } from '@/lib/reclamos/reglas'
 import type { PropiedadParaReclamo, Reclamo, ReclamoNuevo, RolReclamos, TipoReclamoVista } from '@/lib/reclamos/tipos'
 import { ahora } from '@/lib/utils/fechas'
 import { errorDeMensaje, MENSAJES_RECLAMO, RECLAMO_FOTOS_MAX } from '@/lib/validation/reclamo.rules'
 import { formatAddress, mainPhotoSrc } from './adapters/propiedad-mock.adapter'
 import {
+  errorDeCambiarEstado,
   errorDeListarReclamos,
   errorDeReclamo,
   errorDeRegistrarReclamo,
@@ -39,6 +41,7 @@ import {
 } from './adapters/reclamo.adapter'
 import { readReclamosMock, reclamoMockToReclamo } from './adapters/reclamo-mock.adapter'
 import { readPropiedadesMock, readPropiedadesMockConBorradas } from './propiedades.service'
+import { enviarMensaje } from './mensajes.service'
 import { apiRequest } from './shared/apiClient'
 import type { AlquilerLocatarioItemResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
@@ -256,4 +259,98 @@ export async function registrarReclamo(nuevo: ReclamoNuevo): Promise<Reclamo> {
   } catch (error) {
     throw errorDeRegistrarReclamo(error)
   }
+}
+
+// ─── Resolver, cancelar y responder (US-16 a US-18) ─────────────────────
+
+/** Acción del locatario sobre su reclamo. */
+type AccionLocatario = 'resolver' | 'cancelar'
+
+/**
+ * Rama mock de resolver y cancelar: aplica las reglas de `lib/reclamos/reglas.ts`
+ * igual que el back (403 si no es el autor, 409 si el estado no lo permite).
+ */
+function cambiarEstadoMock(id: string, accion: AccionLocatario): Reclamo {
+  const userId = requireSessionUserId()
+  const guardado = readReclamosMock().find((item) => item.id === id)
+  const vista = guardado ? reclamoMockToReclamo(guardado, readPropiedadesMockConBorradas(), readUsuariosMock()) : null
+  if (!guardado || !vista || !puedeVerReclamo(vista, userId)) throw new ServiceError('not_found', RECLAMO_NO_ENCONTRADO_MESSAGE)
+  const permiso = accion === 'resolver' ? puedeResolver(vista, userId) : puedeCancelar(vista, userId)
+  if (!permiso.permitido) {
+    if (!esLocatarioDelReclamo(vista, userId)) throw new ServiceError('forbidden', permiso.motivo)
+    throw new ServiceError('conflict', textoEstadoYaCambio(vista.estado, accion), 'ESTADO_INVALIDO')
+  }
+  const actualizado: ReclamoMock = { ...guardado, status: accion === 'resolver' ? 'resuelto' : 'cancelado', closedAt: ahora().format() }
+  if (!saveMockRecord('reclamos', actualizado)) throw new ServiceError('server', MOCK_STORAGE_FULL_MESSAGE)
+  const resultado = reclamoMockToReclamo(actualizado, readPropiedadesMockConBorradas(), readUsuariosMock())
+  if (!resultado) throw new ServiceError('not_found', RECLAMO_NO_ENCONTRADO_MESSAGE)
+  return resultado
+}
+
+/**
+ * Rama real de resolver y cancelar. Un 409 `ESTADO_INVALIDO` quiere decir que el
+ * estado cambió en otra pestaña: se relee el reclamo y el error dice cómo quedó
+ * ("Este reclamo ya está resuelto: no se puede cancelar.").
+ */
+async function cambiarEstadoApi(id: string, accion: AccionLocatario): Promise<Reclamo> {
+  try {
+    return reclamoDeDto(await apiRequest<ReclamoResponse>(`/reclamos/${encodeURIComponent(id)}/${accion}`, { method: 'PATCH' }))
+  } catch (error) {
+    if (error instanceof ServiceError && error.code === 'conflict') {
+      const actual = await getReclamo(id)
+      throw new ServiceError('conflict', textoEstadoYaCambio(actual.estado, accion), error.apiCode)
+    }
+    throw errorDeCambiarEstado(error)
+  }
+}
+
+/**
+ * US-16 — el locatario que registró el reclamo lo marca como resuelto. Solo desde "en proceso".
+ * @backend PATCH /api/v1/reclamos/:id/resolver   (existe; probado en real el 24/11) → ReclamoResponse
+ * @throws {ServiceError} `conflict` si el estado ya cambió (mensaje con el estado
+ *   de ahora); `forbidden` si no es el autor; `not_found`; `network` / `server`.
+ */
+export async function resolverReclamo(id: string): Promise<Reclamo> {
+  if (USE_MOCKS) {
+    await delay(500)
+    return cambiarEstadoMock(id, 'resolver')
+  }
+  return cambiarEstadoApi(id, 'resolver')
+}
+
+/**
+ * US-17 — el locatario que registró el reclamo lo cancela. Desde "abierto" o "en proceso".
+ * @backend PATCH /api/v1/reclamos/:id/cancelar   (existe; probado en real el 24/11) → ReclamoResponse
+ * @throws {ServiceError} igual que {@link resolverReclamo}.
+ */
+export async function cancelarReclamo(id: string): Promise<Reclamo> {
+  if (USE_MOCKS) {
+    await delay(500)
+    return cambiarEstadoMock(id, 'cancelar')
+  }
+  return cambiarEstadoApi(id, 'cancelar')
+}
+
+/**
+ * US-18 — el locador responde el reclamo: es un mensaje en la conversación del
+ * reclamo. Si estaba abierto, pasa a "en proceso" en el mismo paso (lo hace el
+ * back). Devuelve el reclamo releído, con su estado nuevo.
+ * @backend POST /api/v1/mensajes/conversaciones/:id_conversacion/mensajes   (existe; probado en real el 24/11)
+ *          y después GET /api/v1/reclamos/:id
+ * @throws {ServiceError} `validation` si la respuesta está vacía o solo tiene
+ *   espacios; `conflict` si el reclamo ya no admite respuestas (mensaje con el
+ *   estado de ahora); `not_found`; `network` / `server`.
+ */
+export async function responderReclamo(reclamo: Pick<Reclamo, 'id' | 'conversacionId'>, texto: string): Promise<Reclamo> {
+  if (!reclamo.conversacionId) throw new ServiceError('not_found', RECLAMO_NO_ENCONTRADO_MESSAGE)
+  try {
+    await enviarMensaje(reclamo.conversacionId, texto)
+  } catch (error) {
+    if (error instanceof ServiceError && error.code === 'conflict') {
+      const actual = await getReclamo(reclamo.id)
+      throw new ServiceError('conflict', textoEstadoYaCambio(actual.estado, 'responder'), error.apiCode)
+    }
+    throw error
+  }
+  return getReclamo(reclamo.id)
 }
