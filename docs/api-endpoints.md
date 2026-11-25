@@ -732,7 +732,7 @@ pantalla muestra sus estados vacíos; los conteos de propiedades salen de `GET /
 | Método y ruta | Auth | Estado | US del módulo | Service | Respuesta (`data`) |
 |---|---|---|---|---|---|
 | `GET /panel/cobros` | Bearer | pendiente (propuesto) | US-08, US-09 | `panel.service#getResumenCobros` | `ResumenCobros` |
-| `GET /panel/reclamos` | Bearer | pendiente (propuesto) | US-14 a US-18 | `panel.service#getResumenReclamos` | `ResumenReclamos` |
+| `GET /reclamos?rol=locador` | Bearer + rol `locador` | conectado (cierre del Sprint 5); reemplaza al `GET /panel/reclamos` propuesto | US-15 | `panel.service#getResumenReclamos` | `ReclamoResponse[]` → `ResumenReclamos` (abiertos, sin responder = abiertos, los más recientes) |
 | `GET /panel/contratos?dias=60` | Bearer | pendiente (propuesto) | US-05 a US-07 | `panel.service#getEventosContratos` | `EventoContratoPanel[]` |
 | `GET /solicitudes/recibidas?estado=pendiente` | Bearer + rol `locador` | pendiente (propuesto; ver "Solicitudes") | US-36 | `panel.service#getSolicitudesPendientes` | `SolicitudResponse[]` → `SolicitudPanel` |
 
