@@ -1,0 +1,230 @@
+/* Chat de una conversación (Claude Design, "Reclamos" · 03 y "Mensajes" · 01 y 04). */
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 32rem;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.vacio {
+  padding: 1.5rem 0.5rem;
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+  text-align: center;
+}
+
+/* ─── Separadores y líneas del sistema ────────────────────────────── */
+
+.dia {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.dia::before,
+.dia::after {
+  flex: 1;
+  height: 1px;
+  background: var(--rentar-color-border-hairline);
+  content: '';
+}
+
+.evento {
+  align-self: center;
+  max-width: 100%;
+  padding: 0.25rem 0.75rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-status-warning-bg);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--rentar-status-warning-ink);
+  text-align: center;
+}
+
+/* ─── Mensajes ────────────────────────────────────────────────────── */
+
+.fila {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  max-width: 85%;
+}
+
+.filaPropia {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.columna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.filaPropia .columna {
+  align-items: flex-end;
+}
+
+.burbujaFila {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.burbuja {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--rentar-color-text-primary);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.burbujaPropia {
+  border-color: var(--rentar-color-blue);
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+}
+
+.burbujaEliminada {
+  border-style: dashed;
+  background: transparent;
+  font-style: italic;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.hora {
+  font-size: 0.71875rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.menu {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.15);
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-bg-surface);
+  color: var(--rentar-color-text-secondary);
+  cursor: pointer;
+}
+
+.menu:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+/* ─── Caja para escribir ──────────────────────────────────────────── */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+.composerFila {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.625rem;
+}
+
+.caja.caja {
+  flex: 1;
+  padding: 0.625rem 1rem;
+  border-radius: var(--rentar-radius-xl);
+}
+
+.enviar.enviar {
+  flex: none;
+  height: 2.75rem;
+  padding: 0 1.375rem;
+}
+
+.enviar.enviar .enviarIcono {
+  display: none;
+}
+
+.accionesError {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.aviso {
+  padding: 0.875rem 1rem;
+  border-top: 1px solid var(--rentar-color-border-hairline);
+  background: var(--rentar-color-bg-page);
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+  text-align: center;
+}
+
+/* ─── Carga ───────────────────────────────────────────────────────── */
+
+.cargando {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.burbujaSkeleton.burbujaSkeleton {
+  height: 2.75rem;
+  border-radius: var(--rentar-radius-lg);
+}
+
+.skeletonAncha.skeletonAncha {
+  width: 62%;
+}
+
+.skeletonMedia.skeletonMedia {
+  width: 48%;
+}
+
+.skeletonDerecha.skeletonDerecha {
+  align-self: flex-end;
+  width: 40%;
+}
+
+/* ─── Móvil: botón redondo con el ícono (Reclamos · 05) ───────────── */
+
+@media (max-width: 767px) {
+  /* El chat hace scroll adentro: con 100 mensajes, la página no se vuelve infinita. */
+  .lista {
+    max-height: min(60dvh, 28rem);
+  }
+
+  .enviar.enviar {
+    width: 2.75rem;
+    padding: 0;
+    border-radius: var(--rentar-radius-pill);
+  }
+
+  .enviarTexto {
+    display: none;
+  }
+
+  .enviar.enviar .enviarIcono {
+    display: inline-flex;
+  }
+}

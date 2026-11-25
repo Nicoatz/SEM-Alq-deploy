@@ -1,6 +1,8 @@
 /* Avatar con iniciales y nombre ("Reclamos" · 02, "Mensajes" · 01). */
 
 .wrap {
+  /* Ancla el texto oculto: sin esto, dentro de una lista con scroll se escapa y estira la página. */
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: 0.5625rem;

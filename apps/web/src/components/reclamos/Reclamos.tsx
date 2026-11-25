@@ -28,7 +28,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Alert, Button, Select, Skeleton } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { EmptyState, PageHeader } from '@rentar/ui'
 import { useAuth } from '@/lib/auth/AuthProvider'
 import { useServiceCall } from '@/lib/hooks/useServiceCall'
@@ -95,9 +95,6 @@ export function Reclamos() {
   // ─── Estado local ───────────────────────────────────────────────────
   const [pestania, setPestania] = useState<PestaniaReclamos>('todos')
   const [tipo, setTipo] = useState<FiltroTipoReclamo>(TODOS_LOS_TIPOS)
-  // `?registrado=RCL-…`: viene del registro (US-14) y confirma que quedó abierto.
-  const registrado = useSearchParams().get('registrado')
-  const [avisoRegistro, setAvisoRegistro] = useState(Boolean(registrado))
 
   const todos = useMemo(() => (carga.status === 'listo' ? ordenarRecientes(carga.data) : []), [carga])
   const delTipo = useMemo(() => filtrarPorTipo(todos, tipo), [todos, tipo])
@@ -129,18 +126,6 @@ export function Reclamos() {
         breadcrumb={[{ label: 'Mi panel', href: '/panel' }, { label: TEXTOS[rol].miga }]}
         actions={botonRegistrar}
       />
-
-      {avisoRegistro && registrado && (
-        <Alert
-          type="success"
-          showIcon
-          closable={{ 'aria-label': 'Cerrar el aviso' }}
-          onClose={() => setAvisoRegistro(false)}
-          title={`Registraste el reclamo ${registrado}`}
-          description="Quedó abierto y le avisamos al locador. Cuando responda, pasa a en proceso."
-          data-testid="reclamos-registrado"
-        />
-      )}
 
       {carga.status === 'cargando' && <Cargando />}
 

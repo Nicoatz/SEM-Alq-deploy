@@ -13,7 +13,7 @@
  *   debajo del mínimo, el error dice cuántos faltan. No se recorta (decisión del PO).
  * - "hasta 10 imágenes en formato JPG/PNG que no excedan los 350kb cada una":
  *   `FotosReclamoField`.
- * Al registrar, el reclamo queda "abierto" y se vuelve al listado.
+ * Al registrar, el reclamo queda "abierto" y se va a su detalle.
  *
  * Qué muestra (Claude Design, "Reclamos" · 01, 02 móvil y 05): las cuatro
  * secciones, el pie "Al enviarlo, <locador> recibe el aviso y el reclamo queda
@@ -121,9 +121,8 @@ function Formulario({ datos }: { datos: DatosFormulario }) {
         mensaje,
         fotos: fotos.map((foto) => ({ src: foto.src, nombre: foto.nombre })),
       })
-      // El listado muestra "Registraste el reclamo RCL-…" con `?registrado=`.
-      // TODO: con la Tanda B, ir al detalle (`/panel/reclamos/${registrado.id}`).
-      router.push(`/panel/reclamos?registrado=${encodeURIComponent(registrado.codigo)}`)
+      // El detalle muestra "Registraste el reclamo RCL-…" con `?registrado=1`.
+      router.push(`/panel/reclamos/${encodeURIComponent(registrado.id)}?registrado=1`)
     } catch (error) {
       const texto = error instanceof ServiceError ? error.message : RECLAMO_NO_REGISTRADO_MESSAGE
       // Un error de un campo (el back rechazó algo que el front dejó pasar) va en el aviso general igual.

@@ -8,7 +8,6 @@
  * Entra desde: el ítem "Reclamos" (locador) o "Mis reclamos" (locatario) del
  * menú, y "Ver todos" de los reclamos recientes del panel.
  */
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { Reclamos } from '@/components/reclamos/Reclamos'
 
@@ -17,10 +16,5 @@ export const metadata: Metadata = { title: 'Reclamos' }
 
 /** Monta el listado de reclamos. */
 export default function ReclamosPage() {
-  return (
-    // Suspense: lee `?registrado=` con useSearchParams.
-    <Suspense>
-      <Reclamos />
-    </Suspense>
-  )
+  return <Reclamos />
 }
