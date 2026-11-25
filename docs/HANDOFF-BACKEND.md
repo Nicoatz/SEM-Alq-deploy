@@ -177,7 +177,7 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /panel/cobros`, `/panel/reclamos`, `/panel/contratos` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
 | `GET /reclamos/tipos`, `GET /reclamos?rol=`, `GET /reclamos/:id`, `POST /reclamos` | `/panel/reclamos`, `/panel/reclamos/nuevo` (US-14, US-15) | **Conectados** (Sprint 5, Tanda A, 24/11); probados en real. Parciales: ver §7, "US-14 a US-18" |
 | `PATCH /reclamos/:id/resolver`, `/cancelar`; `GET`, `POST /mensajes/conversaciones/:id/mensajes`; `DELETE /mensajes/:id` | `/panel/reclamos/[id]` (US-15 a US-18) | **Conectados** (Sprint 5, Tanda B, 25/11); probados en real |
-| `GET`, `POST /mensajes/conversaciones`, `GET /mensajes/conversaciones/:id` | Mensajes (US-24) | Existen (24/11); el front los conecta en la Tanda C |
+| `GET`, `POST /mensajes/conversaciones`, `GET /mensajes/conversaciones/:id` | `/panel/mensajes` (US-24) | **Conectados** (Sprint 5, Tanda C, 25/11); probados en real. Ver §7, "US-24" |
 | `GET /solicitudes/recibidas?estado=pendiente` | `/panel` (inicio del locador) | **Conectado** (13/10, tanda 5): `panel.service#getSolicitudesPendientes` |
 | `POST /solicitudes`, `GET /solicitudes/preparar`, `GET /solicitudes/mias`, `GET /solicitudes/recibidas`, `PATCH /solicitudes/:id/{aceptar,rechazar,cancelar}` | `/propiedad/[id]` (US-35), `/panel/mis-solicitudes` y `/panel/solicitudes` (US-36 a US-38) | **Conectado** (13/10, tanda 5; `develop` 0060e0a). Errores traducidos en `solicitud.adapter.ts`. Brechas en §7, "US-35 a US-38" |
 | `GET /solicitudes/:id` | Detalle del postulante (US-36) | **Pendiente** (propuesto). Puente: `getSolicitudRecibida` filtra `GET /recibidas?inmueble=` en el cliente (§7, brecha 5) |
@@ -284,7 +284,7 @@ va en el front; las fotos se suben a `fotos-reclamos/<auth.uid>/` antes del `POS
 | R-11 | **403 para un reclamo o una conversación ajenos** (el front espera 404) | El adaptador traduce 403 a "No encontramos este reclamo" | P2 | backend |
 | R-12 | **`fotos-reclamos` no tiene política de SELECT** (solo INSERT y DELETE). Sin ella, `remove()` no borra nada desde el navegador | Si el `POST /reclamos` falla después de subir las fotos, quedan sueltas en el bucket. Decisión del PO (25/11): el front no intenta borrarlas. Propuesta: la misma política "ver fotos propias" de `fotos-propiedades` | P1 | db |
 | R-13 | **`GET /alquileres-locatario` manda `codigo` como el id del contrato** ("17"), no `CT-2026-0001` (ya anotado en US-27) | El selector del registro muestra el código solo si tiene la forma `CT-AAAA-NNNN` (`lib/contratos/codigo.ts`); en real queda "Contrato vigente con Don Barriga", sin el id | P2 | backend |
-| R-15 | **Ids adelantados por las pruebas:** el próximo reclamo real es el 6 (`RCL-2026-0006`) | Opcional: Thiago decide si reinicia las secuencias (`setval`) con las tablas vacías antes de la defensa. El front no toca la base | — | db |
+| R-15 | **Ids adelantados por las pruebas:** el próximo reclamo real es el 7 (`RCL-2026-0007`) y la próxima conversación, la 9 | Opcional: Thiago decide si reinicia las secuencias (`setval`) con las tablas vacías antes de la defensa. El front no toca la base | — | db |
 | R-16 | **El bucket no guarda el nombre original de la foto** (la ruta es `<auth.uid>/<uuid>.<ext>`) | En real las fotos del detalle se llaman "Foto 1", "Foto 2"… (en el diseño, "bacha-1.jpg") | — | front |
 | R-14 | **No hay `GET /panel/reclamos`**: el inicio del locador muestra los reclamos recientes solo en mock | Se puede armar con `GET /reclamos?rol=locador` (después de la Tanda B) | P2 | front |
 
@@ -328,6 +328,46 @@ va en el front; las fotos se suben a `fotos-reclamos/<auth.uid>/` antes del `POS
 | US-24 | Eliminar un mensaje propio (pasa) / uno ajeno (falla) | Pasa: queda "Mensaje eliminado · 03:03"; los ajenos no tienen menú y el `DELETE` da 403 (humo) | Pasa |
 | US-24 | Hora de envío visible con minutos (pasa) | Pasa: "25/11/2026 · 03:02" | Pasa |
 | US-24 | Editar un mensaje (falla) | Pasa: no hay acción de editar | Pasa |
+
+### US-24 Enviar mensajes (Sprint 5, Tanda C: `/panel/mensajes` y `/panel/mensajes/[id]`)
+
+Conectado a `GET` y `POST /mensajes/conversaciones`, `GET /mensajes/conversaciones/:id`, sus mensajes y
+`DELETE /mensajes/:id` (25/11), y para "Nueva conversación" a `GET /mis-alquileres` (locador) y
+`GET /alquileres-locatario` (locatario). Las brechas de mensajería son las de la tabla de US-14 a US-18
+(R-3, R-6, R-7 y R-8); acá, lo que hace el front con cada una y las pruebas.
+
+- **R-3 (chats de reclamo en el listado):** el adaptador descarta `tipo_tema = 'reclamo'`. Probado en real:
+  con un reclamo registrado, su conversación no aparece en Mensajes de nadie.
+- **R-6 (el listado no trae el inmueble):** la fila muestra a la persona y la línea de la propiedad vacía;
+  no se pide el detalle de cada conversación (decisión del PO, 25/11). El encabezado de la conversación
+  abierta sí tiene la dirección (sin foto).
+- **R-7 (el detalle publicado no trae el dueño):** "Escribirle al locador" queda deshabilitado con "Por
+  ahora no podemos ponerte en contacto con este locador." Probado en real con el inmueble 1.
+- **R-8 (sin UNIQUE por persona y propiedad):** antes de crear, el front busca en la bandeja una con esa
+  persona y esa propiedad y abre esa. Probado en real.
+- **`GET /mis-alquileres` tarda 15 s** (medido el 25/11; ya anotado como S4-21): se pide recién al abrir
+  "Nueva conversación", con skeleton, y la respuesta se guarda mientras la página esté abierta
+  (`components/mensajes/useDestinatarios.ts`). Al reabrir el modal, aparece al instante.
+- **`asunto`** es obligatorio en el back y no se muestra: el front manda "Consulta por <dirección>".
+- **Leído / no leído:** no va (decisión del PO, 24/11): sin filtro, contadores ni marcas.
+
+**Pruebas de usuario de US-24 en real (25/11, front local en modo real contra la API local; conversaciones
+6 a 8 y mensajes 9 a 14 creados desde el front y borrados al final, §9):**
+
+| Prueba | Real | Mock |
+|---|---|---|
+| Enviar un mensaje sin sesión (falla) | Pasa: el proxy manda a `/login?next=…` | Pasa |
+| Locatario inicia una conversación con un locador sin alquiler vigente (pasa) | Pasa en mock (Julieta a Nicolás por Fructuoso Rivera 785, desde "Escribirle al locador"). En real, el detalle publicado no trae el dueño (R-7) y la única locataria de prueba tiene contrato con Don Barriga: se probó con contrato (conversación 6) | Pasa |
+| Locador responde una conversación iniciada por el locatario sin alquiler vigente (pasa) | Probada en mock (Nicolás le responde a Julieta en Rondeau 480). En real no hay una cuenta sin contrato que le escriba a Don Barriga; Don respondió en la conversación 6, que inició Julieta | Pasa |
+| Locador inicia una conversación sin alquiler vigente (falla) | Pasa: Don Barriga con el usuario 1 da 403 `REQUIERE_CONTRATO_VIGENTE`; la caja se reemplaza por "No podés iniciar una conversación con … porque no tienen un contrato vigente…" y no se crea nada | Pasa (Nicolás con Julieta por Chacabuco 690) |
+| Locador inicia una conversación con contrato vigente (pasa) | Pasa (conversación 7, desde "Nueva conversación") | Pasa (Nicolás a Martín Cabrera) |
+| Más de una conversación entre el mismo locador y locatario (pasa) | Pasa: 6 y 7 (por PB 14 y PB 71) y la del reclamo 6, que no aparece en Mensajes | Pasa |
+| Mensaje vacío o solo con espacios (falla) | Pasa: Enviar deshabilitado | Pasa |
+| Hora de envío visible (pasa) | Pasa: "25/11/2026 · 03:28" | Pasa |
+| Editar un mensaje (falla) | Pasa: no hay acción de editar | Pasa |
+| Eliminar un mensaje propio (pasa) | Pasa: "Mensaje eliminado · 03:29" | Pasa |
+| Eliminar uno del otro (falla) | Pasa: sin menú en los ajenos; el `DELETE` da 403 (humo) | Pasa |
+| Historial de hasta 100 mensajes (pasa) | Probada en mock (el chat de RCL-2026-0039 tiene 100 y usa el mismo service); en real no se crearon 101 mensajes en la base de la demo | Pasa |
 
 ### US-27 Consultar mis alquileres (Sprint 3, tanda 4, `/panel/alquiler` y `/panel/alquileres`)
 
@@ -1333,6 +1373,11 @@ secuencias quedaron adelantadas (el próximo reclamo real es el 3, `RCL-2026-000
 los mensajes 5 a 8 y la foto 3 con su archivo. Se borró todo por id y los conteos volvieron a 0 (verificado
 también con una consulta aparte). El próximo reclamo real es el 6 (R-15).
 
+**Tanda C (25/11): tampoco queda nada.** El recorrido de Mensajes en real creó las conversaciones 6 y 7
+(Julieta y Don Barriga, por los inmuebles 12 y 14), el reclamo 6 con su conversación 8 (para ver que no
+aparece en Mensajes) y los mensajes 9 a 14. Se borró todo por id y los conteos volvieron a 0 (verificado
+también con una consulta aparte). El próximo reclamo real es el 7 y la próxima conversación, la 9 (R-15).
+
 ## 10. Observaciones para backend
 
 Encontradas al integrar. No se tocó `apps/api` (el PR #2 se cerró sin mergear): quedan para el equipo.
@@ -1621,6 +1666,8 @@ sesión dura hasta cerrarla).
 | `/panel/reclamos` (US-15, Sprint 5) | `reclamos-page` (con `data-rol` = `locador` o `locatario`), `reclamos-registrar-button` (locatario), `reclamos-registrado` (aviso que llega con `?registrado=RCL-…`), `reclamos-tab-<todos\|abierto\|en_proceso\|resuelto\|cancelado>`, `reclamos-filtro-tipo`, `reclamos-orden`, `reclamos-grupo` (locador; adentro, `reclamos-grupo-locatario`), `reclamos-lista-locatario`, `reclamos-fila-<id>` (link al detalle, con `data-estado`), `reclamo-tipo`, `reclamos-cargando`, `reclamos-error` + `reclamos-reintentar`, `reclamos-vacio` (con `data-rol`; adentro, `reclamos-vacio-propiedades` o `reclamos-vacio-registrar`), `reclamos-sin-resultados` + `reclamos-limpiar-filtros` |
 | `/panel/reclamos/nuevo` (US-14, Sprint 5) | `reclamo-nuevo-page`, `reclamo-nuevo-form`, `reclamo-nuevo-propiedad` (+ `-error`), `reclamo-nuevo-tipo-<pintura\|reparacion_inmueble\|reparacion_artefactos\|cobros\|otro>` (`role="radio"`, `aria-checked`) + `reclamo-nuevo-tipo-error`, `reclamo-nuevo-mensaje` + `reclamo-nuevo-mensaje-contador` + `reclamo-nuevo-mensaje-error`, `reclamo-nuevo-fotos-dropzone` (es el `<input type="file">`), `reclamo-nuevo-fotos`, `reclamo-nuevo-foto`, `reclamo-nuevo-foto-quitar`, `reclamo-nuevo-foto-agregar`, `reclamo-nuevo-fotos-rechazos`, `reclamo-nuevo-error` + `reclamo-nuevo-reintentar`, `reclamo-nuevo-volver`, `reclamo-nuevo-submit`. Carga: `reclamo-nuevo-cargando`, `reclamo-nuevo-cargar-error` + `reclamo-nuevo-cargar-reintentar`, `reclamo-nuevo-sin-propiedades` + `reclamo-nuevo-sin-propiedades-volver` |
 | `/panel/reclamos/[id]` (US-15 a US-18, Sprint 5) | `reclamo-detalle`, `reclamo-cargando`, `reclamo-error` + `reclamo-reintentar`, `reclamo-no-encontrado` + `reclamo-no-encontrado-volver`, `reclamo-registrado` (llega con `?registrado=1`), `reclamo-conflicto` (el estado cambió en otra pestaña), `reclamo-ver-propiedad`, `reclamo-barra`, `reclamo-estado` (con `data-estado`), `reclamo-tipo`, `reclamo-resolver-button`, `reclamo-resolver-bloqueado` (envuelve al deshabilitado; motivo en el tooltip) + `reclamo-resolver-motivo`, `reclamo-cancelar-button`, `reclamo-resolver-modal` y `reclamo-cancelar-modal` (con `confirm-action-ok` y `confirm-action-cancel`), `reclamo-accion-error`, `reclamo-mensaje-original`, `reclamo-mensaje-texto`, `reclamo-fotos`, `reclamo-foto`, `reclamo-datos` (con `reclamo-datos-estado`), `reclamo-chat-caja`. Chat (`ConversacionChat`, prefijo `reclamo`): `reclamo-chat`, `reclamo-mensaje` (con `data-propio` y `data-eliminado`), `reclamo-mensaje-hora`, `reclamo-mensaje-menu`, `reclamo-mensaje-eliminado`, `reclamo-evento`, `reclamo-texto`, `reclamo-enviar` (dice "Responder" o "Enviar"), `reclamo-aviso` (en lugar de la caja), `reclamo-envio-error` + `reclamo-envio-reintentar` + `reclamo-envio-descartar`, `reclamo-eliminar-modal`, `reclamo-eliminar-error` |
+| `/panel/mensajes` y `/panel/mensajes/[id]` (US-24, Sprint 5) | `mensajes-page`, `mensajes-nueva-button`, `mensajes-buscar`, `mensajes-bandeja`, `mensajes-conversacion-<id>` (link; adentro, `mensajes-conversacion-propiedad`, vacía en real), `mensajes-sin-resultados`, `mensajes-cargando`, `mensajes-error` + `mensajes-reintentar`, `mensajes-vacio` + `mensajes-vacio-nueva`, `mensajes-ninguna-abierta`, `mensajes-panel`, `mensajes-panel-nueva` (conversación nueva desde `?con=`), `mensajes-cabecera`, `mensajes-volver` (móvil), `mensajes-ver-propiedad`, `mensajes-no-encontrada`, `mensajes-bloqueo` (locador sin contrato vigente). Chat (`ConversacionChat`, prefijo `mensajes`): `mensajes-chat`, `mensajes-mensaje`, `mensajes-mensaje-hora`, `mensajes-mensaje-menu`, `mensajes-mensaje-eliminado`, `mensajes-texto`, `mensajes-enviar`, `mensajes-envio-error` + `mensajes-envio-reintentar` + `mensajes-envio-descartar`, `mensajes-eliminar-modal`. Modal: `mensajes-nueva-modal`, `mensajes-nueva-cargando`, `mensajes-nueva-error-carga` + `mensajes-nueva-reintentar`, `mensajes-nueva-sin-destinatarios`, `mensajes-nueva-destinatario` (`role="radio"`), `mensajes-nueva-texto`, `mensajes-nueva-error`, `mensajes-nueva-volver`, `mensajes-nueva-enviar` |
+| `/propiedad/[id]` (US-24, Sprint 5) | `detalle-propiedad-enviar-mensaje-button` ("Escribirle al locador": link a Mensajes, o el botón deshabilitado), `detalle-propiedad-enviar-mensaje-bloqueado` (con el motivo) |
 | Mi alquiler y `/panel` (Sprint 5) | `mi-alquiler-registrar-reclamo` (contrato vigente; lleva `?propiedad=<id>`), `panel-reclamo-link` (al detalle del reclamo) |
 | `/panel/mis-solicitudes` (US-36, Sprint 2) | `mis-solicitudes`, `mis-solicitudes-tab-<todas\|pendientes\|aceptadas\|cerradas>`, `mis-solicitudes-fila`, `mis-solicitudes-estado-texto`, `mis-solicitudes-motivo-rechazo` (rechazada con motivo; adentro, `mis-solicitudes-motivo-rechazo-texto` y, si pasa de 80, `mis-solicitudes-motivo-rechazo-toggle` con `aria-expanded`), `mis-solicitudes-cancelar-button` (pendiente), `mis-solicitudes-ver-button` (pendiente o aceptada), `mis-solicitudes-ver-similares-button` (rechazada o cancelada), `mis-solicitudes-cancelar-modal` (con `confirm-action-ok` y `confirm-action-cancel`), `mis-solicitudes-accion-error` + `mis-solicitudes-accion-reintentar`, `mis-solicitudes-conflicto`, `mis-solicitudes-cargando`, `mis-solicitudes-vacio`, `mis-solicitudes-vacio-buscar`, `mis-solicitudes-sin-resultados`, `mis-solicitudes-error`, `mis-solicitudes-reintentar`, `mis-solicitudes-cerradas-aviso` (en "Cerradas", modo real). Borrado: `placeholder-screen` en esta ruta |
 | `/panel/perfil` (US-20, US-21, Sprint 3; correo y sin legajo desde el 09/11) | `perfil`, `perfil-cargando`, `perfil-error`, `perfil-reintentar`. Cada bloque: `perfil-datos`, `perfil-acceso`, `perfil-roles`, y en móvil su `-toggle` (pliega y despliega, con `aria-expanded`). Datos personales: `perfil-nombre`, `perfil-apellido`, `perfil-dni`, `perfil-email`, `perfil-telefono`, `perfil-fecha-nacimiento`, `perfil-sin-cargar-<dni\|telefono\|fecha-nacimiento>` con `perfil-completar-<campo>`, `perfil-bloqueo-contrato`, `perfil-datos-editar`, `perfil-datos-form`, `perfil-<nombre\|apellido\|dni\|email\|telefono\|fecha-nacimiento>-input`, `perfil-datos-guardar`, `perfil-datos-cancelar`, `perfil-datos-error`, `perfil-datos-exito`. Contraseña: `perfil-password-editar`, `perfil-password-form`, `perfil-password-actual`, `perfil-password-nueva`, `perfil-password-repetir`, `perfil-password-fuerza`, `perfil-password-guardar`, `perfil-password-cancelar`, `perfil-password-error`, `perfil-password-exito`. Roles: `perfil-rol-<locatario\|locador>`, `perfil-ser-locador`, `perfil-ser-locador-link`. Aviso de salida: `aviso-salida` (modal, con `confirm-action-ok` = "Salir sin guardar" y `confirm-action-cancel` = "Seguir editando"). Se sacaron el 09/11 los `perfil-email-*` del flujo con enlace (`-cambio`, `-cambiar`, `-form`, `-enviar`, `-cancelar`, `-pendiente`, `-simular-confirmacion`, `-exito`, `-error`, `-enlace`) y todos los `perfil-legajo-*`. Borrado: `placeholder-screen` en esta ruta |

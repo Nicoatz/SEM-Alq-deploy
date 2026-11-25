@@ -710,6 +710,11 @@ probaron en real ese día. Service: `apps/web/src/services/reclamos.service.ts`;
 | `GET /mensajes/conversaciones/:id/mensajes` | Bearer (participante) | conectado (Tanda B, chat del reclamo) | US-18, US-24 | `mensajes.service#getMensajes` | — | `MensajeResponse[]` (hasta 100) → `mensajeDeDto` |
 | `POST /mensajes/conversaciones/:id/mensajes` (responder y enviar) | Bearer (participante) | conectado (Tanda B) | US-18, US-24 | `reclamos.service#responderReclamo`, `mensajes.service#enviarMensaje` | `{ contenido }` | `MensajeResponse`. Con el reclamo abierto y el locador, pasa a `en_proceso` solo. 400 `ESTADO_INVALIDO` (no 409) si el reclamo ya está cerrado |
 | `DELETE /mensajes/:id` | Bearer (quien lo mandó) | conectado (Tanda B) | US-24 | `mensajes.service#eliminarMensaje` | — | `{ id }`. 403 si es ajeno |
+| `GET /mensajes/conversaciones` | Bearer | conectado (Tanda C); parcial | US-24 | `mensajes.service#listarConversaciones` | — | `ConversacionResumen[]` → `conversacionDeDto`. Trae las de reclamo (R-3): las filtra el adaptador. Sin inmueble (R-6) |
+| `GET /mensajes/conversaciones/:id` | Bearer (participante) | conectado (Tanda C) | US-24 | `mensajes.service#getConversacion` | — | `ConversacionDetalle` (con la dirección, sin foto). Una de reclamo se muestra como no encontrada |
+| `POST /mensajes/conversaciones` | Bearer | conectado (Tanda C) | US-24 | `mensajes.service#iniciarConversacion` | `{ id_destinatario, asunto: 'Consulta por <dirección>', tipo_tema: 'inmueble', id_inmueble, primer_mensaje }` | `ConversacionResponse`. 403 `REQUIERE_CONTRATO_VIGENTE` → "No podés iniciar una conversación con …". Sin UNIQUE (R-8): el front busca antes una existente |
+| `GET /mis-alquileres` (destinatarios del locador) | Bearer + rol `locador` | conectado (Tanda C) | US-24 | `mensajes.service#getDestinatarios('locador')` | — | Las alquiladas con `contrato.locatario`. Tarda 15 s (S4-21): se pide al abrir el modal y se guarda mientras la página esté abierta |
+| `GET /alquileres-locatario` (destinatarios del locatario) | Bearer | conectado (Tanda C) | US-24 | `mensajes.service#getDestinatarios('locatario')` | — | Los locadores de los contratos no finalizados |
 
 Propuestos (no existen):
 
