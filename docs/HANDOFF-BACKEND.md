@@ -174,7 +174,8 @@ faltan datos o una parte (ver sección 7); **pendiente** = no existe o el front 
 | `GET /usuarios/me/contextos` | "Viendo como" del UserMenu | **Pendiente** (propuesto; hoy se arma en el front con `/mis-alquileres`) |
 | `GET /catalogos/ubicaciones` | Filtros de ubicación | **Pendiente** (propuesto; hoy se arman con los datos) |
 | `GET /cobros-locador/historial`, `GET /cobros-locatario`, `GET /cobros/:id` | `/panel/cobros`, `/panel/pagos` (US-09) | **Implementado en API** (04/11): historial, pagos, detalle común con autorización por relación, mora, saldo, URLs temporales e historial de eventos. Pendiente aplicar `20261104000000_us09_consultar_cobro.sql` e integrar el frontend |
-| `GET /panel/cobros`, `/panel/reclamos`, `/panel/contratos` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
+| `GET /panel/cobros`, `/panel/contratos` | `/panel` | **Pendiente** (módulos de sprints futuros; en modo real se muestran vacíos) |
+| `GET /reclamos?rol=locador` ("Reclamos recientes") | `/panel` (locador) | **Conectado** (cierre del Sprint 5, 25/11), en lugar del `GET /panel/reclamos` propuesto |
 | `GET /reclamos/tipos`, `GET /reclamos?rol=`, `GET /reclamos/:id`, `POST /reclamos` | `/panel/reclamos`, `/panel/reclamos/nuevo` (US-14, US-15) | **Conectados** (Sprint 5, Tanda A, 24/11); probados en real. Parciales: ver §7, "US-14 a US-18" |
 | `PATCH /reclamos/:id/resolver`, `/cancelar`; `GET`, `POST /mensajes/conversaciones/:id/mensajes`; `DELETE /mensajes/:id` | `/panel/reclamos/[id]` (US-15 a US-18) | **Conectados** (Sprint 5, Tanda B, 25/11); probados en real |
 | `GET`, `POST /mensajes/conversaciones`, `GET /mensajes/conversaciones/:id` | `/panel/mensajes` (US-24) | **Conectados** (Sprint 5, Tanda C, 25/11); probados en real. Ver §7, "US-24" |
@@ -286,7 +287,7 @@ va en el front; las fotos se suben a `fotos-reclamos/<auth.uid>/` antes del `POS
 | R-13 | **`GET /alquileres-locatario` manda `codigo` como el id del contrato** ("17"), no `CT-2026-0001` (ya anotado en US-27) | El selector del registro muestra el código solo si tiene la forma `CT-AAAA-NNNN` (`lib/contratos/codigo.ts`); en real queda "Contrato vigente con Don Barriga", sin el id | P2 | backend |
 | R-15 | **Ids adelantados por las pruebas:** el próximo reclamo real es el 7 (`RCL-2026-0007`) y la próxima conversación, la 9 | Opcional: Thiago decide si reinicia las secuencias (`setval`) con las tablas vacías antes de la defensa. El front no toca la base | — | db |
 | R-16 | **El bucket no guarda el nombre original de la foto** (la ruta es `<auth.uid>/<uuid>.<ext>`) | En real las fotos del detalle se llaman "Foto 1", "Foto 2"… (en el diseño, "bacha-1.jpg") | — | front |
-| R-14 | **No hay `GET /panel/reclamos`**: el inicio del locador muestra los reclamos recientes solo en mock | Se puede armar con `GET /reclamos?rol=locador` (después de la Tanda B) | P2 | front |
+| ~~R-14~~ | **Resuelta en el front (cierre, 25/11):** "Reclamos recientes" del inicio del locador se arma con `GET /reclamos?rol=locador` (los más recientes primero; el filtro de estado, en el front). No hace falta `GET /panel/reclamos` | — | — | front |
 
 **Pruebas de usuario en real (24/11, front local en modo real contra la API local):**
 

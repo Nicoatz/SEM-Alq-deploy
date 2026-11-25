@@ -1,5 +1,32 @@
 # Notas de `/design-sync` — @rentar/ui
 
+## Desde el 02/11/2026 el design system es un artifact: la publicación va aparte (leer antes de sincronizar)
+
+- El design system ahora es el artifact **"RentAR Design System"**
+  (https://claude.ai/artifact/MKqgNDtwCYbULDujieaMPB).
+- El proyecto de Claude Design `3dd3f68f-0040-4a31-86ee-6cf1352cc696` (el `projectId` de
+  `config.json`) **quedó de solo lectura el 02/11**: no se sube nada ahí. No correr `/design-sync`
+  completo ni ningún `finalize_plan`, `write_files` o upload contra ese proyecto.
+- **La publicación se hace aparte, fuera de `/design-sync`, y la hace el PO.** Desde el repo solo se
+  generan los archivos: `cfg.buildCmd` y el driver (`node .ds-sync/resync.mjs …`, ver "Re-sync del
+  Sprint 2" más abajo) en local, y se copian los que pida el PO con las rutas del artifact (`project/…`).
+- 25/11: primera vez con este procedimiento, para el cambio de `StatusTag` (`cerrado` → `cancelado`,
+  más abajo). También se cambió `cerrado` por `cancelado` en `dtsPropsFor.StatusTag` de `config.json`.
+  El PO publicó desde el chat el bundle, los tipos, la vista previa y el README de `StatusTag` y la
+  plantilla de Reclamos con el `StatusTag` real.
+
+**Procedimiento para actualizar el design system (desde el 25/11):**
+
+1. Claude Code arma el bundle con este mismo procedimiento (`cfg.buildCmd` y el driver desde la raíz,
+   con `DS_CHROMIUM_PATH` apuntando al navegador instalado), sin publicar nada: no usa el `projectId`
+   de `config.json` ni ningún `finalize_plan`, `write_files` o upload.
+2. Deja la salida en una carpeta fuera del repo (por ejemplo, `_sprint-N/<tema>/ds-sync/`), con las
+   rutas del artifact (`project/…`). Lo que el driver no genera no se inventa: se avisa.
+3. Desde el chat se compara esa salida con el artifact y se publica solo lo que cambió. Ojo: la
+   estructura del driver no es la del artifact (componentes en carpetas por categoría, el bundle en la
+   raíz como `_ds_bundle.js`, la vista previa como `<Nombre>.html` y la documentación como
+   `<Nombre>.prompt.md`); la vista previa y el README se toman del artifact.
+
 ## Fuente de verdad: este repo (desde 2026-09-23)
 
 El frontend de RentAR se mudó al repo del equipo (`SEM-Alq`, rama `feature/vistas` → `develop`).

@@ -133,11 +133,16 @@ export function ProximosCobros({ resumen }: { resumen: ResumenCobros }) {
 
 // ─── Reclamos recientes ─────────────────────────────────────────────────
 
-/** Segunda línea de un reclamo: dónde, quién, cuándo y si falta responder. */
+/**
+ * Segunda línea de un reclamo: dónde, quién, cuándo y si falta responder. Por
+ * US-18, "abierto" es "sin responder" y "en proceso", respondido; la fecha de la
+ * respuesta solo se ve si existe (en real el back no la guarda, R-9).
+ */
 function detalleReclamo(reclamo: ReclamoPanel): string {
   const base = `${reclamo.propertyAddress} · ${reclamo.tenantName} · ${textoHaceDias(diasDesde(reclamo.createdAt))}`
-  if (reclamo.status === 'resuelto' || reclamo.status === 'cancelado') return base
-  return reclamo.answeredAt ? `${base} · respondiste el ${formatDate(reclamo.answeredAt, DIA_MES)}` : `${base} · sin responder`
+  if (reclamo.status === 'abierto') return `${base} · sin responder`
+  if (reclamo.status !== 'en_proceso') return base
+  return reclamo.answeredAt ? `${base} · respondiste el ${formatDate(reclamo.answeredAt, DIA_MES)}` : `${base} · respondido`
 }
 
 /** Filas de "Reclamos recientes", del más nuevo al más viejo. */
@@ -148,7 +153,6 @@ export function ReclamosRecientes({ resumen }: { resumen: ResumenReclamos }) {
   return (
     <ul className={styles.rows}>
       {resumen.recent.map((reclamo) => {
-        const abierto = reclamo.status === 'abierto' || reclamo.status === 'en_proceso'
         return (
           <li key={reclamo.id} className={`${styles.row} ${styles.rowStacked}`} data-testid="panel-reclamo">
             <span className={styles.rowTitleLine}>
@@ -156,12 +160,10 @@ export function ReclamosRecientes({ resumen }: { resumen: ResumenReclamos }) {
               <StatusTag domain="reclamo" status={reclamo.status} />
             </span>
             <span className={styles.rowDetail}>{detalleReclamo(reclamo)}</span>
-            {abierto && (
-              // El detalle del reclamo (`/panel/reclamos/[id]`) llega con la Tanda B (US-15 a US-18).
-              <Link href={`/panel/reclamos/${encodeURIComponent(reclamo.id)}`} className={styles.rowLink} data-testid="panel-reclamo-link">
-                {reclamo.answeredAt ? 'Ver conversación' : 'Responder'}
-              </Link>
-            )}
+            {/* Cada reclamo lleva a su detalle (US-15): responder, ver el chat o, si está cerrado, verlo. */}
+            <Link href={`/panel/reclamos/${encodeURIComponent(reclamo.id)}`} className={styles.rowLink} data-testid="panel-reclamo-link">
+              {reclamo.status === 'abierto' ? 'Responder' : reclamo.status === 'en_proceso' ? 'Ver conversación' : 'Ver reclamo'}
+            </Link>
           </li>
         )
       })}

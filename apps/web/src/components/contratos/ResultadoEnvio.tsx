@@ -18,6 +18,7 @@ import type { ContratoEnviado } from '@rentar/shared-types'
 import { StatusTag } from '@rentar/ui'
 import { contratosDePropiedadHref } from '@/lib/contratos/rutas'
 import styles from './AltaContrato.module.css'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 
 /** Props de {@link ResultadoEnvio}. */
 interface ResultadoEnvioProps {
@@ -39,7 +40,7 @@ export function ResultadoEnvio({ enviado, direccion, propiedadId }: ResultadoEnv
       <CheckCircleFilled className={styles.resultadoIcono} aria-hidden />
       <h2 className={styles.resultadoTitulo}>Enviaste el contrato a firmar</h2>
       <p className={styles.resultadoCodigo}>
-        <span data-testid="contrato-enviado-codigo">{enviado.code}</span> <StatusTag domain="contrato" status={enviado.status} />
+        <span data-testid="contrato-enviado-codigo">{codigoContratoVisible(enviado.code) ?? 'Contrato'}</span> <StatusTag domain="contrato" status={enviado.status} />
       </p>
       <p className={styles.referencia} data-testid="contrato-enviado-firmantes">
         Lo firman {firmantes}. Ya no se puede editar. {direccion} sigue publicada mientras el contrato está pendiente de firma.

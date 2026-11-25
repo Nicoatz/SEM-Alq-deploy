@@ -7,9 +7,11 @@
  * muestra un código con la forma correcta; si no la tiene, no se muestra nada.
  *
  * Quién lo usa: el selector de propiedad del registro de un reclamo (US-14,
- * `adapters/reclamo.adapter.ts`).
- * NOTA: contratos y Mi alquiler todavía muestran `codigo` tal cual (US-05, US-27);
- * pasarlos a este helper queda para cuando se toquen esas pantallas.
+ * `adapters/reclamo.adapter.ts`) y todas las pantallas que muestran el código de
+ * un contrato: el detalle y el alta (US-05 a US-07), la pestaña Contratos de la
+ * propiedad (US-43) y Mi alquiler (US-27).
+ * NOTA: se aplica al mostrar, no en los adaptadores: `code` sigue llegando tal
+ * cual para las reglas que lo usan (firma, descartar un borrador).
  */
 
 /** Forma del código de un contrato firmado: `CT-2026-0148`. */

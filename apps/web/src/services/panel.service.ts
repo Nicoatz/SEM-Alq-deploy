@@ -31,6 +31,7 @@ import { resumenDelMes } from '@/lib/cobros/resumenPanel'
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
 import { readReclamosMock } from './adapters/reclamo-mock.adapter'
+import { listarReclamos } from './reclamos.service'
 import { filasDeLocador } from './cobros.service'
 import { listarMisPropiedades } from './propiedades.service'
 import { listarSolicitudesRecibidas, readSolicitudesMock } from './solicitudes.service'
@@ -65,14 +66,32 @@ export async function getResumenCobros(): Promise<ResumenCobros> {
 }
 
 /**
+ * Arma el resumen del panel a partir de los reclamos del locador (US-15):
+ * - "abiertos" son los que siguen sin cerrar (abierto o en proceso);
+ * - "sin responder" son los abiertos: por US-18, la primera respuesta del
+ *   locador los pasa a en proceso;
+ * - los más recientes primero.
+ * NOTA: el filtro de estado se hace acá y no con `?estado=`, que hoy no filtra
+ * (P0 del issue #39).
+ */
+function resumenDeReclamos(todos: readonly ReclamoPanel[]): ResumenReclamos {
+  const sinCerrar = todos.filter((reclamo) => reclamo.status === 'abierto' || reclamo.status === 'en_proceso')
+  return {
+    open: sinCerrar.length,
+    unanswered: sinCerrar.filter((reclamo) => reclamo.status === 'abierto').length,
+    recent: [...todos].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, RECLAMOS_RECIENTES),
+  }
+}
+
+/**
  * Reclamos del locador en sesión: cuántos están abiertos, cuántos sin
  * responder y los más recientes. En mock salen de `reclamos.mock.ts` (más los
  * registrados en el navegador).
- * @backend GET /api/v1/panel/reclamos   (no existe — propuesto) → ResumenReclamos
- * TODO(backend): con el módulo de reclamos ya en el back (24/11), la rama real
- * podría armarse con `GET /reclamos?rol=locador`; queda para después de la Tanda B.
- * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
- * existe: así el panel muestra su estado vacío y no un error.
+ * @backend GET /api/v1/reclamos?rol=locador   (existe; vía `reclamos.service#listarReclamos`)
+ *          En vez del `GET /panel/reclamos` propuesto: no hace falta otra ruta.
+ * NOTA: en real no hay fecha de la primera respuesta (R-9): `answeredAt` queda
+ * en `null` y la fila dice "respondido" sin fecha.
+ * @throws {ServiceError} `network` / `server` (el bloque muestra su error con Reintentar).
  */
 export async function getResumenReclamos(): Promise<ResumenReclamos> {
   if (USE_MOCKS) {
@@ -95,15 +114,20 @@ export async function getResumenReclamos(): Promise<ResumenReclamos> {
         }
       })
       .filter((reclamo): reclamo is ReclamoPanel => reclamo !== null)
-    const abiertos = todos.filter((reclamo) => reclamo.status === 'abierto' || reclamo.status === 'en_proceso')
-    return {
-      open: abiertos.length,
-      unanswered: abiertos.filter((reclamo) => !reclamo.answeredAt).length,
-      recent: [...todos].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, RECLAMOS_RECIENTES),
-    }
+    return resumenDeReclamos(todos)
   }
-  // TODO(backend): cuando exista la ruta: return apiRequest<ResumenReclamos>('/panel/reclamos')
-  return { open: 0, unanswered: 0, recent: [] }
+  const reclamos = await listarReclamos('locador')
+  return resumenDeReclamos(
+    reclamos.map((reclamo) => ({
+      id: reclamo.id,
+      title: labelTipoReclamo(reclamo.tipo),
+      status: reclamo.estado,
+      propertyAddress: reclamo.propiedad.direccion,
+      tenantName: reclamo.locatario.nombre,
+      createdAt: reclamo.creadoEl,
+      answeredAt: reclamo.enProcesoDesde,
+    })),
+  )
 }
 
 /**

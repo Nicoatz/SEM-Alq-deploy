@@ -37,6 +37,7 @@ import { useFotoConRespaldo } from '@/lib/imagenes/fotoConRespaldo'
 import { dniParaMostrar, telefonoParaMostrar } from '@/lib/perfil/formato'
 import { hoy } from '@/lib/utils/fechas'
 import styles from './DetalleContrato.module.css'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 
 /** Props comunes: el contrato cargado. */
 interface FichaProps {
@@ -73,7 +74,7 @@ export function EncabezadoAlquiler({ contrato }: FichaProps) {
         <span className={styles.fichaEstado}>
           <StatusTag domain="contrato" status={contrato.status} data-testid="mi-alquiler-estado" />
           <span className={styles.valorSecundario} data-testid="mi-alquiler-codigo">
-            {contrato.code ?? 'Sin código'}
+            {codigoContratoVisible(contrato.code) ?? 'Sin código'}
           </span>
         </span>
       </div>

@@ -53,6 +53,7 @@ import { PasoRevision } from './PasoRevision'
 import { ResultadoEnvio } from './ResultadoEnvio'
 import { contratoHref, contratosDePropiedadHref, editarContratoHref, MIS_PROPIEDADES_HREF } from '@/lib/contratos/rutas'
 import styles from './AltaContrato.module.css'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 
 /** Aviso al guardar: los contratos se retoman desde la propiedad (US-43). */
 const BORRADOR_GUARDADO = 'Guardamos el borrador. Lo retomás desde la pestaña Contratos de la propiedad.'
@@ -133,7 +134,7 @@ export function errorDelPaso(borrador: ContratoBorrador, paso: number): string |
 
 /** US-06: por qué este contrato no se edita. */
 function motivoNoEditable({ code, status }: Pick<ContratoBorrador, 'code' | 'status'>): string {
-  const contrato = code ?? 'El contrato'
+  const contrato = codigoContratoVisible(code) ?? 'El contrato'
   if (status === 'pendiente_firma') return `${contrato} ya se envió a firmar. Para cambiar algo, tocá Modificar en su detalle (mientras el locatario no haya firmado).`
   if (status === 'vigente') return `${contrato} está vigente: todas las partes ya lo firmaron y no se puede modificar.`
   return `${contrato} ya terminó y no se puede modificar.`
@@ -473,7 +474,7 @@ function EditorContrato({ inicial, recienGuardado, avisoEnvio }: EditorContratoP
       <ConfirmActionModal
         open={confirmarEliminar}
         title="¿Eliminar este borrador?"
-        description={`Se borra el contrato en borrador de ${borrador.propiedad.address} con ${nombreLocatario}. ${avisoAlDescartar(borrador.code)} Esta acción no se puede deshacer.`}
+        description={`Se borra el contrato en borrador de ${borrador.propiedad.address} con ${nombreLocatario}. ${avisoAlDescartar(codigoContratoVisible(borrador.code))} Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar borrador"
         cancelLabel="Cancelar"
         danger

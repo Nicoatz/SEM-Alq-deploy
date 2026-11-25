@@ -67,12 +67,13 @@ import { CondicionesAlquiler, EncabezadoAlquiler, LocadorAlquiler, LoQueVieneAlq
 import { FirmaContrato } from './FirmaContrato'
 import { VisorPdf } from './VisorPdf'
 import styles from './DetalleContrato.module.css'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 
 const MIGA_BASE = [{ label: 'Mis propiedades', href: MIS_PROPIEDADES_HREF }]
 
 /** Miga (decisión del PO): Mis propiedades › [dirección] › Contrato [código]. La dirección vuelve a la pestaña Contratos. */
 function migaDeContrato(contrato: ContratoDetalle) {
-  return [...MIGA_BASE, { label: contrato.propiedad.address, href: contratosDePropiedadHref(contrato.propiedad.id) }, { label: `Contrato ${contrato.code ?? ''}`.trim() }]
+  return [...MIGA_BASE, { label: contrato.propiedad.address, href: contratosDePropiedadHref(contrato.propiedad.id) }, { label: `Contrato ${codigoContratoVisible(contrato.code) ?? ''}`.trim() }]
 }
 
 /** Props de {@link DetalleContrato}. */
@@ -340,7 +341,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   const mostrarFirma = (miRol === 'locador' || miRol === 'locatario') && pendiente && contrato.puedoFirmar && tienePdf && !esperandoAviso
   // US-07 (guía del back, §5): con el contrato vigente, el documento es el firmado en DocuSign.
   const documentoFirmado = (contrato.status === 'vigente' || contrato.status === 'finalizado') && contrato.firmasRegistradas
-  const nombrePdf = contrato.pdf?.nombre ?? (documentoFirmado && contrato.code ? `${contrato.code}-firmado.pdf` : undefined)
+  const nombrePdf = contrato.pdf?.nombre ?? (documentoFirmado && codigoContratoVisible(contrato.code) ? `${codigoContratoVisible(contrato.code)}-firmado.pdf` : undefined)
   const botonPdf = tienePdf ? (
     <BotonPdf obtenerUrl={obtenerPdf} icon={<DownloadOutlined />} data-testid="contrato-descargar-pdf">
       Descargar PDF
@@ -361,7 +362,7 @@ export function VistaContrato({ inicial, miRol, miga, titulo: tituloPagina, vist
   return (
     <div className={styles.page} data-testid="contrato-detalle" data-estado={contrato.status}>
       <PageHeader
-        title={tituloPagina ?? `Contrato ${contrato.code ?? ''}`.trim()}
+        title={tituloPagina ?? `Contrato ${codigoContratoVisible(contrato.code) ?? ''}`.trim()}
         subtitle={
           esFicha
             ? `${propiedad.address}${condiciones.startDate ? ` · tu alquiler desde ${fechaCorta(condiciones.startDate)}` : ''}`
