@@ -11,10 +11,12 @@
  *
  * Quién lo usa: `services/mensajes.service.ts` (rama real).
  */
-import type { MensajeChat } from '@/lib/mensajes/tipos'
+import type { ConversacionDetalle, ConversacionResumen, MisAlquileresItem } from '@rentar/shared-types'
+import type { ConversacionVista, DestinatarioConversacion, MensajeChat } from '@/lib/mensajes/tipos'
 import { MENSAJE_VACIO_MESSAGE } from '@/lib/mensajes/reglas'
-import type { MensajeResponse } from '../shared/backend-dtos'
+import type { AlquilerLocatarioItemResponse, MensajeResponse } from '../shared/backend-dtos'
 import { ServiceError } from '../shared/errors'
+import { formatExactAddress } from './direccion'
 
 // ─── Mensajes ───────────────────────────────────────────────────────────
 
@@ -94,4 +96,102 @@ export function errorDeEliminarMensaje(error: unknown): unknown {
   if (error.code === 'forbidden') return new ServiceError('forbidden', MENSAJE_AJENO_MESSAGE)
   if (error.code === 'validation' || error.code === 'not_found') return new ServiceError('not_found', 'Ese mensaje ya no está en la conversación.')
   return sinTextoTecnico(error, MENSAJE_NO_ELIMINADO_MESSAGE)
+}
+
+// ─── Conversaciones (US-24) ─────────────────────────────────────────────
+
+/** No se pudieron cargar las conversaciones. */
+export const CONVERSACIONES_NO_CARGADAS_MESSAGE = 'No pudimos cargar tus mensajes. Probá de nuevo.'
+
+/** El locador sin contrato vigente con esa persona (403 `REQUIERE_CONTRATO_VIGENTE`, US-24). */
+export function textoSinContratoVigente(nombre: string): string {
+  const primero = nombre.split(' ')[0] ?? nombre
+  return `No podés iniciar una conversación con ${nombre} porque no tienen un contrato vigente. Si ${primero} te escribe, vas a poder responderle.`
+}
+
+/** `true` si la conversación es el chat de un reclamo (no va en Mensajes, decisión del PO del 24/11). */
+export function esConversacionDeReclamo(dto: Pick<ConversacionResumen, 'tipo_tema' | 'id_reclamo'>): boolean {
+  return dto.tipo_tema === 'reclamo' || (dto.id_reclamo ?? null) !== null
+}
+
+/**
+ * `ConversacionResumen` (listado) o `ConversacionDetalle` → `ConversacionVista`.
+ * - El listado no trae el inmueble (brecha R-6): la propiedad va con el id y la
+ *   dirección en `null` (la línea queda vacía). No se pide el detalle de cada
+ *   una para completarla (decisión del PO, 25/11).
+ * - El detalle trae la dirección, sin foto.
+ * - `esPropio` del último mensaje se calcula con el id del usuario en sesión.
+ */
+export function conversacionDeDto(dto: ConversacionResumen | ConversacionDetalle, usuarioId: string): ConversacionVista {
+  const otra = dto.otro_participante
+  const otraEsLocador = otra.id === dto.id_locador
+  const inmueble = 'inmueble' in dto ? dto.inmueble : null
+  const ultimo = dto.ultimo_mensaje ?? null
+  return {
+    id: String(dto.id),
+    otraPersona: { id: String(otra.id), nombre: [otra.nombre, otra.apellido].filter(Boolean).join(' '), fotoSrc: null, rol: otraEsLocador ? 'locador' : 'locatario' },
+    propiedad:
+      dto.id_inmueble === null || dto.id_inmueble === undefined
+        ? null
+        : { id: String(dto.id_inmueble), direccion: inmueble ? formatExactAddress(inmueble.direccion, inmueble.numero, inmueble.piso) : null, fotoSrc: null },
+    ultimoMensaje: ultimo
+      ? { contenido: ultimo.eliminado ? '' : ultimo.contenido, enviadoEl: ultimo.fecha_envio, esPropio: String(ultimo.id_emisor) === usuarioId, eliminado: ultimo.eliminado }
+      : null,
+    actualizadaEl: ultimo?.fecha_envio ?? dto.fecha_actualizacion ?? dto.fecha_creacion,
+  }
+}
+
+/**
+ * Los locatarios del locador con contrato (`GET /mis-alquileres`): los
+ * destinatarios de "Nueva conversación" (US-24: "el locador puede iniciar una
+ * conversación con el locatario" si hay contrato vigente). Solo las alquiladas
+ * con locatario.
+ */
+export function destinatariosDeMisAlquileres(items: readonly MisAlquileresItem[]): DestinatarioConversacion[] {
+  return items
+    .filter((item) => (item.estado_alquiler === 'alquilado' || item.estado_alquiler === 'publicado/alquilado') && item.contrato?.locatario)
+    .map((item) => {
+      const locatario = item.contrato.locatario as NonNullable<MisAlquileresItem['contrato']['locatario']>
+      return {
+        personaId: String(locatario.id),
+        nombre: [locatario.nombre, locatario.apellido].filter(Boolean).join(' '),
+        rol: 'locatario' as const,
+        propiedad: { id: String(item.id_inmueble), direccion: formatExactAddress(item.direccion, item.numero, item.piso) },
+        detalle: 'contrato vigente',
+      }
+    })
+}
+
+/** Los locadores del locatario (`GET /alquileres-locatario`), sin los contratos finalizados. */
+export function destinatariosDeAlquileresLocatario(items: readonly AlquilerLocatarioItemResponse[]): DestinatarioConversacion[] {
+  return items
+    .filter((item) => item.estado !== 'finalizado')
+    .map((item) => ({
+      personaId: String(item.locador.id),
+      nombre: [item.locador.nombre, item.locador.apellido].filter(Boolean).join(' '),
+      rol: 'locador' as const,
+      propiedad: { id: String(item.inmueble.id), direccion: formatExactAddress(item.inmueble.direccion, item.inmueble.numero, item.inmueble.piso) },
+      detalle: item.estado === 'vigente' ? 'contrato vigente' : 'contrato pendiente de firma',
+    }))
+}
+
+/** Error de `GET /mensajes/conversaciones` y de los destinatarios. */
+export function errorDeListarConversaciones(error: unknown): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden' || error.code === 'validation') return new ServiceError('server', CONVERSACIONES_NO_CARGADAS_MESSAGE)
+  return sinTextoTecnico(error, CONVERSACIONES_NO_CARGADAS_MESSAGE)
+}
+
+/**
+ * Error de `POST /mensajes/conversaciones` (US-24).
+ * - 403 `REQUIERE_CONTRATO_VIGENTE` → `forbidden` con {@link textoSinContratoVigente}.
+ * - 404 (el destinatario no existe) → `not_found`.
+ * - 400 (mensaje vacío) → `validation`.
+ */
+export function errorDeCrearConversacion(error: unknown, nombre: string): unknown {
+  if (!(error instanceof ServiceError)) return error
+  if (error.code === 'forbidden') return new ServiceError('forbidden', textoSinContratoVigente(nombre), error.apiCode)
+  if (error.code === 'not_found') return new ServiceError('not_found', `No encontramos a ${nombre}.`)
+  if (error.code === 'validation') return new ServiceError('validation', MENSAJE_VACIO_MESSAGE)
+  return sinTextoTecnico(error, MENSAJE_NO_ENVIADO_MESSAGE)
 }
