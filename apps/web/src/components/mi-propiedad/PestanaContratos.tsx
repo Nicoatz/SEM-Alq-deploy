@@ -42,6 +42,7 @@ import { eliminarBorrador, listarContratosDePropiedad, urlPdfDeContrato } from '
 import { ServiceError } from '@/services/shared/errors'
 import { BotonPdf } from '@/components/contratos/BotonPdf'
 import styles from './PestanaContratos.module.css'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 
 /** Props de {@link PestanaContratos}. */
 interface PestanaContratosProps {
@@ -131,7 +132,7 @@ function VerAnterior({ contrato }: { contrato: ContratoDePropiedad }) {
 
 /** Columnas de los contratos anteriores (diseño, §02). Sin DNI ni contacto (US-43). */
 const COLUMNAS_ANTERIORES: DataTableColumn<ContratoDePropiedad>[] = [
-  { key: 'codigo', title: 'Código', render: (contrato) => contrato.code ?? '—' },
+  { key: 'codigo', title: 'Código', render: (contrato) => codigoContratoVisible(contrato.code) ?? '—' },
   { key: 'locatario', title: 'Locatario', render: (contrato) => contrato.tenantName || 'Sin dato' },
   { key: 'estado', title: 'Estado', render: (contrato) => <StatusTag domain="contrato" status={contrato.status} /> },
   { key: 'vigencia', title: 'Vigencia', render: vigenciaDeContrato },
@@ -239,7 +240,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
           <div className={styles.actualFila}>
             <div className={styles.actualCodigo}>
               <span className={styles.eyebrow}>Contrato actual</span>
-              <span className={styles.codigo}>{actual.code ?? 'Borrador sin código'}</span>
+              <span className={styles.codigo}>{codigoContratoVisible(actual.code) ?? (actual.status === 'borrador' ? 'Borrador sin código' : 'Sin código')}</span>
             </div>
             <div className={styles.locatario}>
               {actual.tenantName && (
@@ -315,7 +316,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
               key: 'anteriores',
               label: <span data-testid="propiedad-contratos-anteriores-toggle">Contratos anteriores · {anteriores.length}</span>,
               extra: <span className={styles.secundario}>Solo lectura</span>,
-              children: <DataTable<ContratoDePropiedad> columns={COLUMNAS_ANTERIORES} data={anteriores} rowKey={(contrato) => contrato.id} cardHeader={(contrato) => contrato.code ?? '—'} cardActions={(contrato) => <VerAnterior contrato={contrato} />} />,
+              children: <DataTable<ContratoDePropiedad> columns={COLUMNAS_ANTERIORES} data={anteriores} rowKey={(contrato) => contrato.id} cardHeader={(contrato) => codigoContratoVisible(contrato.code) ?? '—'} cardActions={(contrato) => <VerAnterior contrato={contrato} />} />,
             },
           ]}
         />
@@ -324,7 +325,7 @@ export function PestanaContratos({ propiedadId }: PestanaContratosProps) {
       <ConfirmActionModal
         open={confirmarEliminar}
         title="¿Eliminar el borrador?"
-        description={`Se descarta el borrador y la propiedad queda sin contrato actual. ${avisoAlDescartar(actual?.code ?? null)} Esta acción no se puede deshacer.`}
+        description={`Se descarta el borrador y la propiedad queda sin contrato actual. ${avisoAlDescartar(codigoContratoVisible(actual?.code))} Esta acción no se puede deshacer.`}
         confirmLabel="Eliminar borrador"
         cancelLabel="Volver"
         danger
