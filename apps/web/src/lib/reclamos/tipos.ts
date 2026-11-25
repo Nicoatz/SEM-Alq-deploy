@@ -88,7 +88,7 @@ export interface Reclamo {
 
 /** Una propiedad que el locatario puede elegir al registrar un reclamo (US-14: con contrato vigente). */
 export interface PropiedadParaReclamo extends PropiedadReclamo {
-  /** "CT-2026-0148"; en real, lo que mande el back como código. */
+  /** "CT-2026-0148"; `null` si el back no manda un código con esa forma (en real manda el id, R-13). */
   contratoCodigo: string | null
   /** Nombre del locador, para "Contrato vigente con Nicolás Arrieta". */
   locadorNombre: string

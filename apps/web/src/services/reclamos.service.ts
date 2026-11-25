@@ -44,7 +44,7 @@ import type { AlquilerLocatarioItemResponse } from './shared/backend-dtos'
 import { USE_MOCKS } from './shared/config'
 import { delay } from './shared/delay'
 import { ServiceError } from './shared/errors'
-import { borrarFotosDeBucket, subirFotosABucket } from './shared/fotosStorage'
+import { subirFotosABucket } from './shared/fotosStorage'
 import { saveMockRecord } from './shared/mockStore'
 import { requireSessionUserId } from './shared/session'
 import { readUsuariosMock } from './usuarios.service'
@@ -198,9 +198,10 @@ export async function getPropiedadesParaReclamo(): Promise<PropiedadParaReclamo[
  *   vigente con esa propiedad; `server` si las fotos no suben o el back falla.
  *
  * NOTA: primero suben las fotos y después va el alta con sus URL. Si falla la
- * subida no se crea nada; si falla el alta, se intenta borrar las fotos subidas.
- * TODO(db): el bucket `fotos-reclamos` no tiene política de SELECT, así que ese
- * borrado hoy no borra nada (ver `borrarFotosDeBucket`).
+ * subida no se crea nada (`subirFotosABucket` no deja ninguna a medias).
+ * TODO(db): si falla el alta, las fotos ya subidas quedan sueltas en el bucket.
+ * No se intenta borrarlas desde el front: `fotos-reclamos` no tiene política de
+ * SELECT y `remove()` no borraría nada (decisión del PO, 25/11; issue P1).
  */
 export async function registrarReclamo(nuevo: ReclamoNuevo): Promise<Reclamo> {
   if (USE_MOCKS) {
@@ -253,7 +254,6 @@ export async function registrarReclamo(nuevo: ReclamoNuevo): Promise<Reclamo> {
     })
     return reclamoDeDto(dto)
   } catch (error) {
-    await borrarFotosDeBucket(BUCKET_FOTOS_RECLAMOS, fotos.map((foto) => foto.path))
     throw errorDeRegistrarReclamo(error)
   }
 }

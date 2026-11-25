@@ -16,6 +16,7 @@
  * Quién lo usa: `services/reclamos.service.ts` (rama real).
  */
 import type { ClaimStatus, ReclamoResponse, TipoReclamo } from '@rentar/shared-types'
+import { codigoContratoVisible } from '@/lib/contratos/codigo'
 import { codigoReclamo, TIPOS_RECLAMO } from '@/lib/reclamos/catalogo'
 import { RECLAMO_NO_ENCONTRADO_MESSAGE } from '@/lib/reclamos/reglas'
 import type { PersonaReclamo, PropiedadParaReclamo, Reclamo, TipoReclamoVista } from '@/lib/reclamos/tipos'
@@ -113,7 +114,8 @@ export function reclamoDeDto(dto: ReclamoResponse): Reclamo {
  * Un contrato vigente del locatario (`GET /alquileres-locatario`) → una opción
  * del selector de propiedad del registro (US-14).
  * NOTA: el back manda `codigo` como el id del contrato (`"17"`), no
- * `CT-AAAA-NNNN` (HANDOFF §7, US-27); se muestra tal cual.
+ * `CT-AAAA-NNNN` (HANDOFF §7, R-13). Un id crudo no se muestra: queda la
+ * dirección sola (`codigoContratoVisible`).
  */
 export function propiedadParaReclamoDeAlquiler(dto: AlquilerLocatarioItemResponse): PropiedadParaReclamo {
   return {
@@ -121,7 +123,7 @@ export function propiedadParaReclamoDeAlquiler(dto: AlquilerLocatarioItemRespons
     direccion: formatExactAddress(dto.inmueble.direccion, dto.inmueble.numero, dto.inmueble.piso),
     barrio: dto.inmueble.barrio ? barrioDe(dto.inmueble.barrio).name : null,
     fotoSrc: dto.inmueble.foto_principal,
-    contratoCodigo: dto.codigo || null,
+    contratoCodigo: codigoContratoVisible(dto.codigo),
     locadorNombre: [dto.locador.nombre, dto.locador.apellido].filter(Boolean).join(' '),
   }
 }
