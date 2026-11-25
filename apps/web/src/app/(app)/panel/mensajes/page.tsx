@@ -1,17 +1,16 @@
 /**
- * /panel/mensajes — Mensajes (US-24 a US-26 Mensajes).
+ * /panel/mensajes — la bandeja de Mensajes (US-24 Enviar mensajes).
  *
- * Placeholder: la pantalla es de otro sprint. Existe para que el botón que
- * lleva acá no quede roto.
- * Entra desde: el ítem "Mensajes" del menú del locador.
+ * La pantalla la monta el layout (`layout.tsx`); esta página solo existe para la
+ * ruta y el título. Con `?con=<persona>&propiedad=<id>` (desde "Escribirle al
+ * locador") abre la conversación con esa persona o una nueva.
  */
 import type { Metadata } from 'next'
-import { PlaceholderScreen } from '@/components/PlaceholderScreen'
 
 /** Título de la pestaña del navegador (el layout raíz le suma "— RentAR"). */
 export const metadata: Metadata = { title: 'Mensajes' }
 
-/** Placeholder de Mensajes (otro sprint). */
+/** No dibuja nada: la bandeja está en el layout. */
 export default function MensajesPage() {
-  return <PlaceholderScreen title="Mensajes" userStory="US-24 a US-26 Mensajes" />
+  return null
 }

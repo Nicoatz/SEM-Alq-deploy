@@ -155,6 +155,25 @@ export function DetallePropiedad({ id }: DetallePropiedadProps) {
 
   const propiedad = carga.estado === 'lista' ? carga.propiedad : null
   const estado = propiedad ? estadoAccion({ propiedad, usuario: userId === undefined ? undefined : user, miSolicitud }) : null
+
+  /**
+   * "Escribirle al locador" (US-24: "un locatario puede iniciar una conversación con
+   * un locador"): lleva a Mensajes con esa persona y esa propiedad. Sin sesión, el
+   * proxy manda al login y vuelve. Deshabilitado con el motivo si no se conoce al
+   * dueño (en real el detalle no lo trae, brecha R-7; en mock, los de fuera del
+   * elenco) o si la propiedad es del usuario.
+   */
+  const ownerId = propiedad?.owner?.id ?? null
+  const mensajeAlLocador: { href: string } | { motivo: string } | undefined = !propiedad
+    ? undefined
+    : !ownerId || ownerId === 'otros-locadores' || !propiedad.owner?.fullName
+      ? { motivo: 'Por ahora no podemos ponerte en contacto con este locador.' }
+      : ownerId === userId
+        ? { motivo: 'Es tu propiedad.' }
+        : {
+            // Nombre y dirección viajan en la URL para el encabezado de la conversación nueva, sin otro pedido.
+            href: `/panel/mensajes?${new URLSearchParams({ con: ownerId, nombre: propiedad.owner.fullName, propiedad: propiedad.id, direccion: propiedad.address }).toString()}`,
+          }
   const tipoAccion = estado?.tipo ?? null
 
   // ─── Vuelta del login con ?solicitar=1 ──────────────────────────────────
@@ -332,7 +351,7 @@ export function DetallePropiedad({ id }: DetallePropiedadProps) {
 
           {/* ─── Tarjeta del dueño (sticky en escritorio) ─── */}
           <aside className={styles.aside}>
-            <OwnerCard owner={propiedad.owner} action={accion('tarjeta')} data-testid="detalle-propiedad-dueno-card">
+            <OwnerCard owner={propiedad.owner} action={accion('tarjeta')} mensaje={mensajeAlLocador} data-testid="detalle-propiedad-dueno-card">
               {conditions && (
                 <DetailList
                   title="Condiciones del contrato"

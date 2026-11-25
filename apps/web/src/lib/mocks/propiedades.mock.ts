@@ -64,7 +64,7 @@ export interface FotoMock {
  * ajuste).
  * NOTA: los contratos son de otro sprint; acá vive solo el resumen que
  * necesitan el listado del locador y el panel. El estado del pago y los
- * reclamos NO van acá: salen de los cobros y reclamos de `panel.mock.ts`,
+ * reclamos NO van acá: salen de `periodos.mock.ts` y `reclamos.mock.ts`,
  * así el listado y el panel nunca se contradicen.
  */
 export interface AlquilerMock {
@@ -253,7 +253,7 @@ const elenco: PropiedadMock[] = [
     ownerId: 'usr-nicolas',
     // "Séptima propiedad" de Nicolás en el mapa. Alquilada a Tomás Bianchi
     // (dato del export del listado, confirmado por producto): septiembre
-    // vencido y 2 reclamos abiertos (ver panel.mock.ts).
+    // vencido; su único reclamo está cancelado (ver reclamos.mock.ts).
     status: 'alquilada',
     publishedAt: '2025-03-01',
     availableFrom: null,
@@ -397,7 +397,7 @@ const elenco: PropiedadMock[] = [
     id: 'prop-belgrano-1120',
     ownerId: 'usr-nicolas',
     // Alquilada a Julián Ferreyra (dato del export): septiembre vencido, sin
-    // reclamos (ver panel.mock.ts).
+    // reclamos (ver reclamos.mock.ts).
     status: 'alquilada',
     publishedAt: '2025-06-15',
     availableFrom: null,
@@ -569,7 +569,7 @@ const elenco: PropiedadMock[] = [
     id: 'prop-mariano-moreno-285',
     ownerId: 'usr-sofia',
     // Sofía Ledesma como locadora (su otro rol). Alquilada a Camila Ríos (dato
-    // del export): el cobro de septiembre venció el 05/09 (ver panel.mock.ts).
+    // del export): el cobro de septiembre venció el 05/09 (ver periodos.mock.ts).
     // No aparece en el listado de Nicolás: es de Sofía.
     status: 'alquilada',
     publishedAt: '2025-11-20',

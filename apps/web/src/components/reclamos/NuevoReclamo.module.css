@@ -1,0 +1,337 @@
+/* Registrar reclamo (Claude Design, "Reclamos" · 01, 02 móvil y 05). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  max-width: 48rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.375rem;
+  padding: 1.25rem 1.375rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.1);
+  border-radius: var(--rentar-radius-xl);
+  background: var(--rentar-color-bg-surface);
+  box-shadow: var(--rentar-shadow-resting);
+}
+
+.vacio {
+  padding: 1.5rem 1rem;
+  border: 1px dashed rgba(var(--rentar-color-ink-rgb), 0.18);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-page);
+}
+
+.error {
+  display: block;
+  margin-top: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--rentar-color-error);
+}
+
+.ayuda {
+  font-size: 0.78125rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+/* ─── Propiedad ───────────────────────────────────────────────────── */
+
+.selectPropiedad.selectPropiedad {
+  width: 100%;
+  min-height: 3.5rem;
+}
+
+.selectPropiedad.selectPropiedad :global(.ant-select-selector) {
+  min-height: 3.5rem;
+  border-radius: var(--rentar-radius-md);
+}
+
+.opcionPropiedad {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 0.25rem 0;
+}
+
+.opcionTextos {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.opcionDireccion {
+  overflow: hidden;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+  text-overflow: ellipsis;
+}
+
+.opcionContrato {
+  overflow: hidden;
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-secondary);
+  text-overflow: ellipsis;
+}
+
+/* ─── Tipo ────────────────────────────────────────────────────────── */
+
+.tipos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.625rem;
+}
+
+.tipo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.18);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out),
+    background-color var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.tipo:hover:not(:disabled) {
+  border-color: var(--rentar-color-blue);
+}
+
+.tipo:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: 2px;
+}
+
+.tipoElegido,
+.tipoElegido:hover:not(:disabled) {
+  border: 2px solid var(--rentar-color-blue);
+  padding: calc(0.75rem - 1px) calc(0.875rem - 1px);
+  background: var(--rentar-color-sky-light);
+}
+
+.tipoNombre {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+.tipoElegido .tipoNombre {
+  color: var(--rentar-color-blue);
+}
+
+.tipoAyuda {
+  font-size: 0.78125rem;
+  line-height: 1.35;
+  color: var(--rentar-color-text-secondary);
+}
+
+/* ─── Mensaje ─────────────────────────────────────────────────────── */
+
+.contadorFila {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.375rem;
+}
+
+.contadorFila .error {
+  margin-top: 0;
+}
+
+.contador {
+  flex: none;
+  font-size: 0.78125rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.contadorExcedido {
+  color: var(--rentar-color-error);
+}
+
+/* ─── Fotos ───────────────────────────────────────────────────────── */
+
+.fotos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.dropzone.dropzone :global(.ant-upload-drag) {
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-page);
+}
+
+.dropzoneInner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0.5rem;
+}
+
+.dropzoneIcon {
+  font-size: 2.25rem;
+  color: var(--rentar-color-blue);
+}
+
+.dropzoneTitulo {
+  font-size: 1rem;
+  color: var(--rentar-color-text-primary);
+}
+
+.grillaFotos {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.foto {
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-md);
+  background: var(--rentar-color-bg-surface);
+}
+
+.fotoImagen {
+  display: block;
+  width: 100%;
+  height: 5.625rem;
+  object-fit: cover;
+  background: var(--rentar-color-bg-page);
+}
+
+.fotoPie {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding: 0.375rem 0.5rem;
+}
+
+.fotoNombre {
+  overflow: hidden;
+  font-size: 0.71875rem;
+  color: var(--rentar-color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fotoQuitar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 0;
+  border-radius: var(--rentar-radius-pill);
+  background: transparent;
+  color: var(--rentar-color-text-secondary);
+  cursor: pointer;
+}
+
+.fotoQuitar:hover:not(:disabled) {
+  background: rgba(var(--rentar-color-ink-rgb), 0.06);
+}
+
+.fotoAgregar {
+  display: flex;
+  min-height: 7.5rem;
+}
+
+.fotoAgregarUpload,
+.fotoAgregarUpload :global(.ant-upload) {
+  display: flex;
+  flex: 1;
+}
+
+.fotoAgregarBoton {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border: 1px dashed rgba(var(--rentar-color-ink-rgb), 0.25);
+  border-radius: var(--rentar-radius-md);
+  font-size: 0.8125rem;
+  color: var(--rentar-color-text-secondary);
+  cursor: pointer;
+}
+
+/* ─── Pie ─────────────────────────────────────────────────────────── */
+
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rentar-color-border-hairline);
+}
+
+.pieTexto {
+  font-size: 0.875rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.pieBotones {
+  display: flex;
+  gap: 0.625rem;
+}
+
+/* ─── Móvil (· 02) ────────────────────────────────────────────────── */
+
+@media (max-width: 767px) {
+  .form {
+    padding: 1rem;
+    border-radius: var(--rentar-radius-lg);
+  }
+
+  .tipos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tipos .tipo:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+
+  .tipo {
+    align-items: center;
+    min-height: 2.75rem;
+    text-align: center;
+  }
+
+  .tipoAyuda {
+    display: none;
+  }
+
+  .pie {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pieBotones {
+    flex-direction: column-reverse;
+  }
+
+  .pieBotones :global(.ant-btn) {
+    width: 100%;
+  }
+}

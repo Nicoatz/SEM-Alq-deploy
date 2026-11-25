@@ -692,6 +692,38 @@ El bucket privado `comprobantes-cobros` ya existe en Supabase y no requiere camb
 Debe aplicarse `supabase/migrations/20261104000000_us09_consultar_cobro.sql` antes de usar estos GET.
 **Al 05/11 no está aplicada:** `periodo_cobro_evento` no existe en la base.
 
+## Reclamos (Sprint 5, US-14 a US-18)
+
+Existen en el back desde el 24/11 (`develop` 6f9711c, `apps/api/src/routes/v1/reclamos.routes.ts`) y se
+probaron en real ese día. Service: `apps/web/src/services/reclamos.service.ts`; adaptador:
+`services/adapters/reclamo.adapter.ts`. Brechas: HANDOFF §7, "US-14 a US-18".
+
+| Método y ruta | Auth | Estado | US | Service | Body / query | Respuesta (`data`) |
+|---|---|---|---|---|---|---|
+| `GET /reclamos/tipos` | Bearer | conectado | US-14 | `reclamos.service#getTiposReclamo` | — | `TipoReclamo[]` (`{ id, nombre, descripcion }`, 5 tipos) → `tiposDeReclamoDeDto` |
+| `GET /reclamos?rol=locador\|locatario` | Bearer + rol | conectado; parcial | US-15 | `reclamos.service#listarReclamos` | `rol` (sale del rol activo). **No se manda `estado`**: no filtra (R-2) | `ReclamoResponse[]` → `reclamoDeDto`. `[]` sin reclamos. 403 sin el rol |
+| `GET /reclamos/:id` | Bearer | conectado (Tanda B) | US-15 a US-18 | `reclamos.service#getReclamo` | — | `ReclamoResponse` (con `id_conversacion`, fotos, inmueble con `foto_principal`, locador y locatario). 400 / 403 / 404 → "No encontramos este reclamo" |
+| Storage `fotos-reclamos` | sesión de Supabase | conectado | US-14 | `reclamos.service#registrarReclamo` (`shared/fotosStorage.ts`) | `<auth.uid>/<uuid>.<jpg\|png>`, hasta 350 KB | URL pública |
+| `POST /reclamos` | Bearer + rol `locatario` | conectado; parcial | US-14 | `reclamos.service#registrarReclamo` | `{ id_inmueble, id_tipo_reclamo, mensaje, fotos: [{ url, peso_kb, formato, orden }] }`, sin `titulo` | `ReclamoResponse` (estado `pendiente`, con `id_conversacion`). 400 validación; 403 `SIN_CONTRATO_VIGENTE`; **500 con más de 1000 caracteres** (R-1) |
+| `GET /alquileres-locatario` | Bearer | conectado | US-14 | `reclamos.service#getPropiedadesParaReclamo` | — | Se filtran los `vigente` para el selector de propiedad |
+| `PATCH /reclamos/:id/resolver`, `/cancelar` | Bearer + rol `locatario` (el autor) | conectado (Tanda B) | US-16, US-17 | `reclamos.service#resolverReclamo`, `#cancelarReclamo` | — | `ReclamoResponse`. 409 `ESTADO_INVALIDO`: el service relee el reclamo y avisa cómo quedó |
+| `GET /mensajes/conversaciones/:id/mensajes` | Bearer (participante) | conectado (Tanda B, chat del reclamo) | US-18, US-24 | `mensajes.service#getMensajes` | — | `MensajeResponse[]` (hasta 100) → `mensajeDeDto` |
+| `POST /mensajes/conversaciones/:id/mensajes` (responder y enviar) | Bearer (participante) | conectado (Tanda B) | US-18, US-24 | `reclamos.service#responderReclamo`, `mensajes.service#enviarMensaje` | `{ contenido }` | `MensajeResponse`. Con el reclamo abierto y el locador, pasa a `en_proceso` solo. 400 `ESTADO_INVALIDO` (no 409) si el reclamo ya está cerrado |
+| `DELETE /mensajes/:id` | Bearer (quien lo mandó) | conectado (Tanda B) | US-24 | `mensajes.service#eliminarMensaje` | — | `{ id }`. 403 si es ajeno |
+| `GET /mensajes/conversaciones` | Bearer | conectado (Tanda C); parcial | US-24 | `mensajes.service#listarConversaciones` | — | `ConversacionResumen[]` → `conversacionDeDto`. Trae las de reclamo (R-3): las filtra el adaptador. Sin inmueble (R-6) |
+| `GET /mensajes/conversaciones/:id` | Bearer (participante) | conectado (Tanda C) | US-24 | `mensajes.service#getConversacion` | — | `ConversacionDetalle` (con la dirección, sin foto). Una de reclamo se muestra como no encontrada |
+| `POST /mensajes/conversaciones` | Bearer | conectado (Tanda C) | US-24 | `mensajes.service#iniciarConversacion` | `{ id_destinatario, asunto: 'Consulta por <dirección>', tipo_tema: 'inmueble', id_inmueble, primer_mensaje }` | `ConversacionResponse`. 403 `REQUIERE_CONTRATO_VIGENTE` → "No podés iniciar una conversación con …". Sin UNIQUE (R-8): el front busca antes una existente |
+| `GET /mis-alquileres` (destinatarios del locador) | Bearer + rol `locador` | conectado (Tanda C) | US-24 | `mensajes.service#getDestinatarios('locador')` | — | Las alquiladas con `contrato.locatario`. Tarda 15 s (S4-21): se pide al abrir el modal y se guarda mientras la página esté abierta |
+| `GET /alquileres-locatario` (destinatarios del locatario) | Bearer | conectado (Tanda C) | US-24 | `mensajes.service#getDestinatarios('locatario')` | — | Los locadores de los contratos no finalizados |
+
+Propuestos (no existen):
+
+| Método y ruta | Para qué | Brecha |
+|---|---|---|
+| `GET /reclamos?estado=` que filtre de verdad (o por `id_estado_reclamo`) | Que el back filtre en vez del front | R-2 |
+| Fechas del cambio de estado en `ReclamoResponse` (`fecha_en_proceso`, `fecha_resuelto`, `fecha_cancelado`) | "En proceso desde…" en el detalle | R-9 |
+| `foto_perfil` en `locador` / `locatario` | US-15 | R-10 |
+
 ## Panel del locador (`/panel`)
 
 Módulos de sprints futuros. En modo real, las funciones devuelven vacío (con `TODO(backend)`) y la
@@ -705,7 +737,7 @@ pantalla muestra sus estados vacíos; los conteos de propiedades salen de `GET /
 | `GET /solicitudes/recibidas?estado=pendiente` | Bearer + rol `locador` | pendiente (propuesto; ver "Solicitudes") | US-36 | `panel.service#getSolicitudesPendientes` | `SolicitudResponse[]` → `SolicitudPanel` |
 
 Cómo se calcula cada cifra (cobrado del mes, vencidos, días de atraso, reclamos sin responder,
-eventos de 60 días): encabezado de `apps/web/src/lib/mocks/panel.mock.ts`. El back puede devolver
+eventos de 60 días): encabezados de `apps/web/src/lib/mocks/periodos.mock.ts` y `reclamos.mock.ts`. El back puede devolver
 las cifras ya calculadas con esas mismas reglas.
 
 Todos los tipos de respuesta propuestos están en `packages/shared-types/src/` (`propiedad.ts`,

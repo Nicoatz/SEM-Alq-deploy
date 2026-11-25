@@ -234,7 +234,7 @@ componente que necesite comunicar estado — nunca elegidos "a ojo" por pantalla
 | `warning` | `#92400E` | `#FBBF24` | pausada, pendiente_firma, pendiente, en_proceso |
 | `error` | `#9F1239` | `#FB7185` | rescindido, rechazado, vencido, abierto, vencida |
 | `info` | `#004D98` (reusa el azul de marca) | `#1B65A6` | alquilada, alquilada_publicada, finalizado |
-| `neutral` | `ink/50` | `paper/50` | borrador, anulado, cerrado, cancelada |
+| `neutral` | `ink/50` | `paper/50` | borrador, anulado, cancelado, cancelada |
 | `money` | `#D7B15D` / `#8C6B1D` | igual — no cambia en dark | `MoneyAmount` con `emphasis`, nunca un estado |
 
 ### Named Rules
@@ -414,7 +414,7 @@ pantalla debería volver a decidir esto.
 | `contrato` | borrador, pendiente_firma, vigente, finalizado, rescindido | neutral, warning, success, info, error |
 | `firma` | pendiente, firmado, rechazado | warning, success, error |
 | `cobro` | pendiente, pagado, vencido, anulado, parcial | warning, success, error, neutral, warning |
-| `reclamo` | abierto, en_proceso, resuelto, cerrado | error, warning, success, neutral |
+| `reclamo` | abierto, en_proceso, resuelto, cancelado | error, warning, success, neutral |
 | `suscripcion` | activa, vencida, cancelada | success, error, neutral |
 | `solicitud` | pendiente, aceptada, rechazada, cancelada | warning, success, error, neutral |
 | `usuario` | activo, suspendido, sin_verificar | success, error, warning |

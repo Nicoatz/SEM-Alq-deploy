@@ -240,15 +240,39 @@ solicitudes siguen mostrando la dirección) y sus solicitudes `pendiente` y `ace
 
 Datos del export del listado del locador, confirmados por producto. El estado del pago y los
 reclamos no se escriben en la propiedad: se calculan a partir de los períodos de `periodos.mock.ts`
-y los reclamos de `panel.mock.ts`, así el listado (US-02), el panel y cobros nunca se contradicen.
+y los reclamos de `reclamos.mock.ts`, así el listado (US-02), el panel y cobros nunca se contradicen.
 
 | Propiedad | Locatario | Contrato | Septiembre | Reclamos abiertos | Próximo ajuste |
 |---|---|---|---|---|---|
-| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $470.000, pagado el 03/09 (al día) | 0 | ICL anual, 01/04/2027 |
-| Laprida 340 | Tomás Bianchi | CT-2026-0102 | $520.000, vencido el 04/09 (retrasada) | 2 | ICL anual, 01/03/2027 |
+| Obispo Trejo 1250, 7° B | Sofía Ledesma | CT-2026-0148 | $470.000, pagado el 03/09 (al día) | 2 | ICL anual, 01/04/2027 |
+| Laprida 340 | Tomás Bianchi | CT-2026-0102 | $520.000, vencido el 04/09 (retrasada) | 0 | ICL anual, 01/03/2027 |
 | Belgrano 1120 | Julián Ferreyra | CT-2026-0115 | $460.000, vencido el 16/09 (retrasada) | 0 | IPC cada 4 meses, 01/11/2026 |
-| Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 1 | ICL anual, 01/10/2026 |
-| Mariano Moreno 285 (de Sofía) | Camila Ríos | CT-2026-0133 | $510.000, vencido el 05/09 (retrasada) | 0 | IPC cada 4 meses, 01/12/2026 |
+| Av. Colón 2450, 3° A | Martín Cabrera | CT-2026-0121 | $440.000, vence el 28/09 (con pago pendiente) | 0 | ICL anual, 01/10/2026 |
+| Mariano Moreno 285 (de Sofía) | Camila Ríos | CT-2026-0133 | $510.000, vencido el 05/09 (retrasada) | 2 | IPC cada 4 meses, 01/12/2026 |
+
+"Reclamos abiertos" cuenta los abiertos y los en proceso (los "N abiertos" de US-02).
+
+## Los reclamos (`reclamos.mock.ts`, US-14 a US-18, Sprint 5)
+
+Los de Nicolás son los de Claude Design ("Reclamos" · 02 y 03: mismos códigos, tipos, estados y
+mensajes), con las fechas corridas antes del 23/09 (el diseño tiene un cobro de octubre). Los dos de
+Camila van en Mariano Moreno 285 (decisión del PO del 24/11). Reemplazan a los tres reclamos viejos
+de `panel.mock.ts` (0036, 0039 y 0041 en Laprida y Colón), que se borró.
+
+| Código | Propiedad | Locatario | Tipo | Estado | Fotos | Sirve para |
+|---|---|---|---|---|---|---|
+| RCL-2026-0041 | Obispo Trejo 1250, 7° B | Sofía | Reparación del inmueble | en proceso (desde el 14/09 10:41) | 2 | US-16 y US-17 desde en proceso; el detalle del diseño |
+| RCL-2026-0043 | Obispo Trejo 1250, 7° B | Sofía | Reparación de artefactos | abierto | 0 | "Esperá la respuesta del locador"; Nicolás responde (US-18) |
+| RCL-2026-0032 | Obispo Trejo 1250, 7° B | Sofía | Pintura | resuelto | 1 | Sin botones; chat de solo lectura |
+| RCL-2026-0035 | Laprida 340 | Tomás Bianchi (sin cuenta) | Cobros | cancelado | 0 | Listado con un cancelado |
+| RCL-2026-0040 | Mariano Moreno 285 (de Sofía) | Camila | Reparación de artefactos | abierto | 0 | Camila cancela desde abierto; Sofía responde como locadora |
+| RCL-2026-0039 | Mariano Moreno 285 (de Sofía) | Camila | Reparación del inmueble | en proceso | 1 | Camila resuelve |
+
+- Julieta, Matías y Diego no tienen contrato vigente: el registro les muestra que no hay propiedades
+  para elegir, y un reclamo ajeno les da "No encontramos este reclamo".
+- Las fotos del elenco son fotos de la propiedad (no hay otras entre los assets).
+- Lo registrado en el navegador se guarda en `rentar:mock:reclamos`, con un código nuevo
+  (`RCL-2026-0044` en adelante) y las fotos como data URL.
 
 **Depósito y garantes (US-27, tanda 4 del Sprint 3, pedido del PO):** solo en CT-2026-0148 y
 CT-2026-0133, para la ficha del locatario. Un mes de depósito (`depositMonths` × el precio de la
@@ -327,10 +351,10 @@ otros valores, ganan ellos.
 |---|---|---|
 | Ids de contrato | CT-2026-0102 (Laprida 340), CT-2026-0115 (Belgrano 1120), CT-2026-0121 (Av. Colón 2450), CT-2026-0133 (Mariano Moreno 285). CT-2026-0148 (Obispo Trejo) sí es del mapa. | `rental.contractId` en `propiedades.mock.ts` |
 | Fechas de contrato | Laprida 01/03/2025–29/02/2028, Belgrano 01/07/2025–30/06/2028, Av. Colón 01/10/2025–30/09/2028, Mariano Moreno 01/12/2025–30/11/2028 (36 meses, a partir de su `publishedAt`) | `rental.startDate` / `endDate` |
-| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 11/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `cobros` en `panel.mock.ts` |
+| Vencimiento del cobro de septiembre | Laprida 04/09, Belgrano 16/09, Av. Colón 28/09, Obispo Trejo 11/09, Mariano Moreno 05/09. Elegidos para que, al 23/09, den los 19 y 7 días de atraso y el "vence este mes" pedidos. | `periodos.mock.ts` |
 | Fecha de pago de Obispo Trejo | 03/09 (al día) | `cobrosDePeriodos` en `periodos.mock.ts` |
 | Próximos ajustes | Belgrano 01/11/2026 (IPC cada 4 meses), Av. Colón 01/10/2026 (ICL anual), Mariano Moreno 01/12/2026 (IPC cada 4 meses). Laprida (01/03/2027) y Obispo Trejo (01/04/2027) sí vinieron de producto y del mapa. | `rental.nextAdjustmentDate` |
-| Reclamos | "Pérdida de agua en el baño" (abierto, sin responder) y "El termotanque no calienta" (en proceso) → Laprida 340; "Ruido de la bomba de agua" (en proceso) → Av. Colón 2450. Títulos del export del panel; ids RCL-2026-0036/0039/0041 y fechas elegidos acá. | `reclamos` en `panel.mock.ts` |
+| Reclamos | Ver "Los reclamos" más abajo: los de Nicolás son los de Claude Design ("Reclamos" · 02), con las fechas antes del 23/09. | `reclamos.mock.ts` |
 | Solicitud de Julieta | SOL-2026-0031, del 20/09/2026 | `solicitudes.mock.ts` |
 | Solicitudes de la tanda 2 (Sprint 2) | SOL-2026-0032 a 0038: postulantes, estados, fechas y los dos mensajes, elegidos para cubrir los cuatro estados y la regla de una sola aceptada | `solicitudes.mock.ts` |
 | Postulantes nuevos (Sprint 2) | Matías Quiroga y Diego Ferreyra, con su email, DNI, teléfono y fecha de nacimiento | `usuarios.mock.ts` |

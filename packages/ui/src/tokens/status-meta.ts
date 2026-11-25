@@ -82,7 +82,7 @@ export const statusMeta: StatusMetaMap = {
     abierto: { label: 'Abierto', colorKey: 'error', icon: ExclamationCircleFilled },
     en_proceso: { label: 'En proceso', colorKey: 'warning', icon: SyncOutlined },
     resuelto: { label: 'Resuelto', colorKey: 'success', icon: CheckCircleFilled },
-    cerrado: { label: 'Cerrado', colorKey: 'neutral', icon: CheckCircleFilled },
+    cancelado: { label: 'Cancelado', colorKey: 'neutral', icon: StopFilled },
   },
   suscripcion: {
     activa: { label: 'Activa', colorKey: 'success', icon: CheckCircleFilled },

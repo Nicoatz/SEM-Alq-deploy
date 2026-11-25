@@ -11,8 +11,8 @@
  * módulos de sprints futuros (US-09 cobros, US-15 reclamos, US-36
  * solicitudes), así que en el back todavía no existe nada de esto.
  *
- * Cómo se calcula cada cifra en modo mock: ver el encabezado de
- * `lib/mocks/panel.mock.ts`.
+ * Cómo se calcula cada cifra en modo mock: ver los encabezados de
+ * `lib/mocks/periodos.mock.ts` (cobros) y `lib/mocks/reclamos.mock.ts` (reclamos).
  * Quién lo usa: `app/(app)/panel/page.tsx` y el layout del panel (las filas
  * de "Viendo como" del UserMenu).
  */
@@ -25,10 +25,12 @@ import type {
   SolicitudPanel,
   UserRole,
 } from '@rentar/shared-types'
-import { propiedades as propiedadesElenco, reclamos as reclamosElenco, type PropiedadMock } from '@/lib/mocks'
+import { propiedades as propiedadesElenco, type PropiedadMock } from '@/lib/mocks'
+import { labelTipoReclamo } from '@/lib/reclamos/catalogo'
 import { resumenDelMes } from '@/lib/cobros/resumenPanel'
 import { diasHasta, hoy } from '@/lib/utils/fechas'
 import { formatAddress } from './adapters/propiedad-mock.adapter'
+import { readReclamosMock } from './adapters/reclamo-mock.adapter'
 import { filasDeLocador } from './cobros.service'
 import { listarMisPropiedades } from './propiedades.service'
 import { listarSolicitudesRecibidas, readSolicitudesMock } from './solicitudes.service'
@@ -64,9 +66,11 @@ export async function getResumenCobros(): Promise<ResumenCobros> {
 
 /**
  * Reclamos del locador en sesión: cuántos están abiertos, cuántos sin
- * responder y los más recientes.
+ * responder y los más recientes. En mock salen de `reclamos.mock.ts` (más los
+ * registrados en el navegador).
  * @backend GET /api/v1/panel/reclamos   (no existe — propuesto) → ResumenReclamos
- * TODO(backend): crear la ruta cuando exista el módulo de reclamos (US-14 a US-18).
+ * TODO(backend): con el módulo de reclamos ya en el back (24/11), la rama real
+ * podría armarse con `GET /reclamos?rol=locador`; queda para después de la Tanda B.
  * NOTA: en modo real devuelve vacío en vez de llamar a una ruta que no
  * existe: así el panel muestra su estado vacío y no un error.
  */
@@ -74,18 +78,20 @@ export async function getResumenReclamos(): Promise<ResumenReclamos> {
   if (USE_MOCKS) {
     await delay(600)
     const propias = propiedadesDe(requireSessionUserId())
-    const todos = reclamosElenco
+    const todos = readReclamosMock()
       .map((reclamo): ReclamoPanel | null => {
         const propiedad = propias.find((item) => item.id === reclamo.propertyId)
-        if (!propiedad?.rental) return null
+        if (!propiedad) return null
         return {
           id: reclamo.id,
-          title: reclamo.title,
+          // Sin título (decisión del PO, 24/11): la fila muestra el tipo.
+          title: labelTipoReclamo(reclamo.type),
           status: reclamo.status,
           propertyAddress: formatAddress(propiedad),
-          tenantName: propiedad.rental.tenantName,
+          tenantName: reclamo.tenantName,
           createdAt: reclamo.createdAt,
-          answeredAt: reclamo.answeredAt,
+          // La primera respuesta del locador es la que lo pasó a en proceso (US-18).
+          answeredAt: reclamo.inProgressAt,
         }
       })
       .filter((reclamo): reclamo is ReclamoPanel => reclamo !== null)

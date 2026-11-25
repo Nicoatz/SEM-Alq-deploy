@@ -16,11 +16,16 @@
  * de antd. El diseño lo presenta como componente nuevo del design system;
  * queda anotado en `.design-sync/NOTES.md` como candidato a pasar a
  * `@rentar/ui` (cambio que necesita el OK del PO).
+ * "Escribirle al locador" (US-24, Sprint 5): lleva a Mensajes con la conversación
+ * de esa persona y esa propiedad (la que ya existe o una nueva). Si no se puede
+ * (sin el dueño en real, brecha R-7, o es la propiedad del usuario), queda
+ * deshabilitado con el motivo.
  * NOTA: sin "Escribir por WhatsApp": ninguna fuente tiene el teléfono del
  * dueño (y no se muestra hasta que acepta la solicitud). Tampoco "Publica
  * desde…" ni "N propiedades publicadas": no hay datos para eso.
  */
 import type { ReactNode } from 'react'
+import Link from 'next/link'
 import { Avatar, Button, Card, Tooltip } from 'antd'
 import { MailOutlined } from '@ant-design/icons'
 import type { DuenoPropiedad } from '@rentar/shared-types'
@@ -33,20 +38,22 @@ interface OwnerCardProps {
   owner: DuenoPropiedad | null
   /** La acción principal (`AccionSolicitar`). */
   action: ReactNode
+  /**
+   * "Escribirle al locador" (US-24): adónde lleva o, si no se puede, por qué.
+   * Sin la prop, el botón no se muestra.
+   */
+  mensaje?: { href: string } | { motivo: string }
   /** Secciones extra debajo de las acciones (condiciones, medios de pago). */
   children?: ReactNode
   'data-testid'?: string
 }
-
-/** Mensaje del tooltip de "Enviar mensaje": Mensajes no es de este sprint. */
-const MENSAJES_PROXIMAMENTE = 'Los mensajes llegan en un próximo sprint'
 
 /**
  * Tarjeta del dueño con la acción principal del detalle. El nombre se
  * muestra solo si se conoce (dueños del elenco o, cuando el back lo mande, el
  * de la API).
  */
-export function OwnerCard({ owner, action, children, ...rest }: OwnerCardProps) {
+export function OwnerCard({ owner, action, mensaje, children, ...rest }: OwnerCardProps) {
   const nombre = owner?.fullName ?? null
 
   // ─── Render ─────────────────────────────────────────────────────────────
@@ -67,12 +74,24 @@ export function OwnerCard({ owner, action, children, ...rest }: OwnerCardProps) 
 
       <div className={styles.actions}>
         {action}
-        {/* Mensajes es de otro sprint: deshabilitado con explicación, en vez de un link roto. */}
-        <Tooltip title={MENSAJES_PROXIMAMENTE}>
-          <Button size="large" block disabled icon={<MailOutlined />} className={styles.secondary} data-testid="detalle-propiedad-enviar-mensaje-button">
-            Enviar mensaje
-          </Button>
-        </Tooltip>
+        {mensaje && 'href' in mensaje && (
+          <Link href={mensaje.href} data-testid="detalle-propiedad-enviar-mensaje-button">
+            <Button size="large" block icon={<MailOutlined />} className={styles.secondary}>
+              Escribirle al locador
+            </Button>
+          </Link>
+        )}
+        {mensaje && 'motivo' in mensaje && (
+          // El botón deshabilitado no recibe el mouse: el motivo va en el envoltorio y debajo.
+          <Tooltip title={mensaje.motivo}>
+            <span className={styles.bloqueado} data-testid="detalle-propiedad-enviar-mensaje-bloqueado">
+              <Button size="large" block disabled icon={<MailOutlined />} className={styles.secondary} data-testid="detalle-propiedad-enviar-mensaje-button">
+                Escribirle al locador
+              </Button>
+              <span className={styles.motivo}>{mensaje.motivo}</span>
+            </span>
+          </Tooltip>
+        )}
       </div>
 
       {children && <div className={styles.sections}>{children}</div>}

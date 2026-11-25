@@ -11,7 +11,8 @@
  * De dónde saca los datos: cada bloque se pide por separado, así si falla
  * uno falla solo ese (· 03). Conteos de propiedades:
  * `propiedades.service#listarMisPropiedades`; el resto, `panel.service`.
- * Cómo se calcula cada cifra: ver `lib/mocks/panel.mock.ts`.
+ * Cómo se calcula cada cifra: ver `lib/mocks/periodos.mock.ts` (cobros) y
+ * `lib/mocks/reclamos.mock.ts` (reclamos).
  *
  * NOTA: el banner "Tu suscripción vence el 30/09" del diseño no va: la
  * suscripción no es de este sprint y el elenco no la define.

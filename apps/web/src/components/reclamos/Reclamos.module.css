@@ -1,0 +1,330 @@
+/* Reclamos: listado del locador y del locatario (Claude Design, "Reclamos" · 02, 02b, 04 y 05). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+  /* Sin esto, las pestañas (una fila con scroll en móvil) estiran la página a lo ancho. */
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ─── Pestañas, tipo y orden ──────────────────────────────────────── */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5625rem;
+}
+
+.toolbarSelects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5625rem;
+}
+
+.select.select {
+  min-width: 11rem;
+}
+
+.select.select :global(.ant-select-selector),
+.select.select:global(.ant-select) {
+  border-radius: var(--rentar-radius-pill);
+}
+
+/* ─── Grupos y lista ──────────────────────────────────────────────── */
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.grupo {
+  overflow: hidden;
+  border: 1px solid rgba(var(--rentar-color-ink-rgb), 0.12);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-surface);
+}
+
+.grupoHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--rentar-color-border-hairline);
+  background: var(--rentar-color-bg-page);
+}
+
+.grupoTitulo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.grupoSub {
+  font-size: 0.78125rem;
+  color: var(--rentar-color-text-secondary);
+}
+
+.grupoPersona {
+  margin-left: auto;
+}
+
+.fotoPropiedad {
+  display: block;
+  flex: none;
+  border-radius: var(--rentar-radius-sm);
+  object-fit: cover;
+  background: var(--rentar-color-sky-light);
+}
+
+.direccion {
+  font-size: 0.96875rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+}
+
+/* ─── Fila de un reclamo ──────────────────────────────────────────── */
+
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 0.8125rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid rgba(var(--rentar-color-ink-rgb), 0.07);
+  color: var(--rentar-color-text-primary);
+  text-decoration: none;
+  transition: background-color var(--rentar-motion-duration-fast) var(--rentar-motion-ease-out);
+}
+
+.fila:last-child {
+  border-bottom: 0;
+}
+
+.fila:hover {
+  background: rgba(var(--rentar-color-sky-rgb), 0.45);
+  color: var(--rentar-color-text-primary);
+}
+
+.fila:focus-visible {
+  outline: 2px solid var(--rentar-color-blue);
+  outline-offset: -2px;
+}
+
+.filaTipo,
+.filaTexto,
+.filaEstado,
+.toolbar > * {
+  min-width: 0;
+}
+
+/* Fila del locatario: grilla con áreas, así en móvil se reacomoda sin duplicar el markup. */
+.filaLocatario {
+  display: grid;
+  grid-template-areas:
+    'foto dir tipo persona estado'
+    'foto frag frag persona estado';
+  grid-template-columns: auto auto minmax(0, 1fr) 11rem 7.5rem;
+  column-gap: 0.8125rem;
+  row-gap: 0.25rem;
+  background: var(--rentar-color-bg-page);
+}
+
+.areaFoto {
+  grid-area: foto;
+  align-self: center;
+}
+
+.areaDireccion {
+  grid-area: dir;
+  align-self: center;
+}
+
+.areaTipo {
+  grid-area: tipo;
+  align-self: center;
+}
+
+.areaFragmento {
+  grid-area: frag;
+}
+
+.areaMeta {
+  grid-area: meta;
+}
+
+.areaPersona {
+  grid-area: persona;
+  align-self: center;
+}
+
+.areaEstado {
+  display: flex;
+  grid-area: estado;
+  align-self: center;
+  justify-content: flex-end;
+}
+
+.filaTipo {
+  flex: none;
+  width: 12.5rem;
+}
+
+.filaFoto {
+  flex: none;
+}
+
+.filaTexto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.fragmento {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: rgba(var(--rentar-color-ink-rgb), 0.85);
+}
+
+.meta {
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.metaMovil {
+  display: none;
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.filaTitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filaEstado {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  min-width: 7.5rem;
+}
+
+/* El tipo: píldora celeste, no es un estado. */
+.tipoTag {
+  display: inline-flex;
+  align-items: center;
+  height: 1.625rem;
+  padding: 0 0.6875rem;
+  border-radius: var(--rentar-radius-pill);
+  background: var(--rentar-color-sky-light);
+  font-size: 0.78125rem;
+  font-weight: 700;
+  color: var(--rentar-color-blue);
+  white-space: nowrap;
+}
+
+/* ─── Vacío y carga ───────────────────────────────────────────────── */
+
+.vacio {
+  padding: 1.5rem 1rem;
+  border: 1px dashed rgba(var(--rentar-color-ink-rgb), 0.18);
+  border-radius: var(--rentar-radius-lg);
+  background: var(--rentar-color-bg-page);
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--rentar-color-border-hairline);
+}
+
+.skeletonFoto.skeletonFoto {
+  width: 4rem;
+  height: 3rem;
+}
+
+.skeletonFila {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.875rem 1rem;
+}
+
+/* ─── Móvil (· 04): tarjetas apiladas ─────────────────────────────── */
+
+@media (max-width: 767px) {
+  /* Sin `wrap`: en columna, el wrap hace que la línea tome el ancho de las pestañas y desborde. */
+  .toolbar {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+  }
+
+  .toolbarSelects .select {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .fila {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  .filaTipo {
+    width: auto;
+  }
+
+  .filaLocador .filaTexto {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .filaEstado {
+    min-width: 0;
+  }
+
+  .filaLocatario {
+    grid-template-areas:
+      'foto dir dir'
+      'tipo tipo estado'
+      'frag frag frag'
+      'meta meta meta';
+    grid-template-columns: 2.75rem auto minmax(0, 1fr);
+    row-gap: 0.5rem;
+  }
+
+  .filaLocatario .areaFoto img {
+    width: 2.75rem;
+    height: 2.125rem;
+  }
+
+  .areaEstado {
+    justify-content: flex-start;
+  }
+
+  .areaPersona {
+    display: none;
+  }
+
+  .metaMovil {
+    display: block;
+  }
+
+  .grupoPersona {
+    margin-left: 0;
+  }
+}

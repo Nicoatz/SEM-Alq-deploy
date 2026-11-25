@@ -12,7 +12,7 @@
  *
  * Quién lo usa: la rama real de los services y los adaptadores.
  */
-import type { CreateFotoPayload, EstadoAlquiler } from '@rentar/shared-types'
+import type { CreateFotoPayload, EstadoAlquiler, Mensaje } from '@rentar/shared-types'
 
 /**
 /**
@@ -1071,4 +1071,18 @@ export interface PagosLocatarioResponse {
   total: number
   page: number
   limit: number
+}
+
+// ─── Mensajería (US-18 y US-24, Sprint 5) ───────────────────────────────
+
+/**
+ * `MensajeResponse` de `apps/api` (`dtos/mensaje.dto.ts`): el `Mensaje` de
+ * `@rentar/shared-types` más lo que arma el back para la vista. Si el mensaje se
+ * eliminó, `contenido` llega como "Este mensaje fue eliminado" (el adaptador no
+ * lo muestra: arma "Mensaje eliminado · hh:mm" con `fecha_eliminacion`).
+ */
+export interface MensajeResponse extends Mensaje {
+  /** `true` si lo mandó quien hace el pedido. */
+  es_propio: boolean
+  emisor: { id: number; nombre: string; apellido?: string | null }
 }

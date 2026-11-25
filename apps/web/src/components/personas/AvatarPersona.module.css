@@ -1,0 +1,72 @@
+/* Avatar con iniciales y nombre ("Reclamos" · 02, "Mensajes" · 01). */
+
+.wrap {
+  /* Ancla el texto oculto: sin esto, dentro de una lista con scroll se escapa y estira la página. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5625rem;
+  min-width: 0;
+}
+
+.circulo {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--rentar-radius-pill);
+  font-weight: 700;
+  object-fit: cover;
+}
+
+.sm {
+  width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.6875rem;
+}
+
+.md {
+  width: 2.125rem;
+  height: 2.125rem;
+  font-size: 0.78125rem;
+}
+
+.fuerte {
+  background: var(--rentar-color-blue);
+  color: var(--rentar-color-bg-surface);
+}
+
+.suave {
+  background: var(--rentar-color-sky-light);
+  color: var(--rentar-color-blue);
+}
+
+.textos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.0625rem;
+  min-width: 0;
+}
+
+.nombre {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--rentar-color-text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rol {
+  font-size: 0.75rem;
+  color: var(--rentar-color-text-tertiary);
+}
+
+.oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

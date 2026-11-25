@@ -67,6 +67,7 @@ const PUBLICAR_ACTION: AppShellHeaderAction = { label: 'Publicar propiedad', hre
 const MOBILE_TITLE_BY_PATH: Record<string, string> = {
   '/panel/perfil': 'Mi perfil',
   '/panel/notificaciones': 'Mis notificaciones',
+  '/panel/reclamos/nuevo': 'Registrar reclamo',
 }
 
 /**

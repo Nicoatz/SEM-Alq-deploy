@@ -50,8 +50,8 @@ export type SignatureStatus = 'pendiente' | 'firmado' | 'rechazado'
  */
 export type PaymentStatus = 'pendiente' | 'pagado' | 'vencido' | 'anulado' | 'parcial'
 
-/** Estado de un reclamo abierto por locador o locatario. */
-export type ClaimStatus = 'abierto' | 'en_proceso' | 'resuelto' | 'cerrado'
+/** Estado de un reclamo (US-14 a US-18): abierto → en proceso → resuelto, o cancelado por el locatario. */
+export type ClaimStatus = 'abierto' | 'en_proceso' | 'resuelto' | 'cancelado'
 
 /** Estado de la suscripción paga del locador a la plataforma. */
 export type SubscriptionStatus = 'activa' | 'vencida' | 'cancelada'
