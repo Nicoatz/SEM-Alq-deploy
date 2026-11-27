@@ -1,5 +1,6 @@
 import type {
   CrearConversacionRequest,
+  ConversacionDTO,
   ConversacionResponse,
   ConversacionDetalleResponse,
   MensajeDTO,
