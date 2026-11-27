@@ -25,12 +25,12 @@ export class MensajeController {
   ): Promise<void> {
     try {
       const user = (req as any).user as AuthenticatedUser;
-      const conversacion = await this.service.iniciarConversacion(user, req.body);
+      const resultado = await this.service.iniciarConversacion(user, req.body);
 
-      res.status(201).json({
+      res.status(resultado.creada ? 201 : 200).json({
         success: true,
-        message: 'Conversación iniciada exitosamente.',
-        data: conversacion
+        message: resultado.creada ? 'Conversación iniciada exitosamente.' : 'Se reutilizó la conversación existente.',
+        data: resultado.conversacion
       });
     } catch (error) {
       next(error);

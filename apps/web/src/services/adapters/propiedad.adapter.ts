@@ -424,7 +424,12 @@ export function inmuebleDetalleToPropiedadDetalle(dto: InmuebleDetalleResponse, 
     publishedAt: '',
     status,
     availability: 'disponible',
-    owner: null,
+    owner: dto.locador
+      ? {
+          id: String(dto.locador.id),
+          fullName: [dto.locador.nombre, dto.locador.apellido].filter(Boolean).join(' ').trim() || null,
+        }
+      : null,
     conditions: null,
     paymentMethods: null,
     addressPrecision: exacta ? 'exacta' : 'aproximada',

@@ -3,7 +3,7 @@ import type { IConversacionRepository } from '../../src/repositories/conversacio
 import type { IMensajeRepository } from '../../src/repositories/mensaje.repository';
 import type { IReclamoRepository } from '../../src/repositories/reclamo.repository';
 import type { AuthenticatedUser } from '../../src/gateway/middlewares/auth.middleware';
-import type { ConversacionDTO, MensajeDTO, ConversacionDetalleResponse } from '../../src/dtos';
+import type { ConversacionDTO, ConversacionResponse, MensajeDTO, ConversacionDetalleResponse } from '../../src/dtos';
 
 describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
   let service: MensajeService;
@@ -11,7 +11,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
   let mockMensajeRepo: jest.Mocked<IMensajeRepository>;
   let mockLookupRepo: any;
   let mockInmuebleRepo: any;
-  let mockReclamoRepo: jest.Mocked<Pick<IReclamoRepository, 'findById' | 'actualizarEstado'>>;
+  let mockReclamoRepo: jest.Mocked<Pick<IReclamoRepository, 'findById'>>;
 
   const locatarioUser: AuthenticatedUser = {
     id: 10,
@@ -48,6 +48,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       create: jest.fn(),
       findById: jest.fn(),
       findByUsuarioId: jest.fn(),
+      findActivaPorParticipantesEInmueble: jest.fn(),
       findByReclamoId: jest.fn(),
       existeContratoVigente: jest.fn(),
       actualizarFechaActividad: jest.fn()
@@ -55,10 +56,13 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
 
     mockMensajeRepo = {
       create: jest.fn(),
+      createEnConversacionReclamo: jest.fn(),
+      findResumenPorConversacionIds: jest.fn(),
       findByConversacionId: jest.fn(),
       findById: jest.fn(),
       marcarEliminado: jest.fn(),
-      countByConversacionId: jest.fn(),
+      marcarEliminadoEnConversacionReclamo: jest.fn(),
+      countByConversacionId: jest.fn().mockResolvedValue(0),
       podarMensajesAntiguos: jest.fn()
     };
 
@@ -80,8 +84,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
     };
 
     mockReclamoRepo = {
-      findById: jest.fn(),
-      actualizarEstado: jest.fn()
+      findById: jest.fn()
     };
 
     service = new MensajeService(
@@ -121,6 +124,18 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       });
     });
 
+    it('debe fallar con 404 si la propiedad asociada no existe', async () => {
+      mockInmuebleRepo.findById.mockResolvedValue(null);
+
+      await expect(service.iniciarConversacion(locatarioUser, {
+        id_destinatario: 20,
+        asunto: 'Consulta sobre la propiedad',
+        id_inmueble: 999
+      })).rejects.toMatchObject({ statusCode: 404 });
+
+      expect(mockConversacionRepo.create).not.toHaveBeenCalled();
+    });
+
     it('debe permitir que un locatario inicie conversación con un locador sin tener contrato vigente', async () => {
       const convCreada: ConversacionDTO = {
         id: 1,
@@ -143,10 +158,11 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         asunto: 'Consulta sobre departamento'
       });
 
-      expect(resultado.id).toBe(1);
-      expect(resultado.iniciado_por).toBe(10);
-      expect(resultado.id_locador).toBe(20);
-      expect(resultado.id_locatario).toBe(10);
+      expect(resultado.conversacion.id).toBe(1);
+      expect(resultado.conversacion.iniciado_por).toBe(10);
+      expect(resultado.conversacion.id_locador).toBe(20);
+      expect(resultado.conversacion.id_locatario).toBe(10);
+      expect(resultado.creada).toBe(true);
       // No debe consultar contrato vigente porque inicia el locatario
       expect(mockConversacionRepo.existeContratoVigente).not.toHaveBeenCalled();
       expect(mockConversacionRepo.create).toHaveBeenCalled();
@@ -194,8 +210,8 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         rol_iniciador: 'locador'
       });
 
-      expect(resultado.id).toBe(2);
-      expect(resultado.iniciado_por).toBe(20);
+      expect(resultado.conversacion.id).toBe(2);
+      expect(resultado.conversacion.iniciado_por).toBe(20);
       expect(mockConversacionRepo.existeContratoVigente).toHaveBeenCalledWith(20, 10);
       expect(mockConversacionRepo.create).toHaveBeenCalled();
     });
@@ -217,6 +233,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       };
       mockConversacionRepo.create.mockResolvedValue(convCreada);
       mockInmuebleRepo.findById.mockResolvedValue({ id: 5, id_locador: 20 });
+      mockMensajeRepo.countByConversacionId.mockResolvedValue(1);
       mockMensajeRepo.create.mockResolvedValue({
         id: 101,
         id_conversacion: 3,
@@ -233,8 +250,41 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         primer_mensaje: 'Hola, quería consultar si se aceptan mascotas pequeñas.'
       });
 
-      expect(resultado.ultimo_mensaje?.contenido).toBe('Hola, quería consultar si se aceptan mascotas pequeñas.');
-      expect(resultado.total_mensajes).toBe(1);
+      expect(resultado.conversacion.ultimo_mensaje?.contenido).toBe('Hola, quería consultar si se aceptan mascotas pequeñas.');
+      expect(resultado.conversacion.total_mensajes).toBe(1);
+    });
+
+    it('debe devolver la conversación activa existente sin crear otra', async () => {
+      const conversacionExistente: ConversacionResponse = {
+        id: 9,
+        id_locador: 20,
+        id_locatario: 10,
+        iniciado_por: 10,
+        tipo_tema: 'inmueble',
+        asunto: 'Consulta previa',
+        id_inmueble: 5,
+        id_reclamo: null,
+        id_contrato: null,
+        activo: true,
+        fecha_creacion: '2026-11-24T10:00:00Z',
+        fecha_actualizacion: '2026-11-24T10:00:00Z',
+        otro_participante: { id: 20, nombre: 'Laura', apellido: 'Locadora', email: 'laura@example.test' }
+      };
+      mockInmuebleRepo.findById.mockResolvedValue({ id: 5, id_locador: 20 });
+      mockConversacionRepo.findActivaPorParticipantesEInmueble.mockResolvedValue(conversacionExistente);
+      mockMensajeRepo.findByConversacionId.mockResolvedValue([]);
+      mockMensajeRepo.countByConversacionId.mockResolvedValue(4);
+
+      const resultado = await service.iniciarConversacion(locatarioUser, {
+        id_destinatario: 20,
+        id_inmueble: 5,
+        asunto: 'Nueva consulta'
+      });
+
+      expect(resultado.creada).toBe(false);
+      expect(resultado.conversacion.id).toBe(9);
+      expect(resultado.conversacion.total_mensajes).toBe(4);
+      expect(mockConversacionRepo.create).not.toHaveBeenCalled();
     });
 
     it('debe fallar si el primer mensaje contiene únicamente espacios en blanco', async () => {
@@ -325,7 +375,7 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       expect(resultado.fecha_envio).toBe(fechaEnvio);
     });
 
-    it('debe pasar el reclamo de abierto a en_proceso cuando responde su locador', async () => {
+    it('debe usar el envío transaccional del reclamo al responder su locador', async () => {
       mockConversacionRepo.findById.mockResolvedValue({
         ...conversacionMock,
         tipo_tema: 'reclamo',
@@ -333,10 +383,11 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       });
       mockReclamoRepo.findById.mockResolvedValue({
         id: 100,
+        id_locatario: 10,
         id_estado_reclamo: 1,
         locador: { id: 20 }
       } as any);
-      mockMensajeRepo.create.mockResolvedValue({
+      mockMensajeRepo.createEnConversacionReclamo.mockResolvedValue({
         id: 52,
         id_conversacion: 1,
         id_emisor: 20,
@@ -347,8 +398,13 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
 
       await service.enviarMensaje(locadorUser, 1, 'Voy a coordinar la reparación.');
 
-      expect(mockReclamoRepo.actualizarEstado).toHaveBeenCalledWith(100, 2);
-      expect(mockMensajeRepo.podarMensajesAntiguos).toHaveBeenCalledWith(1, 100);
+      expect(mockMensajeRepo.createEnConversacionReclamo).toHaveBeenCalledWith({
+        id_conversacion: 1,
+        id_emisor: 20,
+        contenido: 'Voy a coordinar la reparación.'
+      });
+      expect(mockMensajeRepo.create).not.toHaveBeenCalled();
+      expect(mockMensajeRepo.podarMensajesAntiguos).not.toHaveBeenCalled();
     });
 
     it('no debe actualizar el estado del reclamo cuando escribe el locatario', async () => {
@@ -357,7 +413,21 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         tipo_tema: 'reclamo',
         id_reclamo: 100
       });
+      mockReclamoRepo.findById.mockResolvedValue({
+        id: 100,
+        id_locatario: 10,
+        id_estado_reclamo: 2,
+        locador: { id: 20 }
+      } as any);
       mockMensajeRepo.create.mockResolvedValue({
+        id: 53,
+        id_conversacion: 1,
+        id_emisor: 10,
+        contenido: 'Gracias por responder.',
+        fecha_envio: '2026-11-24T18:36:00Z',
+        eliminado: false
+      });
+      mockMensajeRepo.createEnConversacionReclamo.mockResolvedValue({
         id: 53,
         id_conversacion: 1,
         id_emisor: 10,
@@ -368,11 +438,11 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
 
       await service.enviarMensaje(locatarioUser, 1, 'Gracias por responder.');
 
-      expect(mockReclamoRepo.findById).not.toHaveBeenCalled();
-      expect(mockReclamoRepo.actualizarEstado).not.toHaveBeenCalled();
+      expect(mockReclamoRepo.findById).toHaveBeenCalledWith(100);
+      expect(mockMensajeRepo.createEnConversacionReclamo).toHaveBeenCalled();
     });
 
-    it('debe rechazar al locador si el reclamo ya no está abierto ni en proceso', async () => {
+    it.each([3, 4])('debe rechazar al locador si el reclamo está en estado %i', async estado => {
       mockConversacionRepo.findById.mockResolvedValue({
         ...conversacionMock,
         tipo_tema: 'reclamo',
@@ -380,18 +450,66 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       });
       mockReclamoRepo.findById.mockResolvedValue({
         id: 100,
-        id_estado_reclamo: 3,
+        id_locatario: 10,
+        id_estado_reclamo: estado,
         locador: { id: 20 }
       } as any);
 
       await expect(
         service.enviarMensaje(locadorUser, 1, 'Mensaje posterior al cierre.')
       ).rejects.toMatchObject({
-        statusCode: 400,
+        statusCode: 409,
         codigo: 'ESTADO_INVALIDO'
       });
 
       expect(mockMensajeRepo.create).not.toHaveBeenCalled();
+      expect(mockMensajeRepo.createEnConversacionReclamo).not.toHaveBeenCalled();
+    });
+
+    it.each([1, 3, 4])('debe impedir que el locatario escriba si el reclamo está en estado %i', async estado => {
+      mockConversacionRepo.findById.mockResolvedValue({
+        ...conversacionMock,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100
+      });
+      mockReclamoRepo.findById.mockResolvedValue({
+        id: 100,
+        id_locatario: 10,
+        id_estado_reclamo: estado,
+        locador: { id: 20 }
+      } as any);
+
+      await expect(
+        service.enviarMensaje(locatarioUser, 1, '¿Hay novedades?')
+      ).rejects.toMatchObject({ statusCode: 409, codigo: 'ESTADO_INVALIDO' });
+      expect(mockMensajeRepo.createEnConversacionReclamo).not.toHaveBeenCalled();
+    });
+
+    it('debe permitir que el locatario escriba cuando el reclamo está en proceso', async () => {
+      mockConversacionRepo.findById.mockResolvedValue({
+        ...conversacionMock,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100
+      });
+      mockReclamoRepo.findById.mockResolvedValue({
+        id: 100,
+        id_locatario: 10,
+        id_estado_reclamo: 2,
+        locador: { id: 20 }
+      } as any);
+      mockMensajeRepo.createEnConversacionReclamo.mockResolvedValue({
+        id: 54,
+        id_conversacion: 1,
+        id_emisor: 10,
+        contenido: 'Gracias por la actualización.',
+        fecha_envio: '2026-11-25T10:00:00Z',
+        eliminado: false
+      });
+
+      const mensaje = await service.enviarMensaje(locatarioUser, 1, 'Gracias por la actualización.');
+
+      expect(mensaje.id).toBe(54);
+      expect(mockMensajeRepo.createEnConversacionReclamo).toHaveBeenCalled();
     });
   });
 
@@ -406,10 +524,55 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         eliminado: false
       };
       mockMensajeRepo.findById.mockResolvedValue(mensajePropio);
+      mockConversacionRepo.findById.mockResolvedValue({
+        id: 1,
+        id_locador: 20,
+        id_locatario: 10,
+        iniciado_por: 10,
+        tipo_tema: 'general',
+        asunto: 'Consulta',
+        activo: true,
+        fecha_creacion: '2026-11-24T10:00:00Z',
+        fecha_actualizacion: '2026-11-24T10:00:00Z',
+        locador: { id: 20, nombre: 'Laura', apellido: 'Locadora', email: 'laura@example.test' },
+        locatario: { id: 10, nombre: 'Lucas', apellido: 'Locatario', email: 'lucas@example.test' },
+        otro_participante: { id: 20, nombre: 'Laura', apellido: 'Locadora', email: 'laura@example.test' }
+      });
 
       await service.eliminarMensaje(locatarioUser, 88);
 
       expect(mockMensajeRepo.marcarEliminado).toHaveBeenCalledWith(88);
+    });
+
+    it('debe usar la operación protegida de reclamo al borrar un mensaje propio', async () => {
+      mockMensajeRepo.findById.mockResolvedValue({
+        id: 90,
+        id_conversacion: 1,
+        id_emisor: 10,
+        contenido: 'Mensaje del locatario',
+        fecha_envio: '2026-11-24T12:00:00Z',
+        eliminado: false
+      });
+      mockConversacionRepo.findById.mockResolvedValue({
+        id: 1,
+        id_locador: 20,
+        id_locatario: 10,
+        iniciado_por: 10,
+        tipo_tema: 'reclamo',
+        id_reclamo: 100,
+        asunto: 'Reclamo',
+        activo: true,
+        fecha_creacion: '2026-11-24T10:00:00Z',
+        fecha_actualizacion: '2026-11-24T10:00:00Z',
+        locador: { id: 20, nombre: 'Laura', email: 'laura@example.test' },
+        locatario: { id: 10, nombre: 'Lucas', email: 'lucas@example.test' },
+        otro_participante: { id: 20, nombre: 'Laura', email: 'laura@example.test' }
+      });
+
+      await service.eliminarMensaje(locatarioUser, 90);
+
+      expect(mockMensajeRepo.marcarEliminadoEnConversacionReclamo).toHaveBeenCalledWith(90, 10);
+      expect(mockMensajeRepo.marcarEliminado).not.toHaveBeenCalled();
     });
 
     it('debe fallar con 403 si un usuario intenta eliminar un mensaje enviado por la otra parte', async () => {
@@ -443,6 +606,24 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
         message: 'El mensaje solicitado no existe.'
       });
     });
+
+    it('debe fallar con 409 si el mensaje ya estaba eliminado', async () => {
+      mockMensajeRepo.findById.mockResolvedValue({
+        id: 91,
+        id_conversacion: 1,
+        id_emisor: 10,
+        contenido: 'Mensaje ya eliminado',
+        fecha_envio: '2026-11-24T12:00:00Z',
+        eliminado: true
+      });
+
+      await expect(service.eliminarMensaje(locatarioUser, 91)).rejects.toMatchObject({
+        statusCode: 409,
+        codigo: 'MENSAJE_YA_ELIMINADO'
+      });
+      expect(mockMensajeRepo.marcarEliminado).not.toHaveBeenCalled();
+      expect(mockMensajeRepo.marcarEliminadoEnConversacionReclamo).not.toHaveBeenCalled();
+    });
   });
 
   describe('Historial y Límite de 100 mensajes', () => {
@@ -468,6 +649,66 @@ describe('US-24: Enviar mensajes (MensajeService Unit Tests)', () => {
       await service.listarMensajes(locatarioUser, 1);
 
       expect(mockMensajeRepo.findByConversacionId).toHaveBeenCalledWith(1, 100);
+    });
+
+    it('debe resumir todas las conversaciones con una sola consulta de mensajes por lote', async () => {
+      const conversaciones: ConversacionResponse[] = [
+        {
+          id: 1,
+          id_locador: 20,
+          id_locatario: 10,
+          iniciado_por: 10,
+          tipo_tema: 'general',
+          asunto: 'Primera',
+          activo: true,
+          fecha_creacion: '2026-11-24T10:00:00Z',
+          fecha_actualizacion: '2026-11-24T10:00:00Z',
+          otro_participante: { id: 20, nombre: 'Laura', email: 'laura@example.test' }
+        },
+        {
+          id: 2,
+          id_locador: 20,
+          id_locatario: 10,
+          iniciado_por: 10,
+          tipo_tema: 'inmueble',
+          asunto: 'Segunda',
+          activo: true,
+          fecha_creacion: '2026-11-24T11:00:00Z',
+          fecha_actualizacion: '2026-11-24T11:00:00Z',
+          otro_participante: { id: 20, nombre: 'Laura', email: 'laura@example.test' }
+        }
+      ];
+      mockConversacionRepo.findByUsuarioId.mockResolvedValue(conversaciones);
+      mockMensajeRepo.findResumenPorConversacionIds.mockResolvedValue([
+        {
+          id_conversacion: 1,
+          total_mensajes: 2,
+          ultimo_id: 2,
+          ultimo_contenido: 'Último',
+          ultimo_fecha_envio: '2026-11-24T10:02:00Z',
+          ultimo_id_emisor: 20,
+          ultimo_eliminado: false
+        },
+        {
+          id_conversacion: 2,
+          total_mensajes: 1,
+          ultimo_id: 3,
+          ultimo_contenido: 'Único',
+          ultimo_fecha_envio: '2026-11-24T11:01:00Z',
+          ultimo_id_emisor: 10,
+          ultimo_eliminado: false
+        }
+      ]);
+
+      const resultado = await service.listarConversaciones(locatarioUser);
+
+      expect(mockMensajeRepo.findResumenPorConversacionIds).toHaveBeenCalledTimes(1);
+      expect(mockMensajeRepo.findResumenPorConversacionIds).toHaveBeenCalledWith([1, 2]);
+      expect(mockMensajeRepo.findByConversacionId).not.toHaveBeenCalled();
+      expect(mockMensajeRepo.countByConversacionId).not.toHaveBeenCalled();
+      expect(resultado[0].ultimo_mensaje?.contenido).toBe('Último');
+      expect(resultado[0].total_mensajes).toBe(2);
+      expect(resultado[1].total_mensajes).toBe(1);
     });
 
     it('debe solicitar la poda de mensajes antiguos manteniendo 100 al enviar un nuevo mensaje', async () => {

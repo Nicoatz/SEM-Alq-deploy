@@ -3,6 +3,7 @@ import type {
   ConversacionDTO,
   ConversacionResponse,
   ConversacionDetalleResponse,
+  InmuebleConversacionDTO,
   ParticipanteConversacionDTO,
   TipoTemaConversacionDTO
 } from '../dtos';
@@ -23,9 +24,44 @@ export interface IConversacionRepository {
   create(data: CreateConversacionEntity): Promise<ConversacionDTO>;
   findById(id: number): Promise<ConversacionDetalleResponse | null>;
   findByUsuarioId(idUsuario: number): Promise<ConversacionResponse[]>;
+  findActivaPorParticipantesEInmueble(
+    idLocador: number,
+    idLocatario: number,
+    idInmueble: number | null
+  ): Promise<ConversacionResponse | null>;
   findByReclamoId(idReclamo: number): Promise<ConversacionResponse | null>;
-  existeContratoVigente(idLocador: number, idLocatario: number): Promise<boolean>;
+  existeContratoVigente(
+    idLocador: number,
+    idLocatario: number,
+    idContrato?: number,
+    idInmueble?: number
+  ): Promise<boolean>;
   actualizarFechaActividad(idConversacion: number): Promise<void>;
+}
+
+const SELECT_INMUEBLE_CONVERSACION = `
+  id, direccion, numero, piso, barrio, ciudad,
+  fotos:foto_inmueble(url, es_principal, orden)
+`;
+
+function mapInmuebleConversacion(raw: any): InmuebleConversacionDTO | null {
+  const inmueble = Array.isArray(raw) ? raw[0] : raw;
+  if (!inmueble) return null;
+
+  const fotos = Array.isArray(inmueble.fotos) ? inmueble.fotos : [];
+  const fotoPrincipal = fotos.find((foto: any) => foto.es_principal)?.url
+    ?? [...fotos].sort((a: any, b: any) => a.orden - b.orden)[0]?.url
+    ?? null;
+
+  return {
+    id: inmueble.id,
+    direccion: inmueble.direccion,
+    numero: inmueble.numero,
+    piso: inmueble.piso,
+    barrio: inmueble.barrio,
+    ciudad: inmueble.ciudad,
+    foto_principal: fotoPrincipal
+  };
 }
 
 export class ConversacionRepository implements IConversacionRepository {
@@ -47,7 +83,10 @@ export class ConversacionRepository implements IConversacionRepository {
       .single();
 
     if (error || !conversacion) {
-      throw new Error(`Error al crear la conversación: ${error?.message || 'desconocido'}`);
+      throw Object.assign(
+        new Error(`Error al crear la conversación: ${error?.message || 'desconocido'}`),
+        { code: error?.code }
+      );
     }
 
     return conversacion as ConversacionDTO;
@@ -60,7 +99,7 @@ export class ConversacionRepository implements IConversacionRepository {
         *,
         locador:usuario!conversacion_id_locador_fkey(id, nombre, apellido, email, telefono),
         locatario:usuario!conversacion_id_locatario_fkey(id, nombre, apellido, email, telefono),
-        inmueble(id, direccion, numero, piso, barrio, ciudad)
+        inmueble(${SELECT_INMUEBLE_CONVERSACION})
       `)
       .eq('id', id)
       .maybeSingle();
@@ -90,7 +129,7 @@ export class ConversacionRepository implements IConversacionRepository {
       fecha_actualizacion: data.fecha_actualizacion,
       locador,
       locatario,
-      inmueble: inmueble ?? null,
+      inmueble: mapInmuebleConversacion(inmueble),
       otro_participante: locador // Se ajusta en el servicio según quién consulte
     };
   }
@@ -101,10 +140,12 @@ export class ConversacionRepository implements IConversacionRepository {
       .select(`
         *,
         locador:usuario!conversacion_id_locador_fkey(id, nombre, apellido, email, telefono),
-        locatario:usuario!conversacion_id_locatario_fkey(id, nombre, apellido, email, telefono)
+        locatario:usuario!conversacion_id_locatario_fkey(id, nombre, apellido, email, telefono),
+        inmueble(${SELECT_INMUEBLE_CONVERSACION})
       `)
       .or(`id_locador.eq.${idUsuario},id_locatario.eq.${idUsuario}`)
       .eq('activo', true)
+      .neq('tipo_tema', 'reclamo')
       .order('fecha_actualizacion', { ascending: false });
 
     if (error) {
@@ -131,15 +172,61 @@ export class ConversacionRepository implements IConversacionRepository {
         activo: item.activo,
         fecha_creacion: item.fecha_creacion,
         fecha_actualizacion: item.fecha_actualizacion,
+        inmueble: mapInmuebleConversacion(item.inmueble),
         otro_participante: otro
       };
     });
   }
 
-  async existeContratoVigente(idLocador: number, idLocatario: number): Promise<boolean> {
+  async findActivaPorParticipantesEInmueble(
+    idLocador: number,
+    idLocatario: number,
+    idInmueble: number | null
+  ): Promise<ConversacionResponse | null> {
+    let query = getSupabaseAdmin()
+      .from('conversacion')
+      .select(`
+        *,
+        locador:usuario!conversacion_id_locador_fkey(id, nombre, apellido, email, telefono),
+        locatario:usuario!conversacion_id_locatario_fkey(id, nombre, apellido, email, telefono),
+        inmueble(${SELECT_INMUEBLE_CONVERSACION})
+      `)
+      .eq('id_locador', idLocador)
+      .eq('id_locatario', idLocatario)
+      .neq('tipo_tema', 'reclamo')
+      .eq('activo', true);
+
+    query = idInmueble === null
+      ? query.is('id_inmueble', null)
+      : query.eq('id_inmueble', idInmueble);
+
+    const { data, error } = await query
+      .order('fecha_creacion', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw new Error(`Error al buscar conversación existente: ${error.message}`);
+    if (!data) return null;
+
+    const locador = (Array.isArray(data.locador) ? data.locador[0] : data.locador) as ParticipanteConversacionDTO;
+    const locatario = (Array.isArray(data.locatario) ? data.locatario[0] : data.locatario) as ParticipanteConversacionDTO;
+
+    return {
+      ...data,
+      inmueble: mapInmuebleConversacion(data.inmueble),
+      otro_participante: idLocador === data.id_locador ? locatario : locador
+    } as ConversacionResponse;
+  }
+
+  async existeContratoVigente(
+    idLocador: number,
+    idLocatario: number,
+    idContrato?: number,
+    idInmueble?: number
+  ): Promise<boolean> {
     // Busca contratos vigentes y activos donde el locador sea dueño del inmueble o firmante
     // y el locatario sea firmante tipo 2
-    const { data, error } = await getSupabaseAdmin()
+    let query = getSupabaseAdmin()
       .from('contrato_x_usuario')
       .select(`
         id_contrato,
@@ -158,15 +245,25 @@ export class ConversacionRepository implements IConversacionRepository {
       .eq('contrato.activo', true)
       .eq('contrato.inmueble.id_locador', idLocador);
 
+    if (idContrato !== undefined) query = query.eq('contrato.id', idContrato);
+    if (idInmueble !== undefined) query = query.eq('contrato.id_inmueble', idInmueble);
+
+    const { data, error } = await query;
+
     if (error) {
       // Si falla por foreign key o estructura PostgREST, fallback a consulta de dos pasos
       try {
-        const { data: contratosLocador } = await getSupabaseAdmin()
+        let contratosQuery = getSupabaseAdmin()
           .from('contrato')
           .select('id, inmueble!inner(id_locador)')
           .eq('estado', ESTADO_CONTRATO.VIGENTE)
           .eq('activo', true)
           .eq('inmueble.id_locador', idLocador);
+
+        if (idContrato !== undefined) contratosQuery.eq('id', idContrato);
+        if (idInmueble !== undefined) contratosQuery.eq('id_inmueble', idInmueble);
+
+        const { data: contratosLocador } = await contratosQuery;
 
         if (!contratosLocador || contratosLocador.length === 0) return false;
 

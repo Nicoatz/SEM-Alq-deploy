@@ -133,7 +133,7 @@ function itemFromRecord(record: AlquilerLocatarioRecord): AlquilerLocatarioItemD
 
   return {
     id_contrato: contract.id,
-    codigo: String(contract.id),
+    codigo: contract.codigo ?? String(contract.id),
     estado: stateFor(record),
     inmueble: {
       id: property.id,

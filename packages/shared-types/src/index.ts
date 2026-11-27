@@ -410,6 +410,7 @@ export type {
   Conversacion,
   Mensaje,
   ParticipanteConversacion,
+  InmuebleConversacion,
   ConversacionResumen,
   ConversacionDetalle,
   CrearConversacionPayload,

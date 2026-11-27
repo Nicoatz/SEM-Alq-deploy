@@ -37,6 +37,16 @@ export interface MensajeResponse extends MensajeDTO {
   emisor?: ParticipanteConversacionDTO;
 }
 
+export interface InmuebleConversacionDTO {
+  id: number;
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  barrio: string;
+  ciudad: string;
+  foto_principal: string | null;
+}
+
 export interface ConversacionDTO {
   id: number;
   id_locador: number;
@@ -54,6 +64,7 @@ export interface ConversacionDTO {
 
 export interface ConversacionResponse extends ConversacionDTO {
   otro_participante: ParticipanteConversacionDTO;
+  inmueble?: InmuebleConversacionDTO | null;
   ultimo_mensaje?: {
     id: number;
     contenido: string;
@@ -74,5 +85,6 @@ export interface ConversacionDetalleResponse extends ConversacionResponse {
     piso?: string | null;
     barrio: string;
     ciudad: string;
+    foto_principal: string | null;
   } | null;
 }

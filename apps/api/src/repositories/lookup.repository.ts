@@ -87,6 +87,18 @@ export class LookupRepository {
     return data as UsuarioDTO | null;
   }
 
+  async getUsuarioPublicoById(
+    id: number
+  ): Promise<{ id: number; nombre: string; apellido: string | null } | null> {
+    const { data, error } = await getSupabaseAdmin()
+      .from('usuario')
+      .select('id, nombre, apellido')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as { id: number; nombre: string; apellido: string | null } | null;
+  }
+
   async getRolesByUsuarioId(idUsuario: number): Promise<RolDTO[]> {
     const { data, error } = await getSupabaseAdmin()
       .from('usuario_x_rol')

@@ -47,7 +47,7 @@ export interface IReclamoRepository {
 const SELECT_RECLAMO_COMPLETO = `
   *,
   tipo_reclamo(id, nombre, descripcion),
-  estado_reclamo(id, nombre),
+  estado_reclamo!inner(id, nombre),
   locatario:usuario!reclamo_id_locatario_fkey(id, nombre, apellido, email, telefono),
   conversacion(id),
   inmueble!inner(
@@ -67,6 +67,9 @@ const SELECT_RECLAMO_COMPLETO = `
 function mapReclamoRow(data: any): ReclamoResponse {
   const tipo = Array.isArray(data.tipo_reclamo) ? data.tipo_reclamo[0] : data.tipo_reclamo;
   const estado = Array.isArray(data.estado_reclamo) ? data.estado_reclamo[0] : data.estado_reclamo;
+  if (!estado?.nombre) {
+    throw new Error('No se pudo determinar el estado del reclamo.');
+  }
   const inmuebleRaw = Array.isArray(data.inmueble) ? data.inmueble[0] : data.inmueble;
   const fotos = (Array.isArray(data.fotos) ? data.fotos : []) as FotoReclamoDTO[];
   fotos.sort((a, b) => a.orden - b.orden);
@@ -90,7 +93,7 @@ function mapReclamoRow(data: any): ReclamoResponse {
     fecha_creacion: data.fecha_creacion,
     fecha_actualizacion: data.fecha_actualizacion,
     tipo_reclamo: tipo,
-    estado: estado?.nombre || 'pendiente',
+    estado: estado.nombre,
     fotos,
     inmueble: {
       id: inmuebleRaw?.id ?? data.id_inmueble,

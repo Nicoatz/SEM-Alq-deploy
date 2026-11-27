@@ -44,6 +44,8 @@ router.use(authenticateGateway);
  *               primer_mensaje:
  *                 type: string
  *     responses:
+ *       200:
+ *         description: Conversación existente reutilizada.
  *       201:
  *         description: Conversación creada exitosamente.
  *       400:
@@ -58,6 +60,7 @@ router.post('/conversaciones', mensajeController.crearConversacion.bind(mensajeC
  * /api/v1/mensajes/conversaciones:
  *   get:
  *     summary: Listar conversaciones del usuario autenticado (US-24)
+ *     description: Lista conversaciones generales, de inmuebles y contratos; las conversaciones de reclamos se consultan desde el detalle del reclamo.
  *     tags:
  *       - Mensajería
  *     security:

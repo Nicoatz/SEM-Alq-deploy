@@ -14,6 +14,11 @@ export type InmuebleXTagDTO = SharedInmuebleXTag;
 
 export interface InmuebleDetalleDTO {
   id: number;
+  locador: {
+    id: number;
+    nombre: string;
+    apellido: string | null;
+  } | null;
 
   tipo: {
     id: number;

@@ -40,6 +40,7 @@ interface MedioPagoRelacionado {
 
 interface ContratoRelacionado {
   id: number;
+  codigo: string | null;
   estado: number | null;
   monto_alquiler: number;
   expensas: number;
@@ -96,7 +97,7 @@ export interface IAlquilerLocatarioRepository {
 }
 
 const CONTRATO_SELECT = `
-  id, estado, monto_alquiler, expensas, deposito, indice_aumento,
+  id, codigo, estado, monto_alquiler, expensas, deposito, indice_aumento,
   frecuencia_ajuste, fecha_inicio_contrato, fecha_fin_contrato,
   dias_para_vencimiento, pdf_storage_path, pdf_sha256,
   pdf_firmado_storage_path, docusign_envelope_id,

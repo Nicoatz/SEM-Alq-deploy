@@ -115,6 +115,7 @@ describe('US-14 a US-17: Reclamos (ReclamoService Unit Tests)', () => {
       create: jest.fn(),
       findById: jest.fn(),
       findByUsuarioId: jest.fn(),
+      findActivaPorParticipantesEInmueble: jest.fn(),
       findByReclamoId: jest.fn(),
       existeContratoVigente: jest.fn(),
       actualizarFechaActividad: jest.fn()

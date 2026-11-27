@@ -33,6 +33,7 @@ export class InmuebleService {
 
     if (!inmueble) return null;
 
+    const locador = await lookupRepository.getUsuarioPublicoById(inmueble.id_locador);
     const tipoObj = await lookupRepository.getTipoById(inmueble.tipo);
 
     const servicioObj = inmueble.servicios ? await lookupRepository.getServicioById(inmueble.servicios): null;
@@ -47,6 +48,7 @@ export class InmuebleService {
 
     return {
       id: inmueble.id,
+      locador,
 
       tipo: {
             id: tipoObj?.id ?? 0,

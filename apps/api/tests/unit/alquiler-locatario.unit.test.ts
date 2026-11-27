@@ -17,6 +17,7 @@ function crearRegistro(
   return {
     contrato: {
       id,
+      codigo: `CT-2026-${String(id).padStart(4, '0')}`,
       estado,
       monto_alquiler: 300000,
       expensas: 25000,
@@ -133,6 +134,15 @@ describe('AlquilerLocatarioService', () => {
     const onlyCurrent = await service.listar(22, 'vigente');
     expect(repository.findByLocatarioId).toHaveBeenLastCalledWith(22, 'vigente');
     expect(onlyCurrent.map(item => item.estado)).toEqual(['vigente']);
+  });
+
+  it('devuelve el código legible del contrato, no su ID numérico', async () => {
+    const service = new AlquilerLocatarioService(crearRepository([crearRegistro(1, 2, '2026-10-01')]));
+
+    const [alquiler] = await service.listar(22);
+
+    expect(alquiler.codigo).toBe('CT-2026-0001');
+    expect(alquiler.id_contrato).toBe(1);
   });
 
   it('permite firmar solo si ambas conformidades corresponden al mismo documento', async () => {

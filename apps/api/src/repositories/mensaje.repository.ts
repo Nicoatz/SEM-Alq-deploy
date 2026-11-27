@@ -7,16 +7,47 @@ export interface CreateMensajeEntity {
   contenido: string;
 }
 
+export interface ResumenMensajesConversacion {
+  id_conversacion: number;
+  total_mensajes: number;
+  ultimo_id: number | null;
+  ultimo_contenido: string | null;
+  ultimo_fecha_envio: string | null;
+  ultimo_id_emisor: number | null;
+  ultimo_eliminado: boolean | null;
+}
+
 export interface IMensajeRepository {
   create(data: CreateMensajeEntity): Promise<MensajeDTO>;
+  createEnConversacionReclamo(data: CreateMensajeEntity): Promise<MensajeDTO>;
+  findResumenPorConversacionIds(idsConversacion: number[]): Promise<ResumenMensajesConversacion[]>;
   findByConversacionId(idConversacion: number, limite?: number): Promise<MensajeDTO[]>;
   findById(id: number): Promise<MensajeDTO | null>;
   marcarEliminado(id: number): Promise<void>;
+  marcarEliminadoEnConversacionReclamo(idMensaje: number, idEmisor: number): Promise<void>;
   countByConversacionId(idConversacion: number): Promise<number>;
   podarMensajesAntiguos(idConversacion: number, maximo?: number): Promise<void>;
 }
 
 export class MensajeRepository implements IMensajeRepository {
+  private errorRpc(error: { code?: string; message: string }): Error & { statusCode?: number; codigo?: string } {
+    const mapped = new Error(error.message) as Error & { statusCode?: number; codigo?: string };
+    if (error.code === 'P0001' && error.message.includes('ESTADO_INVALIDO')) {
+      mapped.statusCode = 409;
+      mapped.codigo = 'ESTADO_INVALIDO';
+    } else if (error.code === 'P0001' && error.message.includes('MENSAJE_YA_ELIMINADO')) {
+      mapped.statusCode = 409;
+      mapped.codigo = 'MENSAJE_YA_ELIMINADO';
+    } else if (error.code === 'P0002') {
+      mapped.statusCode = 404;
+    } else if (error.code === '42501') {
+      mapped.statusCode = 403;
+    } else if (error.code === '22023') {
+      mapped.statusCode = 400;
+    }
+    return mapped;
+  }
+
   async create(data: CreateMensajeEntity): Promise<MensajeDTO> {
     const { data: mensaje, error } = await getSupabaseAdmin()
       .from('mensaje')
@@ -34,6 +65,28 @@ export class MensajeRepository implements IMensajeRepository {
     }
 
     return mensaje as MensajeDTO;
+  }
+
+  async createEnConversacionReclamo(data: CreateMensajeEntity): Promise<MensajeDTO> {
+    const { data: mensaje, error } = await getSupabaseAdmin().rpc('enviar_mensaje_reclamo', {
+      p_id_conversacion: data.id_conversacion,
+      p_id_emisor: data.id_emisor,
+      p_contenido: data.contenido
+    });
+
+    if (error) throw this.errorRpc(error);
+    return mensaje as MensajeDTO;
+  }
+
+  async findResumenPorConversacionIds(idsConversacion: number[]): Promise<ResumenMensajesConversacion[]> {
+    if (idsConversacion.length === 0) return [];
+
+    const { data, error } = await getSupabaseAdmin().rpc('resumen_mensajes_conversaciones', {
+      p_ids_conversacion: idsConversacion
+    });
+
+    if (error) throw new Error(`Error al consultar resumen de mensajes: ${error.message}`);
+    return (data ?? []) as ResumenMensajesConversacion[];
   }
 
   async findByConversacionId(idConversacion: number, limite = 100): Promise<MensajeDTO[]> {
@@ -71,17 +124,37 @@ export class MensajeRepository implements IMensajeRepository {
   }
 
   async marcarEliminado(id: number): Promise<void> {
-    const { error } = await getSupabaseAdmin()
+    const { data, error } = await getSupabaseAdmin()
       .from('mensaje')
       .update({
         eliminado: true,
         fecha_eliminacion: new Date().toISOString()
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('eliminado', false)
+      .select('id')
+      .maybeSingle();
 
     if (error) {
       throw new Error(`Error al eliminar mensaje: ${error.message}`);
     }
+
+    if (!data) {
+      throw Object.assign(new Error('El mensaje ya fue eliminado.'), {
+        statusCode: 409,
+        codigo: 'MENSAJE_YA_ELIMINADO'
+      });
+    }
+  }
+
+  async marcarEliminadoEnConversacionReclamo(idMensaje: number, idEmisor: number): Promise<void> {
+    const { data, error } = await getSupabaseAdmin().rpc('eliminar_mensaje_reclamo', {
+      p_id_mensaje: idMensaje,
+      p_id_emisor: idEmisor
+    });
+
+    if (error) throw this.errorRpc(error);
+    if (!data) throw new Error('No se pudo eliminar el mensaje del reclamo.');
   }
 
   async countByConversacionId(idConversacion: number): Promise<number> {

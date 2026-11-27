@@ -127,6 +127,7 @@ router.get(
  * /api/v1/inmuebles/disponibles/{id}:
  *   get:
  *     summary: Consultar el detalle de una propiedad disponible
+ *     description: Incluye los datos públicos mínimos del locador (id, nombre y apellido), sin email ni teléfono.
  *     tags:
  *       - Inmuebles
  *     parameters:

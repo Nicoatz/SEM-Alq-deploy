@@ -122,11 +122,12 @@ export interface DisponiblesQuery {
  * Respuesta de `GET /api/v1/inmuebles/disponibles/:id` (existe; antes
  * `GET /inmuebles/:id`). Copia del detalle que arma
  * `inmuebleService.getById` (`apps/api/src/services/inmueble.service.ts`).
- * NOTA: todavía no la usa ninguna pantalla (el listado ya trae lo que
- * muestra la tarjeta); queda para el detalle de la publicación.
+ * Incluye los datos públicos mínimos del locador para iniciar una conversación
+ * desde el detalle de la publicación; no contiene email ni teléfono.
  */
 export interface InmuebleDetalleResponse {
   id: number
+  locador: { id: number; nombre: string; apellido: string | null } | null
   tipo: CatalogoRef
   direccion: string
   numero: number

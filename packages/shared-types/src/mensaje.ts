@@ -37,6 +37,16 @@ export interface ParticipanteConversacion {
   telefono?: string | null;
 }
 
+export interface InmuebleConversacion {
+  id: number;
+  direccion: string;
+  numero: number;
+  piso?: string | null;
+  barrio: string;
+  ciudad: string;
+  foto_principal: string | null;
+}
+
 export interface ConversacionResumen {
   id: number;
   id_locador: number;
@@ -51,6 +61,7 @@ export interface ConversacionResumen {
   fecha_creacion: string;
   fecha_actualizacion: string;
   otro_participante: ParticipanteConversacion;
+  inmueble?: InmuebleConversacion | null;
   ultimo_mensaje?: {
     id: number;
     contenido: string;
@@ -71,6 +82,7 @@ export interface ConversacionDetalle extends ConversacionResumen {
     piso?: string | null;
     barrio: string;
     ciudad: string;
+    foto_principal: string | null;
   } | null;
 }
 
